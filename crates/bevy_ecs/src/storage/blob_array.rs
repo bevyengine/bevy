@@ -25,10 +25,6 @@ pub(super) struct BlobArray {
     capacity: usize,
 }
 
-unsafe fn copy_nonoverlapping(src: OwningPtr<'_>, dst: PtrMut<'_>, size: usize) {
-    std::ptr::copy_nonoverlapping::<u8>(src.as_ptr(), dst.as_ptr(), size);
-}
-
 impl BlobArray {
     /// Create a new [`BlobArray`] with a specified `capacity`.
     /// If `capacity` is 0, no allocations will be made.
@@ -39,7 +35,7 @@ impl BlobArray {
     /// processes typically associated with the stored element.
     ///
     /// # Safety
-    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobArray`].
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
     /// [`needs_drop`]: core::mem::needs_drop
@@ -83,7 +79,7 @@ impl BlobArray {
     /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
     ///
     /// # Safety
-    /// - The element with at index `index` is safe to access.
+    /// - The element at index `index` is safe to access.
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
@@ -246,8 +242,6 @@ impl BlobArray {
     /// you might want to use this method to increase the allocation, so more data can be stored in the array.
     ///
     /// # Safety
-    /// - `current_capacity` + `increment` doesn't overflow `usize`
-    /// - The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
     /// - `current_capacity` is indeed the current capacity of this array.
     /// - After calling this method, the caller must update their saved capacity to reflect the change.
     pub(super) unsafe fn realloc(
@@ -258,22 +252,24 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, current_capacity.into());
         if !self.is_zst() {
-            // SAFETY: Safety requirement 2
+            // SAFETY: `new_capacity` can't overflow usize
             let new_layout =
                 unsafe { array_layout_unchecked(&self.item_layout, new_capacity.get()) };
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
-            // - `item_layout.size() > 0` (`self.is_zst`==false) and `new_capacity > 0` (incrememt>0), so the layout size is non-zero
+            // - `item_layout.size() > 0` (`self.is_zst`==false) and `new_capacity > 0`, so the layout size is non-zero
             // - "new_size, when rounded up to the nearest multiple of layout.align(), must not overflow (i.e., the rounded value must be less than usize::MAX)",
             // since the item size is always a multiple of its align, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
-            let new_data = std::alloc::realloc(
-                self.get_ptr_mut().as_ptr(),
-                // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
-                array_layout_unchecked(&self.item_layout, current_capacity.get()),
-                new_layout.size(),
-            );
+            let new_data = unsafe {
+                std::alloc::realloc(
+                    self.get_ptr_mut().as_ptr(),
+                    // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
+                    array_layout_unchecked(&self.item_layout, current_capacity.get()),
+                    new_layout.size(),
+                )
+            };
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         }
         #[cfg(debug_assertions)]
@@ -286,24 +282,25 @@ impl BlobArray {
     ///
     /// # Safety
     /// - `index` must be in bounds (`index` < capacity)
-    /// - The [`Layout`] of the value must match the layout of the blobs stored in this array.
+    /// - The [`Layout`] of the value must match the layout of the blobs stored in this array,
+    ///     and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
+    /// - `value` must not point to the same value that is being initialized.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
         let size = self.item_layout.size();
         let dst = self.get_unchecked_mut(index);
-        copy_nonoverlapping(value, dst, size);
+        std::ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
     ///
     /// # Safety
-    /// - index must be in-bounds (`index` < `len`)
-    /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this
-    ///     [`BlobArray`]'s `item_layout`, must have been previously initialized with an item matching
-    ///     this [`BlobArray`]'s `item_layout`
-    /// - the memory at `*value` must also be previously initialized with an item matching this [`BlobArray`]'s `item_layout`
+    /// - Index must be in-bounds (`index` < `len`)
+    /// - `value`'s [`Layout`] must match this [`BlobArray`]'s `item_layout`,
+    ///     and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
+    /// - `value` must not point to the same value that is being replaced.
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
@@ -356,23 +353,16 @@ impl BlobArray {
         }
     }
 
-    /// This method will swap two elements in the array, and return the one with the index `index_to_remove`.
+    /// This method will swap two elements in the array, and return the one at `index_to_remove`.
     /// It is the caller's responsibility to drop the returned pointer, if that is desirable.
     ///
-    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
-    ///
-    /// It is highly (!) recommended that the caller will only ever plug `len` - 1 (the index of the last element of the array)
-    /// in `index_to_keep`. That way the method will act like traditional `swap_remove` methods
-    /// ([`Vec::swap_remove`], [`BlobVec::swap_remove`](super::blob_vec::BlobVec::swap_remove_and_forget_unchecked))
-    ///
     /// # Safety
-    /// - `index_to_keep` < `len`
-    /// - `index_to_remove` < `len`
-    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
-    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     #[must_use = "The returned pointer should be used to drop the removed element"]
     pub unsafe fn swap_remove_unchecked(
@@ -396,13 +386,12 @@ impl BlobArray {
     /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
-    /// - `index_to_keep` < `len`
-    /// - `index_to_remove` < `len`
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
-    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
@@ -413,6 +402,7 @@ impl BlobArray {
         {
             debug_assert!(self.capacity > index_to_keep);
             debug_assert!(self.capacity > index_to_remove);
+            debug_assert_ne!(index_to_keep, index_to_remove);
         }
         debug_assert_ne!(index_to_keep, index_to_remove);
         std::ptr::swap_nonoverlapping::<u8>(
@@ -425,22 +415,15 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
-    /// This method will swap two elements in the array, and drop the one with the index `index_to_remove`.
-    ///
-    /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
-    ///
-    /// It is highly (!) recommended that the caller will only ever plug `len` - 1 (the index of the last element of the array)
-    /// in `index_to_keep`. That way the method will act like traditional `swap_remove` methods
-    /// ([`Vec::swap_remove`], [`BlobVec::swap_remove`](super::blob_vec::BlobVec::swap_remove_and_forget_unchecked))
+    /// This method will can [`Self::swap_remove_unchecked`] and drop the result.
     ///
     /// # Safety
-    /// - `index_to_keep` < `len`
-    /// - `index_to_remove` < `len`
-    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
-    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
@@ -462,13 +445,12 @@ impl BlobArray {
     /// The same as [`Self::swap_remove_and_drop_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
-    /// - `index_to_keep` < `len`
-    /// - `index_to_remove` < `len`
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
-    /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
@@ -479,6 +461,7 @@ impl BlobArray {
         {
             debug_assert!(self.capacity > index_to_keep);
             debug_assert!(self.capacity > index_to_remove);
+            debug_assert_ne!(index_to_keep, index_to_remove);
         }
         let drop = self.drop;
         let value = self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);

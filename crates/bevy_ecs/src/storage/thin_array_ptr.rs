@@ -43,7 +43,6 @@ impl<T> ThinArrayPtr<T> {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
-        arr.set_capacity(capacity);
         if capacity > 0 {
             // SAFETY:
             // - The `current_capacity` is 0 because it was just created
@@ -76,8 +75,8 @@ impl<T> ThinArrayPtr<T> {
     /// - Panics if the new capacity overflows `usize`
     ///
     /// # Safety
-    /// - the current capacity is indeed greater than 0
-    /// -   The caller should update their saved `capacity` value to reflect the fact that it was changed
+    /// - The current capacity is indeed greater than 0
+    /// - The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
         assert_eq!(self.capacity, current_capacity.into());
@@ -108,7 +107,7 @@ impl<T> ThinArrayPtr<T> {
     /// Initializes the value at `index` to `value`. This function does not do any bounds checking.
     ///
     /// # Safety
-    /// index must be in bounds (`index` <= `len`)
+    /// `index` must be in bounds i.e. within the `capacity`.
     /// if `index` = `len` the caller should update their saved `len` value to reflect the fact that it was changed
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: T) {
@@ -121,7 +120,7 @@ impl<T> ThinArrayPtr<T> {
     /// Get a raw pointer to the element at `index`. This method doesn't do any bounds checking.
     ///
     /// # Safety
-    /// - `index` must be in bounds (`index` < `len`)
+    /// - `index` must be safe to access.
     #[inline]
     pub unsafe fn get_unchecked_raw(&mut self, index: usize) -> *mut T {
         // SAFETY:
@@ -133,8 +132,7 @@ impl<T> ThinArrayPtr<T> {
     /// Get a reference to the element at `index`. This method doesn't do any bounds checking.
     ///
     /// # Safety
-    /// - `index` must be in bounds (`index` < `len`)
-    /// - The element at index `index` must be safe to read (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
+    /// - `index` must be safe to read.
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> &'_ T {
         // SAFETY:
@@ -156,8 +154,7 @@ impl<T> ThinArrayPtr<T> {
     /// Get a mutable reference to the element at `index`. This method doesn't do any bounds checking.
     ///
     /// # Safety
-    /// - `index` must be in bounds (`index` < `len`)
-    /// - The element at index `index` must be safe to write to (If every other safety requirement has been fulfilled, than verify that `index` < `len` is enough)
+    /// - `index` must be safe to write to.
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &'_ mut T {
         // SAFETY:
@@ -177,53 +174,73 @@ impl<T> ThinArrayPtr<T> {
     }
 
     /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and return the removed value.
-    /// This method does not check that `index` != `last_element_index`.
     ///
     /// # Safety
-    /// - `index` != `last_element_index`
-    /// - `index < len`
-    /// - `last_element_index` = `len - 1`
-    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
-        index: usize,
-        last_element_index: usize,
+        index_to_remove: usize,
+        index_to_keep: usize,
     ) -> T {
-        debug_assert!(index < last_element_index);
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+            debug_assert_ne!(index_to_keep, index_to_remove);
+        }
         let base_ptr = self.data.as_ptr();
-        let value = ptr::read(base_ptr.add(index));
-        ptr::copy_nonoverlapping(base_ptr.add(last_element_index), base_ptr.add(index), 1);
+        let value = ptr::read(base_ptr.add(index_to_remove));
+        ptr::copy_nonoverlapping(
+            base_ptr.add(index_to_keep),
+            base_ptr.add(index_to_remove),
+            1,
+        );
         value
     }
 
     /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and return the removed value.
     ///
     /// # Safety
-    /// - `index < len`
-    /// - `last_element_index` = `len - 1`
-    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
-    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, last_element_index: usize) -> T {
-        if index != last_element_index {
-            return self.swap_remove_unchecked_nonoverlapping(index, last_element_index);
+    pub unsafe fn swap_remove_unchecked(
+        &mut self,
+        index_to_remove: usize,
+        index_to_keep: usize,
+    ) -> T {
+        if index_to_remove != index_to_keep {
+            return self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         }
-        ptr::read(self.data.as_ptr().add(index))
+        ptr::read(self.data.as_ptr().add(index_to_remove))
     }
 
     /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and drop the removed value.
     ///
     /// # Safety
-    /// - `index < len`
-    /// - `last_element_index` = `len - 1`
-    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
-        index: usize,
-        last_element_index: usize,
+        index_to_remove: usize,
+        index_to_keep: usize,
     ) {
-        let val = &mut self.swap_remove_unchecked(index, last_element_index);
+        let val = &mut self.swap_remove_unchecked(index_to_remove, index_to_keep);
         ptr::drop_in_place(ptr::from_mut(val));
     }
 
@@ -233,7 +250,7 @@ impl<T> ThinArrayPtr<T> {
     /// - ensure that `current_len` is indeed the len of the array
     #[inline]
     unsafe fn last_element(&mut self, current_len: usize) -> Option<*mut T> {
-        (current_len == 0).then_some(self.data.as_ptr().add(current_len - 1))
+        (current_len != 0).then_some(self.data.as_ptr().add(current_len - 1))
     }
 
     /// Clears the array, removing (and dropping) Note that this method has no effect on the allocated capacity of the vector.

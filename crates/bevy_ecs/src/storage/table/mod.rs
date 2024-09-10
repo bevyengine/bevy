@@ -507,12 +507,11 @@ impl Table {
             let new_capacity = self.entities.capacity();
 
             if column_cap == 0 {
-                // SAFETY: 0 < `column_cap` <= `new_capacity`
+                // SAFETY: the current capacity is 0
                 unsafe { self.alloc_columns(NonZeroUsize::new_unchecked(new_capacity)) };
             } else {
                 // SAFETY:
                 // - `column_cap` is indeed the columns' capacity
-                // - 0 < `additional` <= `self.len() + additional` <= `new_capacity`
                 unsafe {
                     self.realloc_columns(
                         NonZeroUsize::new_unchecked(column_cap),
@@ -631,12 +630,13 @@ impl Table {
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         let len = self.entity_count();
+        // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
+        self.entities.clear();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
             unsafe { column.clear(len) };
         }
-        self.entities.clear();
     }
 
     /// Moves component data out of the [`Table`].
@@ -646,8 +646,9 @@ impl Table {
     /// Caller is responsible to drop component data behind returned pointer.
     ///
     /// # Safety
-    /// - this table must hold the component matching `component_id`
+    /// - This table must hold the component matching `component_id`
     /// - `row` must be in bounds
+    /// - The row's inconsistent state that happens after taking the component must be resolved—either initialize a new component or remove the row.
     pub(crate) unsafe fn take_component(
         &mut self,
         component_id: ComponentId,

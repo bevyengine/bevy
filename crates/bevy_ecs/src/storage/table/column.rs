@@ -60,9 +60,9 @@ impl ThinColumn {
     /// Swap-remove and drop the removed element.
     ///
     /// # Safety
-    /// - `row.as_usize()` < `len`
-    /// - `last_element_index` = `len - 1`
-    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
+    /// - `row.as_usize()` <= `last_element_index`
+    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -82,9 +82,9 @@ impl ThinColumn {
     /// Swap-remove and forget the removed element.
     ///
     /// # Safety
-    /// - `row.as_usize()` < `len`
-    /// - `last_element_index` = `len - 1`
-    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
+    /// - `row.as_usize()` <= `last_element_index`
+    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -134,7 +134,7 @@ impl ThinColumn {
     /// To overwrite existing initialized value, use [`Self::replace`] instead.
     ///
     /// # Safety
-    /// - `row.as_usize()` < `len`
+    /// - `row.as_usize()` must be in bounds.
     /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
     pub(crate) unsafe fn initialize(
@@ -159,8 +159,8 @@ impl ThinColumn {
     /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
     ///
     /// # Safety
-    /// - `row.as_usize()` < `len`
-    /// - `comp_ptr` holds a component that matches the `component_id`
+    /// - `row.as_usize()` must be in bounds.
+    /// - `data` holds a component that matches the `component_id`
     #[inline]
     pub(crate) unsafe fn replace(
         &mut self,
@@ -323,23 +323,6 @@ impl ThinColumn {
         len: usize,
     ) -> &[UnsafeCell<&'static Location<'static>>] {
         self.changed_by.as_slice(len)
-    }
-
-    /// Fetches the calling location that last changed the value at `row`.
-    ///
-    /// # Safety
-    /// - `row` must be in bounds
-    ///
-    /// Note: The values stored within are [`UnsafeCell`].
-    /// Users of this API must ensure that accesses to each individual element
-    /// adhere to the safety invariants of [`UnsafeCell`].
-    #[inline]
-    #[cfg(feature = "track_change_detection")]
-    pub unsafe fn get_changed_by_unchecked(
-        &self,
-        row: TableRow,
-    ) -> &UnsafeCell<&'static Location<'static>> {
-        self.changed_by.get_unchecked(row.as_usize())
     }
 }
 
