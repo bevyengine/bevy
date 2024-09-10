@@ -38,13 +38,17 @@ struct PartialDerivatives {
 }
 
 // https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
-fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
+fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
-    let inv_w = 1.0 / vec3(vertex_clip_positions[0].w, vertex_clip_positions[1].w, vertex_clip_positions[2].w);
-    let ndc_0 = vertex_clip_positions[0].xy * inv_w[0];
-    let ndc_1 = vertex_clip_positions[1].xy * inv_w[1];
-    let ndc_2 = vertex_clip_positions[2].xy * inv_w[2];
+    let vertex_clip_position_0 = position_world_to_clip(vertex_world_positions[0].xyz);
+    let vertex_clip_position_1 = position_world_to_clip(vertex_world_positions[1].xyz);
+    let vertex_clip_position_2 = position_world_to_clip(vertex_world_positions[2].xyz);
+
+    let inv_w = 1.0 / vec3(vertex_clip_position_0.w, vertex_clip_position_1.w, vertex_clip_position_2.w);
+    let ndc_0 = vertex_clip_position_0.xy * inv_w[0];
+    let ndc_1 = vertex_clip_position_1.xy * inv_w[1];
+    let ndc_2 = vertex_clip_position_2.xy * inv_w[2];
 
     let inv_det = 1.0 / determinant(mat2x2(ndc_2 - ndc_1, ndc_0 - ndc_1));
     result.ddx = vec3(ndc_1.y - ndc_2.y, ndc_2.y - ndc_0.y, ndc_0.y - ndc_1.y) * inv_det * inv_w;
@@ -58,15 +62,15 @@ fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_u
     let interp_w = 1.0 / interp_inv_w;
 
     result.barycentrics = vec3(
-        interp_w * (delta_v.x * result.ddx.x + delta_v.y * result.ddy.x + inv_w.x),
+        interp_w * (inv_w[0] + delta_v.x * result.ddx.x + delta_v.y * result.ddy.x),
         interp_w * (delta_v.x * result.ddx.y + delta_v.y * result.ddy.y),
         interp_w * (delta_v.x * result.ddx.z + delta_v.y * result.ddy.z),
     );
 
-    result.ddx *= 2.0 / screen_size.x;
-    result.ddy *= 2.0 / screen_size.y;
-    ddx_sum *= 2.0 / screen_size.x;
-    ddy_sum *= 2.0 / screen_size.y;
+    result.ddx *= half_screen_size.x;
+    result.ddy *= half_screen_size.y;
+    ddx_sum *= half_screen_size.x;
+    ddy_sum *= half_screen_size.y;
 
     result.ddy *= -1.0;
     ddy_sum *= -1.0;
@@ -120,14 +124,11 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
     let world_position_3 = mesh_position_local_to_world(world_from_local, vec4(vertex_3.position, 1.0));
 
-    let clip_position_1 = position_world_to_clip(world_position_1.xyz);
-    let clip_position_2 = position_world_to_clip(world_position_2.xyz);
-    let clip_position_3 = position_world_to_clip(world_position_3.xyz);
     let frag_coord_ndc = frag_coord_to_ndc(frag_coord).xy;
     let partial_derivatives = compute_partial_derivatives(
-        array(clip_position_1, clip_position_2, clip_position_3),
+        array(world_position_1, world_position_2, world_position_3),
         frag_coord_ndc,
-        view.viewport.zw,
+        view.viewport.zw / 2.0,
     );
 
     let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
