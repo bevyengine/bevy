@@ -37,7 +37,7 @@ struct PartialDerivatives {
     ddy: vec3<f32>,
 }
 
-// https://github.com/ConfettiFX/The-Forge/blob/2d453f376ef278f66f97cbaf36c0d12e4361e275/Examples_3/Visibility_Buffer/src/Shaders/FSL/visibilityBuffer_shade.frag.fsl#L83-L139
+// https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
 fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
@@ -67,6 +67,9 @@ fn compute_partial_derivatives(vertex_clip_positions: array<vec4<f32>, 3>, ndc_u
     result.ddy *= 2.0 / screen_size.y;
     ddx_sum *= 2.0 / screen_size.x;
     ddy_sum *= 2.0 / screen_size.y;
+
+    result.ddy *= -1.0;
+    ddy_sum *= -1.0;
 
     let interp_ddx_w = 1.0 / (interp_inv_w + ddx_sum);
     let interp_ddy_w = 1.0 / (interp_inv_w + ddy_sum);
