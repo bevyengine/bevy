@@ -1,7 +1,9 @@
-use std::time::Duration;
+use std::{
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
 
 use bevy_ecs::{
-    entity::Entities,
     system::{Commands, Deferred, Res, ResMut, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{CommandQueue, World},
 };
@@ -11,6 +13,9 @@ use crate::{Domain, Time, Timer, TimerMode};
 /// A [`SystemParam`] that allows you to queue commands to be
 /// executed after a certain duration has elapsed,
 /// rather than immediately at the next sync point.
+///
+/// This type also derefs to [`Commands`], so you can still use it
+/// to queue commands to run at the next sync point.
 ///
 /// **Note**: By default, commands that have elapsed will be queued
 /// in the [`First`] and [`FixedFirst`] schedules for time domains
@@ -24,10 +29,13 @@ use crate::{Domain, Time, Timer, TimerMode};
 ///
 /// ```
 /// # use bevy_time::prelude::*;
+/// # use std::time::Duration;
 /// #
 /// fn my_system(mut commands: TimedCommands) {
 ///     commands.after(Duration::from_secs(5))
 ///         .spawn_empty();
+///
+///     commands.spawn_empty();
 /// }
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
@@ -37,7 +45,7 @@ use crate::{Domain, Time, Timer, TimerMode};
 /// [`Fixed`]: crate::Fixed
 #[derive(SystemParam)]
 pub struct TimedCommands<'w, 's, T: Domain = ()> {
-    entities: &'w Entities,
+    commands: Commands<'w, 's>,
     queues: Deferred<'s, TimedCommandQueues<T>>,
 }
 
@@ -49,6 +57,7 @@ impl<'w, 's, T: Domain> TimedCommands<'w, 's, T> {
     ///
     /// ```
     /// # use bevy_time::prelude::*;
+    /// # use std::time::Duration;
     /// #
     /// fn my_system(mut commands: TimedCommands) {
     ///     commands.after(Duration::from_secs(5))
@@ -66,7 +75,21 @@ impl<'w, 's, T: Domain> TimedCommands<'w, 's, T> {
             .inner
             .last_mut()
             .unwrap_or_else(|| unreachable!("we just pushed a queue"));
-        Commands::new_from_entities(queue, self.entities)
+        self.commands.with_queue(queue)
+    }
+}
+
+impl<'w, 's, T: Domain> Deref for TimedCommands<'w, 's, T> {
+    type Target = Commands<'w, 's>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
+}
+
+impl<'w, 's, T: Domain> DerefMut for TimedCommands<'w, 's, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commands
     }
 }
 

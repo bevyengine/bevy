@@ -174,6 +174,8 @@ use bevy_utils::Duration;
 ///     }
 /// }
 ///
+/// impl Domain for Custom {}
+///
 /// trait CustomTime {
 ///     fn update_from_external(&mut self, instant: Instant);
 /// }

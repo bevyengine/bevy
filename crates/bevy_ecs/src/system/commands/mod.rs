@@ -205,6 +205,12 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    /// Returns a new [`Commands`] instance which uses the provided [`CommandQueue`],
+    /// reusing the [`Entities`] from the current [`Commands`] instance.
+    pub fn with_queue<'ns>(&self, queue: &'ns mut CommandQueue) -> Commands<'w, 'ns> {
+        Commands::new_from_entities(queue, self.entities)
+    }
+
     /// Returns a [`Commands`] with a smaller lifetime.
     /// This is useful if you have `&mut Commands` but need `Commands`.
     ///
