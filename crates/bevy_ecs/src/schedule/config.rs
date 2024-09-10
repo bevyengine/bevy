@@ -327,7 +327,12 @@ where
     ///
     /// If you configure two groups of systems (e.g. 'Set A') in a schedule, and another group references `.after` or `.before` (e.g. 'Set B'), the systems in Set B will not be automatically scheduled.
     ///
-    /// This means that Set A and Set B will run independently unless they are explicitly linked. So `.after`/`.before` will not provide the desired behaviour, so the Sets can run in parallel or in any order determined by the scheduler.
+    /// This means that the systems in `GameSystem::A` and `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`App::configure_sets`].
+    /// If that is the case, `.after`/`.before` will not provide the desired behaviour
+    /// and the sets can run in parallel or in any order determined by the scheduler.
+    /// Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know that `B` has already been scheduled for you, 
+    /// e.g. when it was provided by Bevy or a third-party dependency, 
+    /// or you manually scheduled it somewhere else in your app.
     ///
     /// If you're adding systems in the same location, it's recommended that you use [**`.chain`**](Self::chain) for brevity and clarity. You can also add a set of systems. You may want to use `.after` or `.before` in association with a comment when the reasoning needs to be particularly clear and the order of execution is important or not immediately obvious.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
