@@ -87,8 +87,7 @@ impl FromStr for Layout {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
             _ => Err(format!(
-                "Unknown layout value: '{}', valid options: 'cube', 'sphere'",
-                s
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
             )),
         }
     }

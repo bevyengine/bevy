@@ -115,7 +115,9 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 
-/// The `bevy_gltf` prelude.
+/// The glTF prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Gltf, GltfAssetLabel, GltfExtras};

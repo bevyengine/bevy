@@ -1075,7 +1075,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
   ],
 ]
 
@@ -2918,6 +2918,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice_flip_and_tile"
+path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice_flip_and_tile]
+name = "UI Texture Slice Flipping and Tiling"
+description = "Illustrates how to flip and tile images with 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_texture_atlas_slice"
 path = "examples/ui/ui_texture_atlas_slice.rs"
 doc-scrape-examples = true
@@ -3232,6 +3243,18 @@ name = "First person view model"
 description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom and orbit orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"

@@ -8,6 +8,7 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
+    ecs::entity::EntityHashMap,
     math::FloatOrd,
     prelude::*,
     render::{
@@ -33,7 +34,6 @@ use bevy::{
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup, WithMesh2d,
     },
-    utils::EntityHashMap,
 };
 use std::f32::consts::PI;
 
@@ -291,7 +291,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderColoredMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderColoredMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {

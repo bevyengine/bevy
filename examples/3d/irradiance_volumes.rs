@@ -351,12 +351,11 @@ impl AppStatus {
 
         Text::from_section(
             format!(
-                "{}\n{}\n{}\n{}\n{}",
-                CLICK_TO_MOVE_HELP_TEXT,
-                voxels_help_text,
-                irradiance_volume_help_text,
-                rotation_help_text,
-                switch_mesh_help_text
+                "{CLICK_TO_MOVE_HELP_TEXT}
+        {voxels_help_text}
+        {irradiance_volume_help_text}
+        {rotation_help_text}
+        {switch_mesh_help_text}"
             ),
             TextStyle::default(),
         )

@@ -43,7 +43,9 @@ pub use rotation2d::Rot2;
 #[cfg(feature = "rand")]
 pub use sampling::{FromRng, ShapeSample};
 
-/// The `bevy_math` prelude.
+/// The math prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
