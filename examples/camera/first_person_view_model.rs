@@ -264,7 +264,8 @@ fn move_player(
         // The camera has no way of knowing what direction was "forward" before landing in that extreme position,
         // so the direction picked will for all intents and purposes be arbitrary.
         // Another issue is that for mathematical reasons, the yaw will effectively be flipped when the pitch is at the extremes.
-        // To not run into these issues, we clamp the pitch to a safe range.
+        // To not run into these issues, we clamp the pitch to a safe range that is a bit less than ±¹⁄₂ π.
+        // `FRAC_PI_2` is just a constant for ¹⁄₂ π, as using it precalculated is a bit more accurate than calculating it at runtime.
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
 
