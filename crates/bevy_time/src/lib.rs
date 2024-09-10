@@ -57,7 +57,11 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Real>>()
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
-            .init_resource::<TimeUpdateStrategy>();
+            .init_resource::<TimeUpdateStrategy>()
+            .init_resource::<TimedCommandQueues<()>>()
+            .init_resource::<TimedCommandQueues<Real>>()
+            .init_resource::<TimedCommandQueues<Virtual>>()
+            .init_resource::<TimedCommandQueues<Fixed>>();
 
         #[cfg(feature = "bevy_reflect")]
         {

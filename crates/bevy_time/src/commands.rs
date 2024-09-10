@@ -12,7 +12,7 @@ use crate::{Domain, Time, Timer, TimerMode};
 /// executed after a certain duration has elapsed,
 /// rather than immediately at the next sync point.
 #[derive(SystemParam)]
-pub struct TimedCommands<'w, 's, T: Domain> {
+pub struct TimedCommands<'w, 's, T: Domain = ()> {
     entities: &'w Entities,
     queues: Deferred<'s, TimedCommandQueues<T>>,
 }
@@ -64,4 +64,56 @@ pub fn queue_delayed_commands<T: Domain>(
         }
         !finished
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Instant;
+
+    use bevy_app::{App, Startup, Update};
+    use bevy_ecs::{system::Resource, world::World};
+
+    use super::*;
+
+    #[test]
+    fn test() {
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct Flag(bool);
+
+        let mut app = App::new();
+
+        app.insert_resource(Time::new(Instant::now()).as_generic());
+        app.insert_resource(Flag(false));
+        app.add_systems(Update, queue_delayed_commands::<()>);
+        app.init_resource::<TimedCommandQueues<()>>();
+        app.add_systems(Startup, |mut commands: TimedCommands| {
+            commands
+                .after(Duration::from_secs(1000))
+                .add(|world: &mut World| {
+                    *world.resource_mut::<Flag>() = Flag(true);
+                });
+        });
+
+        assert_eq!(app.world().get_resource::<Flag>(), Some(&Flag(false)));
+
+        app.update();
+
+        assert_eq!(app.world().get_resource::<Flag>(), Some(&Flag(false)));
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(999));
+
+        app.update();
+
+        assert_eq!(app.world().get_resource::<Flag>(), Some(&Flag(false)));
+
+        app.world_mut()
+            .resource_mut::<Time>()
+            .advance_by(Duration::from_secs(1));
+
+        app.update();
+
+        assert_eq!(app.world().get_resource::<Flag>(), Some(&Flag(true)));
+    }
 }
