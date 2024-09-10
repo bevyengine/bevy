@@ -84,6 +84,8 @@ fn setup(
         SceneBundle {
             scene: asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+            // Note: the scale adjustment is purely an accident of our fox model, which renders
+            // HUGE unless mitigated!
             transform: Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
             ..default()
         },
