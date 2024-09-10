@@ -189,7 +189,6 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -201,23 +200,11 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &BackgroundColor,
-            &Style,
-            Option<&Parent>,
         )>,
     >,
-    node_query: Extract<Query<&Node>>,
 ) {
-    for (
-        entity,
-        uinode,
-        transform,
-        view_visibility,
-        clip,
-        camera,
-        background_color,
-        style,
-        parent,
-    ) in &uinode_query
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+        &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -229,31 +216,13 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
-
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
-            .map(|parent_node| parent_node.size().x)
-            .unwrap_or(ui_logical_viewport_size.x);
-        let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-        let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
-        let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-        let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
-
-        let border = [left, top, right, bottom];
+        let border = [
+            uinode.border.left,
+            uinode.border.top,
+            uinode.border.right,
+            uinode.border.bottom,
+        ]
+        .map(|b| b * ui_scale.0);
 
         let border_radius = [
             uinode.border_radius.top_left,
@@ -291,7 +260,6 @@ pub fn extract_uinode_background_colors(
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -305,17 +273,12 @@ pub fn extract_uinode_images(
                 Option<&TargetCamera>,
                 &UiImage,
                 Option<&TextureAtlas>,
-                Option<&Parent>,
-                &Style,
             ),
             Without<ImageScaleMode>,
         >,
     >,
-    node_query: Extract<Query<&Node>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, parent, style) in
-        &uinode_query
-    {
+    for (uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -356,31 +319,13 @@ pub fn extract_uinode_images(
             None
         };
 
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
-
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
-            .map(|parent_node| parent_node.size().x)
-            .unwrap_or(ui_logical_viewport_size.x);
-        let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-        let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
-        let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-        let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
-
-        let border = [left, top, right, bottom];
+        let border = [
+            uinode.border.left,
+            uinode.border.top,
+            uinode.border.right,
+            uinode.border.bottom,
+        ]
+        .map(|b| b * ui_scale.0);
 
         let border_radius = [
             uinode.border_radius.top_left,
@@ -448,7 +393,6 @@ fn clamp_radius(
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -458,12 +402,9 @@ pub fn extract_uinode_borders(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            Option<&Parent>,
-            &Style,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    node_query: Extract<Query<&Node>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -473,8 +414,6 @@ pub fn extract_uinode_borders(
         view_visibility,
         maybe_clip,
         maybe_camera,
-        maybe_parent,
-        style,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -487,38 +426,19 @@ pub fn extract_uinode_borders(
 
         // Skip invisible borders
         if !view_visibility.get()
-            || style.display == Display::None
             || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
                 && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
         {
             continue;
         }
 
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
-
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = maybe_parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
-            .map(|parent_node| parent_node.size().x)
-            .unwrap_or(ui_logical_viewport_size.x);
-        let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
-        let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
-        let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
-        let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
-
-        let border = [left, top, right, bottom];
+        let border = [
+            uinode.border.left,
+            uinode.border.top,
+            uinode.border.right,
+            uinode.border.bottom,
+        ]
+        .map(|b| b * ui_scale.0);
 
         let border_radius = [
             uinode.border_radius.top_left,
@@ -531,7 +451,7 @@ pub fn extract_uinode_borders(
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && border != [0.; 4] {
+        if !uinode.is_empty() && !border.is_empty() {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),

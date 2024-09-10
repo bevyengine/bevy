@@ -1,5 +1,5 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Inset, Node, Outline, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -322,6 +322,13 @@ pub fn ui_layout_system(
                 node.calculated_size = rounded_size;
                 node.unrounded_size = layout_size;
             }
+
+            node.bypass_change_detection().border = Inset {
+                left: layout.border.left * inverse_target_scale_factor,
+                right: layout.border.right * inverse_target_scale_factor,
+                top: layout.border.top * inverse_target_scale_factor,
+                bottom: layout.border.bottom * inverse_target_scale_factor,
+            };
 
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 

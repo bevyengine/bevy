@@ -48,6 +48,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    /// Resolved border values in logical pixels
+    /// Border updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) border: Inset,
     /// Resolved border radius values in logical pixels.
     /// Border radius updates bypass change detection.
     ///
@@ -141,6 +146,7 @@ impl Node {
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
+        border: Inset::ZERO,
     };
 }
 
@@ -2249,7 +2255,7 @@ impl BorderRadius {
 /// Represents the resolved border radius values for a UI node.
 ///
 /// The values are in logical pixels.
-#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
     pub top_right: f32,
@@ -2263,6 +2269,30 @@ impl ResolvedBorderRadius {
         top_right: 0.,
         bottom_left: 0.,
         bottom_right: 0.,
+    };
+}
+
+/// Represents the space or inset from the left, right, top, and bottom edges within a rectangle.
+///
+/// The values are in logical pixels.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
+pub struct Inset {
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
+}
+
+impl Inset {
+    pub fn is_empty(&self) -> bool {
+        *self == Self::ZERO
+    }
+
+    pub const ZERO: Self = Self {
+        left: 0.,
+        right: 0.,
+        top: 0.,
+        bottom: 0.,
     };
 }
 
