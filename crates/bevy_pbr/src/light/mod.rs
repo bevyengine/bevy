@@ -1,6 +1,6 @@
 use std::ops::DerefMut;
 
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
@@ -864,10 +864,17 @@ pub fn check_point_light_mesh_visibility(
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
     mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
     mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    mut checked_lights: Local<EntityHashSet>,
 ) {
+    checked_lights.clear();
+
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {
         for light_entity in visible_lights.entities.iter().copied() {
+            if !checked_lights.insert(light_entity) {
+                continue;
+            }
+
             // Point lights
             if let Ok((
                 point_light,
