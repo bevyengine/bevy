@@ -243,11 +243,12 @@ fn move_player(
         let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
 
-        // If the pitch was ±¹⁄₂ π, the camera would look straight up or down
-        // In that case, which way should the camera face when looking toward the center again?
-        // Think about it; the camera has no way of knowing what direction was "forward" in that case!
-        // It the direction picked will for all intents and purposes be arbitrary.
-        // To not run into this, we clamp the pitch.
+        // If the pitch was ±¹⁄₂ π, the camera would look straight up or down.
+        // When the user want to move the camera back to the horizon, which way should the camera face?
+        // The camera has no way of knowing what direction was "forward" before landing in that extreme position,
+        // so the direction picked will for all intents and purposes be arbitrary.
+        // Another issue is that for mathematical reasons, the yaw will effectively be flipped when the pitch is at the extremes.
+        // To not run into these issues, we clamp the pitch to a safe range.
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
 
