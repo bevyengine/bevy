@@ -2,7 +2,7 @@
 use bevy_reflect::Reflect;
 use bevy_utils::{Duration, Instant};
 
-use crate::time::Time;
+use crate::{time::Time, Domain};
 
 /// Real time clock representing elapsed wall clock time.
 ///
@@ -123,6 +123,8 @@ impl Time<Real> {
         self.context().last_update
     }
 }
+
+impl Domain for Real {}
 
 #[cfg(test)]
 mod test {

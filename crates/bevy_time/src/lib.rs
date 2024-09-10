@@ -6,6 +6,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+mod commands;
 /// Common run conditions
 pub mod common_conditions;
 mod fixed;
@@ -16,6 +17,7 @@ mod time;
 mod timer;
 mod virt;
 
+pub use commands::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
@@ -28,7 +30,7 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{Fixed, Real, Time, TimedCommands, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -69,6 +71,17 @@ impl Plugin for TimePlugin {
         app.add_systems(
             First,
             time_system
+                .in_set(TimeSystem)
+                .ambiguous_with(event_update_system),
+        )
+        .add_systems(
+            First,
+            (
+                queue_delayed_commands::<()>,
+                queue_delayed_commands::<Real>,
+                queue_delayed_commands::<Virtual>,
+                queue_delayed_commands::<Fixed>,
+            )
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )

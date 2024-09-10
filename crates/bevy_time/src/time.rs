@@ -188,7 +188,7 @@ use bevy_utils::Duration;
 /// ```
 #[derive(Resource, Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
-pub struct Time<T: Default = ()> {
+pub struct Time<T: Domain = ()> {
     context: T,
     wrap_period: Duration,
     delta: Duration,
@@ -202,7 +202,7 @@ pub struct Time<T: Default = ()> {
     elapsed_seconds_wrapped_f64: f64,
 }
 
-impl<T: Default> Time<T> {
+impl<T: Domain> Time<T> {
     const DEFAULT_WRAP_PERIOD: Duration = Duration::from_secs(3600); // 1 hour
 
     /// Create a new clock from context with [`Self::delta`] and [`Self::elapsed`] starting from
@@ -367,7 +367,7 @@ impl<T: Default> Time<T> {
     }
 }
 
-impl<T: Default> Default for Time<T> {
+impl<T: Domain> Default for Time<T> {
     fn default() -> Self {
         Self {
             context: Default::default(),
@@ -390,6 +390,11 @@ fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
     let quotient = (dividend.as_nanos() / divisor.as_nanos()) as u32;
     dividend - (quotient * divisor)
 }
+
+/// A marker trait for the domain of a [`Time`] clock.
+pub trait Domain: Default + Send + Sync + 'static {}
+
+impl Domain for () {}
 
 #[cfg(test)]
 mod test {

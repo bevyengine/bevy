@@ -2,7 +2,7 @@
 use bevy_reflect::Reflect;
 use bevy_utils::{tracing::debug, Duration};
 
-use crate::{real::Real, time::Time};
+use crate::{real::Real, time::Time, Domain};
 
 /// The virtual game clock representing game time.
 ///
@@ -265,6 +265,8 @@ impl Default for Virtual {
         }
     }
 }
+
+impl Domain for Virtual {}
 
 /// Advances [`Time<Virtual>`] and [`Time`] based on the elapsed [`Time<Real>`].
 ///

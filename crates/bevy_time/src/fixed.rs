@@ -4,7 +4,7 @@ use bevy_ecs::world::World;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
-use crate::{time::Time, virt::Virtual};
+use crate::{time::Time, virt::Virtual, Domain};
 
 /// The fixed timestep game clock following virtual time.
 ///
@@ -231,6 +231,8 @@ impl Default for Fixed {
         }
     }
 }
+
+impl Domain for Fixed {}
 
 /// Runs [`FixedMain`] zero or more times based on delta of
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
