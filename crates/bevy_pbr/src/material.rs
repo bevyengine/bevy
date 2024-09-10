@@ -553,7 +553,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusion>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
