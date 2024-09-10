@@ -231,26 +231,20 @@ fn setup(
         })
         .with_children(|commands| {
             // represent the light source as a sphere
-            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap()).into();
-            commands.spawn(PbrBundle { mesh, ..default() });
+            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
+            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
         });
 
     // Plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(Plane3d::default().mesh().size(10.0, 10.0))
-                .into(),
-            material: materials
-                .add(StandardMaterial {
-                    // standard material derived from dark green, but
-                    // with roughness and reflectance set.
-                    perceptual_roughness: 0.45,
-                    reflectance: 0.18,
-                    ..Color::srgb_u8(0, 80, 0).into()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            // standard material derived from dark green, but
+            // with roughness and reflectance set.
+            perceptual_roughness: 0.45,
+            reflectance: 0.18,
+            ..Color::srgb_u8(0, 80, 0).into()
+        })),
         Transform::from_xyz(0.0, -1.0, 0.0),
     ));
 
@@ -270,18 +264,16 @@ fn setup(
         ..default()
     });
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(
-                    // NOTE: for normal maps and depth maps to work, the mesh
-                    // needs tangents generated.
-                    Mesh::from(Cuboid::default())
-                        .with_generated_tangents()
-                        .unwrap(),
-                )
-                .into(),
-            material: parallax_material.clone_weak().into(),
-        },
+        Mesh3d(
+            meshes.add(
+                // NOTE: for normal maps and depth maps to work, the mesh
+                // needs tangents generated.
+                Mesh::from(Cuboid::default())
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(parallax_material.clone()),
         Spin { speed: 0.3 },
     ));
 
@@ -293,10 +285,8 @@ fn setup(
 
     let background_cube_bundle = |translation| {
         (
-            PbrBundle {
-                mesh: background_cube.clone().into(),
-                material: parallax_material.clone().into(),
-            },
+            Mesh3d(background_cube.clone()),
+            MeshMaterial3d(parallax_material.clone()),
             Transform::from_translation(translation),
             Spin { speed: -0.1 },
         )

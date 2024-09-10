@@ -25,35 +25,27 @@ fn setup(
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
             commands.spawn((
-                PbrBundle {
-                    mesh: sphere_mesh.clone().into(),
-                    material: materials
-                        .add(StandardMaterial {
-                            base_color: Srgba::hex("#ffd891").unwrap().into(),
-                            // vary key PBR parameters on a grid of spheres to show the effect
-                            metallic: y01,
-                            perceptual_roughness: x01,
-                            ..default()
-                        })
-                        .into(),
-                },
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Srgba::hex("#ffd891").unwrap().into(),
+                    // vary key PBR parameters on a grid of spheres to show the effect
+                    metallic: y01,
+                    perceptual_roughness: x01,
+                    ..default()
+                })),
                 Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
             ));
         }
     }
     // unlit sphere
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_mesh.into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Srgba::hex("#ffd891").unwrap().into(),
-                    // vary key PBR parameters on a grid of spheres to show the effect
-                    unlit: true,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(sphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Srgba::hex("#ffd891").unwrap().into(),
+            // vary key PBR parameters on a grid of spheres to show the effect
+            unlit: true,
+            ..default()
+        })),
         Transform::from_xyz(-5.0, -2.5, 0.0),
     ));
 

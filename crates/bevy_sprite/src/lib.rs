@@ -30,7 +30,7 @@ pub mod prelude {
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, Mesh2d, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 

@@ -40,12 +40,8 @@ fn setup(
 ) {
     // ground plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(Plane3d::default().mesh().size(100.0, 100.0))
-                .into(),
-            material: materials.add(Color::WHITE).into(),
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
         Movable,
     ));
 
@@ -64,10 +60,8 @@ fn setup(
             let z = rng.gen_range(-5.0..5.0);
 
             (
-                PbrBundle {
-                    mesh: cube_mesh.clone().into(),
-                    material: blue.clone().into(),
-                },
+                Mesh3d(cube_mesh.clone()),
+                MeshMaterial3d(blue.clone()),
                 Transform::from_xyz(x, y, z),
                 Movable,
             )
@@ -108,15 +102,13 @@ fn setup(
                     ..default()
                 })
                 .with_children(|builder| {
-                    builder.spawn(PbrBundle {
-                        mesh: sphere_mesh.clone().into(),
-                        material: red_emissive.clone().into(),
-                    });
                     builder.spawn((
-                        PbrBundle {
-                            mesh: sphere_mesh_direction.clone().into(),
-                            material: maroon_emissive.clone().into(),
-                        },
+                        Mesh3d(sphere_mesh.clone()),
+                        MeshMaterial3d(red_emissive.clone()),
+                    ));
+                    builder.spawn((
+                        Mesh3d(sphere_mesh_direction.clone()),
+                        MeshMaterial3d(maroon_emissive.clone()),
                         Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));

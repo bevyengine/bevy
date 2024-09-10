@@ -202,12 +202,10 @@ fn setup(
     });
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes
-            .add(Plane3d::default().mesh().size(5000.0, 5000.0))
-            .into(),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
     commands.spawn(DirectionalLightBundle {

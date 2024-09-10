@@ -581,10 +581,8 @@ fn spawn_primitive_3d(
                     camera_mode,
                     primitive_state: state,
                 },
-                PbrBundle {
-                    mesh: meshes.add(mesh).into(),
-                    material: material.clone().into(),
-                },
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(material.clone()),
                 Transform::from_translation(POSITION),
             ));
         }

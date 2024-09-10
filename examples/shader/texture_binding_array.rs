@@ -84,10 +84,10 @@ fn setup(
         .collect();
 
     // a cube with multiple textures
-    commands.spawn(MaterialMesh3dBundle {
-        mesh: meshes.add(Cuboid::default()).into(),
-        material: materials.add(BindlessMaterial { textures }).into(),
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+    ));
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]

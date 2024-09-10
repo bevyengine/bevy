@@ -244,10 +244,8 @@ fn setup_scene(
     // Ground
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Circle::new(7.0)).into(),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
-        },
+        Mesh3d(meshes.add(Circle::new(7.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 }

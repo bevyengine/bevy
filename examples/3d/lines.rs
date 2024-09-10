@@ -31,42 +31,30 @@ fn setup(
 ) {
     // Spawn a list of lines with start and end points for each lines
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes
-                .add(LineList {
-                    lines: vec![
-                        (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
-                        (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
-                    ],
-                })
-                .into(),
-            material: materials
-                .add(LineMaterial {
-                    color: LinearRgba::GREEN,
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(LineList {
+            lines: vec![
+                (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
+                (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
+            ],
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::GREEN,
+        })),
         Transform::from_xyz(-1.5, 0.0, 0.0),
     ));
 
     // Spawn a line strip that goes from point to point
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes
-                .add(LineStrip {
-                    points: vec![
-                        Vec3::ZERO,
-                        Vec3::new(1.0, 1.0, 0.0),
-                        Vec3::new(1.0, 0.0, 0.0),
-                    ],
-                })
-                .into(),
-            material: materials
-                .add(LineMaterial {
-                    color: LinearRgba::BLUE,
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(LineStrip {
+            points: vec![
+                Vec3::ZERO,
+                Vec3::new(1.0, 1.0, 0.0),
+                Vec3::new(1.0, 0.0, 0.0),
+            ],
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::BLUE,
+        })),
         Transform::from_xyz(0.5, 0.0, 0.0),
     ));
 

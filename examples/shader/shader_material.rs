@@ -25,16 +25,12 @@ fn setup(
 ) {
     // cube
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: materials
-                .add(CustomMaterial {
-                    color: LinearRgba::BLUE,
-                    color_texture: Some(asset_server.load("branding/icon.png")),
-                    alpha_mode: AlphaMode::Blend,
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::BLUE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Blend,
+        })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 

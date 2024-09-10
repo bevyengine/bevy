@@ -42,16 +42,12 @@ fn setup(
     // Opaque
     let opaque = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone().into(),
-                material: materials
-                    .add(StandardMaterial {
-                        base_color,
-                        alpha_mode: AlphaMode::Opaque,
-                        ..default()
-                    })
-                    .into(),
-            },
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Opaque,
+                ..default()
+            })),
             Transform::from_xyz(-4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
@@ -63,16 +59,12 @@ fn setup(
     // Blend
     let blend = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone().into(),
-                material: materials
-                    .add(StandardMaterial {
-                        base_color,
-                        alpha_mode: AlphaMode::Blend,
-                        ..default()
-                    })
-                    .into(),
-            },
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Blend,
+                ..default()
+            })),
             Transform::from_xyz(-2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
@@ -84,16 +76,12 @@ fn setup(
     // Premultiplied
     let premultiplied = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone().into(),
-                material: materials
-                    .add(StandardMaterial {
-                        base_color,
-                        alpha_mode: AlphaMode::Premultiplied,
-                        ..default()
-                    })
-                    .into(),
-            },
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Premultiplied,
+                ..default()
+            })),
             Transform::from_xyz(0.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
@@ -105,16 +93,12 @@ fn setup(
     // Add
     let add = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone().into(),
-                material: materials
-                    .add(StandardMaterial {
-                        base_color,
-                        alpha_mode: AlphaMode::Add,
-                        ..default()
-                    })
-                    .into(),
-            },
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Add,
+                ..default()
+            })),
             Transform::from_xyz(2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
@@ -126,16 +110,12 @@ fn setup(
     // Multiply
     let multiply = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.into(),
-                material: materials
-                    .add(StandardMaterial {
-                        base_color,
-                        alpha_mode: AlphaMode::Multiply,
-                        ..default()
-                    })
-                    .into(),
-            },
+            Mesh3d(icosphere_mesh),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Multiply,
+                ..default()
+            })),
             Transform::from_xyz(4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
@@ -153,14 +133,12 @@ fn setup(
     for x in -3..4 {
         for z in -3..4 {
             commands.spawn((
-                PbrBundle {
-                    mesh: plane_mesh.clone().into(),
-                    material: if (x + z) % 2 == 0 {
-                        black_material.clone().into()
-                    } else {
-                        white_material.clone().into()
-                    },
-                },
+                Mesh3d(plane_mesh.clone()),
+                MeshMaterial3d(if (x + z) % 2 == 0 {
+                    black_material.clone()
+                } else {
+                    white_material.clone()
+                }),
                 Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     unlit: false,

@@ -39,10 +39,8 @@ fn setup(
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: materials.add(Color::WHITE).into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_translation(entity_spawn),
         Movable::new(entity_spawn),
     ));

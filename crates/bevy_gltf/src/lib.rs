@@ -354,7 +354,7 @@ impl GltfMesh {
 
     /// Subasset label for this mesh within the gLTF parent asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Mesh(self.index)
+        GltfAssetLabel::Mesh3d(self.index)
     }
 }
 
@@ -490,7 +490,7 @@ pub enum GltfAssetLabel {
     /// `Node{}`: glTF Node as a `GltfNode`
     Node(usize),
     /// `Mesh{}`: glTF Mesh as a `GltfMesh`
-    Mesh(usize),
+    Mesh3d(usize),
     /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
     Primitive {
         /// Index of the mesh for this primitive
@@ -529,7 +529,7 @@ impl std::fmt::Display for GltfAssetLabel {
         match self {
             GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
             GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),
-            GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
+            GltfAssetLabel::Mesh3d(index) => f.write_str(&format!("Mesh{index}")),
             GltfAssetLabel::Primitive { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
             }

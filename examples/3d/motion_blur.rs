@@ -77,16 +77,12 @@ fn setup_scene(
     });
     // Sky
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::default()).into(),
-            material: materials
-                .add(StandardMaterial {
-                    unlit: true,
-                    base_color: Color::linear_rgb(0.1, 0.6, 1.0),
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Sphere::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            unlit: true,
+            base_color: Color::linear_rgb(0.1, 0.6, 1.0),
+            ..default()
+        })),
         Transform::default().with_scale(Vec3::splat(-4000.0)),
     ));
     // Ground
@@ -95,17 +91,13 @@ fn setup_scene(
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(plane).into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    perceptual_roughness: 1.0,
-                    base_color_texture: Some(images.add(uv_debug_texture())),
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(plane)),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            perceptual_roughness: 1.0,
+            base_color_texture: Some(images.add(uv_debug_texture())),
+            ..default()
+        })),
         Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
     ));
 
@@ -152,28 +144,22 @@ fn spawn_cars(
         let color = colors[i % colors.len()].clone();
         let mut entity = commands
             .spawn((
-                PbrBundle {
-                    mesh: box_mesh.clone().into(),
-                    material: color.clone().into(),
-                },
+                Mesh3d(box_mesh.clone()),
+                MeshMaterial3d(color.clone()),
                 Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
             .insert_if(CameraTracked, || i == 0);
         entity.with_children(|parent| {
             parent.spawn((
-                PbrBundle {
-                    mesh: box_mesh.clone().into(),
-                    material: color.into(),
-                },
+                Mesh3d(box_mesh.clone()),
+                MeshMaterial3d(color),
                 Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
             ));
             let mut spawn_wheel = |x: f32, z: f32| {
                 parent.spawn((
-                    PbrBundle {
-                        mesh: cylinder.clone().into(),
-                        material: wheel_matl.clone().into(),
-                    },
+                    Mesh3d(cylinder.clone()),
+                    MeshMaterial3d(wheel_matl.clone()),
                     Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                         .with_scale(Vec3::new(0.15, 0.04, 0.15))
                         .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
@@ -207,10 +193,8 @@ fn spawn_barriers(
                 (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
             );
             commands.spawn((
-                PbrBundle {
-                    mesh: capsule.clone().into(),
-                    material: matl.clone().into(),
-                },
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(matl.clone()),
                 Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
             ));
         }
@@ -238,17 +222,13 @@ fn spawn_trees(
             );
             let [x, z] = pos.into();
             commands.spawn((
-                PbrBundle {
-                    mesh: sphere.clone().into(),
-                    material: leaves.clone().into(),
-                },
+                Mesh3d(sphere.clone()),
+                MeshMaterial3d(leaves.clone()),
                 Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
             ));
             commands.spawn((
-                PbrBundle {
-                    mesh: capsule.clone().into(),
-                    material: trunk.clone().into(),
-                },
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(trunk.clone()),
                 Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
             ));
         }

@@ -48,10 +48,8 @@ fn setup(
     for i in -6..=6 {
         for j in -3..=3 {
             commands.spawn((
-                MaterialMesh3dBundle {
-                    mesh: meshes.add(Cuboid::from_size(Vec3::splat(0.3))).into(),
-                    material: material_handle.clone().into(),
-                },
+                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.3)))),
+                MeshMaterial3d(material_handle.clone()),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
         }

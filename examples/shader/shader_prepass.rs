@@ -64,71 +64,55 @@ fn setup(
     ));
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)).into(),
-        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes.add(Rectangle::new(20.0, 20.0)).into(),
-            material: depth_materials
-                .add(PrepassOutputMaterial {
-                    settings: ShowPrepassSettings::default(),
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
+        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+            settings: ShowPrepassSettings::default(),
+        })),
         Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
     // Opaque cube
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: materials
-                .add(CustomMaterial {
-                    color: LinearRgba::WHITE,
-                    color_texture: Some(asset_server.load("branding/icon.png")),
-                    alpha_mode: AlphaMode::Opaque,
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Opaque,
+        })),
         Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: std_materials
-                .add(StandardMaterial {
-                    alpha_mode: AlphaMode::Mask(1.0),
-                    base_color_texture: Some(asset_server.load("branding/icon.png")),
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(std_materials.add(StandardMaterial {
+            alpha_mode: AlphaMode::Mask(1.0),
+            base_color_texture: Some(asset_server.load("branding/icon.png")),
+            ..default()
+        })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: materials
-                .add(CustomMaterial {
-                    color: LinearRgba::WHITE,
-                    color_texture: Some(asset_server.load("branding/icon.png")),
-                    alpha_mode: AlphaMode::Blend,
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Blend,
+        })),
         Transform::from_xyz(1.0, 0.5, 0.0),
     ));
 

@@ -44,30 +44,22 @@ fn setup(
 ) {
     // A plane:
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(Plane3d::default().mesh().size(12.0, 12.0))
-                .into(),
-            material: materials.add(Color::srgb(0.3, 0.15, 0.3)).into(),
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.15, 0.3))),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
 
     // The target sphere:
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.3)).into(),
-            material: materials.add(Color::srgb(0.3, 0.15, 0.9)).into(),
-        },
+        Mesh3d(meshes.add(Sphere::new(0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.15, 0.9))),
         TargetSphere,
     ));
 
     // The sphere that follows it:
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.3)).into(),
-            material: materials.add(Color::srgb(0.9, 0.3, 0.3)).into(),
-        },
+        Mesh3d(meshes.add(Sphere::new(0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(0.9, 0.3, 0.3))),
         Transform::from_translation(vec3(0.0, -2.0, 0.0)),
         FollowingSphere,
     ));

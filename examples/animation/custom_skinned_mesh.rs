@@ -147,16 +147,12 @@ fn setup(
 
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands.spawn((
-            PbrBundle {
-                mesh: mesh.clone().into(),
-                material: materials
-                    .add(Color::srgb(
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                        rng.gen_range(0.0..1.0),
-                    ))
-                    .into(),
-            },
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(materials.add(Color::srgb(
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+            ))),
             SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,

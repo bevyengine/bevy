@@ -81,10 +81,8 @@ fn setup(
 
     for (i, shape) in shapes.into_iter().enumerate() {
         commands.spawn((
-            PbrBundle {
-                mesh: shape.into(),
-                material: debug_material.clone().into(),
-            },
+            Mesh3d(shape),
+            MeshMaterial3d(debug_material.clone()),
             Transform::from_xyz(
                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
@@ -99,10 +97,8 @@ fn setup(
 
     for (i, shape) in extrusions.into_iter().enumerate() {
         commands.spawn((
-            PbrBundle {
-                mesh: shape.into(),
-                material: debug_material.clone().into(),
-            },
+            Mesh3d(shape),
+            MeshMaterial3d(debug_material.clone()),
             Transform::from_xyz(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
@@ -127,12 +123,10 @@ fn setup(
     });
 
     // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes
-            .add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))
-            .into(),
-        material: materials.add(Color::from(SILVER)).into(),
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        MeshMaterial3d(materials.add(Color::from(SILVER))),
+    ));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),

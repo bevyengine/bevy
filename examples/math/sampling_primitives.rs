@@ -284,19 +284,13 @@ fn setup(
 
     // Make a plane for establishing space.
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(Plane3d::default().mesh().size(20.0, 20.0))
-                .into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Color::srgb(0.3, 0.5, 0.3),
-                    perceptual_roughness: 0.95,
-                    metallic: 0.0,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.3, 0.5, 0.3),
+            perceptual_roughness: 0.95,
+            metallic: 0.0,
+            ..default()
+        })),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
 
@@ -312,10 +306,8 @@ fn setup(
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
         commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(shape.mesh()).into(),
-                material: shape_material.clone().into(),
-            },
+            Mesh3d(meshes.add(shape.mesh())),
+            MeshMaterial3d(shape_material.clone()),
             Transform::from_translation(*translation),
         ));
 
@@ -607,13 +599,11 @@ fn spawn_points(
 
         // Spawn a sphere at the random location:
         commands.spawn((
-            PbrBundle {
-                mesh: sample_mesh.0.clone().into(),
-                material: match *mode {
-                    SamplingMode::Interior => sample_material.interior.clone().into(),
-                    SamplingMode::Boundary => sample_material.boundary.clone().into(),
-                },
-            },
+            Mesh3d(sample_mesh.0.clone()),
+            MeshMaterial3d(match *mode {
+                SamplingMode::Interior => sample_material.interior.clone(),
+                SamplingMode::Boundary => sample_material.boundary.clone(),
+            }),
             Transform::from_translation(sample).with_scale(Vec3::ZERO),
             SamplePoint,
             SpawningPoint { progress: 0.0 },

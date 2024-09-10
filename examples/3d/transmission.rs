@@ -76,10 +76,8 @@ fn setup(
 
     // Cube #1
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh.clone().into(),
-            material: materials.add(StandardMaterial::default()).into(),
-        },
+        Mesh3d(cube_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
         Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             1.4,
@@ -95,10 +93,8 @@ fn setup(
 
     // Cube #2
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh.into(),
-            material: materials.add(StandardMaterial::default()).into(),
-        },
+        Mesh3d(cube_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
         Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             0.4,
@@ -114,18 +110,14 @@ fn setup(
 
     // Candle
     commands.spawn((
-        PbrBundle {
-            mesh: cylinder_mesh.into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Color::srgb(0.9, 0.2, 0.3),
-                    diffuse_transmission: 0.7,
-                    perceptual_roughness: 0.32,
-                    thickness: 0.2,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(cylinder_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.9, 0.2, 0.3),
+            diffuse_transmission: 0.7,
+            perceptual_roughness: 0.32,
+            thickness: 0.2,
+            ..default()
+        })),
         Transform::from_xyz(-1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
@@ -145,16 +137,12 @@ fn setup(
     };
 
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone().into(),
-            material: materials
-                .add(StandardMaterial {
-                    emissive,
-                    diffuse_transmission: 1.0,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            emissive,
+            diffuse_transmission: 1.0,
+            ..default()
+        })),
         Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
         Flicker,
         NotShadowCaster,
@@ -162,20 +150,16 @@ fn setup(
 
     // Glass Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone().into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    specular_transmission: 0.9,
-                    diffuse_transmission: 1.0,
-                    thickness: 1.8,
-                    ior: 1.5,
-                    perceptual_roughness: 0.12,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
+            ..default()
+        })),
         Transform::from_xyz(1.0, 0.0, 0.0),
         ExampleControls {
             color: true,
@@ -186,20 +170,16 @@ fn setup(
 
     // R Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone().into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: RED.into(),
-                    specular_transmission: 0.9,
-                    diffuse_transmission: 1.0,
-                    thickness: 1.8,
-                    ior: 1.5,
-                    perceptual_roughness: 0.12,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
+            ..default()
+        })),
         Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
@@ -210,20 +190,16 @@ fn setup(
 
     // G Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone().into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: LIME.into(),
-                    specular_transmission: 0.9,
-                    diffuse_transmission: 1.0,
-                    thickness: 1.8,
-                    ior: 1.5,
-                    perceptual_roughness: 0.12,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(icosphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: LIME.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
+            ..default()
+        })),
         Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
@@ -234,20 +210,16 @@ fn setup(
 
     // B Sphere
     commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: BLUE.into(),
-                    specular_transmission: 0.9,
-                    diffuse_transmission: 1.0,
-                    thickness: 1.8,
-                    ior: 1.5,
-                    perceptual_roughness: 0.12,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(icosphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.into(),
+            specular_transmission: 0.9,
+            diffuse_transmission: 1.0,
+            thickness: 1.8,
+            ior: 1.5,
+            perceptual_roughness: 0.12,
+            ..default()
+        })),
         Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
         ExampleControls {
             color: true,
@@ -274,14 +246,12 @@ fn setup(
     for x in -3..4 {
         for z in -3..4 {
             commands.spawn((
-                PbrBundle {
-                    mesh: plane_mesh.clone().into(),
-                    material: if (x + z) % 2 == 0 {
-                        black_material.clone().into()
-                    } else {
-                        white_material.clone().into()
-                    },
-                },
+                Mesh3d(plane_mesh.clone()),
+                MeshMaterial3d(if (x + z) % 2 == 0 {
+                    black_material.clone()
+                } else {
+                    white_material.clone()
+                }),
                 Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     color: true,
@@ -294,20 +264,16 @@ fn setup(
 
     // Paper
     commands.spawn((
-        PbrBundle {
-            mesh: plane_mesh.into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Color::WHITE,
-                    diffuse_transmission: 0.6,
-                    perceptual_roughness: 0.8,
-                    reflectance: 1.0,
-                    double_sided: true,
-                    cull_mode: None,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(plane_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            diffuse_transmission: 0.6,
+            perceptual_roughness: 0.8,
+            reflectance: 1.0,
+            double_sided: true,
+            cull_mode: None,
+            ..default()
+        })),
         Transform::from_xyz(0.0, 0.5, -3.0)
             .with_scale(Vec3::new(2.0, 1.0, 1.0))
             .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),

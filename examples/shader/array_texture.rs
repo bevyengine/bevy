@@ -75,10 +75,8 @@ fn create_array_texture(
     });
     for x in -5..=5 {
         commands.spawn((
-            MaterialMesh3dBundle {
-                mesh: mesh_handle.clone().into(),
-                material: material_handle.clone().into(),
-            },
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(material_handle.clone()),
             Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
         ));
     }

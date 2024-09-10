@@ -63,23 +63,24 @@ fn spawn_sphere(
     asset_server: &AssetServer,
     sphere_mesh: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
-            clearcoat: 1.0,
-            clearcoat_perceptual_roughness: 0.3,
-            clearcoat_normal_texture: Some(asset_server.load_with_settings(
-                "textures/ScratchedGold-Normal.png",
-                |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-            )),
-            metallic: 0.9,
-            perceptual_roughness: 0.1,
-            base_color: GOLD.into(),
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
-        ..default()
-    });
+    commands.spawn((
+        
+            Mesh3d(sphere_mesh.clone(),
+            material: materials.add(StandardMaterial {
+                clearcoat: 1.0,
+                clearcoat_perceptual_roughness: 0.3,
+                clearcoat_normal_texture: Some(asset_server.load_with_settings(
+                    "textures/ScratchedGold-Normal.png",
+                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                )),
+                metallic: 0.9,
+                perceptual_roughness: 0.1,
+                base_color: GOLD.into(),
+                ..default()
+            }),
+        },
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
+    ));
 }
 
 /// Spawns a light.

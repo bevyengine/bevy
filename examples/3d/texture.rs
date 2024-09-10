@@ -54,26 +54,20 @@ fn setup(
 
     // textured quad - normal
     commands.spawn((
-        PbrBundle {
-            mesh: quad_handle.clone().into(),
-            material: material_handle.into(),
-        },
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(material_handle),
         Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // textured quad - modulated
     commands.spawn((
-        PbrBundle {
-            mesh: quad_handle.clone().into(),
-            material: red_material_handle.into(),
-        },
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(red_material_handle),
         Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // textured quad - modulated
     commands.spawn((
-        PbrBundle {
-            mesh: quad_handle.into(),
-            material: blue_material_handle.into(),
-        },
+        Mesh3d(quad_handle),
+        MeshMaterial3d(blue_material_handle),
         Transform::from_xyz(0.0, 0.0, -1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // camera

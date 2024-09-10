@@ -57,10 +57,8 @@ fn setup(
 ) {
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)).into(),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Ground,
     ));
 

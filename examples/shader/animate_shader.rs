@@ -24,10 +24,8 @@ fn setup(
 ) {
     // cube
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: meshes.add(Cuboid::default()).into(),
-            material: materials.add(CustomMaterial {}).into(),
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {})),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 

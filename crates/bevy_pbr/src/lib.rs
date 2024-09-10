@@ -63,10 +63,11 @@ pub use volumetric_fog::{
 
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
     pub use crate::{
         bundle::{
-            DirectionalLightBundle, MaterialMesh3dBundle, PbrBundle, PointLightBundle,
-            SpotLightBundle,
+            DirectionalLightBundle, MaterialMesh3dBundle, Mesh3d, MeshMaterial3d, PbrBundle,
+            PointLightBundle, SpotLightBundle,
         },
         fog::{FogFalloff, FogSettings},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},

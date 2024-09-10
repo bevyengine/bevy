@@ -79,17 +79,13 @@ fn setup_terrain_scene(
 
     // Sky
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)).into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color: Srgba::hex("888888").unwrap().into(),
-                    unlit: true,
-                    cull_mode: None,
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Srgba::hex("888888").unwrap().into(),
+            unlit: true,
+            cull_mode: None,
+            ..default()
+        })),
         Transform::from_scale(Vec3::splat(20.0)),
         NotShadowCaster,
     ));

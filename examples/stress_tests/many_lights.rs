@@ -54,12 +54,8 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes
-                .add(Sphere::new(RADIUS).mesh().ico(9).unwrap())
-                .into(),
-            material: materials.add(Color::WHITE).into(),
-        },
+        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_scale(Vec3::NEG_ONE),
     ));
 
@@ -110,10 +106,8 @@ fn setup(
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
     commands.spawn((
-        PbrBundle {
-            mesh: mesh.into(),
-            material: material.into(),
-        },
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
         Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),

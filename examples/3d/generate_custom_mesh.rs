@@ -36,15 +36,11 @@ fn setup(
 
     // Render the mesh with the custom texture using a PbrBundle, add the marker.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle.into(),
-            material: materials
-                .add(StandardMaterial {
-                    base_color_texture: Some(custom_texture_handle),
-                    ..default()
-                })
-                .into(),
-        },
+        Mesh3d(cube_mesh_handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(custom_texture_handle),
+            ..default()
+        })),
         CustomUV,
     ));
 

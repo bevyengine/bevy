@@ -24,10 +24,8 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)).into(),
-            material: materials.add(Color::from(BLUE)).into(),
-        },
+        Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
         AudioBundle {
@@ -42,19 +40,15 @@ fn setup(
         .with_children(|parent| {
             // left ear indicator
             parent.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)).into(),
-                    material: materials.add(Color::from(RED)).into(),
-                },
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(RED))),
                 Transform::from_translation(listener.left_ear_offset),
             ));
 
             // right ear indicator
             parent.spawn((
-                PbrBundle {
-                    mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)).into(),
-                    material: materials.add(Color::from(LIME)).into(),
-                },
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(LIME))),
                 Transform::from_translation(listener.right_ear_offset),
             ));
         });

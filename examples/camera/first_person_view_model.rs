@@ -129,10 +129,8 @@ fn spawn_view_model(
 
             // Spawn the player's right arm.
             parent.spawn((
-                MaterialMesh3dBundle {
-                    mesh: arm.into(),
-                    material: arm_material.into(),
-                },
+                Mesh3d(arm),
+                MeshMaterial3d(arm_material),
                 Transform::from_xyz(0.2, -0.1, -0.25),
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
@@ -154,24 +152,17 @@ fn spawn_world_model(
     // The world model camera will render the floor and the cubes spawned in this system.
     // Assigning no `RenderLayers` component defaults to layer 0.
 
-    commands.spawn(MaterialMesh3dBundle {
-        mesh: floor.into(),
-        material: material.clone().into(),
-    });
+    commands.spawn((Mesh3d(floor), MeshMaterial3d(material.clone())));
 
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: cube.clone().into(),
-            material: material.clone().into(),
-        },
+        Mesh3d(cube.clone()),
+        MeshMaterial3d(material.clone()),
         Transform::from_xyz(0.0, 0.25, -3.0),
     ));
 
     commands.spawn((
-        MaterialMesh3dBundle {
-            mesh: cube.into(),
-            material: material.into(),
-        },
+        Mesh3d(cube),
+        MeshMaterial3d(material),
         Transform::from_xyz(0.75, 1.75, 0.0),
     ));
 }

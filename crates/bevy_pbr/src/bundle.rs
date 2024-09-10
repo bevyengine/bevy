@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{
     CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
     StandardMaterial,
@@ -15,10 +17,18 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `Mesh3d` and `MeshMaterial3d` components directly instead."
+)]
 pub type PbrBundle = MaterialMesh3dBundle<StandardMaterial>;
 
 /// A component bundle for entities with a [`Mesh3d`] and a [`MeshMaterial3d`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `Mesh3d` and `MeshMaterial3d` components directly instead."
+)]
 pub struct MaterialMesh3dBundle<M: Material> {
     pub mesh: Mesh3d,
     pub material: MeshMaterial3d<M>,

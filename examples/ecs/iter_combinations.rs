@@ -28,7 +28,8 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    pbr: PbrBundle,
+    mesh: Mesh3d,
+    material: MeshMaterial3d<StandardMaterial>,
     mass: Mass,
     last_pos: LastPos,
     acceleration: Acceleration,
@@ -63,16 +64,12 @@ fn generate_bodies(
 
         commands.spawn((
             BodyBundle {
-                pbr: PbrBundle {
-                    mesh: mesh.clone().into(),
-                    material: materials
-                        .add(Color::srgb(
-                            rng.gen_range(color_range.clone()),
-                            rng.gen_range(color_range.clone()),
-                            rng.gen_range(color_range.clone()),
-                        ))
-                        .into(),
-                },
+                mesh: Mesh3d(mesh.clone()),
+                material: MeshMaterial3d(materials.add(Color::srgb(
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                    rng.gen_range(color_range.clone()),
+                ))),
                 mass: Mass(mass_value),
                 acceleration: Acceleration(Vec3::ZERO),
                 last_pos: LastPos(
@@ -97,16 +94,13 @@ fn generate_bodies(
     commands
         .spawn((
             BodyBundle {
-                pbr: PbrBundle {
-                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()).into(),
-                    material: materials
-                        .add(StandardMaterial {
-                            base_color: ORANGE_RED.into(),
-                            emissive: LinearRgba::from(ORANGE_RED) * 2.,
-                            ..default()
-                        })
-                        .into(),
-                },
+                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
+                material: MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: ORANGE_RED.into(),
+                    emissive: LinearRgba::from(ORANGE_RED) * 2.,
+                    ..default()
+                })),
+
                 mass: Mass(500.0),
                 ..default()
             },

@@ -87,10 +87,8 @@ fn spawn_tasks(mut commands: Commands) {
                             .entity_mut(entity)
                             // Add our new PbrBundle of components to our tagged entity
                             .insert((
-                                PbrBundle {
-                                    mesh: box_mesh_handle.into(),
-                                    material: box_material_handle.into(),
-                                },
+                                Mesh3d(box_mesh_handle),
+                                MeshMaterial3d(box_material_handle),
                                 transform,
                             ))
                             // Task is complete, so remove task component from entity
