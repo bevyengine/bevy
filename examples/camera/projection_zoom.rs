@@ -1,17 +1,11 @@
-//! Shows how to zoom and orbit orthographic and perspective projection cameras.
+//! Shows how to zoom orthographic and perspective projection cameras.
 
-use std::{
-    f32::consts::{FRAC_PI_2, PI},
-    ops::Range,
-};
+use std::{f32::consts::PI, ops::Range};
 
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 
 #[derive(Debug, Default, Resource)]
 struct CameraSettings {
-    pub orbit_distance: f32,
-    // Multiply keyboard inputs by this factor
-    pub orbit_speed: f32,
     // Clamp fixed vertical scale to this range
     pub orthographic_zoom_range: Range<f32>,
     // Multiply mouse wheel inputs by this factor
@@ -20,8 +14,6 @@ struct CameraSettings {
     pub perspective_zoom_range: Range<f32>,
     // Multiply mouse wheel inputs by this factor
     pub perspective_zoom_speed: f32,
-    // Clamp pitch to this range
-    pub pitch_range: Range<f32>,
 }
 
 fn main() {
@@ -29,12 +21,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<CameraSettings>()
         .add_systems(Startup, (setup, instructions))
-        .add_systems(Update, (orbit, switch_projection, zoom))
+        .add_systems(Update, (switch_projection, zoom))
         .run();
 }
 
 /// Set up a simple 3D scene
 fn setup(
+    asset_server: Res<AssetServer>,
     mut camera_settings: ResMut<CameraSettings>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -51,17 +44,11 @@ fn setup(
     let min_zoom = 5.0;
     let max_zoom = 150.0;
 
-    // Limiting pitch stops some unexpected rotation past 90° up or down.
-    let pitch_limit = FRAC_PI_2 - 0.01;
-
-    camera_settings.orbit_distance = 10.0;
-    camera_settings.orbit_speed = 1.0;
     camera_settings.orthographic_zoom_range = min_zoom..max_zoom;
     camera_settings.orthographic_zoom_speed = 1.0;
     camera_settings.perspective_zoom_range = min_fov..max_fov;
     // Changes in FOV are much more noticeable due to its limited range in radians
     camera_settings.perspective_zoom_speed = 0.05;
-    camera_settings.pitch_range = -pitch_limit..pitch_limit;
 
     commands.spawn((
         Name::new("Camera"),
@@ -93,11 +80,13 @@ fn setup(
     ));
 
     commands.spawn((
-        Name::new("Cube"),
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(1.5, 0.51, 1.5),
+        Name::new("Fox"),
+        SceneBundle {
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+            // Note: the scale adjustment is purely an accident of our fox model, which renders
+            // HUGE unless mitigated!
+            transform: Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
             ..default()
         },
     ));
@@ -132,57 +121,10 @@ fn instructions(mut commands: Commands) {
                 TextStyle::default(),
             ));
             parent.spawn(TextBundle::from_section(
-                "W or S: pitch",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "A or D: yaw",
+                "Space: switch between orthographic and perspective projections",
                 TextStyle::default(),
             ));
         });
-}
-
-fn orbit(
-    mut camera: Query<&mut Transform, With<Camera>>,
-    camera_settings: Res<CameraSettings>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-) {
-    let mut transform = camera.single_mut();
-
-    let mut delta_pitch = 0.0;
-    let mut delta_yaw = 0.0;
-
-    if keyboard_input.pressed(KeyCode::KeyW) {
-        delta_pitch += camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        delta_yaw -= camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyS) {
-        delta_pitch -= camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyD) {
-        delta_yaw += camera_settings.orbit_speed;
-    }
-
-    // Incorporating the delta time between calls prevents this from being framerate-bound.
-    delta_pitch *= time.delta_seconds();
-    delta_yaw *= time.delta_seconds();
-
-    // Obtain the existing pitch, yaw, and roll values from the transform.
-    let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
-
-    // Establish the new yaw and pitch, preventing the pitch value from exceeding our limits.
-    let pitch = (pitch + delta_pitch).clamp(
-        camera_settings.pitch_range.start,
-        camera_settings.pitch_range.end,
-    );
-    let yaw = yaw + delta_yaw;
-    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-
-    // Adjust the translation to maintain the correct orientation toward the orbit target.
-    transform.translation = Vec3::ZERO - transform.forward() * camera_settings.orbit_distance;
 }
 
 fn switch_projection(
