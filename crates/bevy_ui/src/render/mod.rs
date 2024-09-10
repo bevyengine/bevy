@@ -187,8 +187,10 @@ pub enum ExtractedUiItem {
         node_type: NodeType,
         transform: Mat4,
     },
+    /// A contiguous sequence of text glyphs from the same section
     Glyphs {
         atlas_scaling: Vec2,
+        /// Indices into [`ExtractedUiNodes`]
         range: Range<usize>,
     },
 }
