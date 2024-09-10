@@ -271,31 +271,31 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn keyboard_inputs(
-    mut settings: Query<&mut MotionBlur>,
+    mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut settings = settings.single_mut();
+    let mut motion_blur = motion_blur.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.25;
+        motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.25;
+        motion_blur.shutter_angle += 0.25;
     } else if presses.just_pressed(KeyCode::Digit3) {
-        settings.samples = settings.samples.saturating_sub(1);
+        motion_blur.samples = motion_blur.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
-        settings.samples += 1;
+        motion_blur.samples += 1;
     } else if presses.just_pressed(KeyCode::Space) {
         *camera = match *camera {
             CameraMode::Track => CameraMode::Chase,
             CameraMode::Chase => CameraMode::Track,
         };
     }
-    settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
-    settings.samples = settings.samples.clamp(0, 64);
+    motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
+    motion_blur.samples = motion_blur.samples.clamp(0, 64);
     let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset

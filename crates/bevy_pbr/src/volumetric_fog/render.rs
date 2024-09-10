@@ -47,7 +47,7 @@ use bitflags::bitflags;
 use crate::{
     FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFogSettings,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
     VolumetricLight,
 };
 
@@ -152,7 +152,7 @@ pub struct VolumetricFogPipelineKey {
     flags: VolumetricFogPipelineKeyFlags,
 }
 
-/// The same as [`VolumetricFogSettings`] and [`FogVolume`], but formatted for
+/// The same as [`VolumetricFog`] and [`FogVolume`], but formatted for
 /// the GPU.
 ///
 /// See the documentation of those structures for more information on these
@@ -266,11 +266,11 @@ impl FromWorld for VolumetricFogPipeline {
     }
 }
 
-/// Extracts [`VolumetricFogSettings`], [`FogVolume`], and [`VolumetricLight`]s
+/// Extracts [`VolumetricFog`], [`FogVolume`], and [`VolumetricLight`]s
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(Entity, &VolumetricFogSettings)>>,
+    view_targets: Extract<Query<(Entity, &VolumetricFog)>>,
     fog_volumes: Extract<Query<(Entity, &FogVolume, &GlobalTransform)>>,
     volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
 ) {
@@ -278,10 +278,8 @@ pub fn extract_volumetric_fog(
         return;
     }
 
-    for (entity, volumetric_fog_settings) in view_targets.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(*volumetric_fog_settings);
+    for (entity, volumetric_fog) in view_targets.iter() {
+        commands.get_or_spawn(entity).insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
@@ -606,7 +604,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        With<VolumetricFogSettings>,
+        With<VolumetricFog>,
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
@@ -666,11 +664,11 @@ pub fn prepare_volumetric_fog_pipelines(
     }
 }
 
-/// A system that converts [`VolumetricFogSettings`] into [`VolumetricFogUniform`]s.
+/// A system that converts [`VolumetricFog`] into [`VolumetricFogUniform`]s.
 pub fn prepare_volumetric_fog_uniforms(
     mut commands: Commands,
     mut volumetric_lighting_uniform_buffer: ResMut<VolumetricFogUniformBuffer>,
-    view_targets: Query<(Entity, &ExtractedView, &VolumetricFogSettings)>,
+    view_targets: Query<(Entity, &ExtractedView, &VolumetricFog)>,
     fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -690,7 +688,7 @@ pub fn prepare_volumetric_fog_uniforms(
         local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
     }
 
-    for (view_entity, extracted_view, volumetric_fog_settings) in view_targets.iter() {
+    for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.compute_matrix();
 
         let mut view_fog_volumes = vec![];
@@ -721,9 +719,9 @@ pub fn prepare_volumetric_fog_uniforms(
                 far_planes: get_far_planes(&view_from_local),
                 fog_color: fog_volume.fog_color.to_linear().to_vec3(),
                 light_tint: fog_volume.light_tint.to_linear().to_vec3(),
-                ambient_color: volumetric_fog_settings.ambient_color.to_linear().to_vec3(),
-                ambient_intensity: volumetric_fog_settings.ambient_intensity,
-                step_count: volumetric_fog_settings.step_count,
+                ambient_color: volumetric_fog.ambient_color.to_linear().to_vec3(),
+                ambient_intensity: volumetric_fog.ambient_intensity,
+                step_count: volumetric_fog.step_count,
                 bounding_radius,
                 absorption: fog_volume.absorption,
                 scattering: fog_volume.scattering,
@@ -731,7 +729,7 @@ pub fn prepare_volumetric_fog_uniforms(
                 density_texture_offset: fog_volume.density_texture_offset,
                 scattering_asymmetry: fog_volume.scattering_asymmetry,
                 light_intensity: fog_volume.light_intensity,
-                jitter_strength: volumetric_fog_settings.jitter,
+                jitter_strength: volumetric_fog.jitter,
             });
 
             view_fog_volumes.push(ViewFogVolume {
@@ -753,7 +751,7 @@ pub fn prepare_volumetric_fog_uniforms(
 /// default.
 pub fn prepare_view_depth_textures_for_volumetric_fog(
     mut view_targets: Query<&mut Camera3d>,
-    fog_volumes: Query<&VolumetricFogSettings>,
+    fog_volumes: Query<&VolumetricFog>,
 ) {
     if fog_volumes.is_empty() {
         return;

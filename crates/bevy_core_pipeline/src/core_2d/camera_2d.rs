@@ -23,10 +23,6 @@ pub struct Camera2d;
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
-    /// Note: default value for `OrthographicProjection.near` is `0.0`
-    /// which makes objects on the screen plane invisible to 2D camera.
-    /// `Camera2dBundle::default()` sets `near` to negative value,
-    /// so be careful when initializing this field manually.
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
@@ -41,11 +37,7 @@ pub struct Camera2dBundle {
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        let projection = OrthographicProjection {
-            far: 1000.,
-            near: -1000.,
-            ..Default::default()
-        };
+        let projection = OrthographicProjection::default_2d();
         let transform = Transform::default();
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
@@ -77,7 +69,7 @@ impl Camera2dBundle {
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
             far,
-            ..Default::default()
+            ..OrthographicProjection::default_2d()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
