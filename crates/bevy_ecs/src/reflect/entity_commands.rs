@@ -506,4 +506,108 @@ mod tests {
         assert_eq!(world.get::<ComponentA>(entity), Some(&ComponentA(31)));
         assert_eq!(world.get::<ComponentB>(entity), Some(&ComponentB(20)));
     }
+
+    #[test]
+    fn insert_reflect_bundle_with_registry() {
+        let mut world = World::new();
+        
+        let mut type_registry = TypeRegistryResource {
+            type_registry: TypeRegistry::new(),
+        };
+        
+        type_registry.type_registry.register::<BundleA>();
+        type_registry
+            .type_registry
+            .register_type_data::<BundleA, ReflectBundle>();
+        world.insert_resource(type_registry);
+
+        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut commands = system_state.get_mut(&mut world);
+
+        let entity = commands.spawn_empty().id();
+        let bundle = Box::new(BundleA {
+            a: ComponentA(31),
+            b: ComponentB(20),
+        }) as Box<dyn PartialReflect>;
+        
+        commands.entity(entity)
+            .insert_reflect_with_registry::<TypeRegistryResource>(bundle);
+        system_state.apply(&mut world);
+
+        assert_eq!(world.get::<ComponentA>(entity), Some(&ComponentA(31)));
+        assert_eq!(world.get::<ComponentB>(entity), Some(&ComponentB(20)));
+    }
+
+    #[test]
+    fn remove_reflected_bundle() {
+        let mut world = World::new();
+
+        let type_registry = AppTypeRegistry::default();
+        {
+            let mut registry = type_registry.write();
+            registry.register::<BundleA>();
+            registry.register_type_data::<BundleA, ReflectBundle>();
+        }
+        world.insert_resource(type_registry);
+
+        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut commands = system_state.get_mut(&mut world);
+
+        let entity = commands.spawn(BundleA {
+            a: ComponentA(31),
+            b: ComponentB(20),
+        }).id();
+
+        let boxed_reflect_bundle_a = Box::new(BundleA {
+            a: ComponentA(1),
+            b: ComponentB(23),
+        }) as Box<dyn Reflect>;
+
+        commands
+            .entity(entity)
+            .remove_reflect(boxed_reflect_bundle_a.reflect_type_path().to_owned());
+        system_state.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComponentA>(), None);
+        assert_eq!(world.entity(entity).get::<ComponentB>(), None);
+    }
+
+    #[test]
+    fn remove_reflected_bundle_with_registry() {
+        let mut world = World::new();
+
+
+        let mut type_registry = TypeRegistryResource {
+            type_registry: TypeRegistry::new(),
+        };
+
+        type_registry.type_registry.register::<BundleA>();
+        type_registry
+            .type_registry
+            .register_type_data::<BundleA, ReflectBundle>();
+        world.insert_resource(type_registry);
+
+        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut commands = system_state.get_mut(&mut world);
+
+        let entity = commands.spawn(BundleA {
+            a: ComponentA(31),
+            b: ComponentB(20),
+        }).id();
+
+        let boxed_reflect_bundle_a = Box::new(BundleA {
+            a: ComponentA(1),
+            b: ComponentB(23),
+        }) as Box<dyn Reflect>;
+
+        commands
+            .entity(entity)
+            .remove_reflect_with_registry::<TypeRegistryResource>(
+                boxed_reflect_bundle_a.reflect_type_path().to_owned()
+            );
+        system_state.apply(&mut world);
+
+        assert_eq!(world.entity(entity).get::<ComponentA>(), None);
+        assert_eq!(world.entity(entity).get::<ComponentB>(), None);
+    }
 }
