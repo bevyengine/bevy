@@ -242,7 +242,9 @@ fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut player: Query<(&mut Transform, &CameraSensitivity), With<Player>>,
 ) {
-    let (mut transform, camera_sensitivity) = player.single_mut();
+    let Ok((mut transform, camera_sensitivity) )= player.get_single_mut() else {
+        return;
+    };
     let delta = accumulated_mouse_motion.delta;
 
     if delta != Vec2::ZERO {
@@ -275,7 +277,9 @@ fn change_fov(
     input: Res<ButtonInput<KeyCode>>,
     mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
 ) {
-    let mut projection = world_model_projection.single_mut();
+    let Ok(mut projection) = world_model_projection.get_single_mut() else {
+        return;
+    };
     let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
         unreachable!(
             "The `Projection` component was explicitly built with `Projection::Perspective`"
