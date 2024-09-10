@@ -5,6 +5,8 @@ use bevy_ecs::system::Resource;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 
+use crate::Generic;
+
 /// A generic clock resource that tracks how much it has advanced since its
 /// previous update and since its creation.
 ///
@@ -190,7 +192,8 @@ use bevy_utils::Duration;
 /// ```
 #[derive(Resource, Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
-pub struct Time<T: Domain = ()> {
+#[reflect(where T: Default)]
+pub struct Time<T: Domain = Generic> {
     context: T,
     wrap_period: Duration,
     delta: Duration,
@@ -212,7 +215,16 @@ impl<T: Domain> Time<T> {
     pub fn new_with(context: T) -> Self {
         Self {
             context,
-            ..Default::default()
+            wrap_period: Self::DEFAULT_WRAP_PERIOD,
+            delta: Duration::ZERO,
+            delta_seconds: 0.0,
+            delta_seconds_f64: 0.0,
+            elapsed: Duration::ZERO,
+            elapsed_seconds: 0.0,
+            elapsed_seconds_f64: 0.0,
+            elapsed_wrapped: Duration::ZERO,
+            elapsed_seconds_wrapped: 0.0,
+            elapsed_seconds_wrapped_f64: 0.0,
         }
     }
 
@@ -352,9 +364,9 @@ impl<T: Domain> Time<T> {
 
     /// Returns a copy of this clock as fully generic clock without context.
     #[inline]
-    pub fn as_generic(&self) -> Time<()> {
+    pub fn as_generic(&self) -> Time<Generic> {
         Time {
-            context: (),
+            context: Generic::new_from::<T>(),
             wrap_period: self.wrap_period,
             delta: self.delta,
             delta_seconds: self.delta_seconds,
@@ -369,21 +381,9 @@ impl<T: Domain> Time<T> {
     }
 }
 
-impl<T: Domain> Default for Time<T> {
+impl<T: Domain + Default> Default for Time<T> {
     fn default() -> Self {
-        Self {
-            context: Default::default(),
-            wrap_period: Self::DEFAULT_WRAP_PERIOD,
-            delta: Duration::ZERO,
-            delta_seconds: 0.0,
-            delta_seconds_f64: 0.0,
-            elapsed: Duration::ZERO,
-            elapsed_seconds: 0.0,
-            elapsed_seconds_f64: 0.0,
-            elapsed_wrapped: Duration::ZERO,
-            elapsed_seconds_wrapped: 0.0,
-            elapsed_seconds_wrapped_f64: 0.0,
-        }
+        Self::new_with(Default::default())
     }
 }
 
@@ -396,13 +396,11 @@ fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
 /// A marker trait for the domain of a [`Time`] clock.
 ///
 /// Provided domains:
-/// - `()` (contextually dependent on the current schedule that's running)
-/// - [`Real`](crate::real::Real)
-/// - [`Virtual`](crate::virt::Virtual)
-/// - [`Fixed`](crate::fixed::Fixed)
-pub trait Domain: Default + Send + Sync + 'static {}
-
-impl Domain for () {}
+/// - [`Generic`](crate::Generic)
+/// - [`Real`](crate::Real)
+/// - [`Virtual`](crate::Virtual)
+/// - [`Fixed`](crate::Fixed)
+pub trait Domain: Send + Sync + 'static {}
 
 #[cfg(test)]
 mod test {
@@ -412,7 +410,7 @@ mod test {
     fn test_initial_state() {
         let time: Time = Time::default();
 
-        assert_eq!(time.wrap_period(), Time::<()>::DEFAULT_WRAP_PERIOD);
+        assert_eq!(time.wrap_period(), Time::<Generic>::DEFAULT_WRAP_PERIOD);
         assert_eq!(time.delta(), Duration::ZERO);
         assert_eq!(time.delta_seconds(), 0.0);
         assert_eq!(time.delta_seconds_f64(), 0.0);

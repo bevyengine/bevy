@@ -10,6 +10,7 @@ mod commands;
 /// Common run conditions
 pub mod common_conditions;
 mod fixed;
+mod generic;
 mod real;
 mod stopwatch;
 #[allow(clippy::module_inception)]
@@ -19,6 +20,7 @@ mod virt;
 
 pub use commands::*;
 pub use fixed::*;
+pub use generic::*;
 pub use real::*;
 pub use stopwatch::*;
 pub use time::*;
@@ -58,8 +60,7 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
             .init_resource::<TimeUpdateStrategy>()
-            .init_resource::<TimedCommandQueues<()>>()
-            .init_resource::<TimedCommandQueues<Fixed>>();
+            .init_resource::<GlobalTimedCommandQueues>();
 
         #[cfg(feature = "bevy_reflect")]
         {
@@ -72,14 +73,14 @@ impl Plugin for TimePlugin {
 
         app.add_systems(
             First,
-            (time_system, queue_delayed_commands::<()>)
+            (time_system, queue_timed_commands::<Virtual>)
                 .chain()
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )
         .add_systems(
             FixedFirst,
-            queue_delayed_commands::<Fixed>
+            queue_timed_commands::<Fixed>
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )
