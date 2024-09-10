@@ -8,7 +8,6 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
@@ -22,7 +21,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
 
 use crate::*;
