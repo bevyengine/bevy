@@ -326,7 +326,7 @@ where
     /// Usually, you'll want to use [`.chain`](Self::chain) instead. 
     /// # Note
     ///
-    /// If you configure two groups of systems (e.g. 'Set A') in a schedule, and another group references `.after` or `.before` (e.g. 'Set B'), the systems in Set B will not be automatically scheduled.
+    /// If you configure two [`SystemSet`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
     ///
     /// This means that the systems in `GameSystem::A` and `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`App::configure_sets`].
     /// If that is the case, `.after`/`.before` will not provide the desired behaviour
