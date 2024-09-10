@@ -1,5 +1,5 @@
 use crate::func::args::{ArgError, FromArg, Ownership};
-use crate::{PartialReflect, Reflect, TypePath};
+use crate::{Reflect, TypePath};
 use std::ops::Deref;
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -81,7 +81,7 @@ impl<'a> Arg<'a> {
     /// ```
     pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
         match self.value {
-            ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
+            ArgValue::Owned(arg) => arg.take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
                 expected: std::borrow::Cow::Borrowed(T::type_path()),
                 received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
@@ -122,13 +122,11 @@ impl<'a> Arg<'a> {
                 received: Ownership::Owned,
             }),
             ArgValue::Ref(arg) => {
-                Ok(arg
-                    .try_downcast_ref()
-                    .ok_or_else(|| ArgError::UnexpectedType {
-                        index: self.index,
-                        expected: std::borrow::Cow::Borrowed(T::type_path()),
-                        received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
-                    })?)
+                Ok(arg.downcast_ref().ok_or_else(|| ArgError::UnexpectedType {
+                    index: self.index,
+                    expected: std::borrow::Cow::Borrowed(T::type_path()),
+                    received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                })?)
             }
             ArgValue::Mut(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -167,15 +165,21 @@ impl<'a> Arg<'a> {
             }),
             ArgValue::Mut(arg) => {
                 let received = std::borrow::Cow::Owned(arg.reflect_type_path().to_string());
-                Ok(arg
-                    .try_downcast_mut()
-                    .ok_or_else(|| ArgError::UnexpectedType {
-                        index: self.index,
-                        expected: std::borrow::Cow::Borrowed(T::type_path()),
-                        received,
-                    })?)
+                Ok(arg.downcast_mut().ok_or_else(|| ArgError::UnexpectedType {
+                    index: self.index,
+                    expected: std::borrow::Cow::Borrowed(T::type_path()),
+                    received,
+                })?)
             }
         }
+    }
+
+    /// Returns `true` if the argument is of type `T`.
+    pub fn is<T: TypePath>(&self) -> bool {
+        self.value
+            .try_as_reflect()
+            .map(<dyn Reflect>::is::<T>)
+            .unwrap_or_default()
     }
 }
 
@@ -185,13 +189,13 @@ impl<'a> Arg<'a> {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
-    Owned(Box<dyn PartialReflect>),
-    Ref(&'a dyn PartialReflect),
-    Mut(&'a mut dyn PartialReflect),
+    Owned(Box<dyn Reflect>),
+    Ref(&'a dyn Reflect),
+    Mut(&'a mut dyn Reflect),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn PartialReflect;
+    type Target = dyn Reflect;
 
     fn deref(&self) -> &Self::Target {
         match self {

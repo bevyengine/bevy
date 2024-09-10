@@ -1,6 +1,7 @@
 use crate::func::args::{Arg, ArgValue, FromArg};
 use crate::func::ArgError;
-use crate::{PartialReflect, Reflect, TypePath};
+use crate::{Reflect, TypePath};
+use alloc::collections::vec_deque::Iter;
 use std::collections::VecDeque;
 
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
@@ -68,7 +69,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(self, arg: &'a dyn PartialReflect) -> Self {
+    pub fn push_ref(self, arg: &'a dyn Reflect) -> Self {
         self.push_arg(ArgValue::Ref(arg))
     }
 
@@ -76,7 +77,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
+    pub fn push_mut(self, arg: &'a mut dyn Reflect) -> Self {
         self.push_arg(ArgValue::Mut(arg))
     }
 
@@ -84,7 +85,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(self, arg: impl PartialReflect) -> Self {
+    pub fn push_owned(self, arg: impl Reflect) -> Self {
         self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 
@@ -92,7 +93,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
+    pub fn push_boxed(self, arg: Box<dyn Reflect>) -> Self {
         self.push_arg(ArgValue::Owned(arg))
     }
 
@@ -277,6 +278,11 @@ impl<'a> ArgList<'a> {
     /// ```
     pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.pop_arg()?.take_mut()
+    }
+
+    /// Returns an iterator over the arguments in the list.
+    pub fn iter(&self) -> Iter<'_, Arg<'a>> {
+        self.list.iter()
     }
 
     /// Returns the number of arguments in the list.
