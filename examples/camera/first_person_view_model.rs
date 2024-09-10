@@ -242,7 +242,7 @@ fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut player: Query<(&mut Transform, &CameraSensitivity), With<Player>>,
 ) {
-    let Ok((mut transform, camera_sensitivity) )= player.get_single_mut() else {
+    let Ok((mut transform, camera_sensitivity)) = player.get_single_mut() else {
         return;
     };
     let delta = accumulated_mouse_motion.delta;
