@@ -13,7 +13,6 @@ use bevy::{
     pbr::{Atmosphere, CascadeShadowConfigBuilder},
     prelude::*,
 };
-use bevy_internal::color::palettes;
 
 fn main() {
     App::new()

@@ -77,4 +77,36 @@ fn distance_to_bottom_atmosphere_boundary(atmosphere: Atmosphere, r: f32, mu: f3
     return max(-r * mu - sqrt(positive_discriminant), 0.0);
 }
 
+struct AtmosphereSample {
+    scattering: vec3<f32>,
+    absorption: vec3<f32>,
+    extinction: vec3<f32>
+};
 
+//prob fine to return big struct because of inlining
+fn sample_atmosphere(atmosphere: Atmosphere, view_height: f32) -> AtmosphereSample {
+    var result: AtmosphereSample;
+
+    // atmosphere values at view_height
+    let mie_density = exp(atmosphere.mie_density_exp_scale * view_height); //TODO: zero-out when above atmosphere boundary? i mean the raycast will stop anyway
+    let rayleigh_density = exp(atmosphere.rayleigh_density_exp_scale * view_height);
+    var ozone_density: f32 = max(0.0, 1.0 - (abs(view_height - atmosphere.ozone_layer_center_altitude) / atmosphere.ozone_layer_half_width));
+
+    let mie_scattering = mie_density * atmosphere.mie_scattering;
+    let mie_absorption = mie_density * atmosphere.mie_absorption;
+    let mie_extinction = mie_scattering + mie_absorption;
+
+    let rayleigh_scattering = rayleigh_density * atmosphere.rayleigh_scattering;
+    // no rayleigh absorption
+    // rayleigh extinction is the sum of scattering and absorption
+
+    // ozone doesn't contribute to scattering
+    let ozone_absorption = ozone_density * atmosphere.ozone_absorption;
+    // ozone extinction is the sum of scattering and absorption
+
+    result.scattering = mie_scattering + rayleigh_scattering;
+    result.absorption = mie_absorption + ozone_absorption;
+    result.extinction = mie_extinction + rayleigh_scattering + ozone_absorption;
+
+    return result;
+}

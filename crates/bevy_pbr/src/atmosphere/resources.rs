@@ -9,7 +9,6 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
-    camera::ExtractedCamera,
     extract_component::ComponentUniforms,
     render_resource::{
         binding_types::{texture_2d, texture_storage_2d, texture_storage_3d, uniform_buffer},
@@ -23,7 +22,7 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
 };
 
-use super::{shaders, Atmosphere, AtmosphereLutSettings};
+use super::{shaders, Atmosphere, AtmosphereSettings};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
@@ -38,9 +37,12 @@ impl FromWorld for AtmosphereBindGroupLayouts {
         let render_device = world.resource::<RenderDevice>();
         let transmittance_lut = render_device.create_bind_group_layout(
             "transmittance_lut_bind_group_layout",
-            &BindGroupLayoutEntries::single(
+            &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
-                uniform_buffer::<Atmosphere>(true),
+                (
+                    uniform_buffer::<Atmosphere>(true),
+                    uniform_buffer::<AtmosphereSettings>(true),
+                ),
             ),
         );
 
@@ -50,7 +52,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::COMPUTE,
                 (
                     uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereLutSettings>(true),
+                    uniform_buffer::<AtmosphereSettings>(true),
                     texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut. need sampler?;
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 ),
@@ -63,6 +65,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::FRAGMENT,
                 (
                     uniform_buffer::<Atmosphere>(true),
+                    uniform_buffer::<AtmosphereSettings>(true),
                     texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut
                     texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering_lut
                 ),
@@ -75,7 +78,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::COMPUTE,
                 (
                     uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereLutSettings>(true), //TODO: maybe unnecessary?
+                    uniform_buffer::<AtmosphereSettings>(true), //TODO: maybe unnecessary?
                     texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut
                     texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering_lut
                     texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
@@ -182,7 +185,7 @@ pub struct AtmosphereTextures {
 }
 
 pub(super) fn prepare_atmosphere_textures(
-    views: Query<(Entity, &AtmosphereLutSettings), With<Atmosphere>>,
+    views: Query<(Entity, &AtmosphereSettings), With<Atmosphere>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
@@ -284,28 +287,30 @@ pub(super) fn prepare_atmosphere_bind_groups(
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
-    lut_uniforms: Res<ComponentUniforms<AtmosphereLutSettings>>,
+    settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
     mut commands: Commands,
 ) {
+    let atmosphere_binding = atmosphere_uniforms
+        .binding()
+        .expect("Failed to prepare atmosphere bind groups. Atmosphere uniform buffer missing");
+
+    let settings_binding = settings_uniforms.binding().expect(
+        "Failed to prepare atmosphere bind groups. AtmosphereSettings uniform buffer missing",
+    );
+
     for (entity, textures) in &views {
-        let atmosphere_uniforms_binding = atmosphere_uniforms
-            .binding()
-            .expect("Failed to prepare atmosphere bind groups. Atmosphere uniforms buffer missing");
-
-        let lut_uniforms_binding = lut_uniforms.binding().expect("Failed to prepare atmosphere bind groups. AtmosphereLutSettings uniforms buffer missing");
-
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
-            &BindGroupEntries::single(atmosphere_uniforms_binding.clone()),
+            &BindGroupEntries::sequential((atmosphere_binding.clone(), settings_binding.clone())),
         );
 
         let multiscattering_lut = render_device.create_bind_group(
             "multiscattering_lut_bind_group",
             &layouts.multiscattering_lut,
             &BindGroupEntries::sequential((
-                atmosphere_uniforms_binding.clone(),
-                lut_uniforms_binding.clone(),
+                atmosphere_binding.clone(),
+                settings_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
             )),
@@ -315,7 +320,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             "sky_view_lut_bind_group",
             &layouts.sky_view_lut,
             &BindGroupEntries::sequential((
-                atmosphere_uniforms_binding.clone(),
+                atmosphere_binding.clone(),
+                settings_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
             )),
@@ -324,8 +330,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             "sky_view_lut_bind_group",
             &layouts.aerial_view_lut,
             &BindGroupEntries::sequential((
-                atmosphere_uniforms_binding.clone(),
-                lut_uniforms_binding.clone(),
+                atmosphere_binding.clone(),
+                settings_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
                 &textures.aerial_view_lut.default_view,
