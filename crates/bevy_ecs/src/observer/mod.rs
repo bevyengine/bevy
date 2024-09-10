@@ -7,11 +7,12 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
+use crate::entity::EntityHashMap;
 use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
-use bevy_utils::{EntityHashMap, HashMap};
+use bevy_utils::HashMap;
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -55,9 +56,35 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
+    /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
         self.trigger.entity
+    }
+
+    /// Returns the [`Entity`] that observed the triggered event.
+    /// This allows you to despawn the observer, ceasing observation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::{Commands, Trigger};
+    /// #
+    /// # struct MyEvent {
+    /// #   done: bool,
+    /// # }
+    /// #
+    /// /// Handle `MyEvent` and if it is done, stop observation.
+    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) {
+    ///     if trigger.event().done {
+    ///         commands.entity(trigger.observer()).despawn();
+    ///         return;
+    ///     }
+    ///
+    ///     // ...
+    /// }
+    /// ```
+    pub fn observer(&self) -> Entity {
+        self.trigger.observer
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -152,7 +179,7 @@ pub struct ObserverTrigger {
 }
 
 // Map between an observer entity and its runner
-type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
+type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
 #[derive(Default, Debug)]
@@ -160,7 +187,7 @@ pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
     map: ObserverMap,
     // Observers listening to triggers targeting this component on a specific entity
-    entity_map: EntityHashMap<Entity, ObserverMap>,
+    entity_map: EntityHashMap<ObserverMap>,
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
@@ -171,7 +198,7 @@ pub struct CachedObservers {
     // Observers listening for this trigger fired at a specific component
     component_observers: HashMap<ComponentId, CachedComponentObservers>,
     // Observers listening for this trigger fired at a specific entity
-    entity_observers: EntityHashMap<Entity, ObserverMap>,
+    entity_observers: EntityHashMap<ObserverMap>,
 }
 
 /// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.

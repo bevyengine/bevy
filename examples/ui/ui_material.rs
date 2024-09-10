@@ -42,12 +42,14 @@ fn setup(
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
                 material: ui_materials.add(CustomUiMaterial {
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
                 }),
                 ..default()
             });
@@ -67,6 +69,9 @@ struct CustomUiMaterial {
     #[texture(2)]
     #[sampler(3)]
     color_texture: Handle<Image>,
+    /// Color of the image's border
+    #[uniform(4)]
+    border_color: Vec4,
 }
 
 impl UiMaterial for CustomUiMaterial {
@@ -87,9 +92,11 @@ fn animate(
         if let Some(material) = materials.get_mut(handle) {
             // rainbow color effect
             let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
-            material.color = LinearRgba::from(new_color).to_f32_array().into();
+            let border_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 0.75, 0.75);
+            material.color = new_color.to_linear().to_vec4();
             material.slider =
                 ((time.elapsed_seconds() % (duration * 2.0)) - duration).abs() / duration;
+            material.border_color = border_color.to_linear().to_vec4();
         }
     }
 }
