@@ -72,13 +72,8 @@ impl Plugin for TimePlugin {
 
         app.add_systems(
             First,
-            time_system
-                .in_set(TimeSystem)
-                .ambiguous_with(event_update_system),
-        )
-        .add_systems(
-            First,
-            queue_delayed_commands::<()>
+            (time_system, queue_delayed_commands::<()>)
+                .chain()
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )
