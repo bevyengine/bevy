@@ -67,7 +67,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         specular_transmission,
         diffuse_transmission
     );
-    emissive += in.lightmap_light * diffuse_color;
+    emissive += in.lightmap_light * diffuse_color * view.exposure;
 
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
