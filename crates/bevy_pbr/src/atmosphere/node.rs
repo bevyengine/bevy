@@ -11,22 +11,22 @@ use bevy_render::{
 
 use super::{
     resources::{AtmosphereBindGroups, AtmospherePipelines, AtmosphereTextures},
-    Atmosphere, AtmosphereLutSettings,
+    Atmosphere, AtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub(super) struct SkyLabel;
+pub(super) struct AtmosphereNodeLabel;
 
 #[derive(Default)]
-pub(super) struct SkyNode {}
+pub(super) struct AtmosphereNode {}
 
-impl ViewNode for SkyNode {
+impl ViewNode for AtmosphereNode {
     type ViewQuery = (
         Read<AtmosphereTextures>,
-        Read<AtmosphereLutSettings>,
+        Read<AtmosphereSettings>,
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereLutSettings>>,
+        Read<DynamicUniformIndex<AtmosphereSettings>>,
     );
 
     fn run(

@@ -11,12 +11,12 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_math::{sampling::UniformMeshSampler, uvec2, uvec3, vec2, UVec2, UVec3, Vec2, Vec3};
+use bevy_math::{uvec2, uvec3, UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Camera,
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Extent3d, Shader, TextureFormat, TextureUsages},
+    render_resource::{Shader, TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -26,7 +26,7 @@ use bevy_utils::tracing::warn;
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 
 use self::{
-    node::{SkyLabel, SkyNode},
+    node::{AtmosphereNode, AtmosphereNodeLabel},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
         AtmospherePipelines,
@@ -86,10 +86,10 @@ impl Plugin for AtmospherePlugin {
         );
 
         app.register_type::<Atmosphere>()
-            .register_type::<AtmosphereLutSettings>()
+            .register_type::<AtmosphereSettings>()
             .add_plugins((
                 UniformComponentPlugin::<Atmosphere>::default(),
-                UniformComponentPlugin::<AtmosphereLutSettings>::default(),
+                UniformComponentPlugin::<AtmosphereSettings>::default(),
             ));
     }
 
@@ -120,13 +120,13 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<SkyNode>>(Core3d, SkyLabel)
+            .add_render_graph_node::<ViewNodeRunner<AtmosphereNode>>(Core3d, AtmosphereNodeLabel)
             .add_render_graph_edges(
                 Core3d,
                 (
                     // END_PRE_PASSES -> PREPARE_SKY -> MAIN_PASS
                     Node3d::EndPrepasses,
-                    SkyLabel,
+                    AtmosphereNodeLabel,
                     Node3d::StartMainPass,
                 ),
             );
@@ -183,7 +183,7 @@ impl Atmosphere {
 fn extract_atmosphere(
     mut commands: Commands,
     cameras: Extract<
-        Query<(Entity, &Camera, &Atmosphere, Option<&AtmosphereLutSettings>), With<Camera3d>>,
+        Query<(Entity, &Camera, &Atmosphere, Option<&AtmosphereSettings>), With<Camera3d>>,
     >,
 ) {
     for (entity, camera, atmosphere, lut_settings) in &cameras {
@@ -192,32 +192,42 @@ fn extract_atmosphere(
                 atmosphere.clone(),
                 lut_settings
                     .cloned()
-                    .unwrap_or_else(|| AtmosphereLutSettings::from_camera(camera)),
+                    .unwrap_or_else(|| AtmosphereSettings::from_camera(camera)),
             ));
         }
     }
 }
 
 #[derive(Clone, Component, Reflect, ShaderType)]
-pub struct AtmosphereLutSettings {
+pub struct AtmosphereSettings {
     pub transmittance_lut_size: UVec2,
+    pub transmittance_lut_samples: u32,
     pub multiscattering_lut_size: UVec2,
+    pub multiscattering_lut_dirs: u32,
+    pub multiscattering_lut_samples: u32,
     pub sky_view_lut_size: UVec2,
+    pub sky_view_lut_samples: u32,
     pub aerial_view_lut_size: UVec3,
+    pub aerial_view_lut_samples: u32,
 }
 
-impl Default for AtmosphereLutSettings {
+impl Default for AtmosphereSettings {
     fn default() -> Self {
         Self {
             transmittance_lut_size: uvec2(256, 128),
+            transmittance_lut_samples: 40,
             multiscattering_lut_size: uvec2(32, 32),
+            multiscattering_lut_dirs: 64,
+            multiscattering_lut_samples: 20,
             sky_view_lut_size: uvec2(192, 108),
+            sky_view_lut_samples: 30,
             aerial_view_lut_size: uvec3(32, 32, 32),
+            aerial_view_lut_samples: 30,
         }
     }
 }
 
-impl AtmosphereLutSettings {
+impl AtmosphereSettings {
     pub fn from_camera(camera: &Camera) -> Self {
         //TODO: correct method?
         if let Some(viewport_size) = camera.logical_viewport_size() {
