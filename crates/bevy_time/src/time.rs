@@ -396,7 +396,7 @@ fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
 /// A marker trait for the domain of a [`Time`] clock.
 ///
 /// Provided domains:
-/// - `()` (app update time)
+/// - `()` (current time based on schedule processing)
 /// - [`Real`](crate::real::Real)
 /// - [`Virtual`](crate::virt::Virtual)
 /// - [`Fixed`](crate::fixed::Fixed)
