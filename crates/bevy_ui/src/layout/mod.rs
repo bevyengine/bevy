@@ -76,7 +76,7 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[doc(hidden)]
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
-    interned_root_notes: Vec<Vec<Entity>>,
+    interned_root_nodes: Vec<Vec<Entity>>,
     resized_windows: EntityHashSet,
     camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
@@ -122,7 +122,7 @@ pub fn ui_layout_system(
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     let UiLayoutSystemBuffers {
-        interned_root_notes,
+        interned_root_nodes,
         resized_windows,
         camera_layout_info,
     } = &mut *buffers;
@@ -147,7 +147,7 @@ pub fn ui_layout_system(
             size,
             resized,
             scale_factor: scale_factor * ui_scale.0,
-            root_nodes: interned_root_notes.pop().unwrap_or_default(),
+            root_nodes: interned_root_nodes.pop().unwrap_or_default(),
         }
     };
 
@@ -280,7 +280,7 @@ pub fn ui_layout_system(
         }
 
         camera.root_nodes.clear();
-        interned_root_notes.push(camera.root_nodes);
+        interned_root_nodes.push(camera.root_nodes);
     }
 
     fn update_uinode_geometry_recursive(
