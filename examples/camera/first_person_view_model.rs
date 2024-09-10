@@ -69,13 +69,12 @@ fn main() {
 #[derive(Debug, Component)]
 struct Player;
 
-
 #[derive(Debug, Component, Deref, DerefMut)]
-structCameraSensitivity(Vec2)
+struct CameraSensitivity(Vec2);
 
 impl Default for CameraSensitivity {
     fn default() -> Self {
-        Self (
+        Self(
             // These factors are just arbitrary mouse sensitivity values.
             // It's often nicer to have a faster horizontal sensitivity than vertical.
             // We use a component for them so that we can make them user-configurable at runtime
