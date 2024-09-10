@@ -158,7 +158,7 @@ use bevy_utils::Duration;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_time::prelude::*;
+/// # use bevy_time::{prelude::*, Domain};
 /// # use bevy_utils::Instant;
 /// #
 /// #[derive(Debug)]
