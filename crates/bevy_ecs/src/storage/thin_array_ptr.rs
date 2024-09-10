@@ -179,7 +179,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
@@ -210,7 +210,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
@@ -231,7 +231,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
     /// - `index_to_remove` != `index_to_keep`
-    /// -  The caller should address the inconsistent state of the array that has occured after the swap, either:
+    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
     ///     1) initialize a different value in `index_to_keep`
     ///     2) update the saved length of the array if `index_to_keep` was the last element.
     #[inline]
