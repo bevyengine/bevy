@@ -188,7 +188,6 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     default_ui_camera: Extract<DefaultUiCamera>,
-    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -257,7 +256,6 @@ pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -376,7 +374,6 @@ pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     default_ui_camera: Extract<DefaultUiCamera>,
-    ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
             &Node,

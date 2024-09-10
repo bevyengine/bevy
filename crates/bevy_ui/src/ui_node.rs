@@ -29,7 +29,7 @@ pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
-    /// The size of the node as width and height in logical pixels
+    /// The size of the node as width and height in physical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
@@ -44,16 +44,16 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
-    /// The unrounded size of the node as width and height in logical pixels.
+    /// The unrounded size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
-    /// Resolved border values in logical pixels
+    /// Resolved border values in physical pixels
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border: Inset,
-    /// Resolved border radius values in logical pixels.
+    /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -61,7 +61,7 @@ pub struct Node {
 }
 
 impl Node {
-    /// The calculated node size as width and height in logical pixels.
+    /// The calculated node size as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
@@ -81,58 +81,28 @@ impl Node {
         self.stack_index
     }
 
-    /// The calculated node size as width and height in logical pixels before rounding.
+    /// The calculated node size as width and height in physical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
     }
 
-    /// Returns the size of the node in physical pixels based on the given scale factor and `UiScale`.
+    /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`].
     #[inline]
-    pub fn physical_size(&self, scale_factor: f32, ui_scale: f32) -> Vec2 {
-        Vec2::new(
-            self.calculated_size.x * scale_factor * ui_scale,
-            self.calculated_size.y * scale_factor * ui_scale,
-        )
-    }
-
-    /// Returns the logical pixel coordinates of the UI node, based on its [`GlobalTransform`].
-    #[inline]
-    pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
+    pub fn physical_rect(&self, transform: &GlobalTransform) -> Rect {
         Rect::from_center_size(transform.translation().truncate(), self.size())
     }
 
-    /// Returns the physical pixel coordinates of the UI node, based on its [`GlobalTransform`] and the scale factor.
     #[inline]
-    pub fn physical_rect(
-        &self,
-        transform: &GlobalTransform,
-        scale_factor: f32,
-        ui_scale: f32,
-    ) -> Rect {
-        let rect = self.logical_rect(transform);
-        Rect {
-            min: Vec2::new(
-                rect.min.x * scale_factor * ui_scale,
-                rect.min.y * scale_factor * ui_scale,
-            ),
-            max: Vec2::new(
-                rect.max.x * scale_factor * ui_scale,
-                rect.max.y * scale_factor * ui_scale,
-            ),
-        }
-    }
-
-    #[inline]
-    /// Returns the thickness of the UI node's outline in logical pixels.
+    /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     pub fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
     #[inline]
-    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     pub fn outline_offset(&self) -> f32 {
         self.outline_offset
     }
@@ -2284,7 +2254,7 @@ impl BorderRadius {
 
 /// Represents the resolved border radius values for a UI node.
 ///
-/// The values are in logical pixels.
+/// The values are in physical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
@@ -2303,8 +2273,6 @@ impl ResolvedBorderRadius {
 }
 
 /// Represents the space or inset from the left, right, top, and bottom edges within a rectangle.
-///
-/// The values are in logical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct Inset {
     pub left: f32,

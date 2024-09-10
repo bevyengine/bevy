@@ -139,7 +139,7 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = node.node.logical_rect(node.global_transform);
+        let node_rect = node.node.physical_rect(node.global_transform);
 
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
         if node_rect.size() == Vec2::ZERO {
