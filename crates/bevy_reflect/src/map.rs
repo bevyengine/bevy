@@ -14,12 +14,14 @@ use crate::{
 /// and correspond to types like [`HashMap`] and [`BTreeMap`].
 /// The order of these entries is not guaranteed by this trait.
 ///
-/// # Hashing
+/// # Hashing and equality
 ///
-/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
-/// This is true even for manual implementors who do not use the hashed value,
+/// All keys are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
+/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
+/// This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicMap`].
 ///
 /// # Example
