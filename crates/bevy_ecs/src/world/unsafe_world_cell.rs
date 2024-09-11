@@ -248,7 +248,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's [`Observers`] collection.
-    pub(crate) unsafe fn observers(self) -> &'w Observers {
+    pub(crate) fn observers(self) -> &'w Observers {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.observers
