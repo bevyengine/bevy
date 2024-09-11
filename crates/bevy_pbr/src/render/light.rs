@@ -5,6 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::camera::SortedCameras;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -529,8 +530,7 @@ pub fn prepare_lights(
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
-    mut max_directional_lights_warning_emitted: Local<bool>,
-    mut max_cascades_per_light_warning_emitted: Local<bool>,
+    mut warnings_emitted: Local<(bool, bool)>,
     point_lights: Query<(
         Entity,
         &ExtractedPointLight,
@@ -538,7 +538,11 @@ pub fn prepare_lights(
     )>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
     mut live_shadow_mapping_lights: Local<EntityHashSet>,
+    sorted_cameras: Res<SortedCameras>,
 ) {
+    let (max_directional_lights_warning_emitted, max_cascades_per_light_warning_emitted) =
+        &mut *warnings_emitted;
+
     let views_iter = views.iter();
     let views_count = views_iter.len();
     let Some(mut view_gpu_lights_writer) =
@@ -886,7 +890,11 @@ pub fn prepare_lights(
             });
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers) in &views {
+    for (entity, extracted_view, clusters, maybe_layers) in sorted_cameras
+        .0
+        .iter()
+        .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
+    {
         let mut view_lights = Vec::new();
 
         let is_orthographic = extracted_view.clip_from_view.w_axis.w == 1.0;
