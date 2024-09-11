@@ -9,7 +9,6 @@ use bevy_render::{
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use smallvec::SmallVec;
