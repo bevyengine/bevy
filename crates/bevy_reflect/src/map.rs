@@ -1,7 +1,7 @@
 use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::hashbrown::HashTable;
 
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
@@ -198,7 +198,7 @@ macro_rules! hash_error {
 pub struct DynamicMap {
     represented_type: Option<&'static TypeInfo>,
     values: Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>,
-    indices: HashMap<u64, usize>,
+    indices: HashTable<usize>,
 }
 
 impl DynamicMap {
@@ -225,20 +225,38 @@ impl DynamicMap {
     pub fn insert<K: PartialReflect, V: PartialReflect>(&mut self, key: K, value: V) {
         self.insert_boxed(Box::new(key), Box::new(value));
     }
+
+    fn internal_hash(value: &dyn PartialReflect) -> u64 {
+        value.reflect_hash().expect(hash_error!(value))
+    }
+
+    fn internal_eq<'a>(
+        value: &'a dyn PartialReflect,
+        values: &'a [(Box<dyn PartialReflect>, Box<dyn PartialReflect>)],
+    ) -> impl FnMut(&usize) -> bool + 'a {
+        |&index| {
+            value
+            .reflect_partial_eq(&*values[index].0)
+            .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
+        }
+    }
 }
 
 impl Map for DynamicMap {
     fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
         self.indices
-            .get(&key.reflect_hash().expect(hash_error!(key)))
-            .map(|index| &*self.values.get(*index).unwrap().1)
+            .find(hash, eq)
+            .map(|&index| &*self.values[index].1)
     }
 
     fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
         self.indices
-            .get(&key.reflect_hash().expect(hash_error!(key)))
-            .cloned()
-            .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
+            .find(hash, eq)
+            .map(|&index| &mut *self.values[index].1)
     }
 
     fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)> {
@@ -283,31 +301,60 @@ impl Map for DynamicMap {
     fn insert_boxed(
         &mut self,
         key: Box<dyn PartialReflect>,
-        mut value: Box<dyn PartialReflect>,
+        value: Box<dyn PartialReflect>,
     ) -> Option<Box<dyn PartialReflect>> {
-        match self
-            .indices
-            .entry(key.reflect_hash().expect(hash_error!(key)))
-        {
-            Entry::Occupied(entry) => {
-                let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
-                core::mem::swap(old_value, &mut value);
-                Some(value)
+        assert_eq!(
+            key.reflect_partial_eq(&*key),
+            Some(true),
+            "Keys inserted in `Map` like types are expected to reflect `PartialEq`"
+        );
+
+        let hash = Self::internal_hash(&*key);
+        let eq = Self::internal_eq(&*key, &self.values);
+        match self.indices.find(hash, eq) {
+            Some(&index) => {
+                let (key_ref, value_ref) = &mut self.values[index];
+                *key_ref = key;
+                let old_value = core::mem::replace(value_ref, value);
+                Some(old_value)
             }
-            Entry::Vacant(entry) => {
-                entry.insert(self.values.len());
+            None => {
+                let index = self.values.len();
                 self.values.push((key, value));
+                self.indices.insert_unique(hash, index, |&index| {
+                    Self::internal_hash(&*self.values[index].0)
+                });
                 None
             }
         }
     }
 
     fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
-        let index = self
-            .indices
-            .remove(&key.reflect_hash().expect(hash_error!(key)))?;
-        let (_key, value) = self.values.remove(index);
-        Some(value)
+        let hash = Self::internal_hash(key);
+        let eq = Self::internal_eq(key, &self.values);
+        match self.indices.find_entry(hash, eq) {
+            Ok(entry) => {
+                let (index, _) = entry.remove();
+                let (_, old_value) = self.values.swap_remove(index);
+
+                // The `swap_remove` might have moved the last element of `values`
+                // to `index`, so we might need to fix up its index in `indices`.
+                // If the removed element was also the last element there's nothing to
+                // fixup and this will return `None`, otherwise it returns the key
+                // whose index needs to be fixed up.
+                if let Some((moved_key, _)) = self.values.get(index) {
+                    let hash = Self::internal_hash(&**moved_key);
+                    let moved_index = self
+                        .indices
+                        .find_mut(hash, |&moved_index| moved_index == self.values.len())
+                        .expect("Key inserted in a `DynamicMap` is no longer present, this means its reflected `Hash` might be incorrect");
+                    *moved_index = index;
+                }
+
+                Some(old_value)
+            }
+            Err(_) => None,
+        }
     }
 }
 
