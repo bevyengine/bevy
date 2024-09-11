@@ -139,7 +139,7 @@ impl Node {
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
-        border: BorderRect::square(0.),
+        border: BorderRect::ZERO,
     };
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Inset, Node, Outline, Style, TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -13,6 +13,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
@@ -323,7 +324,7 @@ pub fn ui_layout_system(
                 node.unrounded_size = layout_size;
             }
 
-            node.bypass_change_detection().border = Inset {
+            node.bypass_change_detection().border = BorderRect {
                 left: layout.border.left * inverse_target_scale_factor,
                 right: layout.border.right * inverse_target_scale_factor,
                 top: layout.border.top * inverse_target_scale_factor,
