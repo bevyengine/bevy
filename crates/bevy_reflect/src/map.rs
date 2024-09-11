@@ -241,7 +241,7 @@ impl DynamicMap {
         |&index| {
             value
             .reflect_partial_eq(&*values[index].0)
-            .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
+            .expect("underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
 }
@@ -310,7 +310,7 @@ impl Map for DynamicMap {
         assert_eq!(
             key.reflect_partial_eq(&*key),
             Some(true),
-            "Keys inserted in `Map` like types are expected to reflect `PartialEq`"
+            "keys inserted in `Map`-like types are expected to reflect `PartialEq`"
         );
 
         let hash = Self::internal_hash(&*key);
@@ -351,7 +351,7 @@ impl Map for DynamicMap {
                     let moved_index = self
                         .indices
                         .find_mut(hash, |&moved_index| moved_index == self.values.len())
-                        .expect("Key inserted in a `DynamicMap` is no longer present, this means its reflected `Hash` might be incorrect");
+                        .expect("key inserted in a `DynamicMap` is no longer present, this means its reflected `Hash` might be incorrect");
                     *moved_index = index;
                 }
 
