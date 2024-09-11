@@ -172,10 +172,8 @@ pub struct ExtractedUiNode {
     // Nodes with ambiguous camera will be ignored.
     pub camera_entity: Entity,
     /// Border radius of the UI node.
-    /// Ordering: top left, top right, bottom right, bottom left.
     pub border_radius: ResolvedBorderRadius,
     /// Border thickness of the UI node.
-    /// Ordering: left, top, right, bottom.
     pub border: BorderRect,
     pub node_type: NodeType,
 }
