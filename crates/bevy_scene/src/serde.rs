@@ -3,11 +3,11 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
-use bevy_reflect::PartialReflect;
 use bevy_reflect::{
     serde::{ReflectDeserializer, TypeRegistrationDeserializer},
     TypeRegistry,
 };
+use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
@@ -471,9 +471,19 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 )));
             }
 
-            entries.push(
-                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
-            );
+            let value =
+                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?;
+
+            // Attempt to convert using FromReflect.
+            let value = self
+                .registry
+                .get(registration.type_id())
+                .and_then(|tr| tr.data::<ReflectFromReflect>())
+                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
+                .map(|v| v.into_partial_reflect())
+                .unwrap_or(value);
+
+            entries.push(value);
         }
 
         Ok(entries)
