@@ -15,7 +15,7 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -23,8 +23,8 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline, TargetCamera,
-    UiImage, UiScale,
+    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
+    ResolvedBorderRadius, TargetCamera, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -173,10 +173,10 @@ pub struct ExtractedUiNode {
     pub camera_entity: Entity,
     /// Border radius of the UI node.
     /// Ordering: top left, top right, bottom right, bottom left.
-    pub border_radius: [f32; 4],
+    pub border_radius: ResolvedBorderRadius,
     /// Border thickness of the UI node.
     /// Ordering: left, top, right, bottom.
-    pub border: [f32; 4],
+    pub border: BorderRect,
     pub node_type: NodeType,
 }
 
@@ -213,20 +213,6 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let border = [
-            uinode.border.left,
-            uinode.border.top,
-            uinode.border.right,
-            uinode.border.bottom,
-        ];
-
-        let border_radius = [
-            uinode.border_radius.top_left,
-            uinode.border_radius.top_right,
-            uinode.border_radius.bottom_right,
-            uinode.border_radius.bottom_left,
-        ];
-
         extracted_uinodes.uinodes.insert(
             entity,
             ExtractedUiNode {
@@ -243,8 +229,8 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 camera_entity,
-                border,
-                border_radius,
+                border: uinode.border(),
+                border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
             },
         );
@@ -340,8 +326,8 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
-                border,
-                border_radius,
+                border: BorderRect::ZERO,
+                border_radius: ResolvedBorderRadius::ZERO,
                 node_type: NodeType::Rect,
             },
         );
@@ -661,8 +647,8 @@ pub fn extract_uinode_text(
                     flip_x: false,
                     flip_y: false,
                     camera_entity,
-                    border: [0.; 4],
-                    border_radius: [0.; 4],
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
                     node_type: NodeType::Rect,
                 },
             );
@@ -1012,8 +998,18 @@ pub fn prepare_uinodes(
                             uv: uvs[i].into(),
                             color,
                             flags: flags | shader_flags::CORNERS[i],
-                            radius: extracted_uinode.border_radius,
-                            border: extracted_uinode.border,
+                            radius: [
+                                extracted_uinode.border_radius.top_left,
+                                extracted_uinode.border_radius.top_right,
+                                extracted_uinode.border_radius.bottom_right,
+                                extracted_uinode.border_radius.bottom_left,
+                            ],
+                            border: [
+                                extracted_uinode.border.left,
+                                extracted_uinode.border.top,
+                                extracted_uinode.border.right,
+                                extracted_uinode.border.bottom,
+                            ],
                             size: rect_size.xy().into(),
                         });
                     }
