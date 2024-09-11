@@ -23,6 +23,7 @@ use wgpu::{BufferBindingType, BufferUsages};
 
 use crate::{
     camera::Camera,
+    primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -364,7 +365,7 @@ impl VisibleEntityRanges {
 pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
-    mut entity_query: Query<(Entity, &GlobalTransform, &VisibilityRange)>,
+    mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();
 
@@ -383,12 +384,17 @@ pub fn check_visibility_ranges(
 
     // Check each entity/view pair. Only consider entities with
     // [`VisibilityRange`] components.
-    for (entity, entity_transform, visibility_range) in entity_query.iter_mut() {
+    for (entity, entity_transform, maybe_model_aabb, visibility_range) in entity_query.iter_mut() {
         let mut visibility = 0;
         for (view_index, &(_, view_position)) in views.iter().enumerate() {
-            if visibility_range
-                .is_visible_at_all((view_position - entity_transform.translation_vec3a()).length())
-            {
+            let model_pos = if let Some(model_aabb) = maybe_model_aabb {
+                let world_from_local = entity_transform.affine();
+                world_from_local.transform_point3a(model_aabb.center)
+            } else {
+                entity_transform.translation_vec3a()
+            };
+
+            if visibility_range.is_visible_at_all((view_position - model_pos).length()) {
                 visibility |= 1 << view_index;
             }
         }
