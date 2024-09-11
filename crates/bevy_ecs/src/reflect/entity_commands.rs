@@ -22,7 +22,7 @@ pub trait ReflectCommandExt {
     ///
     /// - If the entity doesn't exist.
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
-    /// [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
