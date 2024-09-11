@@ -725,7 +725,14 @@ mod tests {
         map.insert(0, 0);
         map.insert(1, 1);
 
-        map.remove(&0);
-        assert!(map.get(&1).is_some());
+        assert_eq!(map.remove(&0).unwrap().try_downcast_ref(), Some(&0));
+        assert!(map.get(&0).is_none());
+        assert_eq!(map.get(&1).unwrap().try_downcast_ref(), Some(&1));
+
+        assert_eq!(map.remove(&1).unwrap().try_downcast_ref(), Some(&1));
+        assert!(map.get(&1).is_none());
+
+        assert!(map.remove(&1).is_none());
+        assert!(map.get(&1).is_none());
     }
 }
