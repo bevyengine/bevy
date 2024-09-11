@@ -385,7 +385,7 @@ mod menu {
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
         let button_style = Style {
-            width: Val::Px(250.0),
+            width: Val::Px(300.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
