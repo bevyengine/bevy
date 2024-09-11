@@ -108,6 +108,16 @@ impl Default for UiScale {
     }
 }
 
+/// Configuration resource for controlling the UI's anti-aliasing
+#[derive(Debug, Reflect, Resource, Default)]
+pub enum UiAntialias {
+    /// UI will render with anti-aliasing
+    #[default]
+    On,
+    /// UI will render without anti-aliasing
+    Off,
+}
+
 // Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
 // See https://github.com/bevyengine/bevy/pull/11391 for more details.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -125,6 +135,7 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .init_resource::<UiAntialias>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()

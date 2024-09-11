@@ -25,7 +25,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiImage, UiScale, Val,
+    TargetCamera, UiAntialias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -180,6 +180,7 @@ pub struct ExtractedUiNode {
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
     pub node_type: NodeType,
+    pub antialias: bool,
 }
 
 #[derive(Resource, Default)]
@@ -192,6 +193,7 @@ pub fn extract_uinode_background_colors(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
+    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -273,6 +275,10 @@ pub fn extract_uinode_background_colors(
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
                 },
+                antialias: match ui_antialias.as_ref() {
+                    UiAntialias::On => true,
+                    UiAntialias::Off => false,
+                },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 atlas_scaling: None,
@@ -294,6 +300,7 @@ pub fn extract_uinode_images(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
+    ui_antialias: Extract<Res<UiAntialias>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -400,6 +407,10 @@ pub fn extract_uinode_images(
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
                 atlas_scaling,
+                antialias: match ui_antialias.as_ref() {
+                    UiAntialias::On => true,
+                    UiAntialias::Off => false,
+                },
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
@@ -451,6 +462,7 @@ pub fn extract_uinode_borders(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
+    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -545,6 +557,10 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         atlas_scaling: None,
+                        antialias: match ui_antialias.as_ref() {
+                            UiAntialias::On => true,
+                            UiAntialias::Off => false,
+                        },
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
@@ -579,6 +595,10 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     atlas_scaling: None,
+                    antialias: match ui_antialias.as_ref() {
+                        UiAntialias::On => true,
+                        UiAntialias::Off => false,
+                    },
                     clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -683,6 +703,7 @@ pub fn extract_uinode_text(
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
+    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -760,6 +781,10 @@ pub fn extract_uinode_text(
                     rect,
                     image: atlas_info.texture.id(),
                     atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
+                    antialias: match ui_antialias.as_ref() {
+                        UiAntialias::On => true,
+                        UiAntialias::Off => false,
+                    },
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -832,6 +857,7 @@ pub mod shader_flags {
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
+    pub const ANTIALIAS: u32 = 16;
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1107,6 +1133,10 @@ pub fn prepare_uinodes(
                     let color = extracted_uinode.color.to_f32_array();
                     if extracted_uinode.node_type == NodeType::Border {
                         flags |= shader_flags::BORDER;
+                    }
+
+                    if extracted_uinode.antialias {
+                        flags |= shader_flags::ANTIALIAS;
                     }
 
                     for i in 0..4 {
