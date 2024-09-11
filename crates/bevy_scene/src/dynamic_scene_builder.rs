@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     world::World,
 };
-use bevy_reflect::PartialReflect;
+use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
@@ -278,7 +278,17 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .get(type_id)?
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
-                    entry.components.push(component.clone_value());
+
+                    // Clone the via `FromReflect`. Unlike `PartialReflect::clone_value` this
+                    // retains the original type and `ReflectSerialize` type data which is needed to
+                    // deserialize.
+                    let component = type_registry
+                        .get(type_id)?
+                        .data::<ReflectFromReflect>()?
+                        .from_reflect(component.as_partial_reflect())?
+                        .into_partial_reflect();
+
+                    entry.components.push(component);
                     Some(())
                 };
                 extract_and_push();
