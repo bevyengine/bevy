@@ -299,20 +299,6 @@ pub fn extract_uinode_images(
             None
         };
 
-        let border = [
-            uinode.border.left,
-            uinode.border.top,
-            uinode.border.right,
-            uinode.border.bottom,
-        ];
-
-        let border_radius = [
-            uinode.border_radius.top_left,
-            uinode.border_radius.top_right,
-            uinode.border_radius.bottom_right,
-            uinode.border_radius.bottom_left,
-        ];
-
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
             ExtractedUiNode {
@@ -332,28 +318,6 @@ pub fn extract_uinode_images(
             },
         );
     }
-}
-
-#[inline]
-fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
-    let s = 0.5 * size + offset;
-    let sm = s.x.min(s.y);
-    r.min(sm)
-}
-
-#[inline]
-fn clamp_radius(
-    [top_left, top_right, bottom_right, bottom_left]: [f32; 4],
-    size: Vec2,
-    border: Vec4,
-) -> [f32; 4] {
-    let s = size - border.xy() - border.zw();
-    [
-        clamp_corner(top_left, s, border.xy()),
-        clamp_corner(top_right, s, border.zy()),
-        clamp_corner(bottom_right, s, border.zw()),
-        clamp_corner(bottom_left, s, border.xw()),
-    ]
 }
 
 pub fn extract_uinode_borders(
@@ -396,25 +360,9 @@ pub fn extract_uinode_borders(
         {
             continue;
         }
-
-        let border = [
-            uinode.border.left,
-            uinode.border.top,
-            uinode.border.right,
-            uinode.border.bottom,
-        ];
-
-        let border_radius = [
-            uinode.border_radius.top_left,
-            uinode.border_radius.top_right,
-            uinode.border_radius.bottom_right,
-            uinode.border_radius.bottom_left,
-        ];
-
-        let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
-
+        //let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && !border.is_empty() {
+        if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
@@ -432,8 +380,8 @@ pub fn extract_uinode_borders(
                         flip_x: false,
                         flip_y: false,
                         camera_entity,
-                        border_radius,
-                        border,
+                        border_radius: uinode.border_radius(),
+                        border: uinode.border(),
                         node_type: NodeType::Border,
                     },
                 );
@@ -442,13 +390,6 @@ pub fn extract_uinode_borders(
 
         if let Some(outline) = maybe_outline {
             let outer_distance = uinode.outline_offset() + uinode.outline_width();
-            let outline_radius = border_radius.map(|radius| {
-                if radius > 0. {
-                    radius + outer_distance
-                } else {
-                    0.
-                }
-            });
             let outline_size = uinode.size() + 2. * outer_distance;
             extracted_uinodes.uinodes.insert(
                 commands.spawn_empty().id(),
@@ -466,8 +407,8 @@ pub fn extract_uinode_borders(
                     flip_x: false,
                     flip_y: false,
                     camera_entity,
-                    border: [uinode.outline_width(); 4],
-                    border_radius: outline_radius,
+                    border: BorderRect::square(uinode.outline_width()),
+                    border_radius: uinode.outline_radius(),
                     node_type: NodeType::Border,
                 },
             );

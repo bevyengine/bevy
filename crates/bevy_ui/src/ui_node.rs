@@ -2,7 +2,7 @@ use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -114,6 +114,27 @@ impl Node {
         self.outline_offset
     }
 
+    #[inline]
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub fn outline_radius(&self) -> ResolvedBorderRadius {
+        let outer_distance = self.outline_width + self.outline_offset;
+        let compute_radius = |radius| {
+            if radius > 0. {
+                radius + outer_distance
+            } else {
+                0.
+            }
+        };
+        ResolvedBorderRadius {
+            top_left: compute_radius(self.border_radius.top_left),
+            top_right: compute_radius(self.border_radius.top_right),
+            bottom_left: compute_radius(self.border_radius.bottom_left),
+            bottom_right: compute_radius(self.border_radius.bottom_right),
+        }
+    }
+
     /// Returns the thickness of the node's border on each edge in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -128,6 +149,28 @@ impl Node {
     #[inline]
     pub fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
+    }
+
+    /// Returns the inner border radius for each of the node's corners in logical pixels.
+    pub fn inner_radius(&self) -> ResolvedBorderRadius {
+        fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
+            let s = 0.5 * size + offset;
+            let sm = s.x.min(s.y);
+            r.min(sm)
+        }
+        let b = vec4(
+            self.border.left,
+            self.border.top,
+            self.border.right,
+            self.border.bottom,
+        );
+        let s = self.size() - b.xy() - b.zw();
+        ResolvedBorderRadius {
+            top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
+            top_right: clamp_corner(self.border_radius.top_right, s, b.zy()),
+            bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
+            bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
+        }
     }
 }
 
