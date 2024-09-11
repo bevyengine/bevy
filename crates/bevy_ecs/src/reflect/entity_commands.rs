@@ -39,7 +39,7 @@ pub trait ReflectCommandExt {
     /// // or write to the TypeRegistry directly to register all your components
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::ReflectCommandExt;
+    /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
@@ -53,7 +53,7 @@ pub trait ReflectCommandExt {
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
     /// struct ComponentB(String);
-    /// 
+    ///
     /// #[derive(Bundle, Reflect, Default)]
     /// #[reflect(Bundle)]
     /// struct BundleA {
@@ -72,7 +72,7 @@ pub trait ReflectCommandExt {
     ///         a: ComponentA(24),
     ///         b: ComponentB("Twenty-Four".to_string()),
     ///     });
-    /// 
+    ///
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
     ///     prefab.data = boxed_reflect_component_a;
     ///     prefab.data = boxed_reflect_component_b;
@@ -106,7 +106,7 @@ pub trait ReflectCommandExt {
     ) -> &mut Self;
 
     /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
-    /// 
+    ///
     /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
     /// contains all the components.
     ///
@@ -128,7 +128,7 @@ pub trait ReflectCommandExt {
     /// // or write to the TypeRegistry directly to register all your components and bundles
     ///
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::reflect::ReflectCommandExt;
+    /// # use bevy_ecs::reflect::{ReflectCommandExt, ReflectBundle};
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     ///
     /// // A resource that can hold any component or bundle that implements reflect as a boxed reflect
@@ -540,11 +540,11 @@ mod tests {
     #[test]
     fn insert_reflect_bundle_with_registry() {
         let mut world = World::new();
-        
+
         let mut type_registry = TypeRegistryResource {
             type_registry: TypeRegistry::new(),
         };
-        
+
         type_registry.type_registry.register::<BundleA>();
         type_registry
             .type_registry
@@ -559,8 +559,9 @@ mod tests {
             a: ComponentA(31),
             b: ComponentB(20),
         }) as Box<dyn PartialReflect>;
-        
-        commands.entity(entity)
+
+        commands
+            .entity(entity)
             .insert_reflect_with_registry::<TypeRegistryResource>(bundle);
         system_state.apply(&mut world);
 
@@ -583,10 +584,12 @@ mod tests {
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
-        let entity = commands.spawn(BundleA {
-            a: ComponentA(31),
-            b: ComponentB(20),
-        }).id();
+        let entity = commands
+            .spawn(BundleA {
+                a: ComponentA(31),
+                b: ComponentB(20),
+            })
+            .id();
 
         let boxed_reflect_bundle_a = Box::new(BundleA {
             a: ComponentA(1),
@@ -606,7 +609,6 @@ mod tests {
     fn remove_reflected_bundle_with_registry() {
         let mut world = World::new();
 
-
         let mut type_registry = TypeRegistryResource {
             type_registry: TypeRegistry::new(),
         };
@@ -620,10 +622,12 @@ mod tests {
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
-        let entity = commands.spawn(BundleA {
-            a: ComponentA(31),
-            b: ComponentB(20),
-        }).id();
+        let entity = commands
+            .spawn(BundleA {
+                a: ComponentA(31),
+                b: ComponentB(20),
+            })
+            .id();
 
         let boxed_reflect_bundle_a = Box::new(BundleA {
             a: ComponentA(1),
@@ -633,7 +637,7 @@ mod tests {
         commands
             .entity(entity)
             .remove_reflect_with_registry::<TypeRegistryResource>(
-                boxed_reflect_bundle_a.reflect_type_path().to_owned()
+                boxed_reflect_bundle_a.reflect_type_path().to_owned(),
             );
         system_state.apply(&mut world);
 
