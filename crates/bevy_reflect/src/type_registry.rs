@@ -279,6 +279,7 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
+    #[inline]
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }

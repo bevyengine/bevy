@@ -186,6 +186,7 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces

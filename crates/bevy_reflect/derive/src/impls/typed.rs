@@ -145,6 +145,7 @@ pub(crate) fn impl_typed(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
+            #[inline]
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
             }
