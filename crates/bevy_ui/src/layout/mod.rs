@@ -789,7 +789,10 @@ mod tests {
             .fold(
                 Option::<(Rect, bool)>::None,
                 |option_rect, (entity, node, global_transform)| {
-                    let current_rect = node.logical_rect(global_transform);
+                    let current_rect = Rect::from_center_size(
+                        global_transform.translation().truncate(),
+                        node.size(),
+                    );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity:?} doesn't have a logical size"

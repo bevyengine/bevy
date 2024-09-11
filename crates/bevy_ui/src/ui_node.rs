@@ -91,33 +91,27 @@ impl Node {
         self.unrounded_size
     }
 
-    /// Returns a [`Rect`] with the size [`GlobalTransform`].
-    #[inline]
-    pub fn logical_rect(&self, transform: &GlobalTransform) -> Rect {
-        Rect::from_center_size(transform.translation().truncate(), self.size())
-    }
-
-    #[inline]
     /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
-    #[inline]
     /// Returns the amount of space between the outline and the edge of the node in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub fn outline_offset(&self) -> f32 {
         self.outline_offset
     }
 
-    #[inline]
     /// Returns the amount of space between the outline and the edge of the node in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
         let compute_radius = |radius| {
