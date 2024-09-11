@@ -142,7 +142,7 @@ pub enum ApplyError {
     },
 }
 
-/// A zero-sized enumuration of the "kinds" of a reflected type.
+/// A zero-sized enumeration of the "kinds" of a reflected type.
 ///
 /// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
