@@ -1282,7 +1282,7 @@ impl<'w> BundleSpawner<'w> {
         unsafe { &mut self.world.world_mut().entities }
     }
 
-    /// # Safety:
+    /// # Safety
     /// - `Self` must be dropped after running this function as it may invalidate internal pointers.
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {

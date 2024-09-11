@@ -1130,7 +1130,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Remove the components of `bundle` from `entity`.
     ///
-    /// SAFETY:
+    /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
     #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
@@ -1519,7 +1519,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 }
 
-/// SAFETY: all components in the archetype must exist in world
+/// # Safety
+/// All components in the archetype must exist in world
 unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     deferred_world: &mut DeferredWorld,
     archetype: &Archetype,

@@ -1290,7 +1290,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// All arguments must stem from the same valid `QueryManyIter`.
     ///
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
@@ -1578,7 +1578,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
     /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.

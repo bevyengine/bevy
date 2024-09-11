@@ -1002,7 +1002,7 @@ impl<'w> UnsafeEntityCell<'w> {
 
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
-    /// # Safety:
+    /// # Safety
     /// - the returned `Column` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `Column` is only used in ways that would not conflict with any existing
     ///   borrows of world data.
@@ -1017,7 +1017,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     #[inline]
-    /// # Safety:
+    /// # Safety
     /// - the returned `ComponentSparseSet` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `ComponentSparseSet` is only used in ways that would not conflict with any existing
     ///   borrows of world data.
