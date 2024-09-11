@@ -385,6 +385,14 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`ComponentHooks::on_add`).
+///
+/// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
+/// erased.
+///
+/// The type parameters of this function _must_ match those used to create the [`Observer`].
+/// As such, it is recommended to only use this function within the [`Observer::new`] method to
+/// ensure type parameters match.
 fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
     entity: Entity,
