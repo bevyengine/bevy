@@ -274,19 +274,20 @@ impl<'w> DynamicSceneBuilder<'w> {
                         return None;
                     }
 
-                    let component = type_registry
-                        .get(type_id)?
+                    let type_registration = type_registry.get(type_id)?;
+
+                    let component = type_registration
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
                     // Clone the via `FromReflect`. Unlike `PartialReflect::clone_value` this
                     // retains the original type and `ReflectSerialize` type data which is needed to
                     // deserialize.
-                    let component = type_registry
-                        .get(type_id)?
-                        .data::<ReflectFromReflect>()?
-                        .from_reflect(component.as_partial_reflect())?
-                        .into_partial_reflect();
+                    let component = type_registration
+                        .data::<ReflectFromReflect>()
+                        .and_then(|fr| fr.from_reflect(component.as_partial_reflect()))
+                        .map(|r| r.into_partial_reflect())
+                        .unwrap_or_else(|| component.clone_value());
 
                     entry.components.push(component);
                     Some(())
