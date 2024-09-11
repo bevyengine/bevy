@@ -524,8 +524,12 @@ mod tests {
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
 
+    /// # Safety
+    ///
+    /// The pointer `x` must point to a valid value of type `T` and it must be safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+        // SAFETY: It is guaranteed by the caller that `x` points to a
+        //         valid value of type `T` and it is safe to drop this value.
         unsafe {
             x.drop_as::<T>();
         }
