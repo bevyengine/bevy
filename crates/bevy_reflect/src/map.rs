@@ -11,7 +11,7 @@ use crate::{
 /// A trait used to power [map-like] operations via [reflection].
 ///
 /// Maps contain zero or more entries of a key and its associated value,
-/// and correspond to types like [`HashMap`].
+/// and correspond to types like [`HashMap`] and [`BTreeMap`].
 /// The order of these entries is not guaranteed by this trait.
 ///
 /// # Hashing
@@ -37,6 +37,8 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
+/// [`HashMap`]: std::collections::HashMap
+/// [`BTreeMap`]: std::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
 pub trait Map: PartialReflect {
