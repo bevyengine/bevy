@@ -1,9 +1,9 @@
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 
-use crate::func::args::{ArgInfo, ArgList};
+use crate::func::args::ArgList;
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunction, FunctionError, FunctionResult, IntoFunctionMut, ReturnInfo};
+use crate::func::{DynamicFunction, FunctionError, FunctionResult, IntoFunctionMut};
 
 /// A dynamic representation of a function.
 ///
@@ -96,21 +96,6 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
-        self
-    }
-
-    /// Set the argument information of the function.
-    ///
-    /// It's important that the arguments match the intended function signature,
-    /// as this can be used by consumers of this function for validation and debugging.
-    pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.info = self.info.with_args(args);
-        self
-    }
-
-    /// Set the return information of the function.
-    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
-        self.info = self.info.with_return_info(return_info);
         self
     }
 

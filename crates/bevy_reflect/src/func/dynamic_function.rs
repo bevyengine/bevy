@@ -1,10 +1,9 @@
 use crate as bevy_reflect;
 use crate::__macro_exports::RegisterForReflection;
-use crate::func::args::{ArgInfo, ArgList};
+use crate::func::args::ArgList;
 use crate::func::info::FunctionInfo;
 use crate::func::{
     DynamicFunctionMut, Function, FunctionError, FunctionResult, IntoFunction, IntoFunctionMut,
-    ReturnInfo,
 };
 use crate::serde::Serializable;
 use crate::{
@@ -89,21 +88,6 @@ impl<'env> DynamicFunction<'env> {
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
-        self
-    }
-
-    /// Set the argument information of the function.
-    ///
-    /// It's important that the arguments match the intended function signature,
-    /// as this can be used by consumers of this function for validation and debugging.
-    pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.info = self.info.with_args(args);
-        self
-    }
-
-    /// Set the return information of the function.
-    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
-        self.info = self.info.with_return_info(return_info);
         self
     }
 
