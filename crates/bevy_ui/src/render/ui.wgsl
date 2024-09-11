@@ -98,7 +98,7 @@ fn is_inside_corner(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) 
     let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
     let radius = select(rs.x, rs.y, 0.0 < point.x);
     let q = 0.5 * size - p;
-    return q.x < radius && q.y < radius;
+    return q.x <= radius && q.y <= radius;
 }
 
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
@@ -166,7 +166,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
 
     if is_inside_corner(in.point, in.size, in.radius) {
-        return vec4(color.rgb, saturate(color.a * t)) * vec4(0., 1., 0., 1.);
+        return vec4(0., 1., 0., t);
     }
 
 
