@@ -8,6 +8,7 @@ use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
+use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -29,7 +30,7 @@ pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
-    /// The size of the node as width and height in physical pixels
+    /// The size of the node as width and height in logical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) calculated_size: Vec2,
@@ -44,16 +45,16 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
-    /// The unrounded size of the node as width and height in physical pixels.
+    /// The unrounded size of the node as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
-    /// Resolved border values in physical pixels
+    /// Resolved border values in logical pixels
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border: Inset,
-    /// Resolved border radius values in physical pixels.
+    pub(crate) border: BorderRect,
+    /// Resolved border radius values in logical pixels.
     /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -61,7 +62,7 @@ pub struct Node {
 }
 
 impl Node {
-    /// The calculated node size as width and height in physical pixels.
+    /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
@@ -77,11 +78,13 @@ impl Node {
 
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
+    ///
+    /// Automatically calculated by [`super::stack::ui_stack_system`]
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
 
-    /// The calculated node size as width and height in physical pixels before rounding.
+    /// The calculated node size as width and height in logical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn unrounded_size(&self) -> Vec2 {
@@ -95,16 +98,36 @@ impl Node {
     }
 
     #[inline]
-    /// Returns the thickness of the UI node's outline in physical pixels.
+    /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
     #[inline]
-    /// Returns the amount of space between the outline and the edge of the node in physical pixels.
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub fn outline_offset(&self) -> f32 {
         self.outline_offset
+    }
+
+    /// Returns the thickness of the node's border on each edge in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn border(&self) -> BorderRect {
+        self.border
+    }
+
+    /// Returns the border radius for each of the node's corners in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn border_radius(&self) -> ResolvedBorderRadius {
+        self.border_radius
     }
 }
 
@@ -116,7 +139,7 @@ impl Node {
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
-        border: Inset::ZERO,
+        border: BorderRect::square(0.),
     };
 }
 
@@ -2224,7 +2247,7 @@ impl BorderRadius {
 
 /// Represents the resolved border radius values for a UI node.
 ///
-/// The values are in physical pixels.
+/// The values are in logical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct ResolvedBorderRadius {
     pub top_left: f32,
@@ -2239,28 +2262,6 @@ impl ResolvedBorderRadius {
         top_right: 0.,
         bottom_left: 0.,
         bottom_right: 0.,
-    };
-}
-
-/// Represents the space or inset from the left, right, top, and bottom edges within a rectangle.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
-pub struct Inset {
-    pub left: f32,
-    pub right: f32,
-    pub top: f32,
-    pub bottom: f32,
-}
-
-impl Inset {
-    pub fn is_empty(&self) -> bool {
-        *self == Self::ZERO
-    }
-
-    pub const ZERO: Self = Self {
-        left: 0.,
-        right: 0.,
-        top: 0.,
-        bottom: 0.,
     };
 }
 
