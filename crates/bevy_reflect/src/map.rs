@@ -714,4 +714,14 @@ mod tests {
             assert_eq!(size, iter.index);
         }
     }
+
+    #[test]
+    fn remove() {
+        let mut map = DynamicMap::default();
+        map.insert(0, 0);
+        map.insert(1, 1);
+
+        map.remove(&0);
+        assert!(map.get(&1).is_some());
+    }
 }
