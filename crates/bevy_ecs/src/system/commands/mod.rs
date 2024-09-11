@@ -1017,13 +1017,36 @@ impl EntityCommands<'_> {
     ///
     /// # Panics
     ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
+    pub fn insert_if_new(self, bundle: impl Bundle) -> Self {
+        self.add(insert(bundle, InsertMode::Keep))
+    }
+
+    /// Adds a [`Bundle`] of components to the entity without overwriting if the
+    /// predicate returns true.
+    ///
+    /// This is the same as [`EntityCommands::insert_if`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    ///
+    /// # Panics
+    ///
     /// The command will panic when applied if the associated entity does not
     /// exist.
     ///
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
     /// instead.
-    pub fn insert_if_new(self, bundle: impl Bundle) -> Self {
-        self.add(insert(bundle, InsertMode::Keep))
+    pub fn insert_if_new_and<F>(self, bundle: impl Bundle, condition: F) -> Self
+    where
+        F: FnOnce() -> bool,
+    {
+        if condition() {
+            self.insert_if_new(bundle)
+        } else {
+            self
+        }
     }
 
     /// Adds a dynamic component to an entity.
@@ -1156,6 +1179,52 @@ impl EntityCommands<'_> {
     {
         if condition() {
             self.add(try_insert(bundle, InsertMode::Replace))
+        } else {
+            self
+        }
+    }
+
+    /// Tries to add a [`Bundle`] of components to the entity without overwriting if the
+    /// predicate returns true.
+    ///
+    /// This is the same as [`EntityCommands::try_insert_if`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::insert_if_new_and`], this will not panic if the associated entity does
+    /// not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// # impl PlayerEntity { fn is_spectator(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct StillLoadingStats;
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    ///
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///     .try_insert_if(Health(10), || player.is_spectator())
+    ///     .remove::<StillLoadingStats>();
+    ///
+    ///    commands.entity(player.entity)
+    ///    // This will not panic nor will it overwrite the component
+    ///      .try_insert_if_new_and(Health(5), || player.is_spectator());
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_health_system);
+    /// ```
+    pub fn try_insert_if_new_and<F>(self, bundle: impl Bundle, condition: F) -> Self
+    where
+        F: FnOnce() -> bool,
+    {
+        if condition() {
+            self.try_insert_if_new(bundle)
         } else {
             self
         }
@@ -1682,6 +1751,45 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(results3, vec![(42u32, 0u64), (0u32, 42u64)]);
+    }
+
+    #[test]
+    fn insert_components() {
+        let mut world = World::default();
+        let mut command_queue1 = CommandQueue::default();
+
+        // insert components
+        let entity = Commands::new(&mut command_queue1, &world)
+            .spawn(())
+            .insert_if(W(1u8), || true)
+            .insert_if(W(2u8), || false)
+            .insert_if_new(W(1u16))
+            .insert_if_new(W(2u16))
+            .insert_if_new_and(W(1u32), || false)
+            .insert_if_new_and(W(2u32), || true)
+            .insert_if_new_and(W(3u32), || true)
+            .id();
+        command_queue1.apply(&mut world);
+
+        let results = world
+            .query::<(&W<u8>, &W<u16>, &W<u32>)>()
+            .iter(&world)
+            .map(|(a, b, c)| (a.0, b.0, c.0))
+            .collect::<Vec<_>>();
+        assert_eq!(results, vec![(1u8, 1u16, 2u32)]);
+
+        // try to insert components after despawning entity
+        // in another command queue
+        Commands::new(&mut command_queue1, &world)
+            .entity(entity)
+            .try_insert_if_new_and(W(1u64), || true);
+
+        let mut command_queue2 = CommandQueue::default();
+        Commands::new(&mut command_queue2, &world)
+            .entity(entity)
+            .despawn();
+        command_queue2.apply(&mut world);
+        command_queue1.apply(&mut world);
     }
 
     #[test]
