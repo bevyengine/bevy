@@ -80,7 +80,7 @@ fn update_clipping(
         // current node's clip and the inherited clip. This handles the case
         // of nested `Overflow::Hidden` nodes. If parent `clip` is not
         // defined, use the current node's clip.
-        let mut node_rect = node.physical_rect(global_transform);
+        let mut node_rect = node.logical_rect(global_transform);
         if style.overflow.x == OverflowAxis::Visible {
             node_rect.min.x = -f32::INFINITY;
             node_rect.max.x = f32::INFINITY;

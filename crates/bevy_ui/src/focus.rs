@@ -243,7 +243,10 @@ pub fn ui_focus_system(
                 .map(TargetCamera::entity)
                 .or(default_ui_camera.get())?;
 
-            let node_rect = node.node.physical_rect(node.global_transform);
+            let node_rect = Rect::from_center_size(
+                node.global_transform.translation().truncate(),
+                node.node.size(),
+            );
 
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
             let visible_rect = node

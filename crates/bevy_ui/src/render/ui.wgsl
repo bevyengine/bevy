@@ -93,6 +93,14 @@ fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) ->
     return l + m - radius;
 }
 
+fn is_inside_corner(point: vec2<f32>, size: vec2<f32>, corner_radii: vec4<f32>) -> bool {
+    let p = abs(point);
+    let rs = select(corner_radii.xy, corner_radii.wz, 0.0 < point.y);
+    let radius = select(rs.x, rs.y, 0.0 < point.x);
+    let q = 0.5 * size - p;
+    return q.x < radius && q.y < radius;
+}
+
 fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, inset: vec4<f32>) -> f32 {
     let inner_size = size - inset.xy - inset.zw;
     let inner_center = inset.xy + 0.5 * inner_size - 0.5 * size;
@@ -156,6 +164,12 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
+
+    if is_inside_corner(in.point, in.size, in.radius) {
+        return vec4(color.rgb, saturate(color.a * t)) * vec4(0., 1., 0., 1.);
+    }
+
+
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, saturate(color.a * t));
 }
@@ -171,10 +185,12 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+
+
+    var texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     if enabled(in.flags, BORDER) {
-        return draw(in, texture_color);    
+        return draw(in, texture_color);
     } else {
         return draw_background(in, texture_color);
     }

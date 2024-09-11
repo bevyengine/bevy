@@ -334,11 +334,8 @@ pub fn ui_layout_system(
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius = border_radius.resolve(
-                    inverse_target_scale_factor,
-                    node.calculated_size,
-                    viewport_size,
-                );
+                node.bypass_change_detection().border_radius =
+                    border_radius.resolve(node.calculated_size, viewport_size);
             }
 
             if let Some(outline) = maybe_outline {
@@ -791,7 +788,7 @@ mod tests {
             .fold(
                 Option::<(Rect, bool)>::None,
                 |option_rect, (entity, node, global_transform)| {
-                    let current_rect = node.physical_rect(global_transform);
+                    let current_rect = node.logical_rect(global_transform);
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity:?} doesn't have a logical size"
