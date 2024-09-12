@@ -245,6 +245,8 @@ impl AppGizmoBuilder for App {
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
 
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
         #[cfg(feature = "fixed_time")]
         {
             self.init_resource::<GizmoStorage<Config, ()>>()
@@ -273,7 +275,6 @@ impl AppGizmoBuilder for App {
         #[cfg(not(feature = "fixed_time"))]
         {
             self.init_resource::<GizmoStorage<Config, ()>>()
-                .init_resource::<GizmoStorage<Config, ()>>()
                 .init_resource::<GizmoStorage<Config, Fixed>>()
                 .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
                 .add_systems(First, clear_gizmo_context::<Config, Fixed>)
