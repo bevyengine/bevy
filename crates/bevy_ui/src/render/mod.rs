@@ -466,7 +466,6 @@ fn clamp_radius(
     ]
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -698,7 +697,6 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
