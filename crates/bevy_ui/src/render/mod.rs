@@ -85,6 +85,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
+        .init_resource::<ExtractedUiAntialias>()
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
@@ -104,6 +105,7 @@ pub fn build_ui_render(app: &mut App) {
             ExtractSchedule,
             (
                 extract_default_ui_camera_view,
+                extract_ui_antialias,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -144,6 +146,25 @@ pub fn build_ui_render(app: &mut App) {
     app.add_plugins(UiTextureSlicerPlugin);
 }
 
+#[derive(Debug, Resource, Default, PartialEq, Eq, Clone)]
+pub enum ExtractedUiAntialias {
+    #[default]
+    On,
+    Off,
+}
+
+fn extract_ui_antialias(
+    ui_antialias: Extract<Res<UiAntialias>>,
+    mut extracted_ui_antialias: ResMut<ExtractedUiAntialias>,
+) {
+    if ui_antialias.is_changed() {
+        extracted_ui_antialias.set_if_neq(match ui_antialias.as_ref() {
+            UiAntialias::On => ExtractedUiAntialias::On,
+            UiAntialias::Off => ExtractedUiAntialias::Off,
+        });
+    }
+}
+
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
     let ui_pass_node = UiPassNode::new(render_app.world_mut());
     let mut ui_graph = RenderGraph::default();
@@ -180,7 +201,6 @@ pub struct ExtractedUiNode {
     /// Ordering: left, top, right, bottom.
     pub border: [f32; 4],
     pub node_type: NodeType,
-    pub antialias: bool,
 }
 
 #[derive(Resource, Default)]
@@ -193,7 +213,6 @@ pub fn extract_uinode_background_colors(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -275,10 +294,6 @@ pub fn extract_uinode_background_colors(
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
                 },
-                antialias: match ui_antialias.as_ref() {
-                    UiAntialias::On => true,
-                    UiAntialias::Off => false,
-                },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
                 atlas_scaling: None,
@@ -300,7 +315,6 @@ pub fn extract_uinode_images(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_antialias: Extract<Res<UiAntialias>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -407,10 +421,6 @@ pub fn extract_uinode_images(
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
                 atlas_scaling,
-                antialias: match ui_antialias.as_ref() {
-                    UiAntialias::On => true,
-                    UiAntialias::Off => false,
-                },
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
@@ -463,7 +473,6 @@ pub fn extract_uinode_borders(
     camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -558,10 +567,6 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         atlas_scaling: None,
-                        antialias: match ui_antialias.as_ref() {
-                            UiAntialias::On => true,
-                            UiAntialias::Off => false,
-                        },
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
@@ -596,10 +601,6 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     atlas_scaling: None,
-                    antialias: match ui_antialias.as_ref() {
-                        UiAntialias::On => true,
-                        UiAntialias::Off => false,
-                    },
                     clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -705,7 +706,6 @@ pub fn extract_uinode_text(
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
-    ui_antialias: Extract<Res<UiAntialias>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -783,10 +783,6 @@ pub fn extract_uinode_text(
                     rect,
                     image: atlas_info.texture.id(),
                     atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
-                    antialias: match ui_antialias.as_ref() {
-                        UiAntialias::On => true,
-                        UiAntialias::Off => false,
-                    },
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -914,6 +910,7 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    extracted_ui_antialias: Res<ExtractedUiAntialias>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
@@ -1137,7 +1134,7 @@ pub fn prepare_uinodes(
                         flags |= shader_flags::BORDER;
                     }
 
-                    if extracted_uinode.antialias {
+                    if matches!(extracted_ui_antialias.as_ref(), ExtractedUiAntialias::On) {
                         flags |= shader_flags::ANTIALIAS;
                     }
 
