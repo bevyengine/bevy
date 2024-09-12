@@ -1,3 +1,4 @@
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
@@ -7,6 +8,7 @@ use bevy_render::{
         RenderPassDescriptor,
     },
     renderer::RenderContext,
+    view::{ViewDepthTexture, ViewTarget},
 };
 
 use super::{
@@ -15,12 +17,15 @@ use super::{
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub(super) struct AtmosphereNodeLabel;
+pub enum AtmosphereNodes {
+    Luts,
+    Apply,
+}
 
 #[derive(Default)]
-pub(super) struct AtmosphereNode {}
+pub(super) struct AtmosphereLutsNode {}
 
-impl ViewNode for AtmosphereNode {
+impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
         Read<AtmosphereTextures>,
         Read<AtmosphereSettings>,
@@ -33,7 +38,7 @@ impl ViewNode for AtmosphereNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (textures, lut_settings, bind_groups, atmosphere_uniform_offset, lut_uniform_offset): QueryItem<
+        (textures, lut_settings, bind_groups, atmosphere_uniform_index, lut_uniform_index): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -75,7 +80,7 @@ impl ViewNode for AtmosphereNode {
             transmittance_lut_pass.set_bind_group(
                 0,
                 &bind_groups.transmittance_lut,
-                &[atmosphere_uniform_offset.index()],
+                &[atmosphere_uniform_index.index()],
             );
             transmittance_lut_pass.draw(0..3, 0..1);
         }
@@ -91,10 +96,7 @@ impl ViewNode for AtmosphereNode {
             multiscattering_lut_pass.set_bind_group(
                 0,
                 &bind_groups.multiscattering_lut,
-                &[
-                    atmosphere_uniform_offset.index(),
-                    lut_uniform_offset.index(),
-                ],
+                &[atmosphere_uniform_index.index(), lut_uniform_index.index()],
             );
 
             const MULTISCATTERING_WORKGROUP_SIZE: u32 = 16;
@@ -125,10 +127,7 @@ impl ViewNode for AtmosphereNode {
             sky_view_lut_pass.set_bind_group(
                 0,
                 &bind_groups.sky_view_lut,
-                &[
-                    atmosphere_uniform_offset.index(),
-                    lut_uniform_offset.index(),
-                ],
+                &[atmosphere_uniform_index.index(), lut_uniform_index.index()],
             );
             sky_view_lut_pass.draw(0..3, 0..1);
         }
@@ -142,7 +141,7 @@ impl ViewNode for AtmosphereNode {
             aerial_view_lut_pass.set_bind_group(
                 0,
                 &bind_groups.aerial_view_lut,
-                &[atmosphere_uniform_offset.index()],
+                &[atmosphere_uniform_index.index()],
             );
 
             const AERIAL_VIEW_WORKGROUP_SIZE: u32 = 4;
@@ -163,6 +162,39 @@ impl ViewNode for AtmosphereNode {
         }
 
         render_context.command_encoder().pop_debug_group();
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(super) struct ApplyAtmosphereNode;
+
+impl ViewNode for ApplyAtmosphereNode {
+    type ViewQuery = (
+        Read<AtmosphereTextures>,
+        Read<AtmosphereBindGroups>,
+        Read<ViewTarget>,
+        Read<DynamicUniformIndex<Atmosphere>>,
+    );
+
+    fn run<'w>(
+        &self,
+        graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        (textures, bind_groups, view_target, atmosphere_index): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        let render_pass =
+            render_context
+                .command_encoder()
+                .begin_render_pass(&RenderPassDescriptor {
+                    label: Some("atmosphere_apply_pass"),
+                    color_attachments: &[Some(view_target.get_color_attachment())],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+
         Ok(())
     }
 }
