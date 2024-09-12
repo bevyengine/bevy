@@ -855,7 +855,6 @@ pub mod shader_flags {
     /// Ordering: top left, top right, bottom right, bottom left.
     pub const CORNERS: [u32; 4] = [0, 2, 2 | 4, 4];
     pub const BORDER: u32 = 8;
-    pub const ANTIALIAS: u32 = 16;
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -910,7 +909,6 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    extracted_ui_antialias: Res<ExtractedUiAntialias>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
@@ -1132,10 +1130,6 @@ pub fn prepare_uinodes(
                     let color = extracted_uinode.color.to_f32_array();
                     if extracted_uinode.node_type == NodeType::Border {
                         flags |= shader_flags::BORDER;
-                    }
-
-                    if matches!(extracted_ui_antialias.as_ref(), ExtractedUiAntialias::On) {
-                        flags |= shader_flags::ANTIALIAS;
                     }
 
                     for i in 0..4 {
