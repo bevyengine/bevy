@@ -109,7 +109,7 @@ impl Default for UiScale {
 }
 
 /// Configuration resource for controlling the UI's anti-aliasing
-#[derive(Debug, Reflect, Resource, Default)]
+#[derive(Debug, Reflect, Resource, Default, PartialEq, Eq, Clone)]
 pub enum UiAntialias {
     /// UI will render with anti-aliasing
     #[default]
