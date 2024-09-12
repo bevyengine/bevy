@@ -2266,6 +2266,35 @@ impl ResolvedBorderRadius {
     };
 }
 
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BoxShadow {
+    /// The shadow's color
+    pub color: Color,
+    /// Offset increasing to the right and down
+    pub offset: Vec2,
+    /// Difference in size from occluding uninode
+    pub spread_radius: Vec2,
+    /// Blurriness of the shadow
+    pub blur_radius: Vec2,
+}
+
+impl Default for BoxShadow {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            offset: Default::default(),
+            spread_radius: Default::default(),
+            blur_radius: Default::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
