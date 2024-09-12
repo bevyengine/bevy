@@ -564,9 +564,12 @@ impl<'a> StructField<'a> {
         let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(
-            unused_mut,
-            reason = "Needs to be mutable if `documentation` feature is enabled."
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
         )]
         let mut info = quote! {
             #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
@@ -679,9 +682,12 @@ impl<'a> ReflectStruct<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(
-            unused_mut,
-            reason = "Needs to be mutable if `documentation` feature is enabled."
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
         )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new::<Self>(&[
@@ -779,9 +785,12 @@ impl<'a> ReflectEnum<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(
-            unused_mut,
-            reason = "Needs to be mutable if `documentation` feature is enabled."
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
         )]
         let mut info = quote! {
             #bevy_reflect_path::EnumInfo::new::<Self>(&[
@@ -852,9 +861,12 @@ impl<'a> EnumVariant<'a> {
 
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(
-            unused_mut,
-            reason = "Needs to be mutable if `documentation` feature is enabled."
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
         )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
