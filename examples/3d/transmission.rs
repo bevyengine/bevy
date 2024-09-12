@@ -23,7 +23,7 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::*,
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
+        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
@@ -36,7 +36,7 @@ use bevy::{
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
 };
 use rand::random;
 
@@ -363,7 +363,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             ..default()
         },
-        BloomSettings::default(),
+        Bloom::default(),
     ));
 
     // Controls Text
@@ -521,14 +521,13 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
-            commands.entity(camera_entity).insert((
-                TemporalJitter::default(),
-                TemporalAntiAliasSettings::default(),
-            ));
+            commands
+                .entity(camera_entity)
+                .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(TemporalJitter, TemporalAntiAliasSettings)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
 

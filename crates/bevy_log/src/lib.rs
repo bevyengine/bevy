@@ -28,8 +28,10 @@ mod android_tracing;
 static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
+/// The log prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Log Prelude.
     #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,

@@ -35,7 +35,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 
-/// Common imports for implementing a picking backend.
+/// The picking backend prelude.
+///
+/// This includes the most common types in this module, re-exported for your convenience.
 pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{

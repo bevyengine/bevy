@@ -39,7 +39,9 @@ use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+/// The animation prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

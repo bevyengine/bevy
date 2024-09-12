@@ -1,6 +1,6 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
     ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
 };
@@ -434,7 +434,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
             (
-                Has<ScreenSpaceAmbientOcclusionSettings>,
+                Has<ScreenSpaceAmbientOcclusion>,
                 Has<ScreenSpaceReflectionsUniform>,
             ),
             (

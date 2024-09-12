@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     event::Event,
     observer::{Observer, Observers},
-    query::Access,
+    query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
@@ -155,6 +155,22 @@ impl<'w> EntityRef<'w> {
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_by_id(component_id) }
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity does not have the components required by the query `Q`.
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
+        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_components::<Q>() }
     }
 }
 
@@ -349,6 +365,22 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         self.as_readonly().get()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity does not have the components required by the query `Q`.
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -646,6 +678,23 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         EntityRef::from(self).get()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity does not have the components required by the query `Q`.
+    #[inline]
+    pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
+        EntityRef::from(self).components::<Q>()
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    #[inline]
+    pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
+        EntityRef::from(self).get_components::<Q>()
     }
 
     /// Consumes `self` and gets access to the component of type `T` with
@@ -1491,6 +1540,8 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     }
 }
 
+const QUERY_MISMATCH_ERROR: &str = "Query does not match the current entity";
+
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
 /// This `enum` can only be constructed from the [`entry`] method on [`EntityWorldMut`].
@@ -1878,7 +1929,7 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.access.component_reads_and_writes()
     }
 
@@ -2135,7 +2186,7 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.access.component_reads_and_writes()
     }
 
@@ -3114,5 +3165,25 @@ mod tests {
         assert!(e.get_by_id(a_id).is_none());
         assert!(e.get_mut_by_id(a_id).is_none());
         assert!(e.get_change_ticks_by_id(a_id).is_none());
+    }
+
+    #[test]
+    fn get_components() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct X(usize);
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct Y(usize);
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        assert_eq!(
+            Some((&X(7), &Y(10))),
+            world.entity(e1).get_components::<(&X, &Y)>()
+        );
+        assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
+        assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
     }
 }

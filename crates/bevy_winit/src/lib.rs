@@ -22,7 +22,6 @@ pub use winit::platform::android::activity as android_activity;
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
-#[allow(deprecated)]
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 pub use converters::convert_system_cursor_icon;
 pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
