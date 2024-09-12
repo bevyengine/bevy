@@ -92,7 +92,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// It uses the function `f(x) = x²`
     ///
     /// [unit domain]: `Interval::UNIT`
-    /// [`x = 1`]: `quadratic_ease_out`
+    /// [`x = 1`]: `Self::quadratic_ease_out`
     pub fn quadratic_ease_in() -> Self {
         Self {
             start: 0.0,
@@ -110,7 +110,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// It uses the function `f(x) = 1 - (1 - x)²`
     ///
     /// [unit domain]: `Interval::UNIT`
-    /// [`x = 0`]: `quadratic_ease_in`
+    /// [`x = 0`]: `Self::quadratic_ease_in`
     pub fn quadratic_ease_out() -> Self {
         fn f(t: f32) -> f32 {
             1.0 - (1.0 - t).squared()
