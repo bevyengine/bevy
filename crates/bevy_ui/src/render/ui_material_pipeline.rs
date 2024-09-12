@@ -418,17 +418,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .unwrap_or(ui_logical_viewport_size.x);
 
         let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
-                / uinode.size().x;
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
         let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size)
-                / uinode.size().x;
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
         let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
-                / uinode.size().y;
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
         let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size)
-                / uinode.size().y;
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
         extracted_uinodes.uinodes.insert(
             entity,
