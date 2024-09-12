@@ -186,14 +186,16 @@ impl PartialReflect for DynamicFunction<'static> {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        *self = value
-            .try_downcast_ref::<Self>()
-            .ok_or_else(|| ApplyError::MismatchedTypes {
-                from_type: value.reflect_type_path().into(),
-                to_type: Self::type_path().into(),
-            })?
-            .clone();
-        Ok(())
+        if let ReflectRef::Function(func) = value.reflect_ref() {
+            if let Some(func) = func.downcast_ref::<Self>() {
+                *self = func.clone();
+                return Ok(());
+            }
+        }
+        Err(ApplyError::MismatchedTypes {
+            from_type: value.reflect_type_path().into(),
+            to_type: Self::type_path().into(),
+        })
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -334,5 +336,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(clone_value, "Hello, world!");
+    }
+
+    #[test]
+    fn should_apply_function() {
+        let mut func: Box<dyn Function> = Box::new((|a: i32, b: i32| a + b).into_function());
+        func.apply(&((|a: i32, b: i32| a * b).into_function()));
+
+        let args = ArgList::new().push_owned(5_i32).push_owned(5_i32);
+        let result = func.reflect_call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 25);
     }
 }
