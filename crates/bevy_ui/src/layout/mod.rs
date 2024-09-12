@@ -1,4 +1,6 @@
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
+use crate::{
+    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
+};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::{Entity, EntityHashMap, EntityHashSet},
@@ -74,7 +76,7 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[doc(hidden)]
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
-    interned_root_notes: Vec<Vec<Entity>>,
+    interned_root_nodes: Vec<Vec<Entity>>,
     resized_windows: EntityHashSet,
     camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
@@ -110,12 +112,17 @@ pub fn ui_layout_system(
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
-    mut node_transform_query: Query<(&mut Node, &mut Transform, Option<&Outline>)>,
+    mut node_transform_query: Query<(
+        &mut Node,
+        &mut Transform,
+        Option<&BorderRadius>,
+        Option<&Outline>,
+    )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     let UiLayoutSystemBuffers {
-        interned_root_notes,
+        interned_root_nodes,
         resized_windows,
         camera_layout_info,
     } = &mut *buffers;
@@ -140,7 +147,7 @@ pub fn ui_layout_system(
             size,
             resized,
             scale_factor: scale_factor * ui_scale.0,
-            root_nodes: interned_root_notes.pop().unwrap_or_default(),
+            root_nodes: interned_root_nodes.pop().unwrap_or_default(),
         }
     };
 
@@ -273,20 +280,27 @@ pub fn ui_layout_system(
         }
 
         camera.root_nodes.clear();
-        interned_root_notes.push(camera.root_nodes);
+        interned_root_nodes.push(camera.root_nodes);
     }
 
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
         root_size: Option<Vec2>,
-        node_transform_query: &mut Query<(&mut Node, &mut Transform, Option<&Outline>)>,
+        node_transform_query: &mut Query<(
+            &mut Node,
+            &mut Transform,
+            Option<&BorderRadius>,
+            Option<&Outline>,
+        )>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform, outline)) = node_transform_query.get_mut(entity) {
+        if let Ok((mut node, mut transform, maybe_border_radius, maybe_outline)) =
+            node_transform_query.get_mut(entity)
+        {
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
@@ -311,7 +325,13 @@ pub fn ui_layout_system(
 
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 
-            if let Some(outline) = outline {
+            if let Some(border_radius) = maybe_border_radius {
+                // We don't trigger change detection for changes to border radius
+                node.bypass_change_detection().border_radius =
+                    border_radius.resolve(node.calculated_size, viewport_size);
+            }
+
+            if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = outline

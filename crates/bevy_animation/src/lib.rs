@@ -39,7 +39,9 @@ use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+/// The animation prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -1234,7 +1236,7 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets,
+                    animate_targets.after(bevy_render::mesh::morph::inherit_weights),
                     expire_completed_transitions,
                 )
                     .chain()

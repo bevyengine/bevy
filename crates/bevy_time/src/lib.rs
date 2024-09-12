@@ -23,8 +23,10 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
+/// The time prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Time Prelude.
     #[doc(hidden)]
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }

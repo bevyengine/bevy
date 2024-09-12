@@ -57,7 +57,7 @@
 //! Closures, on the other hand, are special functions that do capture their environment.
 //! These are always defined with anonymous function syntax.
 //!
-//! ```rust
+//! ```
 //! // A closure that captures an immutable reference to a variable
 //! let c = 123;
 //! let add = |a: i32, b: i32| a + b + c;
@@ -93,6 +93,35 @@
 //!
 //! For other functions that don't conform to one of the above signatures,
 //! [`DynamicFunction`] and [`DynamicFunctionMut`] can instead be created manually.
+//!
+//! # Function Registration
+//!
+//! This module also provides a [`FunctionRegistry`] that can be used to register functions and closures
+//! by name so that they may be retrieved and called dynamically.
+//!
+//! ```
+//! # use bevy_reflect::func::{ArgList, FunctionRegistry};
+//! fn add(a: i32, b: i32) -> i32 {
+//!     a + b
+//! }
+//!
+//! let mut registry = FunctionRegistry::default();
+//!
+//! // You can register functions and methods by their `std::any::type_name`:
+//! registry.register(add).unwrap();
+//!
+//! // Or you can register them by a custom name:
+//! registry.register_with_name("mul", |a: i32, b: i32| a * b).unwrap();
+//!
+//! // You can then retrieve and call these functions by name:
+//! let reflect_add = registry.get(std::any::type_name_of_val(&add)).unwrap();
+//! let value = reflect_add.call(ArgList::default().push_owned(10_i32).push_owned(5_i32)).unwrap();
+//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&15));
+//!
+//! let reflect_mul = registry.get("mul").unwrap();
+//! let value = reflect_mul.call(ArgList::default().push_owned(10_i32).push_owned(5_i32)).unwrap();
+//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&50));
+//! ```
 //!
 //! [`PartialReflect`]: crate::PartialReflect
 //! [`Reflect`]: crate::Reflect

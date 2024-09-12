@@ -102,7 +102,7 @@ fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>
 /// Note that some events will be printed twice, because they were sent twice.
 fn debug_events(mut events: EventReader<DebugEvent>) {
     for event in events.read() {
-        println!("{:?}", event);
+        println!("{event:?}");
     }
 }
 

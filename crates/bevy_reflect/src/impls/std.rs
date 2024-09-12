@@ -1029,7 +1029,6 @@ macro_rules! impl_reflect_for_hashset {
 }
 
 impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::EntityHash);
 impl_type_path!(::bevy_utils::FixedState);
 
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);

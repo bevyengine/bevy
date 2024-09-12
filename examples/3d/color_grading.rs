@@ -362,7 +362,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
             color_grading,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -459,9 +459,9 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
+            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
             SelectedColorGradingOption::Section(section, option) => {
-                write!(f, "\"{}\" for \"{}\"", option, section)
+                write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
@@ -633,7 +633,7 @@ fn update_ui_state(
 
 /// Creates the help text at the top left of the window.
 fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {}", currently_selected_option)
+    format!("Press Left/Right to adjust {currently_selected_option}")
 }
 
 /// Processes keyboard input to change the value of the currently-selected color

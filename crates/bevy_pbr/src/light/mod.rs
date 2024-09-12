@@ -11,7 +11,8 @@ use bevy_render::{
     mesh::Mesh,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntityRanges,
+        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
+        VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -485,7 +486,7 @@ pub enum ShadowFilteringMethod {
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
     /// Good quality when used with
-    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
+    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for
@@ -496,12 +497,19 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
+    /// System order ambiguities between systems in this set are ignored:
+    /// each [`build_directional_light_cascades`] system is independent of the others,
+    /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
 
@@ -676,6 +684,7 @@ pub fn check_dir_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
+            Has<NoFrustumCulling>,
         ),
         (
             Without<NotShadowCaster>,
@@ -735,6 +744,7 @@ pub fn check_dir_light_mesh_visibility(
                     maybe_aabb,
                     maybe_transform,
                     has_visibility_range,
+                    has_no_frustum_culling,
                 )| {
                     if !inherited_visibility.get() {
                         return;
@@ -761,7 +771,9 @@ pub fn check_dir_light_mesh_visibility(
                             .zip(view_visible_entities_local_queue.iter_mut())
                         {
                             // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                            if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
+                            if !has_no_frustum_culling
+                                && !frustum.intersects_obb(aabb, &transform.affine(), false, true)
+                            {
                                 continue;
                             }
                             visible = true;
@@ -841,6 +853,7 @@ pub fn check_point_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
+            Has<NoFrustumCulling>,
         ),
         (
             Without<NotShadowCaster>,
@@ -890,6 +903,7 @@ pub fn check_point_light_mesh_visibility(
                         maybe_aabb,
                         maybe_transform,
                         has_visibility_range,
+                        has_no_frustum_culling,
                     )| {
                         if !inherited_visibility.get() {
                             return;
@@ -910,7 +924,9 @@ pub fn check_point_light_mesh_visibility(
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
                             // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                            if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                            if !has_no_frustum_culling
+                                && !light_sphere.intersects_obb(aabb, &model_to_world)
+                            {
                                 return;
                             }
 
@@ -918,7 +934,9 @@ pub fn check_point_light_mesh_visibility(
                                 .iter()
                                 .zip(cubemap_visible_entities_local_queue.iter_mut())
                             {
-                                if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                                if has_no_frustum_culling
+                                    || frustum.intersects_obb(aabb, &model_to_world, true, true)
+                                {
                                     view_visibility.set();
                                     visible_entities.push(entity);
                                 }
@@ -973,6 +991,7 @@ pub fn check_point_light_mesh_visibility(
                         maybe_aabb,
                         maybe_transform,
                         has_visibility_range,
+                        has_no_frustum_culling,
                     )| {
                         if !inherited_visibility.get() {
                             return;
@@ -994,11 +1013,15 @@ pub fn check_point_light_mesh_visibility(
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
                             // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                            if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                            if !has_no_frustum_culling
+                                && !light_sphere.intersects_obb(aabb, &model_to_world)
+                            {
                                 return;
                             }
 
-                            if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                            if has_no_frustum_culling
+                                || frustum.intersects_obb(aabb, &model_to_world, true, true)
+                            {
                                 view_visibility.set();
                                 spot_visible_entities_local_queue.push(entity);
                             }

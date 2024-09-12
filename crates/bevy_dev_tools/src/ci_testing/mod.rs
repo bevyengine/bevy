@@ -6,7 +6,7 @@ mod systems;
 pub use self::config::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
 use std::time::Duration;
@@ -54,7 +54,19 @@ impl Plugin for CiTestingPlugin {
                 Update,
                 systems::send_events
                     .before(trigger_screenshots)
-                    .before(bevy_window::close_when_requested),
+                    .before(bevy_window::close_when_requested)
+                    .in_set(SendEvents),
             );
+
+        // The offending system does not exist in the wasm32 target.
+        // As a result, we must conditionally order the two systems using a system set.
+        #[cfg(not(target_arch = "wasm32"))]
+        app.configure_sets(
+            Update,
+            SendEvents.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
+        );
     }
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct SendEvents;

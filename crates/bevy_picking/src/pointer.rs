@@ -1,4 +1,12 @@
 //! Types and systems for pointer inputs, such as position and buttons.
+//!
+//! The picking system is built around the concept of a 'Pointer', which is an
+//! abstract representation of a user input with a specific screen location. The cursor
+//! and touch input is provided under [`crate::input`], but you can also implement
+//! your own custom pointers by supplying a unique ID.
+//!
+//! The purpose of this module is primarily to provide a common interface that can be
+//! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
@@ -83,7 +91,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
     }
 }
 
-/// Tracks the state of the pointer's buttons in response to [`InputPress`]s.
+/// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub struct PointerPress {
@@ -115,68 +123,6 @@ impl PointerPress {
     #[inline]
     pub fn is_any_pressed(&self) -> bool {
         self.primary || self.middle || self.secondary
-    }
-}
-
-/// Pointer input event for button presses. Fires when a pointer button changes state.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-pub struct InputPress {
-    /// The [`PointerId`] of the pointer that pressed a button.
-    pub pointer_id: PointerId,
-    /// Direction of the button press.
-    pub direction: PressDirection,
-    /// Identifies the pointer button changing in this event.
-    pub button: PointerButton,
-}
-
-impl InputPress {
-    /// Create a new pointer button down event.
-    pub fn new_down(id: PointerId, button: PointerButton) -> InputPress {
-        Self {
-            pointer_id: id,
-            direction: PressDirection::Down,
-            button,
-        }
-    }
-
-    /// Create a new pointer button up event.
-    pub fn new_up(id: PointerId, button: PointerButton) -> InputPress {
-        Self {
-            pointer_id: id,
-            direction: PressDirection::Up,
-            button,
-        }
-    }
-
-    /// Returns true if the `button` of this pointer was just pressed.
-    #[inline]
-    pub fn is_just_down(&self, button: PointerButton) -> bool {
-        self.button == button && self.direction == PressDirection::Down
-    }
-
-    /// Returns true if the `button` of this pointer was just released.
-    #[inline]
-    pub fn is_just_up(&self, button: PointerButton) -> bool {
-        self.button == button && self.direction == PressDirection::Up
-    }
-
-    /// Receives [`InputPress`] events and updates corresponding [`PointerPress`] components.
-    pub fn receive(
-        mut events: EventReader<InputPress>,
-        mut pointers: Query<(&PointerId, &mut PointerPress)>,
-    ) {
-        for input_press_event in events.read() {
-            pointers.iter_mut().for_each(|(pointer_id, mut pointer)| {
-                if *pointer_id == input_press_event.pointer_id {
-                    let is_down = input_press_event.direction == PressDirection::Down;
-                    match input_press_event.button {
-                        PointerButton::Primary => pointer.primary = is_down,
-                        PointerButton::Secondary => pointer.secondary = is_down,
-                        PointerButton::Middle => pointer.middle = is_down,
-                    }
-                }
-            });
-        }
     }
 }
 
@@ -222,42 +168,6 @@ impl PointerLocation {
     /// inactive.
     pub fn location(&self) -> Option<&Location> {
         self.location.as_ref()
-    }
-}
-
-/// Pointer input event for pointer moves. Fires when a pointer changes location.
-#[derive(Event, Debug, Clone, Reflect)]
-pub struct InputMove {
-    /// The [`PointerId`] of the pointer that is moving.
-    pub pointer_id: PointerId,
-    /// The [`Location`] of the pointer.
-    pub location: Location,
-    /// The distance moved (change in `position`) since the last event.
-    pub delta: Vec2,
-}
-
-impl InputMove {
-    /// Create a new [`InputMove`] event.
-    pub fn new(id: PointerId, location: Location, delta: Vec2) -> InputMove {
-        Self {
-            pointer_id: id,
-            location,
-            delta,
-        }
-    }
-
-    /// Receives [`InputMove`] events and updates corresponding [`PointerLocation`] components.
-    pub fn receive(
-        mut events: EventReader<InputMove>,
-        mut pointers: Query<(&PointerId, &mut PointerLocation)>,
-    ) {
-        for event_pointer in events.read() {
-            pointers.iter_mut().for_each(|(id, mut pointer)| {
-                if *id == event_pointer.pointer_id {
-                    pointer.location = Some(event_pointer.location.to_owned());
-                }
-            });
-        }
     }
 }
 
@@ -307,5 +217,81 @@ impl Location {
                 (position - min).min_element() >= 0.0 && (position - max).max_element() <= 0.0
             })
             .unwrap_or(false)
+    }
+}
+
+/// Types of actions that can be taken by pointers.
+#[derive(Debug, Clone, Copy, Reflect)]
+pub enum PointerAction {
+    /// A button has been pressed on the pointer.
+    Pressed {
+        /// The press direction, either down or up.
+        direction: PressDirection,
+        /// The button that was pressed.
+        button: PointerButton,
+    },
+    /// The pointer has moved.
+    Moved {
+        /// How much the pointer moved from the previous position.
+        delta: Vec2,
+    },
+    /// The pointer has been canceled. The OS can cause this to happen to touch events.
+    Canceled,
+}
+
+/// An input event effecting a pointer.
+#[derive(Event, Debug, Clone, Reflect)]
+pub struct PointerInput {
+    /// The id of the pointer.
+    pub pointer_id: PointerId,
+    /// The location of the pointer. For [[`PointerAction::Moved`]], this is the location after the movement.
+    pub location: Location,
+    /// The action that the event describes.
+    pub action: PointerAction,
+}
+
+impl PointerInput {
+    /// Creates a new pointer input event.
+    ///
+    /// Note that `location` refers to the position of the pointer *after* the event occurred.
+    pub fn new(pointer_id: PointerId, location: Location, action: PointerAction) -> PointerInput {
+        PointerInput {
+            pointer_id,
+            location,
+            action,
+        }
+    }
+
+    /// Updates pointer entities according to the input events.
+    pub fn receive(
+        mut events: EventReader<PointerInput>,
+        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
+    ) {
+        for event in events.read() {
+            match event.action {
+                PointerAction::Pressed { direction, button } => {
+                    pointers
+                        .iter_mut()
+                        .for_each(|(pointer_id, _, mut pointer)| {
+                            if *pointer_id == event.pointer_id {
+                                let is_down = direction == PressDirection::Down;
+                                match button {
+                                    PointerButton::Primary => pointer.primary = is_down,
+                                    PointerButton::Secondary => pointer.secondary = is_down,
+                                    PointerButton::Middle => pointer.middle = is_down,
+                                }
+                            }
+                        });
+                }
+                PointerAction::Moved { .. } => {
+                    pointers.iter_mut().for_each(|(id, mut pointer, _)| {
+                        if *id == event.pointer_id {
+                            pointer.location = Some(event.location.to_owned());
+                        }
+                    });
+                }
+                _ => {}
+            }
+        }
     }
 }
