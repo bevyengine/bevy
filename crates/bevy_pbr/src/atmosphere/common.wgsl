@@ -7,7 +7,7 @@
 // Assuming r between ground and top atmosphere boundary, and mu = cos(zenith_angle)
 // Chosen to increase precision near the ground and to work around a discontinuity at the horizon
 // See Bruneton and Neyret 2008, "Precomputed Atmospheric Scattering" section 4
-fn r_mu_to_uv(atmosphere: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
+fn transmittance_lut_r_mu_to_uv(atmosphere: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
   // Distance along a horizontal ray from the ground to the top atmosphere boundary
     let H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
 
@@ -28,7 +28,7 @@ fn r_mu_to_uv(atmosphere: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
 }
 
 // Inverse of the mapping above, mapping from UV coordinates in the transmittance LUT to view height (r) and zenith cos angle (mu)
-fn uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
+fn transmittance_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
   // Distance to top atmosphere boundary for a horizontal ray at ground level
     let H = sqrt(atmosphere.top_radius * atmosphere.top_radius - atmosphere.bottom_radius * atmosphere.bottom_radius);
 
@@ -53,6 +53,13 @@ fn uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
     mu = clamp(mu, -1.0, 1.0);
 
     return vec2<f32>(r, mu);
+}
+
+fn sample_transmittance_lut(atmosphere: Atmosphere, lut: texture_2d<f32>, smp: sampler, position: vec3<f32>, dir_to_light: vec3<f32>) -> vec3<f32> {
+    let r = position.y;
+    let mu = dir_to_light.y;
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, vec2(r, mu));
+    return textureSample(smp, lut).rgb;
 }
 
 /// Simplified ray-sphere intersection

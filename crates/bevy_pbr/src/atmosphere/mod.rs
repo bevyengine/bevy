@@ -26,10 +26,10 @@ use bevy_utils::tracing::warn;
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 
 use self::{
-    node::{AtmosphereNode, AtmosphereNodeLabel},
+    node::{ApplyAtmosphereNode, AtmosphereLutsNode, AtmosphereNodes},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmospherePipelines,
+        AtmospherePipelines, AtmosphereSamplers,
     },
 };
 
@@ -48,6 +48,8 @@ mod shaders {
         Handle::weak_from_u128(0x54136D7E6FFCD45BE38399A4E5ED7186);
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         Handle::weak_from_u128(0x6FDEC284AD356B78C3A4D8ED4CBA0BC5);
+    pub const APPLY_ATMOSPHERE: Handle<Shader> =
+        Handle::weak_from_u128(0x1951EB87C8A6129F0B541B1E4B3D4962);
 }
 
 pub struct AtmospherePlugin;
@@ -85,6 +87,13 @@ impl Plugin for AtmospherePlugin {
             Shader::from_wgsl
         );
 
+        load_internal_asset!(
+            app,
+            shaders::APPLY_ATMOSPHERE,
+            "apply.wgsl",
+            Shader::from_wgsl
+        );
+
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
             .add_plugins((
@@ -111,6 +120,7 @@ impl Plugin for AtmospherePlugin {
 
         render_app
             .init_resource::<AtmosphereBindGroupLayouts>()
+            .init_resource::<AtmosphereSamplers>()
             .init_resource::<AtmospherePipelines>()
             .add_systems(ExtractSchedule, extract_atmosphere)
             .add_systems(
@@ -120,16 +130,32 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereNode>>(Core3d, AtmosphereNodeLabel)
+            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
+                Core3d,
+                AtmosphereNodes::Luts,
+            )
+            .add_render_graph_node::<ViewNodeRunner<ApplyAtmosphereNode>>(
+                Core3d,
+                AtmosphereNodes::Apply,
+            )
             .add_render_graph_edges(
                 Core3d,
                 (
                     // END_PRE_PASSES -> PREPARE_SKY -> MAIN_PASS
                     Node3d::EndPrepasses,
-                    AtmosphereNodeLabel,
+                    AtmosphereNodes::Luts,
                     Node3d::StartMainPass,
                 ),
-            );
+            )
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndMainPass,
+                    AtmosphereNodes::Apply,
+                    Node3d::PostProcessing,
+                ),
+            )
+            .add_render_graph_edges(Core3d, (AtmosphereNodes::Luts, AtmosphereNodes::Apply));
     }
 }
 

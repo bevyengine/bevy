@@ -15,7 +15,7 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let r_mu = uv_to_r_mu(atmosphere, in.uv);
 
     // compute the optical depth from view height r to the top atmosphere boundary
-    let optical_depth = compute_optical_depth_to_top_atmosphere_boundary(atmosphere, r_mu.x, r_mu.y);
+    let optical_depth = compute_optical_depth_to_top_atmosphere_boundary(atmosphere, r_mu.x, r_mu.y, settings.transmittance_lut_samples);
 
     let transmittance = exp(-optical_depth);
 
@@ -35,7 +35,6 @@ fn compute_optical_depth_to_top_atmosphere_boundary(atmosphere: Atmosphere, r: f
     for (var i = 0u; i < sample_count; i++) {
     // SebH uses this for multiple scattering. It might not be needed here, but I've kept it to get results that are as close as possible to the original
         
-    //Note from Emerson: this is just how integration works, and is necessary. actually...
     //TODO: check specific integration approach.
         let t_i = (t_max * f32(i) + 0.3f) / f32(sample_count); //TODO: should be 0.5f?
         let dt = t_i - prev_t;
