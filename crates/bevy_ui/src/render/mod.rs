@@ -860,6 +860,7 @@ pub mod shader_flags {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_ui_antialias: Res<ExtractedUiAntialias>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -880,7 +881,13 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
+            UiPipelineKey {
+                hdr: view.hdr,
+                antialias: match extracted_ui_antialias.as_ref() {
+                    ExtractedUiAntialias::On => true,
+                    ExtractedUiAntialias::Off => false,
+                },
+            },
         );
         transparent_phase.add(TransparentUi {
             draw_function,

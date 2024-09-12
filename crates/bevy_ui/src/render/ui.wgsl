@@ -154,7 +154,11 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present and if the `ANTIALIAS` flag is enabled, otherwise an outline about the external
     // boundary would be drawn even without a border.
+    #ifdef ANTIALIAS
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+    #else
+    let t = 1.0 - step(0.0, border_distance);
+    #endif
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, saturate(color.a * t));
@@ -167,7 +171,11 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
     // Only use anti-aliasing if the `ANTIALIAS` flag is enabled. 
+    #ifdef ANTIALIAS
     let t = antialias(internal_distance);
+    #else
+    let t = 1.0 - step(0.0, internal_distance);
+    #endif
 
     return vec4(color.rgb, saturate(color.a * t));
 }
