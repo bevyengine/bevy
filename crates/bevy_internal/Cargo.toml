@@ -24,7 +24,7 @@ trace = [
 
 fixed_time = [
   "bevy_gizmos/fixed_time",
-  "bevy_ecs/fixed_time",
+  "bevy_app/fixed_time",
   "bevy_time/fixed_time",
 ]
 
