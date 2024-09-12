@@ -47,7 +47,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+        Interaction, UiAntialias, UiMaterialPlugin, UiScale,
     };
     // `bevy_sprite` re-exports for texture slicing
     #[doc(hidden)]
