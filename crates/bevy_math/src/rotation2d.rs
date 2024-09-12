@@ -102,6 +102,10 @@ impl Rot2 {
     };
 
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
+    ///
+    /// # Note
+    ///
+    /// The resulting rotation will always be clamped to the range (-PI, PI] by design
     #[inline]
     pub fn radians(radians: f32) -> Self {
         let (sin, cos) = ops::sin_cos(radians);
@@ -109,12 +113,20 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
+    ///
+    /// # Note
+    ///
+    /// The resulting rotation will always be clamped to the range (-180.0, 180.0] by design
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
     }
 
     /// Creates a [`Rot2`] from a counterclockwise fraction of a full turn of 360 degrees.
+    ///
+    /// # Note
+    ///
+    /// The resulting rotation will always be clamped to the range (-0.5, 0.5] by design
     #[inline]
     pub fn turn_fraction(fraction: f32) -> Self {
         Self::radians(TAU * fraction)
