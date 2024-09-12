@@ -105,7 +105,23 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range (-PI, PI] by design
+    /// The resulting rotation will always be clamped to the range `(-pi, pi]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    /// # use std::f32::consts::{FRAC_PI_2, PI};
+    ///
+    /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
+    /// let rot2 = Rot2::radians(-FRAC_PI_2);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::radians(PI);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
         let (sin, cos) = ops::sin_cos(radians);
@@ -116,7 +132,22 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range (-180.0, 180.0] by design
+    /// The resulting rotation will always be clamped to the range `(-180.0, 180.0]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::degrees(270.0);
+    /// let rot2 = Rot2::degrees(-90.0);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::degrees(180.0);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
@@ -126,7 +157,22 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range (-0.5, 0.5] by design
+    /// The resulting rotation will always be clamped to the range `(-0.5, 0.5]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::turn_fraction(0.75);
+    /// let rot2 = Rot2::turn_fraction(-0.25);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::turn_fraction(0.5);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
     #[inline]
     pub fn turn_fraction(fraction: f32) -> Self {
         Self::radians(TAU * fraction)
