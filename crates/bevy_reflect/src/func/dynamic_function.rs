@@ -1,7 +1,17 @@
+use crate as bevy_reflect;
+use crate::__macro_exports::RegisterForReflection;
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunctionMut, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo};
+use crate::func::{
+    DynamicFunctionMut, Function, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
+};
+use crate::serde::Serializable;
+use crate::{
+    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath,
+};
 use alloc::borrow::Cow;
+use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
@@ -135,6 +145,102 @@ impl<'env> DynamicFunction<'env> {
         self.info.name()
     }
 }
+
+impl Function for DynamicFunction<'static> {
+    fn info(&self) -> &FunctionInfo {
+        self.info()
+    }
+
+    fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+        self.call(args)
+    }
+}
+
+impl PartialReflect for DynamicFunction<'static> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        None
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
+    }
+
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        None
+    }
+
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        *self = value
+            .try_downcast_ref::<Self>()
+            .ok_or_else(|| ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            })?
+            .clone();
+        Ok(())
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Function
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Function(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Function(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Function(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        None
+    }
+
+    fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+        None
+    }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Debug::fmt(self, f)
+    }
+
+    fn serializable(&self) -> Option<Serializable> {
+        None
+    }
+
+    fn is_dynamic(&self) -> bool {
+        true
+    }
+}
+
+impl MaybeTyped for DynamicFunction<'static> {}
+impl RegisterForReflection for DynamicFunction<'static> {}
+
+impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 
 /// Outputs the function's signature.
 ///

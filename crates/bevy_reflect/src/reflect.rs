@@ -26,6 +26,8 @@ macro_rules! impl_reflect_enum {
                     Self::Map(_) => ReflectKind::Map,
                     Self::Set(_) => ReflectKind::Set,
                     Self::Enum(_) => ReflectKind::Enum,
+                    #[cfg(feature = "functions")]
+                    Self::Function(_) => ReflectKind::Function,
                     Self::Value(_) => ReflectKind::Value,
                 }
             }
@@ -42,6 +44,8 @@ macro_rules! impl_reflect_enum {
                     $name::Map(_) => Self::Map,
                     $name::Set(_) => Self::Set,
                     $name::Enum(_) => Self::Enum,
+                    #[cfg(feature = "functions")]
+                    $name::Function(_) => Self::Function,
                     $name::Value(_) => Self::Value,
                 }
             }
@@ -64,6 +68,8 @@ pub enum ReflectRef<'a> {
     Map(&'a dyn Map),
     Set(&'a dyn Set),
     Enum(&'a dyn Enum),
+    #[cfg(feature = "functions")]
+    Function(&'a dyn crate::func::Function),
     Value(&'a dyn PartialReflect),
 }
 impl_reflect_enum!(ReflectRef<'_>);
@@ -83,6 +89,8 @@ pub enum ReflectMut<'a> {
     Map(&'a mut dyn Map),
     Set(&'a mut dyn Set),
     Enum(&'a mut dyn Enum),
+    #[cfg(feature = "functions")]
+    Function(&'a mut dyn crate::func::Function),
     Value(&'a mut dyn PartialReflect),
 }
 impl_reflect_enum!(ReflectMut<'_>);
@@ -102,6 +110,8 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Set(Box<dyn Set>),
     Enum(Box<dyn Enum>),
+    #[cfg(feature = "functions")]
+    Function(Box<dyn crate::func::Function>),
     Value(Box<dyn PartialReflect>),
 }
 impl_reflect_enum!(ReflectOwned);
@@ -156,6 +166,8 @@ pub enum ReflectKind {
     Map,
     Set,
     Enum,
+    #[cfg(feature = "functions")]
+    Function,
     Value,
 }
 
@@ -170,6 +182,8 @@ impl std::fmt::Display for ReflectKind {
             ReflectKind::Map => f.pad("map"),
             ReflectKind::Set => f.pad("set"),
             ReflectKind::Enum => f.pad("enum"),
+            #[cfg(feature = "functions")]
+            ReflectKind::Function => f.pad("function"),
             ReflectKind::Value => f.pad("value"),
         }
     }
