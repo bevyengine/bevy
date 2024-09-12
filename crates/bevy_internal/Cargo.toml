@@ -21,6 +21,13 @@ trace = [
   "bevy_hierarchy/trace",
   "bevy_winit?/trace",
 ]
+
+fixed_time = [
+  "bevy_gizmos/fixed_time",
+  "bevy_ecs/fixed_time",
+  "bevy_time/fixed_time",
+]
+
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]

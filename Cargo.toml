@@ -85,7 +85,11 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "fixed_time",
 ]
+
+# Provides the fixed update schedules
+fixed_time = ["bevy_internal/fixed_time"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
