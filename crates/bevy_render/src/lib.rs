@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![allow(unsafe_code)]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
