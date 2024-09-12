@@ -114,6 +114,7 @@ pub struct UiMaterialVertex {
     pub uv: [f32; 2],
     pub size: [f32; 2],
     pub border_widths: [f32; 4],
+    pub border_radius: [f32; 4],
 }
 
 // in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -151,7 +152,9 @@ where
                 VertexFormat::Float32x2,
                 // size
                 VertexFormat::Float32x2,
-                // border_widths
+                // border widths
+                VertexFormat::Float32x4,
+                // border radius
                 VertexFormat::Float32x4,
             ],
         );
@@ -332,6 +335,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
+    pub border_radius: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -437,6 +441,12 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     max: uinode.calculated_size,
                 },
                 border: [left, right, top, bottom],
+                border_radius: [
+                    uinode.border_radius.top_left,
+                    uinode.border_radius.top_right,
+                    uinode.border_radius.bottom_right,
+                    uinode.border_radius.bottom_left,
+                ],
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
             },
@@ -577,6 +587,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
+                            border_radius: extracted_uinode.border_radius,
                         });
                     }
 
