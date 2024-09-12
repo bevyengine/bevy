@@ -871,7 +871,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                 );
             }
             RenderMeshBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
             }
         }
         RenderCommandResult::Success
