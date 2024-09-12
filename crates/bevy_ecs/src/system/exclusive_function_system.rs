@@ -65,12 +65,11 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, F> System<F::In> for ExclusiveFunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
 {
-    type In = F::In;
     type Out = F::Out;
 
     #[inline]
@@ -108,11 +107,11 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, _input: Self::In, _world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, _input: F::In, _world: UnsafeWorldCell) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: F::In, world: &mut World) -> Self::Out {
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();

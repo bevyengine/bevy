@@ -643,7 +643,7 @@ impl ScheduleGraph {
     }
 
     /// Returns the system at the given [`NodeId`], if it exists.
-    pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<In = (), Out = ()>> {
+    pub fn get_system_at(&self, id: NodeId) -> Option<&dyn System<(), Out = ()>> {
         if !id.is_system() {
             return None;
         }
@@ -656,7 +656,7 @@ impl ScheduleGraph {
     ///
     /// Panics if it doesn't exist.
     #[track_caller]
-    pub fn system_at(&self, id: NodeId) -> &dyn System<In = (), Out = ()> {
+    pub fn system_at(&self, id: NodeId) -> &dyn System<(), Out = ()> {
         self.get_system_at(id)
             .ok_or_else(|| format!("system with id {id:?} does not exist in this Schedule"))
             .unwrap()
@@ -683,7 +683,7 @@ impl ScheduleGraph {
     /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
     pub fn systems(
         &self,
-    ) -> impl Iterator<Item = (NodeId, &dyn System<In = (), Out = ()>, &[BoxedCondition])> {
+    ) -> impl Iterator<Item = (NodeId, &dyn System<(), Out = ()>, &[BoxedCondition])> {
         self.systems
             .iter()
             .zip(self.system_conditions.iter())

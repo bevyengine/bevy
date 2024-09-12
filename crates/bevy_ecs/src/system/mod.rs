@@ -157,7 +157,7 @@ use crate::world::World;
 )]
 pub trait IntoSystem<In, Out, Marker>: Sized {
     /// The type of [`System`] that this instance converts into.
-    type System: System<In = In, Out = Out>;
+    type System: System<In, Out = Out>;
 
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
@@ -166,7 +166,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, Out, B::System>
     where
         B: IntoSystem<Out, Final, MarkerB>,
     {
@@ -195,7 +195,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///     # Err(())
     /// }
     /// ```
-    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
+    fn map<T, F>(self, f: F) -> AdapterSystem<F, In, Self::System>
     where
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
@@ -212,7 +212,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
 }
 
 // All systems implicitly implement IntoSystem.
-impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
+impl<In, T: System<In>> IntoSystem<In, T::Out, ()> for T {
     type System = T;
     fn into_system(this: Self) -> Self {
         this
@@ -271,9 +271,7 @@ pub struct In<In>(pub In);
 ///
 /// assert_is_system(my_system);
 /// ```
-pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
-    system: impl IntoSystem<In, Out, Marker>,
-) {
+pub fn assert_is_system<In, Out: 'static, Marker>(system: impl IntoSystem<In, Out, Marker>) {
     let mut system = IntoSystem::into_system(system);
 
     // Initialize the system, which will panic if the system has access conflicts.
@@ -304,10 +302,10 @@ pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
 ///
 /// assert_is_read_only_system(my_system);
 /// ```
-pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
+pub fn assert_is_read_only_system<In, Out: 'static, Marker, S>(system: S)
 where
     S: IntoSystem<In, Out, Marker>,
-    S::System: ReadOnlySystem,
+    S::System: ReadOnlySystem<In>,
 {
     assert_is_system(system);
 }

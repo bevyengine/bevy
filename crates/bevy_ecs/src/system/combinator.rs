@@ -86,7 +86,7 @@ use super::{ReadOnlySystem, System};
     label = "invalid system combination",
     note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
 )]
-pub trait Combine<A: System, B: System> {
+pub trait Combine<AIn, A: System<AIn>, BIn, B: System<BIn>> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In;
 
@@ -99,16 +99,16 @@ pub trait Combine<A: System, B: System> {
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
         input: Self::In,
-        a: impl FnOnce(A::In) -> A::Out,
-        b: impl FnOnce(B::In) -> B::Out,
+        a: impl FnOnce(AIn) -> A::Out,
+        b: impl FnOnce(BIn) -> B::Out,
     ) -> Self::Out;
 }
 
 /// A [`System`] defined by combining two other systems.
 /// The behavior of this combinator is specified by implementing the [`Combine`] trait.
 /// For a full usage example, see the docs for [`Combine`].
-pub struct CombinatorSystem<Func, A, B> {
-    _marker: PhantomData<fn() -> Func>,
+pub struct CombinatorSystem<Func, AIn, A, BIn, B> {
+    _marker: PhantomData<(fn() -> Func, AIn, BIn)>,
     a: A,
     b: B,
     name: Cow<'static, str>,
@@ -116,7 +116,7 @@ pub struct CombinatorSystem<Func, A, B> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
-impl<Func, A, B> CombinatorSystem<Func, A, B> {
+impl<Func, AIn, A, BIn, B> CombinatorSystem<Func, AIn, A, BIn, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
@@ -132,13 +132,14 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
     }
 }
 
-impl<A, B, Func> System for CombinatorSystem<Func, A, B>
+impl<AIn, A, BIn, B, Func> System<Func::In> for CombinatorSystem<Func, AIn, A, BIn, B>
 where
-    Func: Combine<A, B> + 'static,
-    A: System,
-    B: System,
+    Func: Combine<AIn, A, BIn, B> + 'static,
+    AIn: Send + Sync + 'static,
+    A: System<AIn>,
+    BIn: Send + Sync + 'static,
+    B: System<BIn>,
 {
-    type In = Func::In;
     type Out = Func::Out;
 
     fn name(&self) -> Cow<'static, str> {
@@ -165,7 +166,7 @@ where
         self.a.has_deferred() || self.b.has_deferred()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: Func::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -180,7 +181,7 @@ where
         )
     }
 
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: Func::In, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
@@ -249,15 +250,18 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
-unsafe impl<A, B, Func> ReadOnlySystem for CombinatorSystem<Func, A, B>
+unsafe impl<AIn, A, BIn, B, Func> ReadOnlySystem<Func::In>
+    for CombinatorSystem<Func, AIn, A, BIn, B>
 where
-    Func: Combine<A, B> + 'static,
-    A: ReadOnlySystem,
-    B: ReadOnlySystem,
+    Func: Combine<AIn, A, BIn, B> + 'static,
+    AIn: Send + Sync + 'static,
+    A: ReadOnlySystem<AIn>,
+    BIn: Send + Sync + 'static,
+    B: ReadOnlySystem<BIn>,
 {
 }
 
-impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
+impl<Func, AIn, A, BIn, B> Clone for CombinatorSystem<Func, AIn, A, BIn, B>
 where
     A: Clone,
     B: Clone,
@@ -307,23 +311,24 @@ where
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub type PipeSystem<SystemA, SystemB> = CombinatorSystem<Pipe, SystemA, SystemB>;
+pub type PipeSystem<AIn, SystemA, BIn, SystemB> =
+    CombinatorSystem<Pipe, AIn, SystemA, BIn, SystemB>;
 
 #[doc(hidden)]
 pub struct Pipe;
 
-impl<A, B> Combine<A, B> for Pipe
+impl<AIn, A, B> Combine<AIn, A, A::Out, B> for Pipe
 where
-    A: System,
-    B: System<In = A::Out>,
+    A: System<AIn>,
+    B: System<A::Out>,
 {
-    type In = A::In;
+    type In = AIn;
     type Out = B::Out;
 
     fn combine(
         input: Self::In,
-        a: impl FnOnce(A::In) -> A::Out,
-        b: impl FnOnce(B::In) -> B::Out,
+        a: impl FnOnce(AIn) -> A::Out,
+        b: impl FnOnce(A::Out) -> B::Out,
     ) -> Self::Out {
         let value = a(input);
         b(value)

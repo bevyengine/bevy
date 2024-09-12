@@ -172,16 +172,16 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
+impl<In: 'static, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Marker)> for F
 where
     Marker: 'static,
-    F: SystemParamFunction<Marker>,
+    F: SystemParamFunction<In, Marker>,
 {
-    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
+    type Set = SystemTypeSet<FunctionSystem<In, Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
+        SystemTypeSet::<FunctionSystem<In, Marker, F>>::new()
     }
 }
 

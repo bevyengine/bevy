@@ -24,10 +24,7 @@ use super::IntoSystem;
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
-pub trait System: Send + Sync + 'static {
-    /// The system's input. See [`In`](crate::system::In) for
-    /// [`FunctionSystem`](crate::system::FunctionSystem)s.
-    type In;
+pub trait System<In>: Send + Sync + 'static {
     /// The system's output.
     type Out;
     /// Returns the system's name.
@@ -65,7 +62,7 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: In, world: UnsafeWorldCell) -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -74,7 +71,7 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: In, world: &mut World) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -170,12 +167,12 @@ pub trait System: Send + Sync + 'static {
 ///
 /// This must only be implemented for system types which do not mutate the `World`
 /// when [`System::run_unsafe`] is called.
-pub unsafe trait ReadOnlySystem: System {
+pub unsafe trait ReadOnlySystem<In>: System<In> {
     /// Runs this system with the given input in the world.
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: Self::In, world: &World) -> Self::Out {
+    fn run_readonly(&mut self, input: In, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world);
         // SAFETY:
@@ -186,7 +183,7 @@ pub unsafe trait ReadOnlySystem: System {
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
-pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
     if last_run.check_tick(this_run) {
@@ -199,7 +196,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
+impl<In: 'static, Out: 'static> Debug for dyn System<In, Out = Out> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
