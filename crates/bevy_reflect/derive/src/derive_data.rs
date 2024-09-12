@@ -564,7 +564,7 @@ impl<'a> StructField<'a> {
         let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[expect(
+        #[allow(
             unused_mut,
             reason = "Needs to be mutable if `documentation` feature is enabled."
         )]
@@ -679,7 +679,7 @@ impl<'a> ReflectStruct<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[expect(
+        #[allow(
             unused_mut,
             reason = "Needs to be mutable if `documentation` feature is enabled."
         )]
@@ -779,7 +779,7 @@ impl<'a> ReflectEnum<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[expect(
+        #[allow(
             unused_mut,
             reason = "Needs to be mutable if `documentation` feature is enabled."
         )]
@@ -852,7 +852,7 @@ impl<'a> EnumVariant<'a> {
 
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[expect(
+        #[allow(
             unused_mut,
             reason = "Needs to be mutable if `documentation` feature is enabled."
         )]
