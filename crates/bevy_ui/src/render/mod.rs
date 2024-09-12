@@ -881,10 +881,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                antialias: match extracted_ui_antialias.as_ref() {
-                    ExtractedUiAntialias::On => true,
-                    ExtractedUiAntialias::Off => false,
-                },
+                antialias: matches!(*extracted_ui_antialias, ExtractedUiAntialias::On),
             },
         );
         transparent_phase.add(TransparentUi {
