@@ -8,6 +8,7 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
+use bevy_reflect::TypePath;
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
@@ -25,11 +26,11 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiImage, UiScale, Val,
+    TargetCamera, UiImage, UiMaterial, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_internal_asset, Asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
@@ -66,6 +67,20 @@ pub mod graph {
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
+
+#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
+struct BoxShadowUiMaterial {
+    #[uniform(0)]
+    color: Vec4,
+    #[uniform(1)]
+    blur_radius: f32,
+}
+
+impl UiMaterial for BoxShadowUiMaterial {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Handle(BOX_SHADOW_SHADER_HANDLE)
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
@@ -149,6 +164,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
+    app.add_plugins(UiMaterialPlugin::<BoxShadowUiMaterial>::default());
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
