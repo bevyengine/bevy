@@ -65,6 +65,7 @@ pub mod graph {
 }
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
+pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
@@ -76,6 +77,12 @@ pub enum RenderUiSystem {
 
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
+    load_internal_asset!(
+        app,
+        BOX_SHADOW_SHADER_HANDLE,
+        "box_shadow.wgsl",
+        Shader::from_wgsl
+    );
 
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
