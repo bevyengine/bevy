@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
