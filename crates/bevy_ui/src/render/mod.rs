@@ -85,7 +85,6 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
-        .init_resource::<ExtractedUiAntialias>()
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
@@ -105,7 +104,6 @@ pub fn build_ui_render(app: &mut App) {
             ExtractSchedule,
             (
                 extract_default_ui_camera_view,
-                extract_ui_antialias,
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
@@ -144,25 +142,6 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
-}
-
-#[derive(Debug, Resource, Default, PartialEq, Eq, Clone)]
-pub enum ExtractedUiAntialias {
-    #[default]
-    On,
-    Off,
-}
-
-fn extract_ui_antialias(
-    ui_antialias: Extract<Res<UiAntialias>>,
-    mut extracted_ui_antialias: ResMut<ExtractedUiAntialias>,
-) {
-    if ui_antialias.is_changed() {
-        extracted_ui_antialias.set_if_neq(match ui_antialias.as_ref() {
-            UiAntialias::On => ExtractedUiAntialias::On,
-            UiAntialias::Off => ExtractedUiAntialias::Off,
-        });
-    }
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
@@ -858,7 +837,7 @@ pub mod shader_flags {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     extracted_uinodes: Res<ExtractedUiNodes>,
-    extracted_ui_antialias: Res<ExtractedUiAntialias>,
+    extracted_ui_antialias: Res<UiAntialias>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -881,7 +860,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                antialias: matches!(*extracted_ui_antialias, ExtractedUiAntialias::On),
+                antialias: matches!(*extracted_ui_antialias, UiAntialias::On),
             },
         );
         transparent_phase.add(TransparentUi {

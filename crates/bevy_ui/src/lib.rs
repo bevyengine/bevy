@@ -59,6 +59,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
     camera::CameraUpdateSystem,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
@@ -109,7 +110,7 @@ impl Default for UiScale {
 }
 
 /// Configuration resource for controlling the UI's anti-aliasing
-#[derive(Debug, Reflect, Resource, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Reflect, Resource, Default, PartialEq, Eq, Clone, ExtractResource)]
 pub enum UiAntialias {
     /// UI will render with anti-aliasing
     #[default]
@@ -155,6 +156,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .add_plugins(ExtractResourcePlugin::<UiAntialias>::default())
             .configure_sets(
                 PostUpdate,
                 (
