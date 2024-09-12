@@ -1,6 +1,7 @@
 use crate::bundle::Bundle;
 use crate::change_detection::Mut;
 use crate::entity::Entity;
+use crate::system::input::SystemInput;
 use crate::system::{BoxedSystem, IntoSystem, System};
 use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
@@ -133,7 +134,7 @@ impl World {
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I: SystemInput, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
     ) -> SystemId<I, O> {
@@ -297,10 +298,10 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I: 'static, O: 'static>(
+    pub fn run_system_with_input<I: SystemInput, O: 'static>(
         &mut self,
         id: SystemId<I, O>,
-        input: I,
+        input: I::In<'_>,
     ) -> Result<O, RegisteredSystemError<I, O>> {
         // lookup
         let mut entity = self
@@ -428,9 +429,9 @@ impl World {
 /// execution of the system happens later. To get the output of a system, use
 /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
 #[derive(Debug, Clone)]
-pub struct RunSystemWithInput<I: 'static> {
+pub struct RunSystemWithInput<I: SystemInput> {
     system_id: SystemId<I>,
-    input: I,
+    input: I::In<'static>,
 }
 
 /// The [`Command`] type for [`World::run_system`].
@@ -453,15 +454,18 @@ impl RunSystem {
     }
 }
 
-impl<I: 'static> RunSystemWithInput<I> {
+impl<I: SystemInput> RunSystemWithInput<I> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
-    pub fn new_with_input(system_id: SystemId<I>, input: I) -> Self {
+    pub fn new_with_input(system_id: SystemId<I>, input: I::In<'static>) -> Self {
         Self { system_id, input }
     }
 }
 
-impl<I: 'static + Send> Command for RunSystemWithInput<I> {
+impl<I: SystemInput> Command for RunSystemWithInput<I>
+where
+    I::In<'static>: Send,
+{
     #[inline]
     fn apply(self, world: &mut World) {
         let _ = world.run_system_with_input(self.system_id, self.input);
@@ -476,7 +480,7 @@ pub struct RegisterSystem<I: 'static, O: 'static> {
     entity: Entity,
 }
 
-impl<I: 'static, O: 'static> RegisterSystem<I, O> {
+impl<I: SystemInput, O: 'static> RegisterSystem<I, O> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
         Self {
@@ -628,7 +632,7 @@ mod tests {
 
         let mut world = World::new();
 
-        let id = world.register_system(increment_sys);
+        let id = world.register_system::<In<NonCopy>, _, _, _>(increment_sys);
 
         // Insert the resource after registering the system.
         world.insert_resource(Counter(1));
@@ -729,11 +733,11 @@ mod tests {
         use crate::system::SystemId;
 
         #[derive(Component)]
-        struct Callback(SystemId<u8>, u8);
+        struct Callback(SystemId<In<u8>>, u8);
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system_with_input(callback.0, callback.1);
+                commands.run_system_with_input::<In<u8>>(callback.0, callback.1);
             }
         }
 

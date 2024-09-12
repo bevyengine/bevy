@@ -3,7 +3,7 @@ use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
-    system::SystemId,
+    system::{SystemId, SystemInput},
 };
 
 #[cfg(feature = "trace")]
@@ -189,7 +189,7 @@ impl SubApp {
     }
 
     /// See [`App::register_system`].
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I: SystemInput, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
     ) -> SystemId<I, O> {

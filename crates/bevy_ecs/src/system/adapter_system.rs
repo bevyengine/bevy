@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
-use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
+use crate::{
+    schedule::InternedSystemSet, system::input::SystemInput,
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
 
 /// Customizes the behavior of an [`AdapterSystem`]
 ///
@@ -43,15 +46,19 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
     message = "`{Self}` can not adapt a system of type `{S}`",
     label = "invalid system adapter"
 )]
-pub trait Adapt<SIn, S: System<SIn>>: Send + Sync + 'static {
+pub trait Adapt<SIn: SystemInput, S: System<SIn>>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
-    type In;
+    type In: SystemInput;
     /// The [output](System::Out) type for an [`AdapterSystem`].
     type Out;
 
     /// When used in an [`AdapterSystem`], this function customizes how the system
     /// is run and how its inputs/outputs are adapted.
-    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(SIn) -> S::Out) -> Self::Out;
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::In<'_>,
+        run_system: impl FnOnce(SIn::In<'_>) -> S::Out,
+    ) -> Self::Out;
 }
 
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
@@ -63,7 +70,7 @@ pub struct AdapterSystem<Func, SIn, S> {
     name: Cow<'static, str>,
 }
 
-impl<Func, SIn, S> AdapterSystem<Func, SIn, S>
+impl<Func, SIn: SystemInput, S> AdapterSystem<Func, SIn, S>
 where
     Func: Adapt<SIn, S>,
     S: System<SIn>,
@@ -79,7 +86,7 @@ where
     }
 }
 
-impl<Func, SIn: Send + Sync + 'static, S> System<Func::In> for AdapterSystem<Func, SIn, S>
+impl<Func, SIn: SystemInput + Send + Sync, S> System<Func::In> for AdapterSystem<Func, SIn, S>
 where
     Func: Adapt<SIn, S>,
     S: System<SIn>,
@@ -114,7 +121,11 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Func::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: <Func::In as SystemInput>::In<'_>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
@@ -122,7 +133,11 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: Func::In, world: &mut crate::prelude::World) -> Self::Out {
+    fn run(
+        &mut self,
+        input: <Func::In as SystemInput>::In<'_>,
+        world: &mut crate::prelude::World,
+    ) -> Self::Out {
         self.func
             .adapt(input, |input| self.system.run(input, world))
     }
@@ -169,7 +184,7 @@ where
 }
 
 // SAFETY: The inner system is read-only.
-unsafe impl<Func, SIn: Send + Sync + 'static, S> ReadOnlySystem<Func::In>
+unsafe impl<Func, SIn: SystemInput + Send + Sync, S> ReadOnlySystem<Func::In>
     for AdapterSystem<Func, SIn, S>
 where
     Func: Adapt<SIn, S>,
@@ -177,7 +192,7 @@ where
 {
 }
 
-impl<F, SIn, S, Out> Adapt<SIn, S> for F
+impl<F, SIn: SystemInput, S, Out> Adapt<SIn, S> for F
 where
     S: System<SIn>,
     F: Send + Sync + 'static + FnMut(S::Out) -> Out,
@@ -185,7 +200,7 @@ where
     type In = SIn;
     type Out = Out;
 
-    fn adapt(&mut self, input: SIn, run_system: impl FnOnce(SIn) -> S::Out) -> Out {
+    fn adapt(&mut self, input: SIn::In<'_>, run_system: impl FnOnce(SIn::In<'_>) -> S::Out) -> Out {
         self(run_system(input))
     }
 }

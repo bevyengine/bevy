@@ -14,7 +14,7 @@ use crate::{
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
-    system::{RunSystemWithInput, SystemId},
+    system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
         EntityWorldMut, FromWorld, SpawnBatchIter, World,
@@ -713,7 +713,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+    pub fn run_system_with_input<I: SystemInput>(&mut self, id: SystemId<I>, input: I::In<'static>)
+    where
+        I::In<'static>: Send,
+    {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
@@ -767,7 +770,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
     pub fn register_system<
-        I: 'static + Send,
+        I: SystemInput + Send,
         O: 'static + Send,
         M,
         S: IntoSystem<I, O, M> + 'static,

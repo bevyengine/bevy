@@ -6,6 +6,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
+    system::input::SystemInput,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -86,9 +87,9 @@ use super::{ReadOnlySystem, System};
     label = "invalid system combination",
     note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
 )]
-pub trait Combine<AIn, A: System<AIn>, BIn, B: System<BIn>> {
+pub trait Combine<AIn: SystemInput, A: System<AIn>, BIn: SystemInput, B: System<BIn>> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
-    type In;
+    type In: SystemInput;
 
     /// The [output](System::Out) type for a [`CombinatorSystem`].
     type Out;
@@ -98,9 +99,9 @@ pub trait Combine<AIn, A: System<AIn>, BIn, B: System<BIn>> {
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(AIn) -> A::Out,
-        b: impl FnOnce(BIn) -> B::Out,
+        input: <Self::In as SystemInput>::In<'_>,
+        a: impl FnOnce(AIn::In<'_>) -> A::Out,
+        b: impl FnOnce(BIn::In<'_>) -> B::Out,
     ) -> Self::Out;
 }
 
@@ -132,7 +133,8 @@ impl<Func, AIn, A, BIn, B> CombinatorSystem<Func, AIn, A, BIn, B> {
     }
 }
 
-impl<AIn, A, BIn, B, Func> System<Func::In> for CombinatorSystem<Func, AIn, A, BIn, B>
+impl<AIn: SystemInput, A, BIn: SystemInput, B, Func> System<Func::In>
+    for CombinatorSystem<Func, AIn, A, BIn, B>
 where
     Func: Combine<AIn, A, BIn, B> + 'static,
     AIn: Send + Sync + 'static,
@@ -166,7 +168,11 @@ where
         self.a.has_deferred() || self.b.has_deferred()
     }
 
-    unsafe fn run_unsafe(&mut self, input: Func::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: <Func::In as SystemInput>::In<'_>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -181,7 +187,7 @@ where
         )
     }
 
-    fn run(&mut self, input: Func::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: <Func::In as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
@@ -250,7 +256,7 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
-unsafe impl<AIn, A, BIn, B, Func> ReadOnlySystem<Func::In>
+unsafe impl<AIn: SystemInput, A, BIn: SystemInput, B, Func> ReadOnlySystem<Func::In>
     for CombinatorSystem<Func, AIn, A, BIn, B>
 where
     Func: Combine<AIn, A, BIn, B> + 'static,
@@ -272,65 +278,67 @@ where
     }
 }
 
-/// A [`System`] created by piping the output of the first system into the input of the second.
-///
-/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
-///
-/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
-/// equal to the input type of `B`.
-///
-/// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
-/// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
-/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
-///
-/// # Examples
-///
-/// ```
-/// use std::num::ParseIntError;
-///
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut world = World::default();
-///     world.insert_resource(Message("42".to_string()));
-///
-///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = parse_message_system.pipe(filter_system);
-///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
-/// }
-///
-/// #[derive(Resource)]
-/// struct Message(String);
-///
-/// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
-///     message.0.parse::<usize>()
-/// }
-///
-/// fn filter_system(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
-///     result.ok().filter(|&n| n < 100)
-/// }
-/// ```
-pub type PipeSystem<AIn, SystemA, BIn, SystemB> =
-    CombinatorSystem<Pipe, AIn, SystemA, BIn, SystemB>;
+// /// A [`System`] created by piping the output of the first system into the input of the second.
+// ///
+// /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
+// ///
+// /// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
+// /// equal to the input type of `B`.
+// ///
+// /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
+// /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
+// /// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
+// ///
+// /// # Examples
+// ///
+// /// ```
+// /// use std::num::ParseIntError;
+// ///
+// /// use bevy_ecs::prelude::*;
+// ///
+// /// fn main() {
+// ///     let mut world = World::default();
+// ///     world.insert_resource(Message("42".to_string()));
+// ///
+// ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+// ///     let mut piped_system = parse_message_system.pipe(filter_system);
+// ///     piped_system.initialize(&mut world);
+// ///     assert_eq!(piped_system.run((), &mut world), Some(42));
+// /// }
+// ///
+// /// #[derive(Resource)]
+// /// struct Message(String);
+// ///
+// /// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+// ///     message.0.parse::<usize>()
+// /// }
+// ///
+// /// fn filter_system(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
+// ///     result.ok().filter(|&n| n < 100)
+// /// }
+// /// ```
+// pub type PipeSystem<AIn, SystemA, BIn, SystemB> =
+//     CombinatorSystem<Pipe, AIn, SystemA, BIn, SystemB>;
 
-#[doc(hidden)]
-pub struct Pipe;
+// #[doc(hidden)]
+// pub struct Pipe;
 
-impl<AIn, A, B> Combine<AIn, A, A::Out, B> for Pipe
-where
-    A: System<AIn>,
-    B: System<A::Out>,
-{
-    type In = AIn;
-    type Out = B::Out;
+// impl<AIn, A, B> Combine<AIn, A, A::Out, B> for Pipe
+// where
+//     A: System<AIn>,
+//     AIn: SystemInput,
+//     A::Out: SystemInput,
+//     B: System<A::Out>,
+// {
+//     type In = AIn;
+//     type Out = B::Out;
 
-    fn combine(
-        input: Self::In,
-        a: impl FnOnce(AIn) -> A::Out,
-        b: impl FnOnce(A::Out) -> B::Out,
-    ) -> Self::Out {
-        let value = a(input);
-        b(value)
-    }
-}
+//     fn combine(
+//         input: <Self::In as SystemInput>::In<'_>,
+//         a: impl FnOnce(AIn::In<'_>) -> A::Out,
+//         b: impl FnOnce(<A::Out as SystemInput>::In<'_>) -> B::Out,
+//     ) -> Self::Out {
+//         let mut value = a(input);
+//         b(value)
+//     }
+// }

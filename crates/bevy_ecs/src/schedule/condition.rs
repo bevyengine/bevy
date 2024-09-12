@@ -3,6 +3,7 @@ use std::ops::Not;
 
 use crate::system::{
     Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+    SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -70,7 +71,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
+pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
     ///
@@ -466,12 +467,12 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     }
 }
 
-impl<Marker, In, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
+impl<Marker, In: SystemInput, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem};
+    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
 
-    pub trait Condition<Marker, In>:
+    pub trait Condition<Marker, In: SystemInput>:
         IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
@@ -479,7 +480,7 @@ mod sealed {
         type ReadOnlySystem: ReadOnlySystem<In, Out = bool>;
     }
 
-    impl<Marker, In, F> Condition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> Condition<Marker, In> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem<In>,
@@ -496,7 +497,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{In, IntoSystem, Local, Res, Resource, System},
+        system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
 
     /// A [`Condition`]-satisfying system that returns `true`
@@ -1072,108 +1073,108 @@ pub mod common_conditions {
         NotSystem::new(super::NotMarker, condition, name.into())
     }
 
-    /// Generates a [`Condition`] that returns true when the passed one changes.
-    ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, Default)]
-    /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// app.add_systems(
-    ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
-    /// );
-    ///
-    /// #[derive(Resource)]
-    /// struct MyResource;
-    ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// // `MyResource` is initially there, the inner condition is true, the system runs once
-    /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    ///
-    /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
-    /// world.remove_resource::<MyResource>();
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// ```
-    pub fn condition_changed<Marker, CIn: Send + Sync + 'static, C: Condition<Marker, CIn>>(
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let changed = *prev != new;
-            *prev = new;
-            changed
-        })
-    }
+    // /// Generates a [`Condition`] that returns true when the passed one changes.
+    // ///
+    // /// The first time this is called, the passed condition is assumed to have been previously false.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```
+    // /// # use bevy_ecs::prelude::*;
+    // /// # #[derive(Resource, Default)]
+    // /// # struct Counter(u8);
+    // /// # let mut app = Schedule::default();
+    // /// # let mut world = World::new();
+    // /// # world.init_resource::<Counter>();
+    // /// app.add_systems(
+    // ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
+    // /// );
+    // ///
+    // /// #[derive(Resource)]
+    // /// struct MyResource;
+    // ///
+    // /// fn my_system(mut counter: ResMut<Counter>) {
+    // ///     counter.0 += 1;
+    // /// }
+    // ///
+    // /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    // /// world.insert_resource(MyResource);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 1);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 1);
+    // ///
+    // /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
+    // /// world.remove_resource::<MyResource>();
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 2);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 2);
+    // /// ```
+    // pub fn condition_changed<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
+    //     condition: C,
+    // ) -> impl Condition<(), CIn> {
+    //     condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
+    //         let changed = *prev != new;
+    //         *prev = new;
+    //         changed
+    //     })
+    // }
 
-    /// Generates a [`Condition`] that returns true when the result of
-    /// the passed one went from false to true since the last time this was called.
-    ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Resource, Default)]
-    /// # struct Counter(u8);
-    /// # let mut app = Schedule::default();
-    /// # let mut world = World::new();
-    /// # world.init_resource::<Counter>();
-    /// app.add_systems(
-    ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
-    /// );
-    ///
-    /// #[derive(Resource)]
-    /// struct MyResource;
-    ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
-    ///     counter.0 += 1;
-    /// }
-    ///
-    /// // `MyResource` is initially there, the inner condition is true, the system runs once
-    /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    ///
-    /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
-    /// world.remove_resource::<MyResource>();
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 1);
-    ///
-    /// // We reinsert `MyResource` again, so the system will run one more time
-    /// world.insert_resource(MyResource);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// app.run(&mut world);
-    /// assert_eq!(world.resource::<Counter>().0, 2);
-    /// ```
-    pub fn condition_changed_to<Marker, CIn: Send + Sync + 'static, C: Condition<Marker, CIn>>(
-        to: bool,
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let now_true = *prev != new && new == to;
-            *prev = new;
-            now_true
-        })
-    }
+    // /// Generates a [`Condition`] that returns true when the result of
+    // /// the passed one went from false to true since the last time this was called.
+    // ///
+    // /// The first time this is called, the passed condition is assumed to have been previously false.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```
+    // /// # use bevy_ecs::prelude::*;
+    // /// # #[derive(Resource, Default)]
+    // /// # struct Counter(u8);
+    // /// # let mut app = Schedule::default();
+    // /// # let mut world = World::new();
+    // /// # world.init_resource::<Counter>();
+    // /// app.add_systems(
+    // ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
+    // /// );
+    // ///
+    // /// #[derive(Resource)]
+    // /// struct MyResource;
+    // ///
+    // /// fn my_system(mut counter: ResMut<Counter>) {
+    // ///     counter.0 += 1;
+    // /// }
+    // ///
+    // /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    // /// world.insert_resource(MyResource);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 1);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 1);
+    // ///
+    // /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
+    // /// world.remove_resource::<MyResource>();
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 1);
+    // ///
+    // /// // We reinsert `MyResource` again, so the system will run one more time
+    // /// world.insert_resource(MyResource);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 2);
+    // /// app.run(&mut world);
+    // /// assert_eq!(world.resource::<Counter>().0, 2);
+    // /// ```
+    // pub fn condition_changed_to<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
+    //     to: bool,
+    //     condition: C,
+    // ) -> impl Condition<(), CIn> {
+    //     condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+    //         let now_true = *prev != new && new == to;
+    //         *prev = new;
+    //         now_true
+    //     })
+    // }
 }
 
 /// Invokes [`Not`] with the output of another system.
@@ -1186,14 +1187,18 @@ pub type NotSystem<SIn, S> = AdapterSystem<NotMarker, SIn, S>;
 #[derive(Clone, Copy)]
 pub struct NotMarker;
 
-impl<SIn, S: System<SIn>> Adapt<SIn, S> for NotMarker
+impl<SIn: SystemInput, S: System<SIn>> Adapt<SIn, S> for NotMarker
 where
     S::Out: Not,
 {
     type In = SIn;
     type Out = <S::Out as Not>::Output;
 
-    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(SIn) -> S::Out) -> Self::Out {
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::In<'_>,
+        run_system: impl FnOnce(SIn::In<'_>) -> S::Out,
+    ) -> Self::Out {
         !run_system(input)
     }
 }
@@ -1221,7 +1226,8 @@ pub struct AndMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for AndMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1229,9 +1235,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         a(input) && b(input)
     }
@@ -1242,7 +1248,8 @@ pub struct NandMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for NandMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1250,9 +1257,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         !(a(input) && b(input))
     }
@@ -1263,7 +1270,8 @@ pub struct NorMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for NorMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1271,9 +1279,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         !(a(input) || b(input))
     }
@@ -1284,7 +1292,8 @@ pub struct OrMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for OrMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1292,9 +1301,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         a(input) || b(input)
     }
@@ -1305,7 +1314,8 @@ pub struct XnorMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for XnorMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1313,9 +1323,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         !(a(input) ^ b(input))
     }
@@ -1326,7 +1336,8 @@ pub struct XorMarker;
 
 impl<In, A, B> Combine<In, A, In, B> for XorMarker
 where
-    In: Copy,
+    In: SystemInput,
+    for<'a> In::In<'a>: Copy,
     A: System<In, Out = bool>,
     B: System<In, Out = bool>,
 {
@@ -1334,9 +1345,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(In) -> A::Out,
-        b: impl FnOnce(In) -> B::Out,
+        input: In::In<'_>,
+        a: impl FnOnce(In::In<'_>) -> A::Out,
+        b: impl FnOnce(In::In<'_>) -> B::Out,
     ) -> Self::Out {
         a(input) ^ b(input)
     }

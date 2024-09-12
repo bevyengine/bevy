@@ -4,7 +4,10 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
-    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
+    system::{
+        check_system_change_tick, input::SystemInput, ReadOnlySystemParam, System, SystemParam,
+        SystemParamItem,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
@@ -237,7 +240,7 @@ macro_rules! impl_build_system {
             /// This method signature allows type inference of closure parameters for a system with input.
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
             pub fn build_system_with_input<
-                Input,
+                Input: SystemInput,
                 Out: 'static,
                 Marker,
                 F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
@@ -290,7 +293,11 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Create a [`FunctionSystem`] from a [`SystemState`].
     /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
     /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
-    pub fn build_any_system<In, Marker, F: SystemParamFunction<In, Marker, Param = Param>>(
+    pub fn build_any_system<
+        In: SystemInput,
+        Marker,
+        F: SystemParamFunction<In, Marker, Param = Param>,
+    >(
         self,
         func: F,
     ) -> FunctionSystem<In, Marker, F> {
@@ -498,7 +505,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
 /// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
-pub struct FunctionSystem<In, Marker, F>
+pub struct FunctionSystem<In: SystemInput, Marker, F>
 where
     F: SystemParamFunction<In, Marker>,
 {
@@ -511,7 +518,7 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
-impl<In, Marker, F> FunctionSystem<In, Marker, F>
+impl<In: SystemInput, Marker, F> FunctionSystem<In, Marker, F>
 where
     F: SystemParamFunction<In, Marker>,
 {
@@ -525,7 +532,7 @@ where
 }
 
 // De-initializes the cloned system.
-impl<In, Marker, F> Clone for FunctionSystem<In, Marker, F>
+impl<In: SystemInput, Marker, F> Clone for FunctionSystem<In, Marker, F>
 where
     F: SystemParamFunction<In, Marker> + Clone,
 {
@@ -545,7 +552,7 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<In: 'static, Marker, F> IntoSystem<In, F::Out, (IsFunctionSystem, Marker)> for F
+impl<In: SystemInput, Marker, F> IntoSystem<In, F::Out, (IsFunctionSystem, Marker)> for F
 where
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
@@ -563,7 +570,7 @@ where
     }
 }
 
-impl<In, Marker, F> FunctionSystem<In, Marker, F>
+impl<In: SystemInput, Marker, F> FunctionSystem<In, Marker, F>
 where
     F: SystemParamFunction<In, Marker>,
 {
@@ -573,7 +580,7 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In: 'static, Marker, F> System<In> for FunctionSystem<In, Marker, F>
+impl<In: SystemInput, Marker, F> System<In> for FunctionSystem<In, Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
@@ -611,7 +618,7 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(&mut self, input: In::In<'_>, world: UnsafeWorldCell) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
 
@@ -705,7 +712,7 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<In: 'static, Marker, F> ReadOnlySystem<In> for FunctionSystem<In, Marker, F>
+unsafe impl<In: SystemInput, Marker, F> ReadOnlySystem<In> for FunctionSystem<In, Marker, F>
 where
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
@@ -776,7 +783,7 @@ where
     message = "`{Self}` is not a valid system",
     label = "invalid system"
 )]
-pub trait SystemParamFunction<In, Marker>: Send + Sync + 'static {
+pub trait SystemParamFunction<In: SystemInput, Marker>: Send + Sync + 'static {
     /// The return type of this system. See [`System::Out`].
     type Out;
 
@@ -784,7 +791,7 @@ pub trait SystemParamFunction<In, Marker>: Send + Sync + 'static {
     type Param: SystemParam;
 
     /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
-    fn run(&mut self, input: In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
+    fn run(&mut self, input: In::In<'_>, param_value: SystemParamItem<Self::Param>) -> Self::Out;
 }
 
 macro_rules! impl_system_function {
@@ -816,20 +823,20 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, fn(In<Input>, $($param,)*) -> Out> for Func
+        impl<Input: SystemInput, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
-                FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
+                FnMut(In<Input::In<'_>>, $($param),*) -> Out +
+                FnMut(In<Input::In<'_>>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, input: Input::In<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
-                    mut f: impl FnMut(In<Input>, $($param,)*)->Out,
-                    input: In<Input>,
+                fn call_inner<Input: SystemInput, Out, $($param,)*>(
+                    mut f: impl FnMut(In<Input::In<'_>>, $($param,)*)->Out,
+                    input: In<Input::In<'_>>,
                     $($param: $param,)*
                 )->Out{
                     f(input, $($param,)*)
@@ -851,7 +858,7 @@ mod tests {
 
     #[test]
     fn into_system_type_id_consistency() {
-        fn test<T, In, Out, Marker>(function: T)
+        fn test<T, In: SystemInput, Out, Marker>(function: T)
         where
             T: IntoSystem<In, Out, Marker> + Copy,
         {
