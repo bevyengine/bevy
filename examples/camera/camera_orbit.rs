@@ -24,10 +24,12 @@ impl Default for CameraSettings {
     fn default() -> Self {
         let pitch_limit = FRAC_PI_2 - 0.01;
         Self {
+            // These values are completely arbitrary, chosen because they seem to produce
+            // "sensible" results for this example. Adjust as required.
             orbit_distance: 20.0,
             pitch_speed: 0.003,
             pitch_range: -pitch_limit..pitch_limit,
-            roll_speed: 0.03,
+            roll_speed: 1.0,
             yaw_speed: 0.004,
         }
     }
@@ -134,6 +136,7 @@ fn orbit(
     mut mouse_buttons: EventReader<MouseButtonInput>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     mut pressed: ResMut<MouseButtonsPressed>,
+    time: Res<Time>,
 ) {
     let mut transform = camera.single_mut();
     let delta = mouse_motion.delta;
@@ -160,7 +163,9 @@ fn orbit(
     // by delta time here would make the movement slower that it should be.
     let delta_pitch = delta.y * camera_settings.pitch_speed;
     let delta_yaw = delta.x * camera_settings.yaw_speed;
-    delta_roll *= camera_settings.roll_speed;
+
+    // Conversely, we DO need to factor in delta time for mouse button inputs.
+    delta_roll *= camera_settings.roll_speed * time.delta_seconds();
 
     // Obtain the existing pitch, yaw, and roll values from the transform.
     let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
