@@ -8,8 +8,8 @@ use bevy::{
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
-        ScreenSpaceReflectionsBundle, ScreenSpaceReflectionsSettings,
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        ScreenSpaceReflectionsBundle,
     },
     prelude::*,
     render::{
@@ -388,11 +388,9 @@ fn adjust_app_settings(
         if app_settings.ssr_on {
             commands
                 .entity(camera)
-                .insert(ScreenSpaceReflectionsSettings::default());
+                .insert(ScreenSpaceReflections::default());
         } else {
-            commands
-                .entity(camera)
-                .remove::<ScreenSpaceReflectionsSettings>();
+            commands.entity(camera).remove::<ScreenSpaceReflections>();
         }
     }
 

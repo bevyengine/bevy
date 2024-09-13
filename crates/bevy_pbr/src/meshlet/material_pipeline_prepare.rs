@@ -45,7 +45,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
-            Has<ScreenSpaceAmbientOcclusionSettings>,
+            Has<ScreenSpaceAmbientOcclusion>,
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,

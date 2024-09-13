@@ -107,11 +107,16 @@ impl Plugin for ImagePlugin {
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
-                CompressedImageSaver.into(),
-            );
-            processor
-                .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                CompressedImageSaver,
+            >>(CompressedImageSaver.into());
+            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                CompressedImageSaver,
+            >>("png");
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
