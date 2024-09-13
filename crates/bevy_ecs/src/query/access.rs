@@ -1,4 +1,6 @@
+use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
+use crate::world::World;
 use core::fmt;
 use fixedbitset::FixedBitSet;
 use std::fmt::Debug;
@@ -684,6 +686,24 @@ impl AccessConflicts {
         match self {
             Self::All => false,
             Self::Individual(set) => set.is_empty(),
+        }
+    }
+
+    pub(crate) fn format_conflict_list(&self, world: &World) -> String {
+        match self {
+            AccessConflicts::All => String::new(),
+            AccessConflicts::Individual(indices) => format!(
+                " {}",
+                indices
+                    .ones()
+                    .map(|index| world
+                        .components
+                        .get_info(ComponentId::get_sparse_set_index(index))
+                        .unwrap()
+                        .name())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ),
         }
     }
 

@@ -1,6 +1,4 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
-use crate::query::AccessConflicts;
-use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -316,21 +314,7 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let accesses = match conflicts {
-        AccessConflicts::All => "",
-        AccessConflicts::Individual(indices) => &format!(
-            " {}",
-            indices
-                .ones()
-                .map(|index| world
-                    .components
-                    .get_info(ComponentId::get_sparse_set_index(index))
-                    .unwrap()
-                    .name())
-                .collect::<Vec<&str>>()
-                .join(", ")
-        ),
-    };
+    let accesses = conflicts.format_conflict_list(&world);
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 

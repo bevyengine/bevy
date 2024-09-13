@@ -3,8 +3,7 @@ use bevy_utils::{all_tuples, synccell::SyncCell};
 use crate::{
     component::ComponentId,
     prelude::QueryBuilder,
-    query::{Access, AccessConflicts, QueryData, QueryFilter, QueryState},
-    storage::SparseSetIndex,
+    query::{Access, QueryData, QueryFilter, QueryState},
     system::{
         system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
         Query, SystemMeta,
@@ -396,21 +395,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResources<'w>> for Access<ComponentId
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&self);
         if !conflicts.is_empty() {
-            let accesses = match conflicts {
-                AccessConflicts::All => "",
-                AccessConflicts::Individual(indices) => &format!(
-                    " {}",
-                    indices
-                        .ones()
-                        .map(|index| world
-                            .components
-                            .get_info(ComponentId::get_sparse_set_index(index))
-                            .unwrap()
-                            .name())
-                        .collect::<Vec<&str>>()
-                        .join(", ")
-                ),
-            };
+            let accesses = conflicts.format_conflict_list(&world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
@@ -486,21 +471,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResourcesMut<'w>> for Access<Componen
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&self);
         if !conflicts.is_empty() {
-            let accesses = match conflicts {
-                AccessConflicts::All => "",
-                AccessConflicts::Individual(indices) => &format!(
-                    " {}",
-                    indices
-                        .ones()
-                        .map(|index| world
-                            .components
-                            .get_info(ComponentId::get_sparse_set_index(index))
-                            .unwrap()
-                            .name())
-                        .collect::<Vec<&str>>()
-                        .join(", ")
-                ),
-            };
+            let accesses = conflicts.format_conflict_list(&world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
