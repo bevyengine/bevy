@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
+use bevy_ptr::UnsafeCellDeref;
 
 /// Provides read-only access to a set of [`Resource`]s defined by the contained [`Access`].
 ///
@@ -166,8 +166,8 @@ impl<'w> FilteredResources<'w> {
                 value: unsafe { value.deref() },
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 ticks: unsafe { Ticks::from_tick_cells(ticks, self.last_run, self.this_run) },
-                // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 #[cfg(feature = "track_change_detection")]
+                // SAFETY: We have read access to the resource, so no mutable reference can exist.
                 changed_by: unsafe { _caller.deref() },
             },
         )
@@ -484,8 +484,8 @@ impl<'w> FilteredResourcesMut<'w> {
                 value: unsafe { value.assert_unique() },
                 // SAFETY: We have exclusive access to the underlying storage.
                 ticks: unsafe { TicksMut::from_tick_cells(ticks, self.last_run, self.this_run) },
-                // SAFETY: We have exclusive access to the underlying storage.
                 #[cfg(feature = "track_change_detection")]
+                // SAFETY: We have exclusive access to the underlying storage.
                 changed_by: unsafe { _caller.deref_mut() },
             },
         )
