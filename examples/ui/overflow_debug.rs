@@ -166,7 +166,7 @@ fn spawn_text(
             "Bevy",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 120.0,
+                font_size: 100.0,
                 ..default()
             },
         ));
