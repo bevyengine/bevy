@@ -611,13 +611,15 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    query: Extract<
+        Query<(Entity, &Camera, Option<&UiAntialias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+    >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera) in &query {
+    for (entity, camera, ui_antialias) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -666,6 +668,9 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
+            if let Some(ui_antialias) = ui_antialias {
+                commands.get_or_spawn(entity).insert(*ui_antialias);
+            }
             transparent_render_phases.insert_or_clear(entity);
 
             live_entities.insert(entity);
@@ -840,13 +845,14 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiAntialias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((view_entity, view, ui_antialias)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
             continue;
         };
 
@@ -859,7 +865,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                antialias: true,
+                antialias: matches!(ui_antialias, None | Some(UiAntialias::On)),
             },
         );
         transparent_phase.add(TransparentUi {

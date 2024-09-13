@@ -2380,3 +2380,28 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
         })
     }
 }
+
+/// Marker for controlling whether Ui is rendered with or without anti-aliasing
+/// in a camera. By default, Ui is always anti-aliased.
+///
+/// ```
+/// use bevy_ui::prelude::*;
+/// use bevy_core_pipeline::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2dBundle::default(),
+///         // This will cause all Ui in this camera to be rendered without
+///         // anti-aliasing
+///         UiAntialias::Off
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+pub enum UiAntialias {
+    /// UI will render with anti-aliasing
+    #[default]
+    On,
+    /// UI will render without anti-aliasing
+    Off,
+}
