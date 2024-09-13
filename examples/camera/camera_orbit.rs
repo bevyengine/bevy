@@ -30,7 +30,7 @@ impl Default for CameraSettings {
     fn default() -> Self {
         let pitch_limit = FRAC_PI_2 - 0.01;
         Self {
-            orbit_distance: 10.0,
+            orbit_distance: 20.0,
             pitch_speed: 0.003,
             pitch_range: -pitch_limit..pitch_limit,
             roll_speed: 0.03,
