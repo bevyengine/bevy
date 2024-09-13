@@ -194,7 +194,7 @@ fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<functio
     }
 }
 
-// https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#surface-gradient-from-a-tangent-space-normal-vector-without-an-explicit-tangent-basis
+// https://jcgt.org/published/0009/03/04
 fn calculate_world_tangent(
     world_normal: vec3<f32>,
     ddx_world_position: vec3<f32>,
@@ -202,23 +202,23 @@ fn calculate_world_tangent(
     ddx_uv: vec2<f32>,
     ddy_uv: vec2<f32>,
 ) -> vec4<f32> {
-    // Project the position gradients onto the tangent plane
-    let ddx_world_position_s = ddx_world_position - dot(ddx_world_position, world_normal) * world_normal;
-    let ddy_world_position_s = ddy_world_position - dot(ddy_world_position, world_normal) * world_normal;
+    // TODO: ToRelativeWorldSpace for ddx/ddy world_position
 
-    // Compute the jacobian matrix to leverage the chain rule
-    let jacobian_sign = sign(ddx_uv.x * ddy_uv.y - ddx_uv.y * ddy_uv.x);
+    // Section 3.7
+    let sigma_x = ddx_world_position - dot(ddx_world_position, world_normal) * world_normal;
+    let sigma_y = ddy_world_position - dot(ddy_world_position, world_normal) * world_normal;
+    let flip_sign = select(1.0, -1.0, dot(ddy_world_position, cross(world_normal, ddx_world_position)) < 0.0);
 
-    var world_tangent = jacobian_sign * (ddy_uv.y * ddx_world_position_s - ddx_uv.y * ddy_world_position_s);
+    // Section 3.3
+    let det = dot(ddx_uv, vec2(ddy_uv.y, -ddy_uv.x));
+    let sign_det = select(1.0, -1.0, det < 0.0);
+    let inv_c0 = sign_det * vec2(ddy_uv.y, -ddx_uv.y);
 
-    // The sign intrinsic returns 0 if the argument is 0
-    if jacobian_sign != 0.0 {
+    var world_tangent = sigma_x * inv_c0.x + sigma_y * inv_c0.y;
+    if abs(det) > 0.0 {
         world_tangent = normalize(world_tangent);
     }
-
-    // The second factor here ensures a consistent handedness between
-    // the tangent frame and surface basis w.r.t. screenspace.
-    let w = jacobian_sign * sign(dot(ddy_world_position, cross(world_normal, ddx_world_position)));
+    let w = sign_det * flip_sign;
 
     return vec4(world_tangent, -w); // TODO: Unclear why we need to negate this to match mikktspace generated tangents
 }
