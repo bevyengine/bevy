@@ -3266,18 +3266,6 @@ description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
 
-[[example]]
-name = "camera_orbit"
-path = "examples/camera/camera_orbit.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.camera_orbit]
-name = "Camera Orbit"
-description = "Shows how to orbit a static scene using pitch, yaw, and roll."
-category = "Camera"
-wasm = true
-
-
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
