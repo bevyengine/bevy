@@ -314,7 +314,7 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let accesses = conflicts.format_conflict_list(&world);
+    let accesses = conflicts.format_conflict_list(world);
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 

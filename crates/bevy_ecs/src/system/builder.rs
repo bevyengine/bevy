@@ -395,7 +395,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResources<'w>> for Access<ComponentId
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&self);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(&world);
+            let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
@@ -471,7 +471,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResourcesMut<'w>> for Access<Componen
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&self);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(&world);
+            let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
