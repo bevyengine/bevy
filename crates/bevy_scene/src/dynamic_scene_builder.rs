@@ -280,7 +280,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
-                    // Clone the via `FromReflect`. Unlike `PartialReflect::clone_value` this
+                    // Clone via `FromReflect`. Unlike `PartialReflect::clone_value` this
                     // retains the original type and `ReflectSerialize` type data which is needed to
                     // deserialize.
                     let component = type_registration
