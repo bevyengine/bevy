@@ -278,6 +278,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             material_layout,
             vertex_shader,
             fragment_shader,
+            subgroup_operations_supported,
             ..
         } = pipeline.clone();
         let base_pipeline = MaterialPipeline::<B> {
@@ -285,6 +286,7 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
             material_layout,
             vertex_shader,
             fragment_shader,
+            subgroup_operations_supported,
             marker: Default::default(),
         };
         let base_key = MaterialPipelineKey::<B> {
