@@ -323,23 +323,21 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
-    /// Usually, you'll want to use [`.chain`](Self::chain) instead.
+    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
     ///
     /// # Caveats
     ///
-    /// If you configure two [`SystemSet`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
+    /// If you configure two [`System`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
     ///
-    /// This means that the systems in `GameSystem::A` and `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`App::configure_sets`].
+    /// This means that the system `GameSystem::A` and the system or systems in `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`App::configure_sets`].
     /// If that is the case, `.after`/`.before` will not provide the desired behaviour
-    /// and the sets can run in parallel or in any order determined by the scheduler.
+    /// and the systems can run in parallel or in any order determined by the scheduler.
     /// Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know that `B` has already been scheduled for you,
     /// e.g. when it was provided by Bevy or a third-party dependency,
     /// or you manually scheduled it somewhere else in your app.
     ///
     /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
     /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
-    ///
-    /// [`App::configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
