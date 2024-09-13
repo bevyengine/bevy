@@ -5,10 +5,7 @@
 
 use std::{f32::consts::FRAC_PI_2, ops::Range};
 
-use bevy::{
-    input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
-    prelude::*,
-};
+use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 
 #[derive(Debug, Resource)]
 struct CameraSettings {
@@ -36,17 +33,10 @@ impl Default for CameraSettings {
     }
 }
 
-#[derive(Debug, Default, Resource)]
-struct MouseButtonsPressed {
-    pub left: bool,
-    pub right: bool,
-}
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<CameraSettings>()
-        .init_resource::<MouseButtonsPressed>()
         .add_systems(Startup, (setup, instructions))
         .add_systems(Update, orbit)
         .run();
@@ -133,28 +123,18 @@ fn instructions(mut commands: Commands) {
 fn orbit(
     mut camera: Query<&mut Transform, With<Camera>>,
     camera_settings: Res<CameraSettings>,
-    mut mouse_buttons: EventReader<MouseButtonInput>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
-    mut pressed: ResMut<MouseButtonsPressed>,
     time: Res<Time>,
 ) {
     let mut transform = camera.single_mut();
     let delta = mouse_motion.delta;
     let mut delta_roll = 0.0;
 
-    for button_event in mouse_buttons.read() {
-        if button_event.button == MouseButton::Left {
-            pressed.left = button_event.state.is_pressed();
-        }
-        if button_event.button == MouseButton::Right {
-            pressed.right = button_event.state.is_pressed();
-        }
-    }
-
-    if pressed.left {
+    if mouse_buttons.pressed(MouseButton::Left) {
         delta_roll -= 1.0;
     }
-    if pressed.right {
+    if mouse_buttons.pressed(MouseButton::Right) {
         delta_roll += 1.0;
     }
 
