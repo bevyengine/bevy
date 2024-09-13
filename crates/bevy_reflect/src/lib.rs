@@ -473,7 +473,7 @@
 //!
 //! | Default | Dependencies                              |
 //! | :-----: | :---------------------------------------: |
-//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`] |
+//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`]     |
 //!
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
@@ -492,6 +492,18 @@
 //!
 //! This can be useful for generating documentation for scripting language interop or
 //! for displaying tooltips in an editor.
+//!
+//! ## `debug`
+//!
+//! | Default | Dependencies                                  |
+//! | :-----: | :-------------------------------------------: |
+//! | ✅      | `debug_stack`                                 |
+//!
+//! This feature enables useful debug features for reflection.
+//!
+//! This includes the `debug_stack` feature,
+//! which enables capturing the type stack when serializing or deserializing a type
+//! and displaying it in error messages.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/
@@ -562,8 +574,13 @@ pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
+#[cfg(feature = "debug_stack")]
+mod type_info_stack;
 pub mod utility;
 
+/// The reflect prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
@@ -617,6 +634,10 @@ pub mod __macro_exports {
     ///
     /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
     /// and manual implementations for all dynamic types (which simply do nothing).
+    #[diagnostic::on_unimplemented(
+        message = "`{Self}` does not implement `GetTypeRegistration` so cannot be registered for reflection",
+        note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+    )]
     pub trait RegisterForReflection {
         #[allow(unused_variables)]
         fn __register(registry: &mut TypeRegistry) {}

@@ -25,7 +25,7 @@ use bevy_utils::default;
 ///
 #[derive(Component, Clone, Reflect, ExtractComponent)]
 #[reflect(Component)]
-pub struct AutoExposureSettings {
+pub struct AutoExposure {
     /// The range of exposure values for the histogram.
     ///
     /// Pixel values below this range will be ignored, and pixel values above this range will be
@@ -88,7 +88,10 @@ pub struct AutoExposureSettings {
     pub compensation_curve: Handle<AutoExposureCompensationCurve>,
 }
 
-impl Default for AutoExposureSettings {
+#[deprecated(since = "0.15.0", note = "Renamed to `AutoExposure`")]
+pub type AutoExposureSettings = AutoExposure;
+
+impl Default for AutoExposure {
     fn default() -> Self {
         Self {
             range: -8.0..=8.0,

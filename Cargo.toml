@@ -1082,7 +1082,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
   ],
 ]
 
@@ -3250,6 +3250,29 @@ name = "First person view model"
 description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "camera_orbit"
+path = "examples/camera/camera_orbit.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_orbit]
+name = "Camera Orbit"
+description = "Shows how to orbit a static scene using pitch, yaw, and roll."
+category = "Camera"
+wasm = true
+
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"

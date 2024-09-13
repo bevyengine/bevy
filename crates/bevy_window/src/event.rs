@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 use std::path::PathBuf;
 
 use bevy_ecs::{entity::Entity, event::Event};
@@ -10,7 +9,6 @@ use bevy_input::{
 };
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -190,22 +188,6 @@ pub struct CursorLeft {
     pub window: Entity,
 }
 
-/// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[deprecated(since = "0.14.0", note = "Use `KeyboardInput` instead.")]
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct ReceivedCharacter {
-    /// Window that received the character.
-    pub window: Entity,
-    /// Received character.
-    pub char: SmolStr,
-}
-
 /// A Input Method Editor event.
 ///
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
@@ -239,8 +221,7 @@ pub enum Ime {
     },
     /// Notifies when the IME was enabled.
     ///
-    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`,
-    /// and stop receiving events [`ReceivedCharacter`].
+    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`.
     Enabled {
         /// Window that received the event.
         window: Entity,
@@ -440,7 +421,6 @@ pub enum WindowEvent {
     CursorMoved(CursorMoved),
     FileDragAndDrop(FileDragAndDrop),
     Ime(Ime),
-    ReceivedCharacter(ReceivedCharacter),
     RequestRedraw(RequestRedraw),
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
     WindowCloseRequested(WindowCloseRequested),
@@ -496,11 +476,6 @@ impl From<FileDragAndDrop> for WindowEvent {
 impl From<Ime> for WindowEvent {
     fn from(e: Ime) -> Self {
         Self::Ime(e)
-    }
-}
-impl From<ReceivedCharacter> for WindowEvent {
-    fn from(e: ReceivedCharacter) -> Self {
-        Self::ReceivedCharacter(e)
     }
 }
 impl From<RequestRedraw> for WindowEvent {

@@ -1,12 +1,14 @@
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
+    observer::Trigger,
     query::With,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res},
-    world::Ref,
+    world::{OnRemove, Ref},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{tracing::warn, HashSet};
@@ -18,6 +20,18 @@ use bevy_winit::{
 use wgpu::TextureFormat;
 
 use crate::prelude::Image;
+
+pub struct CursorPlugin;
+
+impl Plugin for CursorPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<CursorIcon>()
+            .init_resource::<CustomCursorCache>()
+            .add_systems(Last, update_cursors);
+
+        app.observe(on_remove_cursor_icon);
+    }
+}
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
@@ -73,12 +87,12 @@ pub enum CustomCursor {
 
 pub fn update_cursors(
     mut commands: Commands,
-    mut windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
+    windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
     cursor_cache: Res<CustomCursorCache>,
     images: Res<Assets<Image>>,
     mut queue: Local<HashSet<Entity>>,
 ) {
-    for (entity, cursor) in windows.iter_mut() {
+    for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
         }
@@ -148,6 +162,15 @@ pub fn update_cursors(
             .entity(entity)
             .insert(PendingCursor(Some(cursor_source)));
     }
+}
+
+/// Resets the cursor to the default icon when `CursorIcon` is removed.
+pub fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+    commands
+        .entity(trigger.entity())
+        .insert(PendingCursor(Some(CursorSource::System(
+            convert_system_cursor_icon(SystemCursorIcon::Default),
+        ))));
 }
 
 /// Returns the image data as a `Vec<u8>`.

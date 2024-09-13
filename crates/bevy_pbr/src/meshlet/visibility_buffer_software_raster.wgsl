@@ -22,10 +22,10 @@
 
 // TODO: Subpixel precision and top-left rule
 
-var<workgroup> viewport_vertices: array<vec3f, 64>;
+var<workgroup> viewport_vertices: array<vec3f, 255>;
 
 @compute
-@workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 vertex/triangle per thread, 1 cluster per workgroup
+@workgroup_size(128, 1, 1) // 128 threads per workgroup, 1-2 vertices per thread, 1 triangle per thread, 1 cluster per workgroup
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
@@ -44,28 +44,30 @@ fn rasterize_cluster(
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
 
-    // Load and project 1 vertex per thread
-    let vertex_id = local_invocation_index;
-    if vertex_id < meshlet.vertex_count {
-        let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
-        let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
+    let instance_id = meshlet_cluster_instance_ids[cluster_id];
+    let instance_uniform = meshlet_instance_uniforms[instance_id];
+    let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
-        // Project vertex to viewport space
-        let instance_id = meshlet_cluster_instance_ids[cluster_id];
-        let instance_uniform = meshlet_instance_uniforms[instance_id];
-        let world_from_local = affine3_to_square(instance_uniform.world_from_local);
-        let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
-        var clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
-        var ndc_position = clip_position.xyz / clip_position.w;
+    // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet
+    for (var i = 0u; i <= 128u; i += 128u) {
+        let vertex_id = local_invocation_index + i;
+        if vertex_id < meshlet.vertex_count {
+            let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
+            let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
+
+            // Project vertex to viewport space
+            let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
+            let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
+            var ndc_position = clip_position.xyz / clip_position.w;
 #ifdef DEPTH_CLAMP_ORTHO
-        ndc_position.z = 1.0 / clip_position.z;
+            ndc_position.z = 1.0 / clip_position.z;
 #endif
-        let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
+            let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
 
-        // Write vertex to workgroup shared memory
-        viewport_vertices[vertex_id] = vec3(viewport_position_xy, ndc_position.z);
+            // Write vertex to workgroup shared memory
+            viewport_vertices[vertex_id] = vec3(viewport_position_xy, ndc_position.z);
+        }
     }
-
     workgroupBarrier();
 
     // Load 1 triangle's worth of vertex data per thread
@@ -76,7 +78,7 @@ fn rasterize_cluster(
     let vertex_0 = viewport_vertices[vertex_ids[2]];
     let vertex_1 = viewport_vertices[vertex_ids[1]];
     let vertex_2 = viewport_vertices[vertex_ids[0]];
-    let packed_ids = (cluster_id << 6u) | triangle_id;
+    let packed_ids = (cluster_id << 7u) | triangle_id;
 
     // Compute triangle bounding box
     let min_x = u32(min3(vertex_0.x, vertex_1.x, vertex_2.x));

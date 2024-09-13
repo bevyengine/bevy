@@ -27,7 +27,7 @@ pub struct ViewAutoExposurePipeline {
 }
 
 #[derive(ShaderType, Clone, Copy)]
-pub struct AutoExposureSettingsUniform {
+pub struct AutoExposureUniform {
     pub(super) min_log_lum: f32,
     pub(super) inv_log_lum_range: f32,
     pub(super) log_lum_range: f32,
@@ -59,7 +59,7 @@ impl FromWorld for AutoExposurePipeline {
                     ShaderStages::COMPUTE,
                     (
                         uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureSettingsUniform>(false),
+                        uniform_buffer::<AutoExposureUniform>(false),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_1d(TextureSampleType::Float { filterable: false }),
