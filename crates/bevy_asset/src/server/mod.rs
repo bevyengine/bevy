@@ -32,8 +32,7 @@ use std::{any::TypeId, path::Path, sync::Arc};
 use std::{future::Future, panic::AssertUnwindSafe};
 use thiserror::Error;
 
-// Needed for doc string
-#[allow(unused_imports)]
+#[allow(unused_imports, reason = "Needed for documentation links.")]
 use crate::io::{AssetReader, AssetWriter};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
@@ -1335,7 +1334,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
 }
 
 /// Internal events for asset load results
-#[allow(clippy::large_enum_variant)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,

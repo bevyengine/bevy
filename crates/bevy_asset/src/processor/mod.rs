@@ -37,7 +37,7 @@ use std::{
 use thiserror::Error;
 
 // Needed for doc strings
-#[allow(unused_imports)]
+#[allow(unused_imports, reason = "Needed for documentation links.")]
 use crate::io::{AssetReader, AssetWriter};
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`] / [`AssetWriter`] pair),
@@ -516,7 +516,13 @@ impl AssetProcessor {
     /// This info will later be used to determine whether or not to re-process an asset
     ///
     /// This will validate transactions and recover failed transactions when necessary.
-    #[allow(unused)]
+    #[cfg_attr(
+        any(target_arch = "wasm32", not(feature = "multi_threaded")),
+        expect(
+            dead_code,
+            reason = "This function is only used when the `multi_threade` feature is enabled, and when not on WASM."
+        )
+    )]
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.asset_infos.write().await;
