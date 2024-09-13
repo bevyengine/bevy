@@ -408,8 +408,17 @@ fn apply_pbr_lighting(
     let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
 
     // Point lights (direct)
-    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
+    var light_offset = offset_and_counts[0];
+    var light_count = light_offset + offset_and_counts[1];
+    while (light_offset < light_count) {
+        var light_id = clustering::get_clusterable_object_id(light_offset);
+#ifdef SUBGROUP_OPERATIONS_SUPPORTED
+        // https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights
+        let subgroup_light_id = subgroupMin(light_id);
+        if subgroup_light_id < light_id { continue; }
+        light_id = subgroup_light_id;
+#endif
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -439,11 +448,21 @@ fn apply_pbr_lighting(
             lighting::point_light(light_id, &transmissive_lighting_input);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
+
+        light_offset += 1u;
     }
 
     // Spot lights (direct)
-    for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
-        let light_id = clustering::get_clusterable_object_id(i);
+    light_offset = light_count;
+    light_count += offset_and_counts[2];
+    while (light_offset < light_count) {
+        var light_id = clustering::get_clusterable_object_id(light_offset);
+#ifdef SUBGROUP_OPERATIONS_SUPPORTED
+        // https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights
+        let subgroup_light_id = subgroupMin(light_id);
+        if subgroup_light_id < light_id { continue; }
+        light_id = subgroup_light_id;
+#endif
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -474,9 +493,11 @@ fn apply_pbr_lighting(
             lighting::spot_light(light_id, &transmissive_lighting_input);
         transmitted_light += transmitted_light_contrib * transmitted_shadow;
 #endif
+
+        light_offset += 1u;
     }
 
-    // directional lights (direct)
+    // Directional lights (direct)
     let n_directional_lights = view_bindings::lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         // check if this light should be skipped, which occurs if this light does not intersect with the view

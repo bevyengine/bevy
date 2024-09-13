@@ -360,6 +360,7 @@ pub struct MaterialPipeline<M: Material> {
     pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
+    pub subgroup_operations_supported: bool,
     pub marker: PhantomData<M>,
 }
 
@@ -370,6 +371,7 @@ impl<M: Material> Clone for MaterialPipeline<M> {
             material_layout: self.material_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
+            subgroup_operations_supported: self.subgroup_operations_supported.clone(),
             marker: PhantomData,
         }
     }
@@ -392,7 +394,11 @@ where
         }
 
         if let Some(fragment_shader) = &self.fragment_shader {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
+            let fragment_state = descriptor.fragment.as_mut().unwrap();
+            fragment_state.shader = fragment_shader.clone();
+            fragment_state
+                .shader_defs
+                .push("SUBGROUP_OPERATIONS_SUPPORTED".into());
         }
 
         descriptor.layout.insert(2, self.material_layout.clone());
@@ -420,6 +426,9 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
+            subgroup_operations_supported: render_device
+                .features()
+                .contains(WgpuFeatures::SUBGROUP),
             marker: PhantomData,
         }
     }
