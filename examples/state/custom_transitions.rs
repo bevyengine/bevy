@@ -68,7 +68,7 @@ mod custom_transitions {
                 // We take the latest one and clear the queue.
                 last_transition::<S>
                     // We insert the optional event into our schedule runner.
-                    .pipe(run_reenter::<S>)
+                    .pipe::<_, In<Option<StateTransitionEvent<S>>>, _, _>(run_reenter::<S>)
                     // State transitions are handled in three ordered steps, exposed as system sets.
                     // We can add our systems to them, which will run the corresponding schedules when they're evaluated.
                     // These are:
@@ -80,7 +80,7 @@ mod custom_transitions {
             .add_systems(
                 StateTransition,
                 last_transition::<S>
-                    .pipe(run_reexit::<S>)
+                    .pipe::<_, In<Option<StateTransitionEvent<S>>>, _, _>(run_reexit::<S>)
                     .in_set(ExitSchedules::<S>::default()),
             );
         }
