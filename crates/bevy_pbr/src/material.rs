@@ -396,9 +396,12 @@ where
         if let Some(fragment_shader) = &self.fragment_shader {
             let fragment_state = descriptor.fragment.as_mut().unwrap();
             fragment_state.shader = fragment_shader.clone();
-            fragment_state
-                .shader_defs
-                .push("SUBGROUP_OPERATIONS_SUPPORTED".into());
+
+            if self.subgroup_operations_supported {
+                fragment_state
+                    .shader_defs
+                    .push("SUBGROUP_OPERATIONS_SUPPORTED".into());
+            }
         }
 
         descriptor.layout.insert(2, self.material_layout.clone());
