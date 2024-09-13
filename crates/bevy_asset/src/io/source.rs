@@ -11,8 +11,7 @@ use thiserror::Error;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
-// Needed for doc strings.
-#[allow(unused_imports)]
+#[allow(unused_imports, reason = "Needed for documentation links.")]
 use crate::io::{AssetReader, AssetWriter};
 
 /// A reference to an "asset source", which maps to an [`AssetReader`] and/or [`AssetWriter`].
@@ -508,7 +507,17 @@ impl AssetSource {
     /// `file_debounce_time` is the amount of time to wait (and debounce duplicate events) before returning an event.
     /// Higher durations reduce duplicates but increase the amount of time before a change event is processed. If the
     /// duration is set too low, some systems might surface events _before_ their filesystem has the changes.
-    #[allow(unused)]
+    #[cfg_attr(
+        any(
+            not(feature = "file_watcher"),
+            target_arch = "wasm32",
+            target_os = "android"
+        ),
+        expect(
+            unused_variables,
+            reason = "The `path` and `file_debounce_wait_time` arguments are unused when on WASM, Android, or if the `file_watcher` feature is disabled."
+        )
+    )]
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
