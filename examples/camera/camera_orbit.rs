@@ -20,12 +20,6 @@ struct CameraSettings {
     pub yaw_speed: f32,
 }
 
-#[derive(Debug, Default, Resource)]
-struct MouseButtonsPressed {
-    pub left: bool,
-    pub right: bool,
-}
-
 impl Default for CameraSettings {
     fn default() -> Self {
         let pitch_limit = FRAC_PI_2 - 0.01;
@@ -37,6 +31,12 @@ impl Default for CameraSettings {
             yaw_speed: 0.004,
         }
     }
+}
+
+#[derive(Debug, Default, Resource)]
+struct MouseButtonsPressed {
+    pub left: bool,
+    pub right: bool,
 }
 
 fn main() {
