@@ -13,8 +13,8 @@
         unpack_meshlet_vertex,
     },
     mesh_view_bindings::view,
-    mesh_functions::{mesh_position_local_to_world, sign_determinant_model_3x3m},
-    mesh_types::{Mesh, MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT},
+    mesh_functions::mesh_position_local_to_world,
+    mesh_types::Mesh,
     view_transformations::{position_world_to_clip, frag_coord_to_ndc},
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
@@ -132,8 +132,13 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     );
 
     let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
-    let ddx_world_position = mat3x3(world_position_1.xyz, world_position_2.xyz, world_position_3.xyz) * partial_derivatives.ddx;
-    let ddy_world_position = mat3x3(world_position_1.xyz, world_position_2.xyz, world_position_3.xyz) * partial_derivatives.ddy;
+    let world_positions_camera_relative = mat3x3(
+        world_position_1.xyz - view.world_position,
+        world_position_2.xyz - view.world_position,
+        world_position_3.xyz - view.world_position,
+    );
+    let ddx_world_position = world_positions_camera_relative * partial_derivatives.ddx;
+    let ddy_world_position = world_positions_camera_relative * partial_derivatives.ddy;
 
     let world_normal = mat3x3(
         normal_local_to_world(vertex_1.normal, &instance_uniform),
@@ -145,8 +150,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
     let ddy_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddy;
 
-    var world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
-    world_tangent.w *= sign_determinant_model_3x3m(instance_uniform.flags);
+    let world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
@@ -216,6 +220,6 @@ fn calculate_world_tangent(
     // the tangent frame and surface basis w.r.t. screenspace.
     let w = jacobian_sign * sign(dot(ddy_world_position, cross(world_normal, ddx_world_position)));
 
-    return vec4(world_tangent, w);
+    return vec4(world_tangent, -w); // TODO: Unclear why we need to negate this to match mikktspace generated tangents
 }
 #endif
