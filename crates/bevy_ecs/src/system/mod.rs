@@ -175,7 +175,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
-        let name = format!("Piper({}, {})", system_a.name(), system_b.name());
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
         PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 
