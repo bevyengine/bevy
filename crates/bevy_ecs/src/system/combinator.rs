@@ -278,67 +278,170 @@ where
     }
 }
 
-// /// A [`System`] created by piping the output of the first system into the input of the second.
-// ///
-// /// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
-// ///
-// /// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
-// /// equal to the input type of `B`.
-// ///
-// /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
-// /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
-// /// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
-// ///
-// /// # Examples
-// ///
-// /// ```
-// /// use std::num::ParseIntError;
-// ///
-// /// use bevy_ecs::prelude::*;
-// ///
-// /// fn main() {
-// ///     let mut world = World::default();
-// ///     world.insert_resource(Message("42".to_string()));
-// ///
-// ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-// ///     let mut piped_system = parse_message_system.pipe(filter_system);
-// ///     piped_system.initialize(&mut world);
-// ///     assert_eq!(piped_system.run((), &mut world), Some(42));
-// /// }
-// ///
-// /// #[derive(Resource)]
-// /// struct Message(String);
-// ///
-// /// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
-// ///     message.0.parse::<usize>()
-// /// }
-// ///
-// /// fn filter_system(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
-// ///     result.ok().filter(|&n| n < 100)
-// /// }
-// /// ```
-// pub type PipeSystem<AIn, SystemA, BIn, SystemB> =
-//     CombinatorSystem<Pipe, AIn, SystemA, BIn, SystemB>;
+/// A [`System`] created by piping the output of the first system into the input of the second.
+///
+/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
+///
+/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
+/// equal to the input type of `B`.
+///
+/// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
+/// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
+/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
+///
+/// # Examples
+///
+/// ```
+/// use std::num::ParseIntError;
+///
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut world = World::default();
+///     world.insert_resource(Message("42".to_string()));
+///
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = parse_message_system.pipe(filter_system);
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
+/// }
+///
+/// #[derive(Resource)]
+/// struct Message(String);
+///
+/// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+///     message.0.parse::<usize>()
+/// }
+///
+/// fn filter_system(In(result): In<Result<usize, ParseIntError>>) -> Option<usize> {
+///     result.ok().filter(|&n| n < 100)
+/// }
+/// ```
+pub struct PipeSystem<AIn, A, BIn, B> {
+    _marker: PhantomData<fn() -> (AIn, BIn)>,
+    a: A,
+    b: B,
+    name: Cow<'static, str>,
+    component_access: Access<ComponentId>,
+    archetype_component_access: Access<ArchetypeComponentId>,
+}
 
-// #[doc(hidden)]
-// pub struct Pipe;
+impl<AIn, A, BIn, B> PipeSystem<AIn, A, BIn, B>
+where
+    AIn: SystemInput,
+    A: System<AIn>,
+    for<'a> BIn: SystemInput<In<'a> = A::Out>,
+    B: System<BIn>,
+{
+    /// Creates a new system that pipes two inner systems.
+    pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
+        Self {
+            _marker: PhantomData,
+            a,
+            b,
+            name,
+            component_access: Access::new(),
+            archetype_component_access: Access::new(),
+        }
+    }
+}
 
-// impl<AIn, A, B> Combine<AIn, A, A::Out, B> for Pipe
-// where
-//     A: System<AIn>,
-//     AIn: SystemInput,
-//     A::Out: SystemInput,
-//     B: System<A::Out>,
-// {
-//     type In = AIn;
-//     type Out = B::Out;
+impl<AIn, A, BIn, B> System<AIn> for PipeSystem<AIn, A, BIn, B>
+where
+    AIn: SystemInput,
+    A: System<AIn>,
+    for<'a> BIn: SystemInput<In<'a> = A::Out>,
+    B: System<BIn>,
+{
+    type Out = B::Out;
 
-//     fn combine(
-//         input: <Self::In as SystemInput>::In<'_>,
-//         a: impl FnOnce(AIn::In<'_>) -> A::Out,
-//         b: impl FnOnce(<A::Out as SystemInput>::In<'_>) -> B::Out,
-//     ) -> Self::Out {
-//         let mut value = a(input);
-//         b(value)
-//     }
-// }
+    fn name(&self) -> Cow<'static, str> {
+        self.name.clone()
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        &self.component_access
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    fn is_send(&self) -> bool {
+        self.a.is_send() && self.b.is_send()
+    }
+
+    fn is_exclusive(&self) -> bool {
+        self.a.is_exclusive() || self.b.is_exclusive()
+    }
+
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        input: <AIn as SystemInput>::In<'_>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
+        let value = self.a.run_unsafe(input, world);
+        self.b.run_unsafe(value, world)
+    }
+
+    fn apply_deferred(&mut self, world: &mut World) {
+        self.a.apply_deferred(world);
+        self.b.apply_deferred(world);
+    }
+
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
+    }
+
+    fn initialize(&mut self, world: &mut World) {
+        self.a.initialize(world);
+        self.b.initialize(world);
+        self.component_access.extend(self.a.component_access());
+        self.component_access.extend(self.b.component_access());
+    }
+
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+        self.a.update_archetype_component_access(world);
+        self.b.update_archetype_component_access(world);
+
+        self.archetype_component_access
+            .extend(self.a.archetype_component_access());
+        self.archetype_component_access
+            .extend(self.b.archetype_component_access());
+    }
+
+    fn check_change_tick(&mut self, change_tick: Tick) {
+        self.a.check_change_tick(change_tick);
+        self.b.check_change_tick(change_tick);
+    }
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
+
+    fn get_last_run(&self) -> Tick {
+        self.a.get_last_run()
+    }
+
+    fn set_last_run(&mut self, last_run: Tick) {
+        self.a.set_last_run(last_run);
+        self.b.set_last_run(last_run);
+    }
+}
+
+/// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
+unsafe impl<AIn, A, BIn, B> ReadOnlySystem<AIn> for PipeSystem<AIn, A, BIn, B>
+where
+    AIn: SystemInput,
+    A: ReadOnlySystem<AIn>,
+    for<'a> BIn: SystemInput<In<'a> = A::Out>,
+    B: ReadOnlySystem<BIn>,
+{
+}

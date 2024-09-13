@@ -16,17 +16,18 @@ fn main() {
             filter: "".to_string(),
             ..default()
         })
-        .add_systems(
-            Update,
-            (
-                parse_message_system.pipe(handler_system),
-                data_pipe_system.map(info),
-                parse_message_system.map(dbg),
-                warning_pipe_system.map(warn),
-                parse_error_message_system.map(error),
-                parse_message_system.map(drop),
-            ),
-        )
+        // TODO: fix this
+        // .add_systems(
+        //     Update,
+        //     (
+        //         parse_message_system.pipe(handler_system),
+        //         data_pipe_system.map(info),
+        //         parse_message_system.map(dbg),
+        //         warning_pipe_system.map(warn),
+        //         parse_error_message_system.map(error),
+        //         parse_message_system.map(drop),
+        //     ),
+        // )
         .run();
 }
 

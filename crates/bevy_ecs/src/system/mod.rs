@@ -164,20 +164,20 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
 
-    // /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
-    // ///
-    // /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
-    // /// where `T` is the return type of the first system.
-    // fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, Out, B::System>
-    // where
-    //     Out: SystemInput,
-    //     B: IntoSystem<Out, Final, MarkerB>,
-    // {
-    //     let system_a = IntoSystem::into_system(self);
-    //     let system_b = IntoSystem::into_system(system);
-    //     let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-    //     PipeSystem::new(system_a, system_b, Cow::Owned(name))
-    // }
+    /// Pass the output of this system `A` into a second system `B`, creating a new compound system.
+    ///
+    /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
+    /// where `T` is the return type of the first system.
+    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, BIn, B::System>
+    where
+        for<'a> BIn: SystemInput<In<'a> = Out> + Send + Sync,
+        B: IntoSystem<BIn, BOut, MarkerB>,
+    {
+        let system_a = IntoSystem::into_system(self);
+        let system_b = IntoSystem::into_system(system);
+        let name = format!("Piper({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+    }
 
     /// Pass the output of this system into the passed function `f`, creating a new system that
     /// outputs the value returned from the function.
@@ -347,6 +347,7 @@ mod tests {
     use std::any::TypeId;
 
     use crate::prelude::EntityRef;
+    use crate::system::PipeSystem;
     use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
@@ -1674,84 +1675,85 @@ mod tests {
         assert_is_system(returning::<Option<()>>.map(drop));
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(static_system_param);
+        // TODO: fix
         // assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
         assert_is_system(exclusive_with_state);
-        // assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
+        assert_is_system(returning::<bool>.pipe::<_, In<bool>, _, _>(exclusive_in_out::<bool, ()>));
 
-        // returning::<()>.run_if(returning::<bool>.pipe(not));
+        returning::<()>.run_if(returning::<bool>.pipe::<_, In<bool>, _, _>(not));
     }
 
-    // #[test]
-    // fn pipe_change_detection() {
-    //     #[derive(Resource, Default)]
-    //     struct Flag;
+    #[test]
+    fn pipe_change_detection() {
+        #[derive(Resource, Default)]
+        struct Flag;
 
-    //     #[derive(Default)]
-    //     struct Info {
-    //         // If true, the respective system will mutate `Flag`.
-    //         do_first: bool,
-    //         do_second: bool,
+        #[derive(Default)]
+        struct Info {
+            // If true, the respective system will mutate `Flag`.
+            do_first: bool,
+            do_second: bool,
 
-    //         // Will be set to true if the respective system saw that `Flag` changed.
-    //         first_flag: bool,
-    //         second_flag: bool,
-    //     }
+            // Will be set to true if the respective system saw that `Flag` changed.
+            first_flag: bool,
+            second_flag: bool,
+        }
 
-    //     fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
-    //         if flag.is_changed() {
-    //             info.first_flag = true;
-    //         }
-    //         if info.do_first {
-    //             *flag = Flag;
-    //         }
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.first_flag = true;
+            }
+            if info.do_first {
+                *flag = Flag;
+            }
 
-    //         info
-    //     }
+            info
+        }
 
-    //     fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
-    //         if flag.is_changed() {
-    //             info.second_flag = true;
-    //         }
-    //         if info.do_second {
-    //             *flag = Flag;
-    //         }
+        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+            if flag.is_changed() {
+                info.second_flag = true;
+            }
+            if info.do_second {
+                *flag = Flag;
+            }
 
-    //         info
-    //     }
+            info
+        }
 
-    //     let mut world = World::new();
-    //     world.init_resource::<Flag>();
-    //     let mut sys = first.pipe(second);
-    //     sys.initialize(&mut world);
+        let mut world = World::new();
+        world.init_resource::<Flag>();
+        let mut sys: PipeSystem<In<Info>, _, In<Info>, _> = first.pipe(second);
+        sys.initialize(&mut world);
 
-    //     sys.run(default(), &mut world);
+        sys.run(default(), &mut world);
 
-    //     // The second system should observe a change made in the first system.
-    //     let info = sys.run(
-    //         Info {
-    //             do_first: true,
-    //             ..default()
-    //         },
-    //         &mut world,
-    //     );
-    //     assert!(!info.first_flag);
-    //     assert!(info.second_flag);
+        // The second system should observe a change made in the first system.
+        let info = sys.run(
+            Info {
+                do_first: true,
+                ..default()
+            },
+            &mut world,
+        );
+        assert!(!info.first_flag);
+        assert!(info.second_flag);
 
-    //     // When a change is made in the second system, the first system
-    //     // should observe it the next time they are run.
-    //     let info1 = sys.run(
-    //         Info {
-    //             do_second: true,
-    //             ..default()
-    //         },
-    //         &mut world,
-    //     );
-    //     let info2 = sys.run(default(), &mut world);
-    //     assert!(!info1.first_flag);
-    //     assert!(!info1.second_flag);
-    //     assert!(info2.first_flag);
-    //     assert!(!info2.second_flag);
-    // }
+        // When a change is made in the second system, the first system
+        // should observe it the next time they are run.
+        let info1 = sys.run(
+            Info {
+                do_second: true,
+                ..default()
+            },
+            &mut world,
+        );
+        let info2 = sys.run(default(), &mut world);
+        assert!(!info1.first_flag);
+        assert!(!info1.second_flag);
+        assert!(info2.first_flag);
+        assert!(!info2.second_flag);
+    }
 
     #[test]
     fn test_combinator_clone() {

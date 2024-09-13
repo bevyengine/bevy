@@ -83,37 +83,44 @@ all_tuples!(impl_system_function, 0, 16, F);
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, event::Event, observer::Trigger, system::In, world::World};
+    use crate::{
+        self as bevy_ecs,
+        event::Event,
+        observer::Trigger,
+        system::{In, IntoSystem},
+        world::World,
+    };
 
     #[derive(Event)]
     struct TriggerEvent;
 
-    // #[test]
-    // fn test_piped_observer_systems_no_input() {
-    //     fn a(_: Trigger<TriggerEvent>) {}
-    //     fn b() {}
+    #[test]
+    fn test_piped_observer_systems_no_input() {
+        fn a(_: Trigger<TriggerEvent>) {}
+        fn b() {}
 
-    //     let mut world = World::new();
-    //     world.observe(a.pipe(b));
-    // }
+        let mut world = World::new();
+        world.observe(a.pipe(b));
+    }
 
-    // #[test]
-    // fn test_piped_observer_systems_with_inputs() {
-    //     fn a(_: Trigger<TriggerEvent>) -> u32 {
-    //         3
-    //     }
-    //     fn b(_: In<u32>) {}
+    #[test]
+    fn test_piped_observer_systems_with_inputs() {
+        fn a(_: Trigger<TriggerEvent>) -> u32 {
+            3
+        }
+        fn b(_: In<u32>) {}
 
-    //     let mut world = World::new();
-    //     world.observe(a.pipe(b));
-    // }
+        let mut world = World::new();
+        world.observe(a.pipe::<_, In<u32>, _, _>(b));
+    }
 
+    // TODO: uncomment this to check that 'static no longer is allowed
     // #[derive(Debug, Event)]
     // struct E(#[allow(dead_code)] String);
 
     // fn observer(
     //     In(trigger): In<Trigger<'static, E, ()>>,
-    //     mut last_trigger: Local<Option<Trigger<E, ()>>>,
+    //     mut last_trigger: crate::system::Local<Option<Trigger<E, ()>>>,
     // ) {
     //     println!("Now: {:?}", trigger.event());
 

@@ -786,4 +786,17 @@ mod tests {
         let output = world.run_system_cached_with(four, ());
         assert!(matches!(output, Ok(x) if x == four()));
     }
+
+    #[test]
+    fn system_with_input_ref() {
+        fn with_ref(input: In<&u8>, mut counter: ResMut<Counter>) {
+            counter.0 += *input;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let id = world.register_system::<&'static u8, _, _, _>(with_ref);
+        world.run_system_with_input(id, &2).unwrap();
+    }
 }

@@ -1073,108 +1073,110 @@ pub mod common_conditions {
         NotSystem::new(super::NotMarker, condition, name.into())
     }
 
-    // /// Generates a [`Condition`] that returns true when the passed one changes.
-    // ///
-    // /// The first time this is called, the passed condition is assumed to have been previously false.
-    // ///
-    // /// # Example
-    // ///
-    // /// ```
-    // /// # use bevy_ecs::prelude::*;
-    // /// # #[derive(Resource, Default)]
-    // /// # struct Counter(u8);
-    // /// # let mut app = Schedule::default();
-    // /// # let mut world = World::new();
-    // /// # world.init_resource::<Counter>();
-    // /// app.add_systems(
-    // ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
-    // /// );
-    // ///
-    // /// #[derive(Resource)]
-    // /// struct MyResource;
-    // ///
-    // /// fn my_system(mut counter: ResMut<Counter>) {
-    // ///     counter.0 += 1;
-    // /// }
-    // ///
-    // /// // `MyResource` is initially there, the inner condition is true, the system runs once
-    // /// world.insert_resource(MyResource);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 1);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 1);
-    // ///
-    // /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
-    // /// world.remove_resource::<MyResource>();
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 2);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 2);
-    // /// ```
-    // pub fn condition_changed<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
-    //     condition: C,
-    // ) -> impl Condition<(), CIn> {
-    //     condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
-    //         let changed = *prev != new;
-    //         *prev = new;
-    //         changed
-    //     })
-    // }
+    /// Generates a [`Condition`] that returns true when the passed one changes.
+    ///
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// ```
+    pub fn condition_changed<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
+        condition: C,
+    ) -> impl Condition<(), CIn> {
+        condition.pipe::<_, In<bool>, _, _>(|In(new): In<bool>, mut prev: Local<bool>| {
+            let changed = *prev != new;
+            *prev = new;
+            changed
+        })
+    }
 
-    // /// Generates a [`Condition`] that returns true when the result of
-    // /// the passed one went from false to true since the last time this was called.
-    // ///
-    // /// The first time this is called, the passed condition is assumed to have been previously false.
-    // ///
-    // /// # Example
-    // ///
-    // /// ```
-    // /// # use bevy_ecs::prelude::*;
-    // /// # #[derive(Resource, Default)]
-    // /// # struct Counter(u8);
-    // /// # let mut app = Schedule::default();
-    // /// # let mut world = World::new();
-    // /// # world.init_resource::<Counter>();
-    // /// app.add_systems(
-    // ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
-    // /// );
-    // ///
-    // /// #[derive(Resource)]
-    // /// struct MyResource;
-    // ///
-    // /// fn my_system(mut counter: ResMut<Counter>) {
-    // ///     counter.0 += 1;
-    // /// }
-    // ///
-    // /// // `MyResource` is initially there, the inner condition is true, the system runs once
-    // /// world.insert_resource(MyResource);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 1);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 1);
-    // ///
-    // /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
-    // /// world.remove_resource::<MyResource>();
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 1);
-    // ///
-    // /// // We reinsert `MyResource` again, so the system will run one more time
-    // /// world.insert_resource(MyResource);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 2);
-    // /// app.run(&mut world);
-    // /// assert_eq!(world.resource::<Counter>().0, 2);
-    // /// ```
-    // pub fn condition_changed_to<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
-    //     to: bool,
-    //     condition: C,
-    // ) -> impl Condition<(), CIn> {
-    //     condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-    //         let now_true = *prev != new && new == to;
-    //         *prev = new;
-    //         now_true
-    //     })
-    // }
+    /// Generates a [`Condition`] that returns true when the result of
+    /// the passed one went from false to true since the last time this was called.
+    ///
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We reinsert `MyResource` again, so the system will run one more time
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// ```
+    pub fn condition_changed_to<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
+        to: bool,
+        condition: C,
+    ) -> impl Condition<(), CIn> {
+        condition.pipe::<_, In<bool>, _, _>(
+            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+                let now_true = *prev != new && new == to;
+                *prev = new;
+                now_true
+            },
+        )
+    }
 }
 
 /// Invokes [`Not`] with the output of another system.

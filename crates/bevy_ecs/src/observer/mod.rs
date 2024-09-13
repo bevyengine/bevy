@@ -109,19 +109,6 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     pub fn get_propagate(&self) -> bool {
         *self.propagate
     }
-
-    pub fn reborrow(&mut self) -> Trigger<'_, E, B> {
-        Trigger {
-            event: self.event,
-            propagate: self.propagate,
-            trigger: ObserverTrigger {
-                observer: self.trigger.observer,
-                event_type: self.trigger.event_type,
-                entity: self.trigger.entity,
-            },
-            _marker: PhantomData,
-        }
-    }
 }
 
 impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {

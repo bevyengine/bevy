@@ -1,5 +1,5 @@
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs};
-use bevy_ecs::system::IntoSystem;
+use bevy_ecs::system::{In, IntoSystem};
 use bevy_ecs::{
     event::EventWriter,
     prelude::Schedule,
@@ -32,17 +32,17 @@ pub trait FreelyMutableState: States {
             )
             .add_systems(
                 last_transition::<Self>
-                    .pipe(run_exit::<Self>)
+                    .pipe::<_, In<Option<StateTransitionEvent<Self>>>, _, _>(run_exit::<Self>)
                     .in_set(ExitSchedules::<Self>::default()),
             )
             .add_systems(
                 last_transition::<Self>
-                    .pipe(run_transition::<Self>)
+                    .pipe::<_, In<Option<StateTransitionEvent<Self>>>, _, _>(run_transition::<Self>)
                     .in_set(TransitionSchedules::<Self>::default()),
             )
             .add_systems(
                 last_transition::<Self>
-                    .pipe(run_enter::<Self>)
+                    .pipe::<_, In<Option<StateTransitionEvent<Self>>>, _, _>(run_enter::<Self>)
                     .in_set(EnterSchedules::<Self>::default()),
             );
     }

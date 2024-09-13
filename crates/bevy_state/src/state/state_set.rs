@@ -1,7 +1,7 @@
 use bevy_ecs::{
     event::{EventReader, EventWriter},
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, Schedule},
-    system::{Commands, IntoSystem, Res, ResMut},
+    system::{Commands, In, IntoSystem, Res, ResMut},
 };
 use bevy_utils::all_tuples;
 
@@ -132,17 +132,17 @@ impl<S: InnerStateSet> StateSet for S {
             .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_exit::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_exit::<T>)
                     .in_set(ExitSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_transition::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_transition::<T>)
                     .in_set(TransitionSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_enter::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_enter::<T>)
                     .in_set(EnterSchedules::<T>::default()),
             );
     }
@@ -212,17 +212,17 @@ impl<S: InnerStateSet> StateSet for S {
             .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_exit::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_exit::<T>)
                     .in_set(ExitSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_transition::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_transition::<T>)
                     .in_set(TransitionSchedules::<T>::default()),
             )
             .add_systems(
                 last_transition::<T>
-                    .pipe(run_enter::<T>)
+                    .pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_enter::<T>)
                     .in_set(EnterSchedules::<T>::default()),
             );
     }
@@ -278,9 +278,9 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule
                     .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
             }
 
             fn register_sub_state_systems_in_schedule<T: SubStates<SourceStates = Self>>(
@@ -332,9 +332,9 @@ macro_rules! impl_state_set_sealed_tuples {
 
                 schedule
                     .add_systems(apply_state_transition.in_set(ApplyStateTransition::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
-                    .add_systems(last_transition::<T>.pipe(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_exit::<T>).in_set(ExitSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_transition::<T>).in_set(TransitionSchedules::<T>::default()))
+                    .add_systems(last_transition::<T>.pipe::<_, In<Option<StateTransitionEvent<T>>>, _, _>(run_enter::<T>).in_set(EnterSchedules::<T>::default()));
             }
         }
     };
