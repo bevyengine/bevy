@@ -22,6 +22,7 @@ struct CameraSettings {
 
 impl Default for CameraSettings {
     fn default() -> Self {
+        // Limiting pitch stops some unexpected rotation past 90° up or down.
         let pitch_limit = FRAC_PI_2 - 0.01;
         Self {
             // These values are completely arbitrary, chosen because they seem to produce
