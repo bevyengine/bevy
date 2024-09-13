@@ -3,6 +3,10 @@
 @group(1) @binding(0) var<uniform> color: vec4<f32>;
 @group(1) @binding(2) var<uniform> blur_radius: f32;
 
+fn gaussian(x: f32, sigma: f32) -> f32 {
+    return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
+}
+
 fn erf(p: vec2<f32>) -> vec2<f32> {
     let s = sign(p);
     let a = abs(p);
