@@ -114,6 +114,7 @@ pub struct UiMaterialVertex {
     pub uv: [f32; 2],
     pub size: [f32; 2],
     pub border_widths: [f32; 4],
+    pub border_radius: [f32; 4],
 }
 
 // in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -151,7 +152,9 @@ where
                 VertexFormat::Float32x2,
                 // size
                 VertexFormat::Float32x2,
-                // border_widths
+                // border widths
+                VertexFormat::Float32x4,
+                // border radius
                 VertexFormat::Float32x4,
             ],
         );
@@ -332,6 +335,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
+    pub border_radius: [f32; 4],
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
@@ -414,17 +418,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             .unwrap_or(ui_logical_viewport_size.x);
 
         let left =
-            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
-                / uinode.size().x;
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
         let right =
-            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size)
-                / uinode.size().x;
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
         let top =
-            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
-                / uinode.size().y;
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
         let bottom =
-            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size)
-                / uinode.size().y;
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
 
         extracted_uinodes.uinodes.insert(
             entity,
@@ -437,6 +437,12 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     max: uinode.calculated_size,
                 },
                 border: [left, right, top, bottom],
+                border_radius: [
+                    uinode.border_radius.top_left,
+                    uinode.border_radius.top_right,
+                    uinode.border_radius.bottom_right,
+                    uinode.border_radius.bottom_left,
+                ],
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
             },
@@ -577,6 +583,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
                             border_widths: extracted_uinode.border,
+                            border_radius: extracted_uinode.border_radius,
                         });
                     }
 
