@@ -66,7 +66,7 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
     let radius = in.border_widths;
     let point = (in.uv - 0.5) * in.size;
-    let g = color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, point, ratio, max(blur_radius, 0.01), radius);
+    let g = color.a * roundedBoxShadow(-0.5 * in.size, 0.5 * in.size, point, max(blur_radius, 0.01), radius);
     return vec4(color.rgb, g);
 }
 
