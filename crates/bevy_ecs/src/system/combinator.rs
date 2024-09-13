@@ -388,6 +388,11 @@ where
         self.b.run_unsafe(value, world)
     }
 
+    fn run(&mut self, input: <AIn as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
+        let value = self.a.run(input, world);
+        self.b.run(value, world)
+    }
+
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
