@@ -2465,6 +2465,45 @@ impl<'w> FilteredEntityMut<'w> {
             .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
             .flatten()
     }
+
+    /// TODO
+    pub fn get_reflect(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<&'_ dyn Reflect> {
+        self.access
+            .has_component_read(component_id)
+            // SAFETY: TODO
+            .then(|| unsafe { self.entity.get_reflect(component_id, type_registry) })
+            .flatten()
+    }
+
+    /// TODO
+    pub fn get_reflect_ref(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Ref<'_, dyn Reflect>> {
+        self.access
+            .has_component_read(component_id)
+            // SAFETY: TODO
+            .then(|| unsafe { self.entity.get_reflect_ref(component_id, type_registry) })
+            .flatten()
+    }
+
+    /// TODO
+    pub fn get_reflect_mut(
+        &mut self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Mut<'_, dyn Reflect>> {
+        self.access
+            .has_component_write(component_id)
+            // SAFETY: TODO
+            .then(|| unsafe { self.entity.get_reflect_mut(component_id, type_registry) })
+            .flatten()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
