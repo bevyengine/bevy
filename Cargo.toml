@@ -3266,7 +3266,6 @@ description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
 
-
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
