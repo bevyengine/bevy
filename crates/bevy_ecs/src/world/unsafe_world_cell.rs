@@ -21,7 +21,7 @@ use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 use bevy_reflect::{Reflect, ReflectFromPtr, TypeRegistry};
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, mem::MaybeUninit, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -1031,6 +1031,43 @@ impl<'w> UnsafeEntityCell<'w> {
                 changed_by: _caller.deref_mut(),
             })
         }
+    }
+}
+
+impl<'w> UnsafeEntityCell<'w> {
+    /// Retrieves mutable untyped references to the given `entity`'s [`Component`]s of the given [`ComponentId`]s.
+    ///
+    /// Returns `None` if:
+    /// - there is a duplicate in the given [`ComponentId`]s array;
+    /// - the `entity` does not have a [`Component`] with one of the given types.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the components mutably
+    /// - no other references to the components exist at the same time
+    #[inline]
+    pub unsafe fn get_many_mut_by_id<const N: usize>(
+        self,
+        component_ids: [ComponentId; N],
+    ) -> Option<[MutUntyped<'w>; N]> {
+        for i in 0..N {
+            for j in 0..i {
+                if component_ids[i] == component_ids[j] {
+                    return None;
+                }
+            }
+        }
+
+        let mut ptrs = [(); N].map(|_| MaybeUninit::uninit());
+
+        for (ptr, component_id) in core::iter::zip(&mut ptrs, component_ids) {
+            // SAFETY: TODO
+            *ptr = MaybeUninit::new(unsafe { self.get_mut_by_id(component_id)? });
+        }
+
+        // SAFETY: Each value has been fully initialized.
+        Some(unsafe { ptrs.map(|x| x.assume_init()) })
     }
 }
 
