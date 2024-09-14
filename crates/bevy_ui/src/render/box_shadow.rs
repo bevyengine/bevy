@@ -10,8 +10,9 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::{
+    camera::Camera,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -214,6 +215,8 @@ pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     default_ui_camera: Extract<DefaultUiCamera>,
+    ui_scale: Extract<Res<UiScale>>,
+    camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
             &Node,
@@ -236,21 +239,52 @@ pub fn extract_shadows(
             continue;
         }
 
+        let ui_logical_viewport_size = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(|(_, c)| c.logical_viewport_size())
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
+
+        let resolve_val = |val| match val {
+            Val::Auto => 0.,
+            Val::Px(px) => px,
+            Val::Percent(percent) => percent / 100. * uinode.size().x,
+            Val::Vw(percent) => percent / 100. * ui_logical_viewport_size.x,
+            Val::Vh(percent) => percent / 100. * ui_logical_viewport_size.y,
+            Val::VMin(percent) => percent / 100. * ui_logical_viewport_size.min_element(),
+            Val::VMax(percent) => percent / 100. * ui_logical_viewport_size.max_element(),
+        };
+
+        let blur = resolve_val(box_shadow.blur_radius);
+        let offset = vec2(
+            resolve_val(box_shadow.x_offset),
+            resolve_val(box_shadow.y_offset),
+        );
+        let spread = vec2(
+            resolve_val(box_shadow.x_spread),
+            resolve_val(box_shadow.y_spread),
+        );
+
+        let size = uinode.size() + spread;
+
         extracted_box_shadows.box_shadows.insert(
             commands.spawn_empty().id(),
             ExtractedBoxShadow {
                 stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
+                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
                 color: box_shadow.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size + box_shadow.blur_radius * 10.,
+                    max: size + 2. * blur,
                 },
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
                 radius: uinode.border_radius,
-                blur: box_shadow.blur_radius,
-                size: uinode.calculated_size,
+                blur,
+                size,
             },
         );
     }

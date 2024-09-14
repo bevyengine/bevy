@@ -2277,20 +2277,24 @@ pub struct BoxShadow {
     /// The shadow's color
     pub color: Color,
     /// Offset increasing to the right and down
-    pub offset: Vec2,
+    pub x_offset: Val,
+    pub y_offset: Val,
     /// Difference in size from occluding uninode
-    pub spread_radius: Vec2,
+    pub x_spread: Val,
+    pub y_spread: Val,
     /// Blurriness of the shadow
-    pub blur_radius: f32,
+    pub blur_radius: Val,
 }
 
 impl Default for BoxShadow {
     fn default() -> Self {
         Self {
             color: Color::BLACK,
-            offset: Default::default(),
-            spread_radius: Default::default(),
-            blur_radius: Default::default(),
+            x_offset: Val::Percent(20.),
+            y_offset: Val::Percent(20.),
+            x_spread: Val::ZERO,
+            y_spread: Val::ZERO,
+            blur_radius: Val::Percent(10.),
         }
     }
 }
