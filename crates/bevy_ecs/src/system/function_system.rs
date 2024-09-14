@@ -552,8 +552,9 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<In: SystemInput, Marker, F> IntoSystem<In, F::Out, (IsFunctionSystem, Marker)> for F
+impl<In, Marker, F> IntoSystem<In, F::Out, (IsFunctionSystem, Marker)> for F
 where
+    In: SystemInput + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
 {
@@ -580,8 +581,9 @@ where
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<In: SystemInput, Marker, F> System<In> for FunctionSystem<In, Marker, F>
+impl<In, Marker, F> System<In> for FunctionSystem<In, Marker, F>
 where
+    In: SystemInput + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
 {
@@ -712,8 +714,9 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<In: SystemInput, Marker, F> ReadOnlySystem<In> for FunctionSystem<In, Marker, F>
+unsafe impl<In, Marker, F> ReadOnlySystem<In> for FunctionSystem<In, Marker, F>
 where
+    In: SystemInput + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
     F::Param: ReadOnlySystemParam,
@@ -799,9 +802,10 @@ macro_rules! impl_system_function {
         #[allow(non_snake_case)]
         impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), fn($($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
+                FnMut($(SystemParamItem<$param>),*) -> Out,
+            Out: 'static
         {
             type Out = Out;
             type Param = ($($param,)*);
@@ -825,9 +829,10 @@ macro_rules! impl_system_function {
         #[allow(non_snake_case)]
         impl<Input: SystemInput, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, fn(In<Input>, $($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut(In<Input::In<'_>>, $($param),*) -> Out +
-                FnMut(In<Input::In<'_>>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
+                FnMut(In<Input::In<'_>>, $(SystemParamItem<$param>),*) -> Out,
+            Out: 'static
         {
             type Out = Out;
             type Param = ($($param,)*);
@@ -836,13 +841,13 @@ macro_rules! impl_system_function {
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In<Input::In<'_>>, $($param,)*)->Out,
-                    input: In<Input::In<'_>>,
+                    input: Input::In<'_>,
                     $($param: $param,)*
                 )->Out{
-                    f(input, $($param,)*)
+                    f(In(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, In(input), $($param),*)
+                call_inner(self, input, $($param),*)
             }
         }
     };

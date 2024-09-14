@@ -197,7 +197,11 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl<In: SystemInput, Out: 'static> Debug for dyn System<In, Out = Out> {
+impl<In, Out> Debug for dyn System<In, Out = Out>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())

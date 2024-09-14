@@ -1111,10 +1111,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe::<_, In<bool>, _, _>(|In(new): In<bool>, mut prev: Local<bool>| {
+    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput + 'static,
+        C: Condition<Marker, CIn>,
+    {
+        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
             let changed = *prev != new;
             *prev = new;
             changed
@@ -1165,17 +1167,16 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed_to<Marker, CIn: SystemInput, C: Condition<Marker, CIn>>(
-        to: bool,
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe::<_, In<bool>, _, _>(
-            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-                let now_true = *prev != new && new == to;
-                *prev = new;
-                now_true
-            },
-        )
+    pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput + 'static,
+        C: Condition<Marker, CIn>,
+    {
+        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+            let now_true = *prev != new && new == to;
+            *prev = new;
+            now_true
+        })
     }
 }
 

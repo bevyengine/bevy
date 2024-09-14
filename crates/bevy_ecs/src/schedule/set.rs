@@ -172,8 +172,9 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<In: SystemInput, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Marker)> for F
+impl<In, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Marker)> for F
 where
+    In: SystemInput + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Marker>,
 {

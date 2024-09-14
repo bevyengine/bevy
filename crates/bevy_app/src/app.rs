@@ -302,10 +302,12 @@ impl App {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: SystemInput, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
-        &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+    pub fn register_system<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+        S: IntoSystem<I, O, M> + 'static,
+    {
         self.main_mut().register_system(system)
     }
 

@@ -168,10 +168,11 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, BIn, B::System>
+    fn pipe<B, BOut, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, B::System>
     where
-        for<'a> BIn: SystemInput<In<'a> = Out> + Send + Sync,
-        B: IntoSystem<BIn, BOut, MarkerB>,
+        In: 'static,
+        Out: SystemInput,
+        B: IntoSystem<Out, BOut, MarkerB>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);

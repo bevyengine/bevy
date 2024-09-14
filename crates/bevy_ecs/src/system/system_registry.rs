@@ -134,7 +134,12 @@ impl World {
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: SystemInput, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<
+        I: SystemInput + 'static,
+        O: 'static,
+        M,
+        S: IntoSystem<I, O, M> + 'static,
+    >(
         &mut self,
         system: S,
     ) -> SystemId<I, O> {
@@ -298,7 +303,7 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I: SystemInput, O: 'static>(
+    pub fn run_system_with_input<I: SystemInput + 'static, O: 'static>(
         &mut self,
         id: SystemId<I, O>,
         input: I::In<'_>,
@@ -462,8 +467,9 @@ impl<I: SystemInput> RunSystemWithInput<I> {
     }
 }
 
-impl<I: SystemInput> Command for RunSystemWithInput<I>
+impl<I> Command for RunSystemWithInput<I>
 where
+    I: SystemInput + 'static,
     I::In<'static>: Send,
 {
     #[inline]

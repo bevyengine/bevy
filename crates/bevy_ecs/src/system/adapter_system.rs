@@ -86,9 +86,10 @@ where
     }
 }
 
-impl<Func, SIn: SystemInput + Send + Sync, S> System<Func::In> for AdapterSystem<Func, SIn, S>
+impl<Func, SIn, S> System<Func::In> for AdapterSystem<Func, SIn, S>
 where
     Func: Adapt<SIn, S>,
+    SIn: SystemInput + Send + Sync + 'static,
     S: System<SIn>,
 {
     type Out = Func::Out;
@@ -184,18 +185,19 @@ where
 }
 
 // SAFETY: The inner system is read-only.
-unsafe impl<Func, SIn: SystemInput + Send + Sync, S> ReadOnlySystem<Func::In>
-    for AdapterSystem<Func, SIn, S>
+unsafe impl<Func, SIn, S> ReadOnlySystem<Func::In> for AdapterSystem<Func, SIn, S>
 where
     Func: Adapt<SIn, S>,
+    SIn: SystemInput + Send + Sync + 'static,
     S: ReadOnlySystem<SIn>,
 {
 }
 
-impl<F, SIn: SystemInput, S, Out> Adapt<SIn, S> for F
+impl<F, SIn, S, Out> Adapt<SIn, S> for F
 where
-    S: System<SIn>,
     F: Send + Sync + 'static + FnMut(S::Out) -> Out,
+    SIn: SystemInput,
+    S: System<SIn>,
 {
     type In = SIn;
     type Out = Out;

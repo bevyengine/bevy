@@ -713,8 +713,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I: SystemInput>(&mut self, id: SystemId<I>, input: I::In<'static>)
+    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::In<'static>)
     where
+        I: SystemInput + 'static,
         I::In<'static>: Send,
     {
         self.queue(RunSystemWithInput::new_with_input(id, input));
@@ -769,15 +770,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_system<
-        I: SystemInput + Send,
+    pub fn register_system<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
         O: 'static + Send,
-        M,
         S: IntoSystem<I, O, M> + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+    {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)

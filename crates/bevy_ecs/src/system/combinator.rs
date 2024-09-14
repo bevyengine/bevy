@@ -317,8 +317,8 @@ where
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub struct PipeSystem<AIn, A, BIn, B> {
-    _marker: PhantomData<fn() -> (AIn, BIn)>,
+pub struct PipeSystem<AIn, A, B> {
+    _marker: PhantomData<fn() -> AIn>,
     a: A,
     b: B,
     name: Cow<'static, str>,
@@ -326,12 +326,12 @@ pub struct PipeSystem<AIn, A, BIn, B> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
-impl<AIn, A, BIn, B> PipeSystem<AIn, A, BIn, B>
+impl<AIn, A, B> PipeSystem<AIn, A, B>
 where
-    AIn: SystemInput,
+    AIn: SystemInput + 'static,
     A: System<AIn>,
-    for<'a> BIn: SystemInput<In<'a> = A::Out>,
-    B: System<BIn>,
+    A::Out: SystemInput,
+    B: System<A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
@@ -346,12 +346,12 @@ where
     }
 }
 
-impl<AIn, A, BIn, B> System<AIn> for PipeSystem<AIn, A, BIn, B>
+impl<AIn, A, B> System<AIn> for PipeSystem<AIn, A, B>
 where
-    AIn: SystemInput,
+    AIn: SystemInput + 'static,
     A: System<AIn>,
-    for<'a> BIn: SystemInput<In<'a> = A::Out>,
-    B: System<BIn>,
+    A::Out: SystemInput,
+    B: System<A::Out>,
 {
     type Out = B::Out;
 
@@ -384,13 +384,15 @@ where
         input: <AIn as SystemInput>::In<'_>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
-        let value = self.a.run_unsafe(input, world);
-        self.b.run_unsafe(value, world)
+        // let value = self.a.run_unsafe(input, world);
+        // self.b.run_unsafe(value, world)
+        todo!()
     }
 
     fn run(&mut self, input: <AIn as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
-        let value = self.a.run(input, world);
-        self.b.run(value, world)
+        // let value = self.a.run(input, world);
+        // self.b.run(value, world)
+        todo!()
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
@@ -442,11 +444,11 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
-unsafe impl<AIn, A, BIn, B> ReadOnlySystem<AIn> for PipeSystem<AIn, A, BIn, B>
+unsafe impl<AIn, A, B> ReadOnlySystem<AIn> for PipeSystem<AIn, A, B>
 where
-    AIn: SystemInput,
+    AIn: SystemInput + 'static,
     A: ReadOnlySystem<AIn>,
-    for<'a> BIn: SystemInput<In<'a> = A::Out>,
-    B: ReadOnlySystem<BIn>,
+    A::Out: SystemInput,
+    B: ReadOnlySystem<A::Out>,
 {
 }
