@@ -1,6 +1,7 @@
 use crate::func::{ArgList, FunctionInfo, FunctionResult};
 use crate::PartialReflect;
 use alloc::borrow::Cow;
+use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A trait used to power [function-like] operations via [reflection].
@@ -30,7 +31,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// [`Reflect`]: crate::Reflect
 /// [arguments]: crate::func::args
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-pub trait Function: PartialReflect + Downcast {
+pub trait Function: PartialReflect + Downcast + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],

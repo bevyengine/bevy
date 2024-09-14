@@ -1,7 +1,7 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, DynamicTyped, Enum, List, Map, Set, Struct, Tuple,
-    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
+    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
+    tuple_debug, tuple_struct_debug, Array, DynamicTypePath, DynamicTyped, Enum, List, Map, Set,
+    Struct, Tuple, TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -375,8 +375,11 @@ where
             ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
+            ReflectRef::Set(dyn_set) => set_debug(dyn_set, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.reflect_type_path()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
+            ReflectRef::Value(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
