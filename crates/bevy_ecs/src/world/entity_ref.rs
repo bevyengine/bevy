@@ -534,6 +534,36 @@ impl<'w> EntityMut<'w> {
         // consuming `self` ensures that no references exist to this entity's components.
         unsafe { self.0.get_mut_by_id(component_id) }
     }
+
+    /// TODO
+    pub fn get_reflect(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<&'_ dyn Reflect> {
+        // SAFETY: TODO
+        unsafe { self.0.get_reflect(component_id, type_registry) }
+    }
+
+    /// TODO
+    pub fn get_reflect_ref(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Ref<'_, dyn Reflect>> {
+        // SAFETY: TODO
+        unsafe { self.0.get_reflect_ref(component_id, type_registry) }
+    }
+
+    /// TODO
+    pub fn get_reflect_mut(
+        &mut self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Mut<'_, dyn Reflect>> {
+        // SAFETY: TODO
+        unsafe { self.0.get_reflect_mut(component_id, type_registry) }
+    }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
