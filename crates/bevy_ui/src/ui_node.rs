@@ -2281,7 +2281,7 @@ pub struct BoxShadow {
     /// Difference in size from occluding uninode
     pub spread_radius: Vec2,
     /// Blurriness of the shadow
-    pub blur_radius: Vec2,
+    pub blur_radius: f32,
 }
 
 impl Default for BoxShadow {

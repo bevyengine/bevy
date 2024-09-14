@@ -1,3 +1,4 @@
+pub mod box_shadow;
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
@@ -18,6 +19,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use box_shadow::BoxShadowPlugin;
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -66,24 +68,10 @@ pub mod graph {
 }
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
-pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
-
-#[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
-struct BoxShadowUiMaterial {
-    #[uniform(0)]
-    color: Vec4,
-    #[uniform(1)]
-    blur_radius: f32,
-}
-
-impl UiMaterial for BoxShadowUiMaterial {
-    fn fragment_shader() -> ShaderRef {
-        ShaderRef::Handle(BOX_SHADOW_SHADER_HANDLE)
-    }
-}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,
     ExtractBorders,
@@ -92,12 +80,6 @@ pub enum RenderUiSystem {
 
 pub fn build_ui_render(app: &mut App) {
     load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
-    load_internal_asset!(
-        app,
-        BOX_SHADOW_SHADER_HANDLE,
-        "box_shadow.wgsl",
-        Shader::from_wgsl
-    );
 
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
@@ -115,6 +97,7 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
+                RenderUiSystem::ExtractBoxShadows,
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
                 RenderUiSystem::ExtractBorders,
@@ -164,7 +147,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
-    app.add_plugins(UiMaterialPlugin::<BoxShadowUiMaterial>::default());
+    app.add_plugins(BoxShadowPlugin);
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
