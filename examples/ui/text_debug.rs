@@ -229,7 +229,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .entity(root_uinode)
-        .push_children(&[left_column, right_column]);
+        .add_children(&[left_column, right_column]);
 }
 
 fn change_text_system(
