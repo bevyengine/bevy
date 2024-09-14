@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
-    change_detection::MutUntyped,
+    change_detection::{MutUntyped, RefUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
@@ -155,6 +155,12 @@ impl<'w> EntityRef<'w> {
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_by_id(component_id) }
+    }
+
+    /// TODO
+    pub fn get_ref_by_id(&self, component_id: ComponentId) -> Option<RefUntyped<'w>> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.0.get_ref_by_id(component_id) }
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
@@ -459,6 +465,11 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
+    }
+
+    /// TODO
+    pub fn get_ref_by_id(&self, component_id: ComponentId) -> Option<RefUntyped<'_>> {
+        self.as_readonly().get_ref_by_id(component_id)
     }
 
     /// Consumes `self` and gets the component of the given [`ComponentId`] with
@@ -772,6 +783,11 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         EntityRef::from(self).get_by_id(component_id)
+    }
+
+    /// TODO
+    pub fn get_ref_by_id(&self, component_id: ComponentId) -> Option<RefUntyped<'_>> {
+        EntityRef::from(self).get_ref_by_id(component_id)
     }
 
     /// Consumes `self` and gets the component of the given [`ComponentId`] with
@@ -2043,6 +2059,15 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
     }
+
+    /// TODO
+    pub fn get_ref_by_id(&self, component_id: ComponentId) -> Option<RefUntyped<'w>> {
+        self.access
+            .has_component_read(component_id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_ref_by_id(component_id) })
+            .flatten()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -2299,6 +2324,15 @@ impl<'w> FilteredEntityMut<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         self.as_readonly().get_by_id(component_id)
+    }
+
+    /// TODO
+    pub fn get_ref_by_id(&self, component_id: ComponentId) -> Option<RefUntyped<'_>> {
+        self.access
+            .has_component_read(component_id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_ref_by_id(component_id) })
+            .flatten()
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.

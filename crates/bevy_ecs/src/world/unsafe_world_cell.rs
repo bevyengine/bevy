@@ -6,7 +6,7 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
+    change_detection::{MaybeUnsafeCellLocation, MutUntyped, RefUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -958,6 +958,41 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
+        }
+    }
+
+    /// Retrieves an untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    ///
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_ref`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_ref_by_id(self, component_id: ComponentId) -> Option<RefUntyped<'w>> {
+        let info = self.world.components().get_info(component_id)?;
+        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        unsafe {
+            get_component_and_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+            .map(|(value, cells, _caller)| RefUntyped {
+                value,
+                ticks: Ticks::from_tick_cells(
+                    cells,
+                    self.world.last_change_tick(),
+                    self.world.change_tick(),
+                ),
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref_mut(),
+            })
         }
     }
 
