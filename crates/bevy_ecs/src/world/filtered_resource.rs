@@ -510,16 +510,61 @@ impl<'a> From<&'a mut World> for FilteredResourcesMut<'a> {
     }
 }
 
-/// Builder struct to define the access for a [`FilteredResources`] or [`FilteredResourcesMut`].
+/// Builder struct to define the access for a [`FilteredResources`].
 ///
-/// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder)
-/// and [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
+/// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
 pub struct FilteredResourcesBuilder<'w> {
     world: &'w mut World,
     access: Access<ComponentId>,
 }
 
 impl<'w> FilteredResourcesBuilder<'w> {
+    /// Creates a new builder with no access.
+    pub fn new(world: &'w mut World) -> Self {
+        Self {
+            world,
+            access: Access::new(),
+        }
+    }
+
+    /// Returns a reference to the underlying [`Access`].
+    pub fn access(&self) -> &Access<ComponentId> {
+        &self.access
+    }
+
+    /// Add accesses required to read all resources.
+    pub fn add_read_all(&mut self) -> &mut Self {
+        self.access.read_all_resources();
+        self
+    }
+
+    /// Add accesses required to read the resource of the given type.
+    pub fn add_read<R: Resource>(&mut self) -> &mut Self {
+        let component_id = self.world.components.init_resource::<R>();
+        self.add_read_by_id(component_id)
+    }
+
+    /// Add accesses required to read the resource with the given [`ComponentId`].
+    pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.access.add_resource_read(component_id);
+        self
+    }
+
+    /// Create an [`Access`] that represents the accesses of the builder.
+    pub fn build(self) -> Access<ComponentId> {
+        self.access
+    }
+}
+
+/// Builder struct to define the access for a [`FilteredResourcesMut`].
+///
+/// This is passed to a callback in [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
+pub struct FilteredResourcesMutBuilder<'w> {
+    world: &'w mut World,
+    access: Access<ComponentId>,
+}
+
+impl<'w> FilteredResourcesMutBuilder<'w> {
     /// Creates a new builder with no access.
     pub fn new(world: &'w mut World) -> Self {
         Self {

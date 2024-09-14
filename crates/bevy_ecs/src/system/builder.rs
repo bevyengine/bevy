@@ -7,7 +7,10 @@ use crate::{
         system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
         Query, SystemMeta,
     },
-    world::{FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut, FromWorld, World},
+    world::{
+        FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
+        FilteredResourcesMutBuilder, FromWorld, World,
+    },
 };
 use std::fmt::Debug;
 
@@ -405,26 +408,26 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)> SystemParamBuilder<Fil
 pub struct FilteredResourcesMutParamBuilder<T>(T);
 
 impl<T> FilteredResourcesMutParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     pub fn new(f: T) -> Self
     where
-        T: FnOnce(&mut FilteredResourcesBuilder),
+        T: FnOnce(&mut FilteredResourcesMutBuilder),
     {
         Self(f)
     }
 }
 
-impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
-    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
+impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     /// This boxes the callback so that it has a common type.
-    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder) + 'a) -> Self {
+    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
 
 // SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)>
+unsafe impl<'w, T: FnOnce(&mut FilteredResourcesMutBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w>> for FilteredResourcesMutParamBuilder<T>
 {
     fn build(
@@ -432,7 +435,7 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)>
         world: &mut World,
         meta: &mut SystemMeta,
     ) -> <FilteredResourcesMut<'w> as SystemParam>::State {
-        let mut builder = FilteredResourcesBuilder::new(world);
+        let mut builder = FilteredResourcesMutBuilder::new(world);
         (self.0)(&mut builder);
         let access = builder.build();
 
