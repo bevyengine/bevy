@@ -298,14 +298,7 @@ impl Transform {
     /// - `direction`: A `Vec3` representing the direction of movement in the entity's local space.
     /// - `speed`: A `f32` representing the speed at which the entity should move.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
-    /// the time since the last frame.
-    ///
-    /// # Example
-    /// ```rust
-    /// transform.translate(Vec3::new(1.0, 0.0, 0.0), 5.0, delta_time);
-    /// ```
-    /// This example moves the entity 5 units per second along the positive X axis,
-    /// ignoring the entity's rotation.
+    ///   the time since the last frame.
     pub fn translate(&mut self, direction: Vec3, speed: f32, delta_time_seconds: f32) {
         self.translation += direction * speed * delta_time_seconds;
     }
@@ -319,17 +312,10 @@ impl Transform {
     ///
     /// # Parameters
     /// - `direction`: A `Vec3` representing the direction of movement, relative to the entity's
-    /// local orientation.
+    ///   local orientation.
     /// - `speed`: A `f32` representing the speed at which the entity should move.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
-    /// the time since the last frame.
-    ///
-    /// # Example
-    /// ```rust
-    /// transform.translate_with_local_rotation(Vec3::new(0.0, 0.0, 1.0), 5.0, delta_time);
-    /// ```
-    /// This example moves the entity 5 units per second along its local forward (Z axis) direction,
-    /// relative to its current rotation.
+    ///   the time since the last frame.
     pub fn translate_with_local_rotation(
         &mut self,
         direction: Vec3,
