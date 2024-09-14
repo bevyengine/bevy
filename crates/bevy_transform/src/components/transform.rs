@@ -288,6 +288,57 @@ impl Transform {
         self.local_z()
     }
 
+    /// Translates the entity in the local space using a given direction, speed, and delta time.
+    ///
+    /// The translation is applied directly to the entity's local position without considering
+    /// the entity's rotation. This means the entity moves along the provided direction in its
+    /// own local space.
+    ///
+    /// # Parameters
+    /// - `direction`: A `Vec3` representing the direction of movement in the entity's local space.
+    /// - `speed`: A `f32` representing the speed at which the entity should move.
+    /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
+    /// the time since the last frame.
+    ///
+    /// # Example
+    /// ```rust
+    /// transform.translate(Vec3::new(1.0, 0.0, 0.0), 5.0, delta_time);
+    /// ```
+    /// This example moves the entity 5 units per second along the positive X axis,
+    /// ignoring the entity's rotation.
+    pub fn translate(&mut self, direction: Vec3, speed: f32, delta_time_seconds: f32) {
+        self.translation += direction * speed * delta_time_seconds;
+    }
+
+    /// Translates the entity in local space, taking into account the entity's rotation, speed,
+    /// and delta time.
+    ///
+    /// The translation is relative to the entity's rotation. This means the movement will be in
+    /// the direction the entity is currently facing, which allows the entity to move "forward"
+    /// or in any rotated direction relative to its local orientation.
+    ///
+    /// # Parameters
+    /// - `direction`: A `Vec3` representing the direction of movement, relative to the entity's
+    /// local orientation.
+    /// - `speed`: A `f32` representing the speed at which the entity should move.
+    /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
+    /// the time since the last frame.
+    ///
+    /// # Example
+    /// ```rust
+    /// transform.translate_with_local_rotation(Vec3::new(0.0, 0.0, 1.0), 5.0, delta_time);
+    /// ```
+    /// This example moves the entity 5 units per second along its local forward (Z axis) direction,
+    /// relative to its current rotation.
+    pub fn translate_with_local_rotation(
+        &mut self,
+        direction: Vec3,
+        speed: f32,
+        delta_time_seconds: f32,
+    ) {
+        self.translation += self.rotation * direction * speed * delta_time_seconds;
+    }
+
     /// Rotates this [`Transform`] by the given rotation.
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
