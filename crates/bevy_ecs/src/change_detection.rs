@@ -808,6 +808,99 @@ where
 change_detection_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
+/// TODO
+pub struct RefUntyped<'w> {
+    pub(crate) value: Ptr<'w>,
+    pub(crate) ticks: Ticks<'w>,
+    #[cfg(feature = "track_change_detection")]
+    pub(crate) changed_by: &'static Location<'static>,
+}
+
+impl<'w> RefUntyped<'w> {
+    /// TODO
+    #[inline]
+    pub fn into_inner(self) -> Ptr<'w> {
+        self.value
+    }
+
+    /// Returns `true` if this value was changed or mutably dereferenced
+    /// either since a specific change tick.
+    pub fn has_changed_since(&self, tick: Tick) -> bool {
+        self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
+    }
+
+    /// TODO
+    pub fn map<T: ?Sized>(self, f: impl FnOnce(Ptr<'w>) -> &'w T) -> Ref<'w, T> {
+        Ref {
+            value: f(self.value),
+            ticks: self.ticks,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: self.changed_by,
+        }
+    }
+
+    /// Transforms this [`RefUntyped`] into a [`Ref<T>`] with the same lifetime.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`RefUntyped`].
+    pub unsafe fn with_type<T>(self) -> Ref<'w, T> {
+        Ref {
+            // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
+            value: unsafe { self.value.deref() },
+            ticks: self.ticks,
+            // SAFETY: `caller` is `Aligned`.
+            #[cfg(feature = "track_change_detection")]
+            changed_by: self.changed_by,
+        }
+    }
+}
+
+impl<'w> DetectChanges for RefUntyped<'w> {
+    #[inline]
+    fn is_added(&self) -> bool {
+        self.ticks
+            .added
+            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+    }
+
+    #[inline]
+    fn is_changed(&self) -> bool {
+        self.ticks
+            .changed
+            .is_newer_than(self.ticks.last_run, self.ticks.this_run)
+    }
+
+    #[inline]
+    fn last_changed(&self) -> Tick {
+        *self.ticks.changed
+    }
+
+    #[inline]
+    #[cfg(feature = "track_change_detection")]
+    fn changed_by(&self) -> &'static Location<'static> {
+        self.changed_by
+    }
+}
+
+impl core::fmt::Debug for RefUntyped<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("RefUntyped")
+            .field(&self.value.as_ptr())
+            .finish()
+    }
+}
+
+impl<'w, T> From<Ref<'w, T>> for RefUntyped<'w> {
+    fn from(value: Ref<'w, T>) -> Self {
+        RefUntyped {
+            value: value.value.into(),
+            ticks: value.ticks,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: value.changed_by,
+        }
+    }
+}
+
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
 /// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
