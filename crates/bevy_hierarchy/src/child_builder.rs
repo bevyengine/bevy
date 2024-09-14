@@ -161,14 +161,14 @@ fn clear_children(parent: Entity, world: &mut World) {
 
 /// Command that adds a child to an entity.
 #[derive(Debug)]
-pub struct PushChild {
+pub struct AddChild {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
 
-impl Command for PushChild {
+impl Command for AddChild {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
@@ -192,12 +192,12 @@ impl Command for InsertChildren {
 
 /// Command that pushes children to the end of the entity's [`Children`].
 #[derive(Debug)]
-pub struct PushChildren {
+pub struct AddChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
-impl Command for PushChildren {
+impl Command for AddChildren {
     fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_children(&self.children);
     }
@@ -276,7 +276,7 @@ impl Command for RemoveParent {
 /// ```
 pub struct ChildBuilder<'a> {
     commands: Commands<'a, 'a>,
-    add_children: PushChildren,
+    add_children: AddChildren,
 }
 
 /// Trait for building children entities and adding them to a parent entity. This is used in
@@ -428,7 +428,7 @@ impl BuildChildren for EntityCommands<'_> {
         let parent = self.id();
         let mut builder = ChildBuilder {
             commands: self.commands(),
-            add_children: PushChildren {
+            add_children: AddChildren {
                 children: SmallVec::default(),
                 parent,
             },
@@ -446,7 +446,7 @@ impl BuildChildren for EntityCommands<'_> {
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let parent = self.id();
         let child = self.commands().spawn(bundle).id();
-        self.commands().add(PushChild { parent, child });
+        self.commands().add(AddChild { parent, child });
         self
     }
 
@@ -455,7 +455,7 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Cannot push entity as a child of itself.");
         }
-        self.commands().add(PushChildren {
+        self.commands().add(AddChildren {
             children: SmallVec::from(children),
             parent,
         });
@@ -489,7 +489,7 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.commands().add(PushChild { child, parent });
+        self.commands().add(AddChild { child, parent });
         self
     }
 
@@ -516,7 +516,7 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.commands().add(PushChild { child, parent });
+        self.commands().add(AddChild { child, parent });
         self
     }
 
@@ -1170,7 +1170,7 @@ mod tests {
         let parent2 = entities[1];
         let child = entities[2];
 
-        // push child into parent1
+        // add child into parent1
         world.entity_mut(parent1).add_children(&[child]);
         assert_eq!(
             world.get::<Children>(parent1).unwrap().0.as_slice(),
@@ -1204,7 +1204,7 @@ mod tests {
 
         let mut queue = CommandQueue::default();
 
-        // push child into parent1
+        // add child into parent1
         {
             let mut commands = Commands::new(&mut queue, &world);
             commands.entity(parent1).add_children(&[child]);
