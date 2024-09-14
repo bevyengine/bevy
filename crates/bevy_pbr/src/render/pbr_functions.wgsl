@@ -404,7 +404,16 @@ fn apply_pbr_lighting(
         view_bindings::view.view_from_world[2].z,
         view_bindings::view.view_from_world[3].z
     ), in.world_position);
-    let cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+    var cluster_index = clustering::fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
+
+#ifdef SUBGROUP_OPERATIONS_SUPPORTED
+    // https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights
+    let first_thread_cluster_index = subgroupBroadcastFirst(cluster_index);
+    let thread_mask = subgroupBallot(cluster_index == first_thread_cluster_index);
+    let should_scalarize_light_id = any(thread_mask != subgroupBallot(true));
+    if !should_scalarize_light_id { cluster_index = first_thread_cluster_index; }
+#endif
+
     let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
 
     // Point lights (direct)
@@ -412,11 +421,13 @@ fn apply_pbr_lighting(
     var light_count = light_offset + offset_and_counts[1];
     while (light_offset < light_count) {
         var light_id = clustering::get_clusterable_object_id(light_offset);
+
 #ifdef SUBGROUP_OPERATIONS_SUPPORTED
-        // https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights
-        let subgroup_light_id = subgroupMin(light_id);
-        if subgroup_light_id < light_id { continue; }
-        light_id = subgroup_light_id;
+        if should_scalarize_light_id {
+            let subgroup_light_id = subgroupMin(light_id);
+            if subgroup_light_id < light_id { continue; }
+            light_id = subgroup_light_id;
+        }
 #endif
 
         var shadow: f32 = 1.0;
@@ -457,11 +468,13 @@ fn apply_pbr_lighting(
     light_count += offset_and_counts[2];
     while (light_offset < light_count) {
         var light_id = clustering::get_clusterable_object_id(light_offset);
+
 #ifdef SUBGROUP_OPERATIONS_SUPPORTED
-        // https://flashypixels.wordpress.com/2018/11/10/intro-to-gpu-scalarization-part-2-scalarize-all-the-lights
-        let subgroup_light_id = subgroupMin(light_id);
-        if subgroup_light_id < light_id { continue; }
-        light_id = subgroup_light_id;
+        if should_scalarize_light_id {
+            let subgroup_light_id = subgroupMin(light_id);
+            if subgroup_light_id < light_id { continue; }
+            light_id = subgroup_light_id;
+        }
 #endif
 
         var shadow: f32 = 1.0;
