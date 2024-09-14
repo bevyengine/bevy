@@ -1180,6 +1180,49 @@ impl<'w> UnsafeEntityCell<'w> {
             unsafe { (reflect_from_ptr.from_ptr_mut())(ptr) }
         }))
     }
+
+    /// Retrieves mutable reflected references to the given `entity`'s [`Component`]s of the given [`ComponentId`]s.
+    ///
+    /// Returns `None` if:
+    /// - there is a duplicate in the given [`ComponentId`]s array;
+    /// - the `entity` does not have a [`Component`] with one of the given types;
+    /// - any given [`Component`] doesn't have an associated [`TypeId`];
+    /// - the given [`TypeRegistry`] does not have a registered [`ReflectFromPtr`] for one of the given component types.
+    ///
+    /// # Panics
+    ///
+    /// If the registered [`ReflectFromPtr`] for one of the given component type does not match its
+    /// [`TypeId`]. This can only happen if a [`ReflectFromPtr`] instance for a different type was registered manually.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the components mutably
+    /// - no other references to the components exist at the same time
+    #[inline]
+    pub unsafe fn get_many_reflect_mut<const N: usize>(
+        self,
+        component_ids: [ComponentId; N],
+        type_registry: &TypeRegistry,
+    ) -> Option<[Mut<'w, dyn Reflect>; N]> {
+        for i in 0..N {
+            for j in 0..i {
+                if component_ids[i] == component_ids[j] {
+                    return None;
+                }
+            }
+        }
+
+        let mut ptrs = [(); N].map(|_| MaybeUninit::uninit());
+
+        for (ptr, component_id) in core::iter::zip(&mut ptrs, component_ids) {
+            // SAFETY: TODO
+            *ptr = MaybeUninit::new(unsafe { self.get_reflect_mut(component_id, type_registry)? });
+        }
+
+        // SAFETY: Each value has been fully initialized.
+        Some(unsafe { ptrs.map(|x| x.assume_init()) })
+    }
 }
 
 impl<'w> UnsafeWorldCell<'w> {

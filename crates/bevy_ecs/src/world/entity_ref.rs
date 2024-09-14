@@ -565,6 +565,16 @@ impl<'w> EntityMut<'w> {
         // SAFETY: TODO
         unsafe { self.0.get_reflect_mut(component_id, type_registry) }
     }
+
+    /// TODO
+    pub fn get_many_reflect_mut<const N: usize>(
+        &mut self,
+        component_ids: [ComponentId; N],
+        type_registry: &TypeRegistry,
+    ) -> Option<[Mut<'_, dyn Reflect>; N]> {
+        // SAFETY: TODO
+        unsafe { self.0.get_many_reflect_mut(component_ids, type_registry) }
+    }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
@@ -916,6 +926,23 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             self.as_unsafe_entity_cell()
                 .get_reflect_mut(component_id, type_registry)
+        }
+    }
+
+    /// TODO
+    pub fn get_many_reflect_mut<const N: usize>(
+        &mut self,
+        component_ids: [ComponentId; N],
+    ) -> Option<[Mut<'_, dyn Reflect>; N]> {
+        let app_type_registry = self.world.get_resource::<AppTypeRegistry>()?;
+        // SAFETY: as_unsafe_entity_cell mutably borrows self, but doesn't access any resource.
+        let app_type_registry = unsafe { &*core::ptr::from_ref(app_type_registry) };
+        let type_registry = &app_type_registry.read();
+
+        // SAFETY: TODO
+        unsafe {
+            self.as_unsafe_entity_cell()
+                .get_many_reflect_mut(component_ids, type_registry)
         }
     }
 
@@ -2503,6 +2530,25 @@ impl<'w> FilteredEntityMut<'w> {
             // SAFETY: TODO
             .then(|| unsafe { self.entity.get_reflect_mut(component_id, type_registry) })
             .flatten()
+    }
+
+    /// TODO
+    pub fn get_many_reflect_mut<const N: usize>(
+        &mut self,
+        component_ids: [ComponentId; N],
+        type_registry: &TypeRegistry,
+    ) -> Option<[Mut<'_, dyn Reflect>; N]> {
+        for component_id in component_ids {
+            if !self.access.has_component_write(component_id) {
+                return None;
+            }
+        }
+
+        // SAFETY: TODO
+        unsafe {
+            self.entity
+                .get_many_reflect_mut(component_ids, type_registry)
+        }
     }
 }
 
