@@ -344,7 +344,7 @@ fn add_text<'a>(
         label,
         TextStyle {
             font: font.clone(),
-            font_size: 18.0,
+            font_size: 15.0,
             color,
         },
     ))
