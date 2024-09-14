@@ -288,19 +288,18 @@ impl Transform {
         self.local_z()
     }
 
-    /// Translates the entity in the local space using a given direction, speed, and delta time.
+    /// Translates the entity in the local space using a velocity and delta time.
     ///
     /// The translation is applied directly to the entity's local position without considering
-    /// the entity's rotation. This means the entity moves along the provided direction in its
+    /// the entity's rotation. This means the entity moves along the provided velocity in its
     /// own local space.
     ///
     /// # Parameters
-    /// - `direction`: A `Vec3` representing the direction of movement in the entity's local space.
-    /// - `speed`: A `f32` representing the speed at which the entity should move.
+    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the speed of the entity.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
     ///   the time since the last frame.
-    pub fn translate(&mut self, direction: Vec3, speed: f32, delta_time_seconds: f32) {
-        self.translation += direction * speed * delta_time_seconds;
+    pub fn translate(&mut self, velocity: Vec3, delta_time_seconds: f32) {
+        self.translation += velocity * delta_time_seconds;
     }
 
     /// Translates the entity in local space, taking into account the entity's rotation, speed,
@@ -311,18 +310,13 @@ impl Transform {
     /// or in any rotated direction relative to its local orientation.
     ///
     /// # Parameters
-    /// - `direction`: A `Vec3` representing the direction of movement, relative to the entity's
-    ///   local orientation.
-    /// - `speed`: A `f32` representing the speed at which the entity should move.
+    /// - `velocity`: A `Vec3` representing the multipliation of the direction and the speed of the entity, 
+    ///   relative to the entity's local orientation.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
     ///   the time since the last frame.
-    pub fn translate_with_local_rotation(
-        &mut self,
-        direction: Vec3,
-        speed: f32,
-        delta_time_seconds: f32,
+    pub fn translate_with_local_rotation(&mut self, velocity: Vec3, delta_time_seconds: f32,
     ) {
-        self.translation += self.rotation * direction * speed * delta_time_seconds;
+        self.translation += self.rotation * velocity * delta_time_seconds;
     }
 
     /// Rotates this [`Transform`] by the given rotation.

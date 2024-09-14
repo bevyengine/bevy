@@ -68,6 +68,6 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>)
         if (cube.spawn - transform.translation).length() > cube.max_distance {
             cube.speed *= -1.0;
         }
-        transform.translate(Vec3::X, cube.speed, timer.delta_seconds());
+        transform.translate(Vec3::X * cube.speed, timer.delta_seconds());
     }
 }
