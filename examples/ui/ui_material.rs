@@ -1,6 +1,5 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::render::render_resource::*;
@@ -38,26 +37,22 @@ fn setup(
         })
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
-            parent.spawn((
-                MaterialNodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        width: Val::Px(905.0 * banner_scale_factor),
-                        height: Val::Px(363.0 * banner_scale_factor),
-                        border: UiRect::all(Val::Px(20.)),
-                        ..default()
-                    },
-                    material: ui_materials.add(CustomUiMaterial {
-                        color: LinearRgba::WHITE.to_f32_array().into(),
-                        slider: 0.5,
-                        color_texture: asset_server.load("branding/banner.png"),
-                        border_color: LinearRgba::WHITE.to_f32_array().into(),
-                        corner_color: YELLOW.to_f32_array().into(),
-                    }),
+            parent.spawn(MaterialNodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(905.0 * banner_scale_factor),
+                    height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(20.)),
-            ));
+                material: ui_materials.add(CustomUiMaterial {
+                    color: LinearRgba::WHITE.to_f32_array().into(),
+                    slider: 0.5,
+                    color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
+                }),
+                ..default()
+            });
         });
 }
 
@@ -77,8 +72,6 @@ struct CustomUiMaterial {
     /// Color of the image's border
     #[uniform(4)]
     border_color: Vec4,
-    #[uniform(5)]
-    corner_color: Vec4,
 }
 
 impl UiMaterial for CustomUiMaterial {
