@@ -373,14 +373,6 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)> SystemParamBuilder<Fil
         (self.0)(&mut builder);
         let access = builder.build();
 
-        // Accessing all resources can't be done safely, so we need to prohibit it.
-        // The problem is that we won't know the `ArchetypeComponentId` for resources added in the future.
-        // For components, that can be handled with `SystemParam::new_archetype()`, but there is no equivalent for resources.
-        if access.has_read_all_resources() {
-            let system_name = &meta.name;
-            panic!("FilteredResources in system {system_name} accesses all resources. This is not supported.");
-        }
-
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
@@ -389,13 +381,19 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)> SystemParamBuilder<Fil
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
 
-        for component_id in access.resource_reads_and_writes() {
+        if access.has_read_all_resources() {
             meta.component_access_set
-                .add_unfiltered_resource_read(component_id);
+                .add_unfiltered_read_all_resources();
+            meta.archetype_component_access.read_all_resources();
+        } else {
+            for component_id in access.resource_reads_and_writes() {
+                meta.component_access_set
+                    .add_unfiltered_resource_read(component_id);
 
-            let archetype_component_id = world.initialize_resource_internal(component_id).id();
-            meta.archetype_component_access
-                .add_resource_read(archetype_component_id);
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_read(archetype_component_id);
+            }
         }
 
         access
@@ -438,15 +436,6 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)>
         (self.0)(&mut builder);
         let access = builder.build();
 
-        // Accessing all resources can't be done safely, so we need to prohibit it.
-        // The problem is that we won't know the `ArchetypeComponentId` for resources added in the future.
-        // For components, that can be handled with `SystemParam::new_archetype()`, but there is no equivalent for resources.
-        // Note that calling `write_all_resources()` also sets `reads_all_resources`, so we only need one check here.
-        if access.has_read_all_resources() {
-            let system_name = &meta.name;
-            panic!("FilteredResources in system {system_name} accesses all resources. This is not supported.");
-        }
-
         let combined_access = meta.component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
@@ -455,22 +444,34 @@ unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)>
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
 
-        for component_id in access.resource_reads() {
+        if access.has_read_all_resources() {
             meta.component_access_set
-                .add_unfiltered_resource_read(component_id);
+                .add_unfiltered_read_all_resources();
+            meta.archetype_component_access.read_all_resources();
+        } else {
+            for component_id in access.resource_reads() {
+                meta.component_access_set
+                    .add_unfiltered_resource_read(component_id);
 
-            let archetype_component_id = world.initialize_resource_internal(component_id).id();
-            meta.archetype_component_access
-                .add_resource_read(archetype_component_id);
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_read(archetype_component_id);
+            }
         }
 
-        for component_id in access.resource_writes() {
+        if access.has_write_all_resources() {
             meta.component_access_set
-                .add_unfiltered_resource_write(component_id);
+                .add_unfiltered_write_all_resources();
+            meta.archetype_component_access.write_all_resources();
+        } else {
+            for component_id in access.resource_writes() {
+                meta.component_access_set
+                    .add_unfiltered_resource_write(component_id);
 
-            let archetype_component_id = world.initialize_resource_internal(component_id).id();
-            meta.archetype_component_access
-                .add_resource_write(archetype_component_id);
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_write(archetype_component_id);
+            }
         }
 
         access
@@ -755,6 +756,20 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn filtered_resource_conflicts_read_all_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesParamBuilder::new(|builder| {
+                builder.add_read_all();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
+    }
+
+    #[test]
     fn filtered_resource_mut_conflicts_read_with_res() {
         let mut world = World::new();
         (
@@ -789,6 +804,20 @@ mod tests {
             ParamBuilder::resource(),
             FilteredResourcesMutParamBuilder::new(|builder| {
                 builder.add_write::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_write_all_with_res() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_write_all();
             }),
         )
             .build_state(&mut world)
