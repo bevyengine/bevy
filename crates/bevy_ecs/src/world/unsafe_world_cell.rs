@@ -20,6 +20,7 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
+use bevy_reflect::{Reflect, ReflectFromPtr, TypeRegistry};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -1030,6 +1031,117 @@ impl<'w> UnsafeEntityCell<'w> {
                 changed_by: _caller.deref_mut(),
             })
         }
+    }
+}
+
+impl<'w> UnsafeEntityCell<'w> {
+    /// Retrieves a reflected reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    ///
+    /// Returns `None` if:
+    /// - the `entity` does not have a [`Component`] with the given type;
+    /// - the given [`Component`] doesn't have an associated [`TypeId`];
+    /// - the given [`TypeRegistry`] does not have a registered [`ReflectFromPtr`] for the component type.
+    ///
+    /// # Panics
+    ///
+    /// If the registered [`ReflectFromPtr`] for the component type does not match its [`TypeId`]. This can only
+    /// happen if a [`ReflectFromPtr`] instance for a different type was registered manually.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the components
+    /// - no other mutable references to the components exist at the same time
+    #[inline]
+    pub unsafe fn get_reflect(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<&'w dyn Reflect> {
+        // SAFETY: TODO / by the caller
+        let ptr = unsafe { self.get_by_id(component_id)? };
+
+        let type_id = self.world.components().get_info(component_id)?.type_id()?;
+        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+
+        assert_eq!(type_id, reflect_from_ptr.type_id());
+
+        // SAFETY: We checked that the component's type_id is the same the `ReflectFromPtr` one.
+        Some(unsafe { (reflect_from_ptr.from_ptr())(ptr) })
+    }
+
+    /// Retrieves a reflected reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    ///
+    /// Returns `None` if:
+    /// - the `entity` does not have a [`Component`] with the given type;
+    /// - the given [`Component`] doesn't have an associated [`TypeId`];
+    /// - the given [`TypeRegistry`] does not have a registered [`ReflectFromPtr`] for the component type.
+    ///
+    /// # Panics
+    ///
+    /// If the registered [`ReflectFromPtr`] for the component type does not match its [`TypeId`]. This can only
+    /// happen if a [`ReflectFromPtr`] instance for a different type was registered manually.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the components
+    /// - no other mutable references to the components exist at the same time
+    #[inline]
+    pub unsafe fn get_reflect_ref(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Ref<'w, dyn Reflect>> {
+        // SAFETY: TODO / by the caller
+        let ptr = unsafe { self.get_ref_by_id(component_id)? };
+
+        let type_id = self.world.components().get_info(component_id)?.type_id()?;
+        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+
+        assert_eq!(type_id, reflect_from_ptr.type_id());
+
+        Some(ptr.map(|ptr| {
+            // SAFETY: We checked that the component's type_id is the same the `ReflectFromPtr` one.
+            unsafe { (reflect_from_ptr.from_ptr())(ptr) }
+        }))
+    }
+
+    /// Retrieves a reflected mutable reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
+    ///
+    /// Returns `None` if:
+    /// - the `entity` does not have a [`Component`] with the given type;
+    /// - the given [`Component`] doesn't have an associated [`TypeId`];
+    /// - the given [`TypeRegistry`] does not have a registered [`ReflectFromPtr`] for the component type.
+    ///
+    /// # Panics
+    ///
+    /// If the registered [`ReflectFromPtr`] for the component type does not match its [`TypeId`]. This can only
+    /// happen if a [`ReflectFromPtr`] instance for a different type was registered manually.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the components mutably
+    /// - no other references to the components exist at the same time
+    #[inline]
+    pub unsafe fn get_reflect_mut(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Mut<'w, dyn Reflect>> {
+        // SAFETY: TODO / by the caller
+        let ptr = unsafe { self.get_mut_by_id(component_id)? };
+
+        let type_id = self.world.components().get_info(component_id)?.type_id()?;
+        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+
+        assert_eq!(type_id, reflect_from_ptr.type_id());
+
+        Some(ptr.map_unchanged(|ptr| {
+            // SAFETY: We checked that the component's type_id is the same the `ReflectFromPtr` one.
+            unsafe { (reflect_from_ptr.from_ptr_mut())(ptr) }
+        }))
     }
 }
 
