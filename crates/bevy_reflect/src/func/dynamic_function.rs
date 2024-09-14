@@ -154,6 +154,10 @@ impl Function for DynamicFunction<'static> {
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
         self.call(args)
     }
+
+    fn clone_dynamic(&self) -> DynamicFunction<'static> {
+        self.clone()
+    }
 }
 
 impl PartialReflect for DynamicFunction<'static> {
@@ -186,16 +190,16 @@ impl PartialReflect for DynamicFunction<'static> {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Function(func) = value.reflect_ref() {
-            if let Some(func) = func.downcast_ref::<Self>() {
-                *self = func.clone();
-                return Ok(());
+        match value.reflect_ref() {
+            ReflectRef::Function(func) => {
+                *self = func.clone_dynamic();
+                Ok(())
             }
+            _ => Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            }),
         }
-        Err(ApplyError::MismatchedTypes {
-            from_type: value.reflect_type_path().into(),
-            to_type: Self::type_path().into(),
-        })
     }
 
     fn reflect_kind(&self) -> ReflectKind {

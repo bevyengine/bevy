@@ -1,8 +1,7 @@
-use crate::func::{ArgList, FunctionInfo, FunctionResult};
+use crate::func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult};
 use crate::PartialReflect;
 use alloc::borrow::Cow;
 use core::fmt::Debug;
-use downcast_rs::{impl_downcast, Downcast};
 
 /// A trait used to power [function-like] operations via [reflection].
 ///
@@ -31,7 +30,7 @@ use downcast_rs::{impl_downcast, Downcast};
 /// [`Reflect`]: crate::Reflect
 /// [arguments]: crate::func::args
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-pub trait Function: PartialReflect + Downcast + Debug {
+pub trait Function: PartialReflect + Debug {
     /// The name of the function, if any.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
@@ -55,11 +54,10 @@ pub trait Function: PartialReflect + Downcast + Debug {
 
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
-}
 
-// We need to be able to downcast from `dyn Function` so that
-// we can implement `PartialReflect::try_apply`.
-impl_downcast!(Function);
+    /// Clone this function into a [`DynamicFunction`].
+    fn clone_dynamic(&self) -> DynamicFunction<'static>;
+}
 
 #[cfg(test)]
 mod tests {
