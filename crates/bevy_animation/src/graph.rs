@@ -33,23 +33,23 @@ use crate::{AnimationClip, AnimationTargetId};
 /// For example, consider the following graph:
 ///
 /// ```text
-/// ┌────────────┐                                      
-/// │            │                                      
-/// │    Idle    ├─────────────────────┐                
-/// │            │                     │                
-/// └────────────┘                     │                
-///                                    │                
+/// ┌────────────┐
+/// │            │
+/// │    Idle    ├─────────────────────┐
+/// │            │                     │
+/// └────────────┘                     │
+///                                    │
 /// ┌────────────┐                     │  ┌────────────┐
 /// │            │                     │  │            │
 /// │    Run     ├──┐                  ├──┤    Root    │
 /// │            │  │  ┌────────────┐  │  │            │
 /// └────────────┘  │  │   Blend    │  │  └────────────┘
-///                 ├──┤            ├──┘                
-/// ┌────────────┐  │  │    0.5     │                   
-/// │            │  │  └────────────┘                   
-/// │    Walk    ├──┘                                   
-/// │            │                                      
-/// └────────────┘                                      
+///                 ├──┤            ├──┘
+/// ┌────────────┐  │  │    0.5     │
+/// │            │  │  └────────────┘
+/// │    Walk    ├──┘
+/// │            │
+/// └────────────┘
 /// ```
 ///
 /// In this case, assuming that Idle, Run, and Walk are all playing with weight
@@ -147,6 +147,16 @@ pub struct AnimationGraphNode {
     /// has weight 0.3 and its parent blend node has weight 0.6, the computed
     /// weight of the animation clip is 0.18.
     pub weight: f32,
+
+    /// Whether animations under this node will be applied additively or
+    /// blended.
+    ///
+    /// If a node is additive, it will not share weight with other nodes in
+    /// the graph. This is useful for animations which should be played on top
+    /// of other animations, rather than being blended together.
+    // TODO: what's the name for a non-additive node? "shared weight" node?
+    // TODO: what happens if you have a non-additive node under an additive node?
+    pub additive: bool,
 }
 
 /// An [`AssetLoader`] that can load [`AnimationGraph`]s as assets.
@@ -202,6 +212,8 @@ pub struct SerializedAnimationGraphNode {
     pub mask: AnimationMask,
     /// Corresponds to the `weight` field on [`AnimationGraphNode`].
     pub weight: f32,
+    /// Corresponds to the `additive` field on [`AnimationGraphNode`].
+    pub additive: bool,
 }
 
 /// A version of `Handle<AnimationClip>` suitable for serializing as an asset.
@@ -272,6 +284,11 @@ impl AnimationGraph {
     ///
     /// The animation clip will be the child of the given parent. The resulting
     /// node will have no mask.
+    ///
+    /// This animation node will share its weight with other nodes, which may
+    /// reduce how intense this animation is played. If you want this animation
+    /// to be unaffected by sharing weight, see
+    /// [`AnimationGraph::add_additive_clip`].
     pub fn add_clip(
         &mut self,
         clip: Handle<AnimationClip>,
@@ -282,6 +299,7 @@ impl AnimationGraph {
             clip: Some(clip),
             mask: 0,
             weight,
+            additive: false,
         });
         self.graph.add_edge(parent, node_index, ());
         node_index
@@ -291,6 +309,11 @@ impl AnimationGraph {
     /// and mask, and returns its index.
     ///
     /// The animation clip will be the child of the given parent.
+    ///
+    /// This animation node will share its weight with other nodes, which may
+    /// reduce how intense this animation is played. If you want this animation
+    /// to be unaffected by sharing weight, see
+    /// [`AnimationGraph::add_additive_clip_with_mask`].
     pub fn add_clip_with_mask(
         &mut self,
         clip: Handle<AnimationClip>,
@@ -302,6 +325,55 @@ impl AnimationGraph {
             clip: Some(clip),
             mask,
             weight,
+            additive: false,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds an [`AnimationClip`] to the animation graph as an additive node
+    /// with the given weight, and returns its index.
+    ///
+    /// The animation clip will be the child of the given parent. The resulting
+    /// node will have no mask.
+    ///
+    /// See [`AnimationGraphNode::additive`] for an explanation of how additive
+    /// nodes behave.
+    pub fn add_additive_clip(
+        &mut self,
+        clip: Handle<AnimationClip>,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: Some(clip),
+            mask: 0,
+            weight,
+            additive: true,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds an [`AnimationClip`] to the animation graph as an additive node
+    /// with the given weight and mask, and returns its index.
+    ///
+    /// The animation clip will be the child of the given parent.
+    ///
+    /// See [`AnimationGraphNode::additive`] for an explanation of how additive
+    /// nodes behave.
+    pub fn add_additive_clip_with_mask(
+        &mut self,
+        clip: Handle<AnimationClip>,
+        mask: AnimationMask,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: Some(clip),
+            mask,
+            weight,
+            additive: true,
         });
         self.graph.add_edge(parent, node_index, ());
         node_index
@@ -336,24 +408,35 @@ impl AnimationGraph {
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. The blend node will have
     /// no mask.
+    ///
+    /// This animation node will share its weight with other nodes, which may
+    /// reduce how intense this animation is played. If you want this animation
+    /// to be unaffected by sharing weight, see
+    /// [`AnimationGraph::add_additive_blend`].
     pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
         let node_index = self.graph.add_node(AnimationGraphNode {
             clip: None,
             mask: 0,
             weight,
+            additive: false,
         });
         self.graph.add_edge(parent, node_index, ());
         node_index
     }
 
-    /// Adds a blend node to the animation graph with the given weight and
-    /// returns its index.
+    /// Adds a blend node to the animation graph with the given weight and mask,
+    /// and returns its index.
     ///
     /// The blend node will be placed under the supplied `parent` node. During
     /// animation evaluation, the descendants of this blend node will have their
     /// weights multiplied by the weight of the blend. Neither this node nor its
     /// descendants will affect animation targets that belong to mask groups not
     /// in the given `mask`.
+    ///
+    /// This animation node will share its weight with other nodes, which may
+    /// reduce how intense this animation is played. If you want this animation
+    /// to be unaffected by sharing weight, see
+    /// [`AnimationGraph::add_additive_blend_with_mask`].
     pub fn add_blend_with_mask(
         &mut self,
         mask: AnimationMask,
@@ -364,6 +447,59 @@ impl AnimationGraph {
             clip: None,
             mask,
             weight,
+            additive: false,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds an additive blend node to the animation graph with the given weight
+    /// and returns its index.
+    ///
+    /// The blend node will be placed under the supplied `parent` node. During
+    /// animation evaluation, the descendants of this blend node will have their
+    /// weights multiplied by the weight of the blend. The blend node will have
+    /// no mask.
+    ///
+    /// See [`AnimationGraphNode::additive`] for an explanation of how additive
+    /// nodes behave.
+    pub fn add_additive_blend(
+        &mut self,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: None,
+            mask: 0,
+            weight,
+            additive: true,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds an additive blend node to the animation graph with the given weight
+    /// and mask, and returns its index.
+    ///
+    /// The blend node will be placed under the supplied `parent` node. During
+    /// animation evaluation, the descendants of this blend node will have their
+    /// weights multiplied by the weight of the blend. Neither this node nor its
+    /// descendants will affect animation targets that belong to mask groups not
+    /// in the given `mask`.
+    ///
+    /// See [`AnimationGraphNode::additive`] for an explanation of how additive
+    /// nodes behave.
+    pub fn add_additive_blend_with_mask(
+        &mut self,
+        mask: AnimationMask,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: None,
+            mask,
+            weight,
+            additive: true,
         });
         self.graph.add_edge(parent, node_index, ());
         node_index
@@ -491,6 +627,7 @@ impl Default for AnimationGraphNode {
             clip: None,
             mask: 0,
             weight: 1.0,
+            additive: false,
         }
     }
 }
@@ -536,6 +673,7 @@ impl AssetLoader for AnimationGraphAssetLoader {
                     }),
                     mask: serialized_node.mask,
                     weight: serialized_node.weight,
+                    additive: serialized_node.additive,
                 },
                 |_, _| (),
             ),
@@ -559,6 +697,7 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
                 |_, node| SerializedAnimationGraphNode {
                     weight: node.weight,
                     mask: node.mask,
+                    additive: node.additive,
                     clip: node.clip.as_ref().map(|clip| match clip.path() {
                         Some(path) => SerializedAnimationClip::AssetPath(path.clone()),
                         None => SerializedAnimationClip::AssetId(clip.id()),
