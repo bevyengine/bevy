@@ -545,6 +545,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod kind;
 mod list;
 mod map;
 mod path;
@@ -603,6 +604,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use kind::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
