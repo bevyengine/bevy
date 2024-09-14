@@ -766,7 +766,7 @@ pub struct Archetypes {
     /// find the archetype id by the archetype's components
     by_components: HashMap<ArchetypeComponents, ArchetypeId>,
     /// find all the archetypes that contain a component
-    by_component: ComponentIndex,
+    pub(crate) by_component: ComponentIndex,
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].

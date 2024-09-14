@@ -136,6 +136,27 @@ impl MaybeTyped for DynamicArray {}
 
 impl MaybeTyped for DynamicTuple {}
 
+/// Dynamic dispatch for [`Typed`].
+///
+/// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
+///
+/// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide dynamic type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
+pub trait DynamicTyped {
+    /// See [`Typed::type_info`].
+    fn reflect_type_info(&self) -> &'static TypeInfo;
+}
+
+impl<T: Typed> DynamicTyped for T {
+    #[inline]
+    fn reflect_type_info(&self) -> &'static TypeInfo {
+        Self::type_info()
+    }
+}
+
 /// A [`TypeInfo`]-specific error.
 #[derive(Debug, Error)]
 pub enum TypeInfoError {
