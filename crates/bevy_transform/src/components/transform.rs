@@ -295,7 +295,8 @@ impl Transform {
     /// own local space.
     ///
     /// # Parameters
-    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the speed of the entity.
+    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the
+    ///   speed of the entity.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
     ///   the time since the last frame.
     pub fn translate(&mut self, velocity: Vec3, delta_time_seconds: f32) {
@@ -310,12 +311,11 @@ impl Transform {
     /// or in any rotated direction relative to its local orientation.
     ///
     /// # Parameters
-    /// - `velocity`: A `Vec3` representing the multipliation of the direction and the speed of the entity, 
-    ///   relative to the entity's local orientation.
+    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the speed
+    ///   of the entity, relative to the entity's local orientation.
     /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
     ///   the time since the last frame.
-    pub fn translate_with_local_rotation(&mut self, velocity: Vec3, delta_time_seconds: f32,
-    ) {
+    pub fn translate_with_local_rotation(&mut self, velocity: Vec3, delta_time_seconds: f32) {
         self.translation += self.rotation * velocity * delta_time_seconds;
     }
 
