@@ -906,9 +906,14 @@ pub fn animate_targets(
                     continue;
                 }
 
-                let Some(clip) = animation_graph
-                    .get(animation_graph_node_index)
-                    .and_then(|animation_graph_node| animation_graph_node.clip.as_ref())
+                let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
+                else {
+                    continue;
+                };
+
+                let Some(clip) = animation_graph_node
+                    .clip
+                    .as_ref()
                     .and_then(|animation_clip_handle| clips.get(animation_clip_handle))
                 else {
                     continue;
@@ -918,10 +923,15 @@ pub fn animate_targets(
                     continue;
                 };
 
-                let weight = active_animation.computed_weight;
-                total_weight += weight;
+                let applied_weight = if animation_graph_node.additive {
+                    active_animation.computed_weight
+                } else {
+                    let weight = active_animation.computed_weight;
+                    total_weight += weight;
+                    weight / total_weight
+                };
 
-                target_context.apply(curves, weight / total_weight, active_animation.seek_time);
+                target_context.apply(curves, applied_weight, active_animation.seek_time);
             }
         });
 }
