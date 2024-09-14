@@ -715,7 +715,7 @@ mod tests {
     }
 
     fn roundtrip_ron(world: &World) -> (DynamicScene, DynamicScene) {
-        let scene = DynamicScene::from_world(&world);
+        let scene = DynamicScene::from_world(world);
         let registry = world.resource::<AppTypeRegistry>().read();
         let serialized = scene.serialize(&registry).unwrap();
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
@@ -780,7 +780,7 @@ mod tests {
         deserialized_scene
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
-        assert_eq!(&qux, world.query::<&Qux>().single(&world))
+        assert_eq!(&qux, world.query::<&Qux>().single(&world));
     }
 
     #[test]
