@@ -371,7 +371,7 @@ impl<M: Material> Clone for MaterialPipeline<M> {
             material_layout: self.material_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
-            subgroup_operations_supported: self.subgroup_operations_supported.clone(),
+            subgroup_operations_supported: self.subgroup_operations_supported,
             marker: PhantomData,
         }
     }
