@@ -295,6 +295,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::IntoReturn;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -346,5 +347,39 @@ mod tests {
         let args = ArgList::new().push_owned(5_i32).push_owned(5_i32);
         let result = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 25);
+    }
+
+    #[test]
+    fn should_allow_recursive_dynamic_function() {
+        let factorial = DynamicFunction::new(
+            |mut args| {
+                let curr = args.pop::<i32>()?;
+                if curr == 0 {
+                    return Ok(1_i32.into_return());
+                }
+
+                let arg = args.pop_arg()?;
+                let this = arg.value();
+
+                match this.reflect_ref() {
+                    ReflectRef::Function(func) => {
+                        let result = func.reflect_call(
+                            ArgList::new()
+                                .push_ref(this.as_partial_reflect())
+                                .push_owned(curr - 1),
+                        );
+                        let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
+                        Ok((curr * value).into_return())
+                    }
+                    _ => panic!("expected function"),
+                }
+            },
+            // The `FunctionInfo` doesn't really matter for this test
+            FunctionInfo::anonymous(),
+        );
+
+        let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
+        let value = factorial.call(args).unwrap().unwrap_owned();
+        assert_eq!(value.try_take::<i32>().unwrap(), 120);
     }
 }
