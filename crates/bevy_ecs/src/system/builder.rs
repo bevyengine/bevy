@@ -1,9 +1,8 @@
 use bevy_utils::{all_tuples, synccell::SyncCell};
 
 use crate::{
-    component::ComponentId,
     prelude::QueryBuilder,
-    query::{Access, QueryData, QueryFilter, QueryState},
+    query::{QueryData, QueryFilter, QueryState},
     system::{
         system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
         Query, SystemMeta,
@@ -360,47 +359,37 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
     }
 }
 
-// SAFETY: Calls `Access::build`.
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)> SystemParamBuilder<FilteredResources<'w>>
     for FilteredResourcesParamBuilder<T>
 {
     fn build(
         self,
         world: &mut World,
-        system_meta: &mut SystemMeta,
+        meta: &mut SystemMeta,
     ) -> <FilteredResources<'w> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
         let access = builder.build();
-        SystemParamBuilder::<FilteredResources>::build(access, world, system_meta)
-    }
-}
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
-unsafe impl<'w> SystemParamBuilder<FilteredResources<'w>> for Access<ComponentId> {
-    fn build(
-        self,
-        world: &mut World,
-        meta: &mut SystemMeta,
-    ) -> <FilteredResources<'w> as SystemParam>::State {
         // Accessing all resources can't be done safely, so we need to prohibit it.
         // The problem is that we won't know the `ArchetypeComponentId` for resources added in the future.
         // For components, that can be handled with `SystemParam::new_archetype()`, but there is no equivalent for resources.
-        if self.has_read_all_resources() {
+        if access.has_read_all_resources() {
             let system_name = &meta.name;
             panic!("FilteredResources in system {system_name} accesses all resources. This is not supported.");
         }
 
         let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&self);
+        let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
 
-        for component_id in self.resource_reads_and_writes() {
+        for component_id in access.resource_reads_and_writes() {
             meta.component_access_set
                 .add_unfiltered_resource_read(component_id);
 
@@ -409,7 +398,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResources<'w>> for Access<ComponentId
                 .add_resource_read(archetype_component_id);
         }
 
-        self
+        access
     }
 }
 
@@ -435,48 +424,38 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesB
     }
 }
 
-// SAFETY: Calls `Access::build`.
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)>
     SystemParamBuilder<FilteredResourcesMut<'w>> for FilteredResourcesMutParamBuilder<T>
 {
     fn build(
         self,
         world: &mut World,
-        system_meta: &mut SystemMeta,
+        meta: &mut SystemMeta,
     ) -> <FilteredResourcesMut<'w> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
         let access = builder.build();
-        SystemParamBuilder::<FilteredResourcesMut>::build(access, world, system_meta)
-    }
-}
 
-// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
-// conflicts with any prior access, a panic will occur.
-unsafe impl<'w> SystemParamBuilder<FilteredResourcesMut<'w>> for Access<ComponentId> {
-    fn build(
-        self,
-        world: &mut World,
-        meta: &mut SystemMeta,
-    ) -> <FilteredResourcesMut<'w> as SystemParam>::State {
         // Accessing all resources can't be done safely, so we need to prohibit it.
         // The problem is that we won't know the `ArchetypeComponentId` for resources added in the future.
         // For components, that can be handled with `SystemParam::new_archetype()`, but there is no equivalent for resources.
         // Note that calling `write_all_resources()` also sets `reads_all_resources`, so we only need one check here.
-        if self.has_read_all_resources() {
+        if access.has_read_all_resources() {
             let system_name = &meta.name;
             panic!("FilteredResources in system {system_name} accesses all resources. This is not supported.");
         }
 
         let combined_access = meta.component_access_set.combined_access();
-        let conflicts = combined_access.get_conflicts(&self);
+        let conflicts = combined_access.get_conflicts(&access);
         if !conflicts.is_empty() {
             let accesses = conflicts.format_conflict_list(world);
             let system_name = &meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
         }
 
-        for component_id in self.resource_reads() {
+        for component_id in access.resource_reads() {
             meta.component_access_set
                 .add_unfiltered_resource_read(component_id);
 
@@ -485,7 +464,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResourcesMut<'w>> for Access<Componen
                 .add_resource_read(archetype_component_id);
         }
 
-        for component_id in self.resource_writes() {
+        for component_id in access.resource_writes() {
             meta.component_access_set
                 .add_unfiltered_resource_write(component_id);
 
@@ -494,7 +473,7 @@ unsafe impl<'w> SystemParamBuilder<FilteredResourcesMut<'w>> for Access<Componen
                 .add_resource_write(archetype_component_id);
         }
 
-        self
+        access
     }
 }
 
