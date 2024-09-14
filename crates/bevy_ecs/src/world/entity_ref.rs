@@ -7,6 +7,7 @@ use crate::{
     event::Event,
     observer::{Observer, Observers},
     query::{Access, ReadOnlyQueryData},
+    reflect::AppTypeRegistry,
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
@@ -880,6 +881,42 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY:
         // consuming `self` ensures that no references exist to this entity's components.
         unsafe { self.into_unsafe_entity_cell().get_mut_by_id(component_id) }
+    }
+
+    /// TODO
+    pub fn get_reflect(&self, component_id: ComponentId) -> Option<&'_ dyn Reflect> {
+        let app_type_registry = self.world.get_resource::<AppTypeRegistry>()?;
+        let type_registry = &app_type_registry.read();
+        // SAFETY: TODO
+        unsafe {
+            self.as_unsafe_entity_cell_readonly()
+                .get_reflect(component_id, type_registry)
+        }
+    }
+
+    /// TODO
+    pub fn get_reflect_ref(&self, component_id: ComponentId) -> Option<Ref<'_, dyn Reflect>> {
+        let app_type_registry = self.world.get_resource::<AppTypeRegistry>()?;
+        let type_registry = &app_type_registry.read();
+        // SAFETY: TODO
+        unsafe {
+            self.as_unsafe_entity_cell_readonly()
+                .get_reflect_ref(component_id, type_registry)
+        }
+    }
+
+    /// TODO
+    pub fn get_reflect_mut(&mut self, component_id: ComponentId) -> Option<Mut<'_, dyn Reflect>> {
+        let app_type_registry = self.world.get_resource::<AppTypeRegistry>()?;
+        // SAFETY: as_unsafe_entity_cell mutably borrows self, but doesn't access any resource.
+        let app_type_registry = unsafe { &*core::ptr::from_ref(app_type_registry) };
+        let type_registry = &app_type_registry.read();
+
+        // SAFETY: TODO
+        unsafe {
+            self.as_unsafe_entity_cell()
+                .get_reflect_mut(component_id, type_registry)
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
