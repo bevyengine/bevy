@@ -13,6 +13,7 @@ use crate::{
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
+use bevy_reflect::{Reflect, TypeRegistry};
 use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
@@ -177,6 +178,26 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// TODO
+    pub fn get_reflect(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<&'w dyn Reflect> {
+        // SAFETY: TODO
+        unsafe { self.0.get_reflect(component_id, type_registry) }
+    }
+
+    /// TODO
+    pub fn get_reflect_ref(
+        &self,
+        component_id: ComponentId,
+        type_registry: &TypeRegistry,
+    ) -> Option<Ref<'w, dyn Reflect>> {
+        // SAFETY: TODO
+        unsafe { self.0.get_reflect_ref(component_id, type_registry) }
     }
 }
 
