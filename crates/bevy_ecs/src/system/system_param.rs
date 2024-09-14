@@ -2094,10 +2094,10 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 // SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResources` with no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
 // Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
-unsafe impl SystemParam for FilteredResources<'_> {
+unsafe impl SystemParam for FilteredResources<'_, '_> {
     type State = Access<ComponentId>;
 
-    type Item<'world, 'state> = FilteredResources<'world>;
+    type Item<'world, 'state> = FilteredResources<'world, 'state>;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         Access::new()
@@ -2109,23 +2109,22 @@ unsafe impl SystemParam for FilteredResources<'_> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        let access = state.clone();
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
-        unsafe { FilteredResources::new(world, access, system_meta.last_run, change_tick) }
+        unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 
 // SAFETY: FilteredResources only reads resources.
-unsafe impl ReadOnlySystemParam for FilteredResources<'_> {}
+unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
 
 // SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResourcesMut` with no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
 // Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
-unsafe impl SystemParam for FilteredResourcesMut<'_> {
+unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     type State = Access<ComponentId>;
 
-    type Item<'world, 'state> = FilteredResourcesMut<'world>;
+    type Item<'world, 'state> = FilteredResourcesMut<'world, 'state>;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         Access::new()
@@ -2137,10 +2136,9 @@ unsafe impl SystemParam for FilteredResourcesMut<'_> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        let access = state.clone();
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
-        unsafe { FilteredResourcesMut::new(world, access, system_meta.last_run, change_tick) }
+        unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 

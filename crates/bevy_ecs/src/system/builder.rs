@@ -364,14 +364,14 @@ impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuil
 
 // SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'w, T: FnOnce(&mut FilteredResourcesBuilder)> SystemParamBuilder<FilteredResources<'w>>
-    for FilteredResourcesParamBuilder<T>
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
+    SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
 {
     fn build(
         self,
         world: &mut World,
         meta: &mut SystemMeta,
-    ) -> <FilteredResources<'w> as SystemParam>::State {
+    ) -> <FilteredResources<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesBuilder::new(world);
         (self.0)(&mut builder);
         let access = builder.build();
@@ -427,14 +427,14 @@ impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesM
 
 // SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'w, T: FnOnce(&mut FilteredResourcesMutBuilder)>
-    SystemParamBuilder<FilteredResourcesMut<'w>> for FilteredResourcesMutParamBuilder<T>
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
+    SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
 {
     fn build(
         self,
         world: &mut World,
         meta: &mut SystemMeta,
-    ) -> <FilteredResourcesMut<'w> as SystemParam>::State {
+    ) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
         let mut builder = FilteredResourcesMutBuilder::new(world);
         (self.0)(&mut builder);
         let access = builder.build();

@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use crate::{
     change_detection::{MutUntyped, Res, Ticks, TicksMut},
     component::{ComponentId, Tick},
@@ -115,21 +117,21 @@ use bevy_ptr::UnsafeCellDeref;
 /// #
 /// # world.run_system_once(system);
 /// ```
-#[derive(Clone)]
-pub struct FilteredResources<'w> {
+#[derive(Clone, Copy)]
+pub struct FilteredResources<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: Access<ComponentId>,
+    access: &'s Access<ComponentId>,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<'w> FilteredResources<'w> {
+impl<'w, 's> FilteredResources<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: Access<ComponentId>,
+        access: &'s Access<ComponentId>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -143,7 +145,7 @@ impl<'w> FilteredResources<'w> {
 
     /// Returns a reference to the underlying [`Access`].
     pub fn access(&self) -> &Access<ComponentId> {
-        &self.access
+        self.access
     }
 
     /// Returns `true` if the `FilteredResources` has access to the given resource.
@@ -183,8 +185,8 @@ impl<'w> FilteredResources<'w> {
     }
 }
 
-impl<'w> From<FilteredResourcesMut<'w>> for FilteredResources<'w> {
-    fn from(resources: FilteredResourcesMut<'w>) -> Self {
+impl<'w, 's> From<FilteredResourcesMut<'w, 's>> for FilteredResources<'w, 's> {
+    fn from(resources: FilteredResourcesMut<'w, 's>) -> Self {
         // SAFETY:
         // - `FilteredResourcesMut` guarantees exclusive access to all resources in the new `FilteredResources`.
         unsafe {
@@ -198,14 +200,14 @@ impl<'w> From<FilteredResourcesMut<'w>> for FilteredResources<'w> {
     }
 }
 
-impl<'a> From<&'a FilteredResourcesMut<'_>> for FilteredResources<'a> {
-    fn from(resources: &'a FilteredResourcesMut<'_>) -> Self {
+impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's> {
+    fn from(resources: &'w FilteredResourcesMut<'_, 's>) -> Self {
         // SAFETY:
         // - `FilteredResourcesMut` guarantees exclusive access to all components in the new `FilteredResources`.
         unsafe {
             FilteredResources::new(
                 resources.world,
-                resources.access.clone(),
+                resources.access,
                 resources.last_run,
                 resources.this_run,
             )
@@ -213,10 +215,15 @@ impl<'a> From<&'a FilteredResourcesMut<'_>> for FilteredResources<'a> {
     }
 }
 
-impl<'a> From<&'a World> for FilteredResources<'a> {
-    fn from(value: &'a World) -> Self {
-        let mut access = Access::new();
-        access.read_all_resources();
+impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
+    fn from(value: &'w World) -> Self {
+        static READ_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
+        let access = READ_ALL_RESOURCES.get_or_init(|| {
+            let mut access = Access::new();
+            access.read_all_resources();
+            access
+        });
+
         let last_run = value.last_change_tick();
         let this_run = value.read_change_tick();
         // SAFETY: We have a reference to the entire world, so nothing else can alias with read access to all resources.
@@ -231,8 +238,8 @@ impl<'a> From<&'a World> for FilteredResources<'a> {
     }
 }
 
-impl<'a> From<&'a mut World> for FilteredResources<'a> {
-    fn from(value: &'a mut World) -> Self {
+impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
+    fn from(value: &'w mut World) -> Self {
         Self::from(&*value)
     }
 }
@@ -359,20 +366,20 @@ impl<'a> From<&'a mut World> for FilteredResources<'a> {
 /// #
 /// # world.run_system_once(system);
 /// ```
-pub struct FilteredResourcesMut<'w> {
+pub struct FilteredResourcesMut<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: Access<ComponentId>,
+    access: &'s Access<ComponentId>,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<'w> FilteredResourcesMut<'w> {
+impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// Creates a new [`FilteredResources`].
     /// # Safety
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: Access<ComponentId>,
+        access: &'s Access<ComponentId>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -385,27 +392,20 @@ impl<'w> FilteredResourcesMut<'w> {
     }
 
     /// Gets read-only access to all of the resources this `FilteredResourcesMut` can access.
-    pub fn as_readonly(&self) -> FilteredResources<'_> {
+    pub fn as_readonly(&self) -> FilteredResources<'_, 's> {
         FilteredResources::from(self)
     }
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut FilteredResourcesMut`, but you need `FilteredResourcesMut`.
-    pub fn reborrow(&mut self) -> FilteredResourcesMut<'_> {
+    pub fn reborrow(&mut self) -> FilteredResourcesMut<'_, 's> {
         // SAFETY: We have exclusive access to this access for the duration of `'_`, so there cannot be anything else that conflicts.
-        unsafe {
-            Self::new(
-                self.world,
-                self.access.clone(),
-                self.last_run,
-                self.this_run,
-            )
-        }
+        unsafe { Self::new(self.world, self.access, self.last_run, self.this_run) }
     }
 
     /// Returns a reference to the underlying [`Access`].
     pub fn access(&self) -> &Access<ComponentId> {
-        &self.access
+        self.access
     }
 
     /// Returns `true` if the `FilteredResources` has read access to the given resource.
@@ -492,10 +492,15 @@ impl<'w> FilteredResourcesMut<'w> {
     }
 }
 
-impl<'a> From<&'a mut World> for FilteredResourcesMut<'a> {
-    fn from(value: &'a mut World) -> Self {
-        let mut access = Access::new();
-        access.write_all_resources();
+impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
+    fn from(value: &'w mut World) -> Self {
+        static WRITE_ALL_RESOURCES: OnceLock<Access<ComponentId>> = OnceLock::new();
+        let access = WRITE_ALL_RESOURCES.get_or_init(|| {
+            let mut access = Access::new();
+            access.write_all_resources();
+            access
+        });
+
         let last_run = value.last_change_tick();
         let this_run = value.change_tick();
         // SAFETY: We have a mutable reference to the entire world, so nothing else can alias with mutable access to all resources.
