@@ -58,6 +58,7 @@ use crate::{
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
+#[reflect(Component, Debug)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The pointer that triggered this event
     pub pointer_id: PointerId,
