@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::{bundle::Bundle, prelude::Trigger, system::System};
 
 /// Trait for types that can be used as input to [`System`]s.
@@ -64,7 +66,8 @@ impl SystemInput for () {
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 /// [`FunctionSystem`]: crate::system::FunctionSystem
-pub struct In<In>(pub In);
+#[derive(Debug)]
+pub struct In<T>(pub T);
 
 impl<T: 'static> SystemInput for In<T> {
     type Param<'i> = In<T>;
@@ -76,6 +79,20 @@ impl<T: 'static> SystemInput for In<T> {
 
     fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         In(this)
+    }
+}
+
+impl<T> Deref for In<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for In<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -109,6 +126,7 @@ impl<T: 'static> SystemInput for In<T> {
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
+#[derive(Debug)]
 pub struct InRef<'i, T: ?Sized>(pub &'i T);
 
 impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
@@ -121,6 +139,14 @@ impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
 
     fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         InRef(this)
+    }
+}
+
+impl<'i, T: ?Sized> Deref for InRef<'i, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
     }
 }
 
@@ -150,6 +176,7 @@ impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
+#[derive(Debug)]
 pub struct InMut<'a, T: ?Sized>(pub &'a mut T);
 
 impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
@@ -162,6 +189,20 @@ impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
 
     fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         InMut(this)
+    }
+}
+
+impl<'i, T: ?Sized> Deref for InMut<'i, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
     }
 }
 

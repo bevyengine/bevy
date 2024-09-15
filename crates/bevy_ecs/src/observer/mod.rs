@@ -13,6 +13,7 @@ use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -119,6 +120,20 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
             .field("trigger", &self.trigger)
             .field("_marker", &self._marker)
             .finish()
+    }
+}
+
+impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+    type Target = E;
+
+    fn deref(&self) -> &Self::Target {
+        self.event
+    }
+}
+
+impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.event
     }
 }
 
