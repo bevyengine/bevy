@@ -91,13 +91,13 @@ pub trait BuildChildrenTransformExt {
 impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().enqueue(PushChildInPlace { child, parent });
+        self.commands().queue(PushChildInPlace { child, parent });
         self
     }
 
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().enqueue(RemoveParentInPlace { child });
+        self.commands().queue(RemoveParentInPlace { child });
         self
     }
 }

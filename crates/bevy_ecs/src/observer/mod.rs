@@ -830,7 +830,7 @@ mod tests {
             ..Default::default()
         });
 
-        world.commands().enqueue(
+        world.commands().queue(
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             unsafe { EmitDynamicTrigger::new_with_id(event_a, EventA, ()) },
         );

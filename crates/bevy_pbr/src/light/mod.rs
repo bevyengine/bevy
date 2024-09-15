@@ -817,7 +817,7 @@ pub fn check_dir_light_mesh_visibility(
     // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = std::mem::take(defer_visible_entities_queue.deref_mut());
-    commands.enqueue(move |world: &mut World| {
+    commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());

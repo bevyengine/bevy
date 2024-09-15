@@ -63,7 +63,7 @@ pub use parallel_scope::*;
 /// # use bevy_ecs::prelude::*;
 /// # fn foo(mut commands: Commands) {
 /// // NOTE: type inference fails here, so annotations are required on the closure.
-/// commands.enqueue(|w: &mut World| {
+/// commands.queue(|w: &mut World| {
 ///     // Mutate the world however you want...
 ///     # todo!();
 /// });
@@ -303,7 +303,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        self.enqueue(move |world: &mut World| {
+        self.queue(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
         EntityCommands {
@@ -503,7 +503,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.enqueue(spawn_batch(bundles_iter));
+        self.queue(spawn_batch(bundles_iter));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
@@ -527,10 +527,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.enqueue(AddToCounter(3));
+    ///     commands.queue(AddToCounter(3));
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
-    ///     commands.enqueue(|world: &mut World| {
+    ///     commands.queue(|world: &mut World| {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += 25;
     ///     });
@@ -539,7 +539,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn enqueue<C: Command>(&mut self, command: C) {
+    pub fn queue<C: Command>(&mut self, command: C) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -581,7 +581,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.enqueue(insert_or_spawn_batch(bundles_iter));
+        self.queue(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -610,7 +610,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.enqueue(init_resource::<R>);
+        self.queue(init_resource::<R>);
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -640,7 +640,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.enqueue(insert_resource(resource));
+        self.queue(insert_resource(resource));
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -664,7 +664,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.enqueue(remove_resource::<R>);
+        self.queue(remove_resource::<R>);
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -690,7 +690,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
-        self.enqueue(RunSystemWithInput::new_with_input(id, input));
+        self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -752,7 +752,7 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.enqueue(RegisterSystem::new(system, entity));
+        self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
     }
 
@@ -761,7 +761,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
-        self.enqueue(TriggerEvent { event, targets: () });
+        self.queue(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
@@ -773,7 +773,7 @@ impl<'w, 's> Commands<'w, 's> {
         event: impl Event,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
-        self.enqueue(TriggerEvent { event, targets });
+        self.queue(TriggerEvent { event, targets });
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
@@ -795,7 +795,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`EventWriter`]: crate::event::EventWriter
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.enqueue(SendEvent { event });
+        self.queue(SendEvent { event });
         self
     }
 }
@@ -843,8 +843,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
-///     commands.spawn_empty().enqueue(count_name);
-///     commands.spawn_empty().enqueue(count_name);
+///     commands.spawn_empty().queue(count_name);
+///     commands.spawn_empty().queue(count_name);
 /// }
 ///
 /// fn assert_names(named: Query<&Name>) {
@@ -960,7 +960,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn insert(self, bundle: impl Bundle) -> Self {
-        self.enqueue(insert(bundle, InsertMode::Replace))
+        self.queue(insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -998,7 +998,7 @@ impl EntityCommands<'_> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.enqueue(insert(bundle, InsertMode::Replace))
+            self.queue(insert(bundle, InsertMode::Replace))
         } else {
             self
         }
@@ -1018,7 +1018,7 @@ impl EntityCommands<'_> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
     /// instead.
     pub fn insert_if_new(self, bundle: impl Bundle) -> Self {
-        self.enqueue(insert(bundle, InsertMode::Keep))
+        self.queue(insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a dynamic component to an entity.
@@ -1043,7 +1043,7 @@ impl EntityCommands<'_> {
     ) -> Self {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
-        self.enqueue(unsafe {insert_by_id(component_id, value, move |entity| {
+        self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
             panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
         })})
     }
@@ -1062,7 +1062,7 @@ impl EntityCommands<'_> {
         value: T,
     ) -> Self {
         // SAFETY: same invariants as parent call
-        self.enqueue(unsafe { insert_by_id(component_id, value, |_| {}) })
+        self.queue(unsafe { insert_by_id(component_id, value, |_| {}) })
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1115,7 +1115,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn try_insert(self, bundle: impl Bundle) -> Self {
-        self.enqueue(try_insert(bundle, InsertMode::Replace))
+        self.queue(try_insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1150,7 +1150,7 @@ impl EntityCommands<'_> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.enqueue(try_insert(bundle, InsertMode::Replace))
+            self.queue(try_insert(bundle, InsertMode::Replace))
         } else {
             self
         }
@@ -1166,7 +1166,7 @@ impl EntityCommands<'_> {
     ///
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
     pub fn try_insert_if_new(self, bundle: impl Bundle) -> Self {
-        self.enqueue(try_insert(bundle, InsertMode::Keep))
+        self.queue(try_insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1208,17 +1208,17 @@ impl EntityCommands<'_> {
     where
         T: Bundle,
     {
-        self.enqueue(remove::<T>)
+        self.queue(remove::<T>)
     }
 
     /// Removes a component from the entity.
     pub fn remove_by_id(self, component_id: ComponentId) -> Self {
-        self.enqueue(remove_by_id(component_id))
+        self.queue(remove_by_id(component_id))
     }
 
     /// Removes all components associated with the entity.
     pub fn clear(self) -> Self {
-        self.enqueue(clear())
+        self.queue(clear())
     }
 
     /// Despawns the entity.
@@ -1250,7 +1250,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn despawn(self) -> Self {
-        self.enqueue(despawn())
+        self.queue(despawn())
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -1263,15 +1263,15 @@ impl EntityCommands<'_> {
     /// commands
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
-    ///     .enqueue(|entity: EntityWorldMut| {
+    ///     .queue(|entity: EntityWorldMut| {
     ///         println!("Executed an EntityCommand for {:?}", entity.id());
     ///     });
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
     #[allow(clippy::should_implement_trait)]
-    pub fn enqueue<M: 'static>(mut self, command: impl EntityCommand<M>) -> Self {
-        self.commands.enqueue(command.with_entity(self.entity));
+    pub fn queue<M: 'static>(mut self, command: impl EntityCommand<M>) -> Self {
+        self.commands.queue(command.with_entity(self.entity));
         self
     }
 
@@ -1316,7 +1316,7 @@ impl EntityCommands<'_> {
     where
         T: Bundle,
     {
-        self.enqueue(retain::<T>)
+        self.queue(retain::<T>)
     }
 
     /// Logs the components of the entity at the info level.
@@ -1325,7 +1325,7 @@ impl EntityCommands<'_> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(self) -> Self {
-        self.enqueue(log_components)
+        self.queue(log_components)
     }
 
     /// Returns the underlying [`Commands`].
@@ -1344,7 +1344,7 @@ impl EntityCommands<'_> {
 
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(self, system: impl IntoObserverSystem<E, B, M>) -> Self {
-        self.enqueue(observe(system))
+        self.queue(observe(system))
     }
 }
 
@@ -1662,12 +1662,12 @@ mod tests {
             let mut commands = Commands::new(&mut command_queue, &world);
 
             // set up a simple command using a closure that adds one additional entity
-            commands.enqueue(|world: &mut World| {
+            commands.queue(|world: &mut World| {
                 world.spawn((W(42u32), W(0u64)));
             });
 
             // set up a simple command using a function that adds one additional entity
-            commands.enqueue(simple_command);
+            commands.queue(simple_command);
         }
         command_queue.apply(&mut world);
         let results3 = world

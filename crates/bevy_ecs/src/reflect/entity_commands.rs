@@ -174,7 +174,7 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.commands.enqueue(InsertReflect {
+        self.commands.queue(InsertReflect {
             entity: self.entity,
             component,
         });
@@ -185,7 +185,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.commands.enqueue(InsertReflectWithRegistry::<T> {
+        self.commands.queue(InsertReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component,
@@ -194,7 +194,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.commands.enqueue(RemoveReflect {
+        self.commands.queue(RemoveReflect {
             entity: self.entity,
             component_type_path: component_type_path.into(),
         });
@@ -205,7 +205,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component_type_name: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.commands.enqueue(RemoveReflectWithRegistry::<T> {
+        self.commands.queue(RemoveReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component_type_name: component_type_name.into(),
