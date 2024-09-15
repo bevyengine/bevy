@@ -53,7 +53,7 @@ pub struct E {
 }
 
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
-/// You can tell reflect to treat your type instead as a "value type" by using the `reflect_value`
+/// You can tell reflect to treat your type instead as an "opaque type" by using the `reflect_value`
 /// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)
 /// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
 /// that these values behave as expected when nested underneath Reflect-ed structs.
@@ -118,10 +118,10 @@ fn setup() {
         // This variant only exists if the `reflect_functions` feature is enabled.
         #[cfg(feature = "reflect_functions")]
         ReflectRef::Function(_) => {}
-        // `Value` types do not implement any of the other traits above. They are simply a Reflect
-        // implementation. Value is implemented for core types like i32, usize, f32, and
-        // String.
-        ReflectRef::Value(_) => {}
+        // `Opaque` types do not implement any of the other traits above. They are simply a Reflect
+        // implementation. Opaque is implemented for opaque types like String and Instant,
+        // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
+        ReflectRef::Opaque(_) => {}
     }
 
     let mut dynamic_list = DynamicList::default();

@@ -9,10 +9,10 @@ use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
     reflect::impl_full_reflect, set_apply, set_partial_eq, set_try_apply, ApplyError, Array,
     ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped, OpaqueInfo,
     PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, ValueInfo,
+    TypeRegistration, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -250,8 +250,8 @@ macro_rules! impl_reflect_for_atomic {
                 fn type_info() -> &'static TypeInfo {
                     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
                     CELL.get_or_set(|| {
-                        let info = ValueInfo::new::<Self>();
-                        TypeInfo::Value(info)
+                        let info = OpaqueInfo::new::<Self>();
+                        TypeInfo::Opaque(info)
                     })
                 }
             }
@@ -308,19 +308,19 @@ macro_rules! impl_reflect_for_atomic {
                 }
                 #[inline]
                 fn reflect_kind(&self) -> ReflectKind {
-                    ReflectKind::Value
+                    ReflectKind::Opaque
                 }
                 #[inline]
                 fn reflect_ref(&self) -> ReflectRef {
-                    ReflectRef::Value(self)
+                    ReflectRef::Opaque(self)
                 }
                 #[inline]
                 fn reflect_mut(&mut self) -> ReflectMut {
-                    ReflectMut::Value(self)
+                    ReflectMut::Opaque(self)
                 }
                 #[inline]
                 fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-                    ReflectOwned::Value(self)
+                    ReflectOwned::Opaque(self)
                 }
                 fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     fmt::Debug::fmt(self, f)
@@ -1542,19 +1542,19 @@ impl PartialReflect for Cow<'static, str> {
     }
 
     fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Value
+        ReflectKind::Opaque
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
+        ReflectRef::Opaque(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
+        ReflectMut::Opaque(self)
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
+        ReflectOwned::Opaque(self)
     }
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
@@ -1599,7 +1599,7 @@ impl_full_reflect!(for Cow<'static, str>);
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
@@ -1844,15 +1844,15 @@ impl PartialReflect for &'static str {
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
+        ReflectRef::Opaque(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
+        ReflectMut::Opaque(self)
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
+        ReflectOwned::Opaque(self)
     }
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
@@ -1925,7 +1925,7 @@ impl Reflect for &'static str {
 impl Typed for &'static str {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
@@ -1978,19 +1978,19 @@ impl PartialReflect for &'static Path {
     }
 
     fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Value
+        ReflectKind::Opaque
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
+        ReflectRef::Opaque(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
+        ReflectMut::Opaque(self)
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
+        ReflectOwned::Opaque(self)
     }
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
@@ -2059,7 +2059,7 @@ impl Reflect for &'static Path {
 impl Typed for &'static Path {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
@@ -2111,19 +2111,19 @@ impl PartialReflect for Cow<'static, Path> {
     }
 
     fn reflect_kind(&self) -> ReflectKind {
-        ReflectKind::Value
+        ReflectKind::Opaque
     }
 
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Value(self)
+        ReflectRef::Opaque(self)
     }
 
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Value(self)
+        ReflectMut::Opaque(self)
     }
 
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Value(self)
+        ReflectOwned::Opaque(self)
     }
 
     fn clone_value(&self) -> Box<dyn PartialReflect> {
@@ -2196,7 +2196,7 @@ impl Reflect for Cow<'static, Path> {
 impl Typed for Cow<'static, Path> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 

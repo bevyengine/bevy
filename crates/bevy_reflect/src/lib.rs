@@ -164,15 +164,17 @@
 //! we can just use the matching [`PartialReflect::as_partial_reflect`], [`PartialReflect::as_partial_reflect_mut`],
 //! or [`PartialReflect::into_partial_reflect`] methods.
 //!
-//! ## Value Types
+//! ## Opaque Types
 //!
-//! Types that do not fall under one of the above subtraits,
-//! such as for primitives (e.g. `bool`, `usize`, etc.)
-//! and simple types (e.g. `String`, `Duration`),
-//! are referred to as _value_ types
-//! since methods like [`PartialReflect::reflect_ref`] return a [`ReflectRef::Value`] variant.
-//! While most other types contain their own `dyn Reflect` fields and data,
-//! these types generally cannot be broken down any further.
+//! Some types don't fall under a particular subtrait.
+//!
+//! These types hide their internal structure to reflection,
+//! either because it is not possible, difficult, or not useful to reflect its internals.
+//! Such types are known as _opaque_ types.
+//!
+//! This includes truly opaque types like `String` or `Instant`,
+//! but also includes all the primitive types (e.g.  `bool`, `usize`, etc.)
+//! since they can't be broken down any further.
 //!
 //! # Dynamic Types
 //!
@@ -198,7 +200,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-value types,
+//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-opaque types,
 //! allowing all types to essentially be "cloned".
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
@@ -398,7 +400,7 @@
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
 //! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic type representing some concrete type (except for value types).
+//! where the underlying type will be a dynamic type representing some concrete type (except for opaque types).
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
 //! in order to be used in certain cases.
@@ -1793,7 +1795,7 @@ mod tests {
         // Cow<'static, str>
         type MyCowStr = Cow<'static, str>;
 
-        let info = MyCowStr::type_info().as_value().unwrap();
+        let info = MyCowStr::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyCowStr>());
         assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
@@ -1838,7 +1840,7 @@ mod tests {
         // Value
         type MyValue = String;
 
-        let info = MyValue::type_info().as_value().unwrap();
+        let info = MyValue::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyValue>());
         assert_eq!(MyValue::type_path(), info.type_path());
