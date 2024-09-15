@@ -1,6 +1,7 @@
 #[cfg(feature = "functions")]
 use crate::func::Function;
 use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct};
+use thiserror::Error;
 
 /// A zero-sized enumeration of the "kinds" of a reflected type.
 ///
@@ -121,6 +122,45 @@ macro_rules! impl_reflect_kind_conversions {
     };
 }
 
+/// Caused when a type was expected to be of a certain [kind], but was not.
+///
+/// [kind]: ReflectKind
+#[derive(Debug, Error)]
+#[error("kind mismatch: expected {expected:?}, received {received:?}")]
+pub struct ReflectKindMismatchError {
+    pub expected: ReflectKind,
+    pub received: ReflectKind,
+}
+
+macro_rules! impl_cast_method {
+    ($name:ident : Value => $retval:ty) => {
+        #[doc = "Attempts a cast to a [`PartialReflect`] trait object."]
+        #[doc = "\n\nReturns an error if `self` is not the [`Self::Value`] variant."]
+        pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
+            match self {
+                Self::Value(value) => Ok(value),
+                _ => Err(ReflectKindMismatchError {
+                    expected: ReflectKind::Value,
+                    received: self.kind(),
+                }),
+            }
+        }
+    };
+    ($name:ident : $kind:ident => $retval:ty) => {
+        #[doc = concat!("Attempts a cast to a [`", stringify!($kind), "`] trait object.")]
+        #[doc = concat!("\n\nReturns an error if `self` is not the [`Self::", stringify!($kind), "`] variant.")]
+        pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
+            match self {
+                Self::$kind(value) => Ok(value),
+                _ => Err(ReflectKindMismatchError {
+                    expected: ReflectKind::$kind,
+                    received: self.kind(),
+                }),
+            }
+        }
+    };
+}
+
 /// An immutable enumeration of ["kinds"] of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
@@ -143,6 +183,18 @@ pub enum ReflectRef<'a> {
     Value(&'a dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectRef<'_>);
+
+impl<'a> ReflectRef<'a> {
+    impl_cast_method!(as_struct: Struct => &'a dyn Struct);
+    impl_cast_method!(as_tuple_struct: TupleStruct => &'a dyn TupleStruct);
+    impl_cast_method!(as_tuple: Tuple => &'a dyn Tuple);
+    impl_cast_method!(as_list: List => &'a dyn List);
+    impl_cast_method!(as_array: Array => &'a dyn Array);
+    impl_cast_method!(as_map: Map => &'a dyn Map);
+    impl_cast_method!(as_set: Set => &'a dyn Set);
+    impl_cast_method!(as_enum: Enum => &'a dyn Enum);
+    impl_cast_method!(as_value: Value => &'a dyn PartialReflect);
+}
 
 /// A mutable enumeration of ["kinds"] of a reflected type.
 ///
@@ -167,6 +219,18 @@ pub enum ReflectMut<'a> {
 }
 impl_reflect_kind_conversions!(ReflectMut<'_>);
 
+impl<'a> ReflectMut<'a> {
+    impl_cast_method!(as_struct: Struct => &'a mut dyn Struct);
+    impl_cast_method!(as_tuple_struct: TupleStruct => &'a mut dyn TupleStruct);
+    impl_cast_method!(as_tuple: Tuple => &'a mut dyn Tuple);
+    impl_cast_method!(as_list: List => &'a mut dyn List);
+    impl_cast_method!(as_array: Array => &'a mut dyn Array);
+    impl_cast_method!(as_map: Map => &'a mut dyn Map);
+    impl_cast_method!(as_set: Set => &'a mut dyn Set);
+    impl_cast_method!(as_enum: Enum => &'a mut dyn Enum);
+    impl_cast_method!(as_value: Value => &'a mut dyn PartialReflect);
+}
+
 /// An owned enumeration of ["kinds"] of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
@@ -189,3 +253,15 @@ pub enum ReflectOwned {
     Value(Box<dyn PartialReflect>),
 }
 impl_reflect_kind_conversions!(ReflectOwned);
+
+impl ReflectOwned {
+    impl_cast_method!(into_struct: Struct => Box<dyn Struct>);
+    impl_cast_method!(into_tuple_struct: TupleStruct => Box<dyn TupleStruct>);
+    impl_cast_method!(into_tuple: Tuple => Box<dyn Tuple>);
+    impl_cast_method!(into_list: List => Box<dyn List>);
+    impl_cast_method!(into_array: Array => Box<dyn Array>);
+    impl_cast_method!(into_map: Map => Box<dyn Map>);
+    impl_cast_method!(into_set: Set => Box<dyn Set>);
+    impl_cast_method!(into_enum: Enum => Box<dyn Enum>);
+    impl_cast_method!(into_value: Value => Box<dyn PartialReflect>);
+}
