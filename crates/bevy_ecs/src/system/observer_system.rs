@@ -11,12 +11,16 @@ use super::IntoSystem;
 ///
 /// [`Observer`]: crate::observer::Observer
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = ()>:
-    System<Trigger<'static, E, B>, Out = Out> + Send + 'static
+    System<In = Trigger<'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
-impl<E: 'static, B: Bundle, Out, T: System<Trigger<'static, E, B>, Out = Out> + Send + 'static>
-    ObserverSystem<E, B, Out> for T
+impl<
+        E: 'static,
+        B: Bundle,
+        Out,
+        T: System<In = Trigger<'static, E, B>, Out = Out> + Send + 'static,
+    > ObserverSystem<E, B, Out> for T
 {
 }
 
@@ -54,12 +58,13 @@ where
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<E: 'static, B: Bundle, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Trigger<'static, E, B>, fn(Trigger<E, B>, $($param,)*)> for Func
+        impl<E: 'static, B: Bundle, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Trigger<E, B>, $($param,)*)> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(Trigger<E, B>, $($param),*) -> Out +
                 FnMut(Trigger<E, B>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
+            type In = Trigger<'static, E, B>;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
@@ -111,7 +116,7 @@ mod tests {
         fn b(_: In<u32>) {}
 
         let mut world = World::new();
-        world.observe(a.pipe::<_, In<u32>, _, _>(b));
+        world.observe(a.pipe(b));
     }
 
     // TODO: uncomment this to check that 'static no longer is allowed

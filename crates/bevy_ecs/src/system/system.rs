@@ -4,6 +4,7 @@ use core::fmt::Debug;
 use crate::component::Tick;
 use crate::schedule::InternedSystemSet;
 use crate::system::input::SystemInput;
+use crate::system::SystemIn;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::DeferredWorld;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
@@ -25,7 +26,9 @@ use super::IntoSystem;
 /// It's possible to specify explicit execution order between specific systems,
 /// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
-pub trait System<In: SystemInput>: Send + Sync + 'static {
+pub trait System: Send + Sync + 'static {
+    /// The system's input.
+    type In: SystemInput;
     /// The system's output.
     type Out;
     /// Returns the system's name.
@@ -63,7 +66,8 @@ pub trait System<In: SystemInput>: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: In::In<'_>, world: UnsafeWorldCell) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
+        -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -72,7 +76,7 @@ pub trait System<In: SystemInput>: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: In::In<'_>, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -168,12 +172,12 @@ pub trait System<In: SystemInput>: Send + Sync + 'static {
 ///
 /// This must only be implemented for system types which do not mutate the `World`
 /// when [`System::run_unsafe`] is called.
-pub unsafe trait ReadOnlySystem<In: SystemInput>: System<In> {
+pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the world.
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: In::In<'_>, world: &World) -> Self::Out {
+    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world);
         // SAFETY:
@@ -184,7 +188,7 @@ pub unsafe trait ReadOnlySystem<In: SystemInput>: System<In> {
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
-pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In, Out = Out>>;
+pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
     if last_run.check_tick(this_run) {
@@ -197,7 +201,7 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl<In, Out> Debug for dyn System<In, Out = Out>
+impl<In, Out> Debug for dyn System<In = In, Out = Out>
 where
     In: SystemInput + 'static,
     Out: 'static,
@@ -308,24 +312,34 @@ where
 /// ```
 pub trait RunSystemOnce: Sized {
     /// Runs a system and applies its deferred parameters.
-    fn run_system_once<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
+    fn run_system_once<T, Out, Marker>(self, system: T) -> Out
+    where
+        T: IntoSystem<(), Out, Marker>,
+    {
         self.run_system_once_with((), system)
     }
 
     /// Runs a system with given input and applies its deferred parameters.
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In: SystemInput, Out, Marker>(
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In::In<'_>,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out;
+    ) -> Out
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput;
 }
 
 impl RunSystemOnce for &mut World {
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In: SystemInput, Out, Marker>(
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In::In<'_>,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out {
+    ) -> Out
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput,
+    {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
         system.run(input, self)

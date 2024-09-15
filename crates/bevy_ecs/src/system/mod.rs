@@ -159,7 +159,7 @@ use crate::world::World;
 )]
 pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// The type of [`System`] that this instance converts into.
-    type System: System<In, Out = Out>;
+    type System: System<In = In, Out = Out>;
 
     /// Turns this value into its corresponding [`System`].
     fn into_system(this: Self) -> Self::System;
@@ -168,11 +168,11 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, BOut, MarkerB>(self, system: B) -> PipeSystem<In, Self::System, B::System>
+    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
-        In: 'static,
-        Out: SystemInput,
-        B: IntoSystem<Out, BOut, MarkerB>,
+        Out: 'static,
+        B: IntoSystem<BIn, BOut, MarkerB>,
+        for<'a> BIn: SystemInput<Inner<'a> = Out>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
@@ -199,7 +199,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///     # Err(())
     /// }
     /// ```
-    fn map<T, F>(self, f: F) -> AdapterSystem<F, In, Self::System>
+    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
     where
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
@@ -216,7 +216,7 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
 }
 
 // All systems implicitly implement IntoSystem.
-impl<In: SystemInput, T: System<In>> IntoSystem<In, T::Out, ()> for T {
+impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
     type System = T;
     fn into_system(this: Self) -> Self {
         this
@@ -308,10 +308,12 @@ pub fn assert_is_system<In: SystemInput, Out: 'static, Marker>(
 ///
 /// assert_is_read_only_system(my_system);
 /// ```
-pub fn assert_is_read_only_system<In: SystemInput, Out: 'static, Marker, S>(system: S)
+pub fn assert_is_read_only_system<In, Out, Marker, S>(system: S)
 where
+    In: SystemInput,
+    Out: 'static,
     S: IntoSystem<In, Out, Marker>,
-    S::System: ReadOnlySystem<In>,
+    S::System: ReadOnlySystem,
 {
     assert_is_system(system);
 }
@@ -348,7 +350,6 @@ mod tests {
     use std::any::TypeId;
 
     use crate::prelude::EntityRef;
-    use crate::system::PipeSystem;
     use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
@@ -1679,9 +1680,9 @@ mod tests {
         // TODO: fix
         // assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
         assert_is_system(exclusive_with_state);
-        assert_is_system(returning::<bool>.pipe::<_, In<bool>, _, _>(exclusive_in_out::<bool, ()>));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 
-        returning::<()>.run_if(returning::<bool>.pipe::<_, In<bool>, _, _>(not));
+        returning::<()>.run_if(returning::<bool>.pipe(not));
     }
 
     #[test]
@@ -1700,7 +1701,7 @@ mod tests {
             second_flag: bool,
         }
 
-        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> In<Info> {
             if flag.is_changed() {
                 info.first_flag = true;
             }
@@ -1708,10 +1709,10 @@ mod tests {
                 *flag = Flag;
             }
 
-            info
+            In(info)
         }
 
-        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
+        fn second(In(In(mut info)): In<In<Info>>, mut flag: ResMut<Flag>) -> Info {
             if flag.is_changed() {
                 info.second_flag = true;
             }
@@ -1724,7 +1725,7 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<Flag>();
-        let mut sys: PipeSystem<In<Info>, _, In<Info>, _> = first.pipe(second);
+        let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 
         sys.run(default(), &mut world);

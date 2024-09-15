@@ -45,12 +45,12 @@ impl<I, O> RemovedSystem<I, O> {
 ///
 /// These are opaque identifiers, keyed to a specific [`World`],
 /// and are created via [`World::register_system`].
-pub struct SystemId<I = (), O = ()> {
+pub struct SystemId<I: SystemInput = (), O = ()> {
     pub(crate) entity: Entity,
     pub(crate) marker: std::marker::PhantomData<fn(I) -> O>,
 }
 
-impl<I, O> SystemId<I, O> {
+impl<I: SystemInput, O> SystemId<I, O> {
     /// Transforms a [`SystemId`] into the [`Entity`] that holds the one-shot system's state.
     ///
     /// It's trivial to convert [`SystemId`] into an [`Entity`] since a one-shot system
@@ -73,33 +73,33 @@ impl<I, O> SystemId<I, O> {
     }
 }
 
-impl<I, O> Eq for SystemId<I, O> {}
+impl<I: SystemInput, O> Eq for SystemId<I, O> {}
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I, O> Copy for SystemId<I, O> {}
+impl<I: SystemInput, O> Copy for SystemId<I, O> {}
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I, O> Clone for SystemId<I, O> {
+impl<I: SystemInput, O> Clone for SystemId<I, O> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I, O> PartialEq for SystemId<I, O> {
+impl<I: SystemInput, O> PartialEq for SystemId<I, O> {
     fn eq(&self, other: &Self) -> bool {
         self.entity == other.entity && self.marker == other.marker
     }
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I, O> std::hash::Hash for SystemId<I, O> {
+impl<I: SystemInput, O> std::hash::Hash for SystemId<I, O> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.entity.hash(state);
     }
 }
 
-impl<I, O> std::fmt::Debug for SystemId<I, O> {
+impl<I: SystemInput, O> std::fmt::Debug for SystemId<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
@@ -150,7 +150,7 @@ impl World {
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
     /// [`System`] trait object and put in a [`Box`].
-    pub fn register_boxed_system<I: 'static, O: 'static>(
+    pub fn register_boxed_system<I: SystemInput + 'static, O: 'static>(
         &mut self,
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
@@ -164,7 +164,7 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I: 'static, O: 'static>(
+    pub fn remove_system<I: SystemInput + 'static, O: 'static>(
         &mut self,
         id: SystemId<I, O>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
@@ -303,11 +303,15 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I: SystemInput + 'static, O: 'static>(
+    pub fn run_system_with_input<I, O>(
         &mut self,
         id: SystemId<I, O>,
-        input: I::In<'_>,
-    ) -> Result<O, RegisteredSystemError<I, O>> {
+        input: I::Inner<'_>,
+    ) -> Result<O, RegisteredSystemError<I, O>>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         // lookup
         let mut entity = self
             .get_entity_mut(id.entity)
@@ -436,7 +440,7 @@ impl World {
 #[derive(Debug, Clone)]
 pub struct RunSystemWithInput<I: SystemInput> {
     system_id: SystemId<I>,
-    input: I::In<'static>,
+    input: I::Inner<'static>,
 }
 
 /// The [`Command`] type for [`World::run_system`].
@@ -462,15 +466,14 @@ impl RunSystem {
 impl<I: SystemInput> RunSystemWithInput<I> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
-    pub fn new_with_input(system_id: SystemId<I>, input: I::In<'static>) -> Self {
+    pub fn new_with_input(system_id: SystemId<I>, input: I::Inner<'static>) -> Self {
         Self { system_id, input }
     }
 }
 
 impl<I> Command for RunSystemWithInput<I>
 where
-    I: SystemInput + 'static,
-    I::In<'static>: Send,
+    I: SystemInput<Inner<'static>: Send> + 'static,
 {
     #[inline]
     fn apply(self, world: &mut World) {
@@ -535,7 +538,7 @@ where
 
 /// An operation with stored systems failed.
 #[derive(Error)]
-pub enum RegisteredSystemError<I = (), O = ()> {
+pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
@@ -554,7 +557,7 @@ pub enum RegisteredSystemError<I = (), O = ()> {
     SelfRemove(SystemId<I, O>),
 }
 
-impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
+impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
@@ -570,6 +573,7 @@ impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
+    use crate::system::InRef;
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -638,7 +642,7 @@ mod tests {
 
         let mut world = World::new();
 
-        let id = world.register_system::<In<NonCopy>, _, _, _>(increment_sys);
+        let id = world.register_system(increment_sys);
 
         // Insert the resource after registering the system.
         world.insert_resource(Counter(1));
@@ -743,7 +747,7 @@ mod tests {
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                commands.run_system_with_input::<In<u8>>(callback.0, callback.1);
+                commands.run_system_with_input(callback.0, callback.1);
             }
         }
 
@@ -795,14 +799,14 @@ mod tests {
 
     #[test]
     fn system_with_input_ref() {
-        fn with_ref(input: In<&u8>, mut counter: ResMut<Counter>) {
+        fn with_ref(InRef(input): InRef<u8>, mut counter: ResMut<Counter>) {
             counter.0 += *input;
         }
 
         let mut world = World::new();
         world.insert_resource(Counter(0));
 
-        let id = world.register_system::<&'static u8, _, _, _>(with_ref);
+        let id = world.register_system(with_ref);
         world.run_system_with_input(id, &2).unwrap();
     }
 }

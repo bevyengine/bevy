@@ -6,7 +6,7 @@ use crate::{
     prelude::World,
     query::Access,
     schedule::InternedSystemSet,
-    system::input::SystemInput,
+    system::{input::SystemInput, In, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -87,7 +87,7 @@ use super::{ReadOnlySystem, System};
     label = "invalid system combination",
     note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
 )]
-pub trait Combine<AIn: SystemInput, A: System<AIn>, BIn: SystemInput, B: System<BIn>> {
+pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In: SystemInput;
 
@@ -99,17 +99,17 @@ pub trait Combine<AIn: SystemInput, A: System<AIn>, BIn: SystemInput, B: System<
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
-        input: <Self::In as SystemInput>::In<'_>,
-        a: impl FnOnce(AIn::In<'_>) -> A::Out,
-        b: impl FnOnce(BIn::In<'_>) -> B::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out;
 }
 
 /// A [`System`] defined by combining two other systems.
 /// The behavior of this combinator is specified by implementing the [`Combine`] trait.
 /// For a full usage example, see the docs for [`Combine`].
-pub struct CombinatorSystem<Func, AIn, A, BIn, B> {
-    _marker: PhantomData<(fn() -> Func, AIn, BIn)>,
+pub struct CombinatorSystem<Func, A, B> {
+    _marker: PhantomData<fn() -> Func>,
     a: A,
     b: B,
     name: Cow<'static, str>,
@@ -117,7 +117,7 @@ pub struct CombinatorSystem<Func, AIn, A, BIn, B> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
-impl<Func, AIn, A, BIn, B> CombinatorSystem<Func, AIn, A, BIn, B> {
+impl<Func, A, B> CombinatorSystem<Func, A, B> {
     /// Creates a new system that combines two inner systems.
     ///
     /// The returned system will only be usable if `Func` implements [`Combine<A, B>`].
@@ -133,15 +133,13 @@ impl<Func, AIn, A, BIn, B> CombinatorSystem<Func, AIn, A, BIn, B> {
     }
 }
 
-impl<AIn: SystemInput, A, BIn: SystemInput, B, Func> System<Func::In>
-    for CombinatorSystem<Func, AIn, A, BIn, B>
+impl<A, B, Func> System for CombinatorSystem<Func, A, B>
 where
-    Func: Combine<AIn, A, BIn, B> + 'static,
-    AIn: Send + Sync + 'static,
-    A: System<AIn>,
-    BIn: Send + Sync + 'static,
-    B: System<BIn>,
+    Func: Combine<A, B> + 'static,
+    A: System,
+    B: System,
 {
+    type In = Func::In;
     type Out = Func::Out;
 
     fn name(&self) -> Cow<'static, str> {
@@ -170,7 +168,7 @@ where
 
     unsafe fn run_unsafe(
         &mut self,
-        input: <Func::In as SystemInput>::In<'_>,
+        input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
         Func::combine(
@@ -187,7 +185,7 @@ where
         )
     }
 
-    fn run(&mut self, input: <Func::In as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
@@ -256,18 +254,15 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
-unsafe impl<AIn: SystemInput, A, BIn: SystemInput, B, Func> ReadOnlySystem<Func::In>
-    for CombinatorSystem<Func, AIn, A, BIn, B>
+unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
-    Func: Combine<AIn, A, BIn, B> + 'static,
-    AIn: Send + Sync + 'static,
-    A: ReadOnlySystem<AIn>,
-    BIn: Send + Sync + 'static,
-    B: ReadOnlySystem<BIn>,
+    Func: Combine<A, B> + 'static,
+    A: ReadOnlySystem,
+    B: ReadOnlySystem,
 {
 }
 
-impl<Func, AIn, A, BIn, B> Clone for CombinatorSystem<Func, AIn, A, BIn, B>
+impl<Func, A, B> Clone for CombinatorSystem<Func, A, B>
 where
     A: Clone,
     B: Clone,
@@ -317,8 +312,7 @@ where
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-pub struct PipeSystem<AIn, A, B> {
-    _marker: PhantomData<fn() -> AIn>,
+pub struct PipeSystem<A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
@@ -326,17 +320,15 @@ pub struct PipeSystem<AIn, A, B> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
-impl<AIn, A, B> PipeSystem<AIn, A, B>
+impl<A, B> PipeSystem<A, B>
 where
-    AIn: SystemInput + 'static,
-    A: System<AIn>,
-    A::Out: SystemInput,
-    B: System<A::Out>,
+    A: System,
+    B: System,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
     /// Creates a new system that pipes two inner systems.
     pub const fn new(a: A, b: B, name: Cow<'static, str>) -> Self {
         Self {
-            _marker: PhantomData,
             a,
             b,
             name,
@@ -346,13 +338,13 @@ where
     }
 }
 
-impl<AIn, A, B> System<AIn> for PipeSystem<AIn, A, B>
+impl<A, B> System for PipeSystem<A, B>
 where
-    AIn: SystemInput + 'static,
-    A: System<AIn>,
-    A::Out: SystemInput,
-    B: System<A::Out>,
+    A: System,
+    B: System,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
+    type In = A::In;
     type Out = B::Out;
 
     fn name(&self) -> Cow<'static, str> {
@@ -381,18 +373,16 @@ where
 
     unsafe fn run_unsafe(
         &mut self,
-        input: <AIn as SystemInput>::In<'_>,
+        input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
-        // let value = self.a.run_unsafe(input, world);
-        // self.b.run_unsafe(value, world)
-        todo!()
+        let value = self.a.run_unsafe(input, world);
+        self.b.run_unsafe(value, world)
     }
 
-    fn run(&mut self, input: <AIn as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
-        // let value = self.a.run(input, world);
-        // self.b.run(value, world)
-        todo!()
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+        let value = self.a.run(input, world);
+        self.b.run(value, world)
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
@@ -444,11 +434,9 @@ where
 }
 
 /// SAFETY: Both systems are read-only, so any system created by piping them will only read from the world.
-unsafe impl<AIn, A, B> ReadOnlySystem<AIn> for PipeSystem<AIn, A, B>
+unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
-    AIn: SystemInput + 'static,
-    A: ReadOnlySystem<AIn>,
-    A::Out: SystemInput,
-    B: ReadOnlySystem<A::Out>,
+    A: ReadOnlySystem,
+    B: ReadOnlySystem<In = In<A::Out>>,
 {
 }

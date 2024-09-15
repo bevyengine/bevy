@@ -11,7 +11,7 @@ use crate::{
     intern::Interned,
     system::{
         ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemInput, SystemParamFunction,
+        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
     },
 };
 
@@ -172,17 +172,16 @@ impl<S: SystemSet> IntoSystemSet<()> for S {
 }
 
 // systems
-impl<In, Marker, F> IntoSystemSet<(IsFunctionSystem, In, Marker)> for F
+impl<Marker, F> IntoSystemSet<(IsFunctionSystem, Marker)> for F
 where
-    In: SystemInput + 'static,
     Marker: 'static,
-    F: SystemParamFunction<In, Marker>,
+    F: SystemParamFunction<Marker>,
 {
-    type Set = SystemTypeSet<FunctionSystem<In, Marker, F>>;
+    type Set = SystemTypeSet<FunctionSystem<Marker, F>>;
 
     #[inline]
     fn into_system_set(self) -> Self::Set {
-        SystemTypeSet::<FunctionSystem<In, Marker, F>>::new()
+        SystemTypeSet::<FunctionSystem<Marker, F>>::new()
     }
 }
 

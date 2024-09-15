@@ -713,10 +713,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::In<'static>)
+    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
     where
-        I: SystemInput + 'static,
-        I::In<'static>: Send,
+        I: SystemInput<Inner<'static>: Send> + 'static,
     {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }

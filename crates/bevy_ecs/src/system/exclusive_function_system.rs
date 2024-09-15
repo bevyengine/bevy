@@ -5,7 +5,7 @@ use crate::{
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, input::SystemInput, ExclusiveSystemParam,
-        ExclusiveSystemParamItem, In, IntoSystem, System, SystemMeta,
+        ExclusiveSystemParamItem, In, InMut, InRef, IntoSystem, System, SystemIn, SystemMeta,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -65,11 +65,12 @@ where
 
 const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
-impl<Marker, F> System<F::In> for ExclusiveFunctionSystem<Marker, F>
+impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
 where
     Marker: 'static,
     F: ExclusiveSystemParamFunction<Marker>,
 {
+    type In = F::In;
     type Out = F::Out;
 
     #[inline]
@@ -109,13 +110,13 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        _input: <F::In as SystemInput>::In<'_>,
+        _input: SystemIn<'_, Self>,
         _world: UnsafeWorldCell,
     ) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
-    fn run(&mut self, input: <F::In as SystemInput>::In<'_>, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -205,7 +206,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     fn run(
         &mut self,
         world: &mut World,
-        input: <Self::In as SystemInput>::In<'_>,
+        input: <Self::In as SystemInput>::Inner<'_>,
         param_value: ExclusiveSystemParamItem<Self::Param>,
     ) -> Self::Out;
 }
@@ -240,30 +241,94 @@ macro_rules! impl_exclusive_system_function {
                 call_inner(self, world, $($param),*)
             }
         }
+
         #[allow(non_snake_case)]
-        impl<Input: SystemInput, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
         for <'a> &'a mut Func:
-                FnMut(In<Input::In<'_>>, &mut World, $($param),*) -> Out +
-                FnMut(In<Input::In<'_>>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+                FnMut(In<Input>, &mut World, $($param),*) -> Out +
+                FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            Input: 'static,
             Out: 'static,
         {
-            type In = Input;
+            type In = In<Input>;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, input: Input::In<'_>, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input: SystemInput, Out, $($param,)*>(
-                    mut f: impl FnMut(In<Input::In<'_>>, &mut World, $($param,)*) -> Out,
-                    input: Input::In<'_>,
+                fn call_inner<Input, Out, $($param,)*>(
+                    mut f: impl FnMut(In<Input>, &mut World, $($param,)*) -> Out,
+                    input: Input,
                     world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
                     f(In(input), world, $($param,)*)
+                }
+                let ($($param,)*) = param_value;
+                call_inner(self, input, world, $($param),*)
+            }
+        }
+
+        #[allow(non_snake_case)]
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(InRef<'static, Input>, $($param,)*) -> Out> for Func
+        where
+        for <'a> &'a mut Func:
+                FnMut(InRef<'_, Input>, &mut World, $($param),*) -> Out +
+                FnMut(InRef<'_, Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            Input: 'static,
+            Out: 'static,
+        {
+            type In = InRef<'static, Input>;
+            type Out = Out;
+            type Param = ($($param,)*);
+            #[inline]
+            fn run(&mut self, world: &mut World, input: &Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+                // Yes, this is strange, but `rustc` fails to compile this impl
+                // without using this function. It fails to recognize that `func`
+                // is a function, potentially because of the multiple impls of `FnMut`
+                #[allow(clippy::too_many_arguments)]
+                fn call_inner<Input, Out, $($param,)*>(
+                    mut f: impl FnMut(InRef<'_, Input>, &mut World, $($param,)*) -> Out,
+                    input: &Input,
+                    world: &mut World,
+                    $($param: $param,)*
+                ) -> Out {
+                    f(InRef(input), world, $($param,)*)
+                }
+                let ($($param,)*) = param_value;
+                call_inner(self, input, world, $($param),*)
+            }
+        }
+
+        #[allow(non_snake_case)]
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(InMut<'static, Input>, $($param,)*) -> Out> for Func
+        where
+        for <'a> &'a mut Func:
+                FnMut(InMut<'_, Input>, &mut World, $($param),*) -> Out +
+                FnMut(InMut<'_, Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            Input: 'static,
+            Out: 'static,
+        {
+            type In = InMut<'static, Input>;
+            type Out = Out;
+            type Param = ($($param,)*);
+            #[inline]
+            fn run(&mut self, world: &mut World, input: &mut Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+                // Yes, this is strange, but `rustc` fails to compile this impl
+                // without using this function. It fails to recognize that `func`
+                // is a function, potentially because of the multiple impls of `FnMut`
+                #[allow(clippy::too_many_arguments)]
+                fn call_inner<Input, Out, $($param,)*>(
+                    mut f: impl FnMut(InMut<'_, Input>, &mut World, $($param,)*) -> Out,
+                    input: &mut Input,
+                    world: &mut World,
+                    $($param: $param,)*
+                ) -> Out {
+                    f(InMut(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, world, $($param),*)

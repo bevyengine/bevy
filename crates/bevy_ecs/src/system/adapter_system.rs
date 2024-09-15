@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
 use crate::{
-    schedule::InternedSystemSet, system::input::SystemInput,
+    schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -46,7 +47,7 @@ use crate::{
     message = "`{Self}` can not adapt a system of type `{S}`",
     label = "invalid system adapter"
 )]
-pub trait Adapt<SIn: SystemInput, S: System<SIn>>: Send + Sync + 'static {
+pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
     type In: SystemInput;
     /// The [output](System::Out) type for an [`AdapterSystem`].
@@ -56,42 +57,36 @@ pub trait Adapt<SIn: SystemInput, S: System<SIn>>: Send + Sync + 'static {
     /// is run and how its inputs/outputs are adapted.
     fn adapt(
         &mut self,
-        input: <Self::In as SystemInput>::In<'_>,
-        run_system: impl FnOnce(SIn::In<'_>) -> S::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
     ) -> Self::Out;
 }
 
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
 #[derive(Clone)]
-pub struct AdapterSystem<Func, SIn, S> {
-    _marker: std::marker::PhantomData<SIn>,
+pub struct AdapterSystem<Func, S> {
     func: Func,
     system: S,
     name: Cow<'static, str>,
 }
 
-impl<Func, SIn: SystemInput, S> AdapterSystem<Func, SIn, S>
+impl<Func, S> AdapterSystem<Func, S>
 where
-    Func: Adapt<SIn, S>,
-    S: System<SIn>,
+    Func: Adapt<S>,
+    S: System,
 {
     /// Creates a new [`System`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
     pub const fn new(func: Func, system: S, name: Cow<'static, str>) -> Self {
-        Self {
-            _marker: std::marker::PhantomData,
-            func,
-            system,
-            name,
-        }
+        Self { func, system, name }
     }
 }
 
-impl<Func, SIn, S> System<Func::In> for AdapterSystem<Func, SIn, S>
+impl<Func, S> System for AdapterSystem<Func, S>
 where
-    Func: Adapt<SIn, S>,
-    SIn: SystemInput + Send + Sync + 'static,
-    S: System<SIn>,
+    Func: Adapt<S>,
+    S: System,
 {
+    type In = Func::In;
     type Out = Func::Out;
 
     fn name(&self) -> Cow<'static, str> {
@@ -124,7 +119,7 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        input: <Func::In as SystemInput>::In<'_>,
+        input: <Func::In as SystemInput>::Inner<'_>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
@@ -136,7 +131,7 @@ where
     #[inline]
     fn run(
         &mut self,
-        input: <Func::In as SystemInput>::In<'_>,
+        input: <Func::In as SystemInput>::Inner<'_>,
         world: &mut crate::prelude::World,
     ) -> Self::Out {
         self.func
@@ -185,24 +180,26 @@ where
 }
 
 // SAFETY: The inner system is read-only.
-unsafe impl<Func, SIn, S> ReadOnlySystem<Func::In> for AdapterSystem<Func, SIn, S>
+unsafe impl<Func, S> ReadOnlySystem for AdapterSystem<Func, S>
 where
-    Func: Adapt<SIn, S>,
-    SIn: SystemInput + Send + Sync + 'static,
-    S: ReadOnlySystem<SIn>,
+    Func: Adapt<S>,
+    S: ReadOnlySystem,
 {
 }
 
-impl<F, SIn, S, Out> Adapt<SIn, S> for F
+impl<F, S, Out> Adapt<S> for F
 where
     F: Send + Sync + 'static + FnMut(S::Out) -> Out,
-    SIn: SystemInput,
-    S: System<SIn>,
+    S: System,
 {
-    type In = SIn;
+    type In = S::In;
     type Out = Out;
 
-    fn adapt(&mut self, input: SIn::In<'_>, run_system: impl FnOnce(SIn::In<'_>) -> S::Out) -> Out {
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+    ) -> Out {
         self(run_system(input))
     }
 }

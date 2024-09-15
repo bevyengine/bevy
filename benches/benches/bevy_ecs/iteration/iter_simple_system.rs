@@ -13,7 +13,7 @@ struct Rotation(Vec3);
 #[derive(Component, Copy, Clone)]
 struct Velocity(Vec3);
 
-pub struct Benchmark(World, Box<dyn System<(), Out = ()>>);
+pub struct Benchmark(World, Box<dyn System<In = (), Out = ()>>);
 
 impl Benchmark {
     pub fn new() -> Self {

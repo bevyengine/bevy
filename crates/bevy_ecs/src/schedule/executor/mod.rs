@@ -144,7 +144,10 @@ mod __rust_begin_short_backtrace {
     /// # Safety
     /// See `System::run_unsafe`.
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(system: &mut dyn System<(), Out = ()>, world: UnsafeWorldCell) {
+    pub(super) unsafe fn run_unsafe(
+        system: &mut dyn System<In = (), Out = ()>,
+        world: UnsafeWorldCell,
+    ) {
         system.run_unsafe((), world);
         black_box(());
     }
@@ -153,21 +156,21 @@ mod __rust_begin_short_backtrace {
     /// See `ReadOnlySystem::run_unsafe`.
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
-        system: &mut dyn ReadOnlySystem<(), Out = O>,
+        system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
     ) -> O {
         black_box(system.run_unsafe((), world))
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut dyn System<(), Out = ()>, world: &mut World) {
+    pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
         system.run((), world);
         black_box(());
     }
 
     #[inline(never)]
     pub(super) fn readonly_run<O: 'static>(
-        system: &mut dyn ReadOnlySystem<(), Out = O>,
+        system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
     ) -> O {
         black_box(system.run((), world))

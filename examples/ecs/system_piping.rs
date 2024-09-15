@@ -19,8 +19,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                parse_message_system
-                    .pipe::<_, In<Result<usize, ParseIntError>>, _, _>(handler_system),
+                parse_message_system.pipe(handler_system),
                 data_pipe_system.map(info),
                 parse_message_system.map(dbg),
                 warning_pipe_system.map(warn),
