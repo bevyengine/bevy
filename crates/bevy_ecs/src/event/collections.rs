@@ -43,7 +43,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
-/// let mut reader = events.get_reader();
+/// let mut cursor = events.get_cursor();
 ///
 /// // run this once per update/frame
 /// events.update();
@@ -52,12 +52,12 @@ use std::ops::{Deref, DerefMut};
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.read(&events) {
+/// for event in cursor.read(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.read(&events).count(), 0);
+/// assert_eq!(cursor.read(&events).count(), 0);
 /// ```
 ///
 /// # Details
