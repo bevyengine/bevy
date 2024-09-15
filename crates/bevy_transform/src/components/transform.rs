@@ -288,35 +288,35 @@ impl Transform {
         self.local_z()
     }
 
-    /// Translates the entity in the local space using a velocity and delta time.
+    /// Moves the entity within its local space using the provided translation vector.
     ///
-    /// The translation is applied directly to the entity's local position without considering
-    /// the entity's rotation. This means the entity moves along the provided velocity in its
-    /// own local space.
+    /// This method directly adjusts the entity's position using the `translation` vector,
+    /// without considering the entity's current rotation. The translation happens in the
+    /// entity's local coordinate system, meaning the movement occurs along its local
+    /// axes (`x`, `y`, and `z`), regardless of the entity's orientation.
     ///
     /// # Parameters
-    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the
-    ///   speed of the entity.
-    /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
-    ///   the time since the last frame.
-    pub fn translate(&mut self, velocity: Vec3, delta_time_seconds: f32) {
-        self.translation += velocity * delta_time_seconds;
+    /// - `translation`: A `Vec3` that represents the desired movement along the entity's
+    ///   local axes. Each component (`x`, `y`, `z`) corresponds to movement along the
+    ///   entity's local right, up, and forward directions, respectively.
+    pub fn translate(&mut self, translation: Vec3) {
+        self.translation += translation;
     }
 
-    /// Translates the entity in local space, taking into account the entity's rotation, speed,
-    /// and delta time.
+    /// Moves the entity within its local space, considering its rotation and orientation.
     ///
-    /// The translation is relative to the entity's rotation. This means the movement will be in
-    /// the direction the entity is currently facing, which allows the entity to move "forward"
-    /// or in any rotated direction relative to its local orientation.
+    /// This method translates the entity based on its current rotation, so the movement
+    /// happens relative to the direction the entity is facing. The `translation` vector is
+    /// transformed by the entity's rotation, allowing for natural directional movement.
+    /// For instance, moving "forward" means moving along the entity's forward direction
+    /// based on its current orientation, rather than just along the local z-axis.
     ///
     /// # Parameters
-    /// - `velocity`: A `Vec3` representing the multiplication of the direction and the speed
-    ///   of the entity, relative to the entity's local orientation.
-    /// - `delta_time_seconds`: A `f32` representing the time elapsed in seconds, typically
-    ///   the time since the last frame.
-    pub fn translate_with_local_rotation(&mut self, velocity: Vec3, delta_time_seconds: f32) {
-        self.translation += self.rotation * velocity * delta_time_seconds;
+    /// - `translation`: A `Vec3` that represents the movement relative to the entity's local
+    ///   axes, but modified by the entity's current rotation. This means the movement will
+    ///   be aligned with the entity's orientation in the world space.
+    pub fn translate_with_local_rotation(&mut self, translation: Vec3) {
+        self.translation += self.rotation * translation;
     }
 
     /// Rotates this [`Transform`] by the given rotation.
