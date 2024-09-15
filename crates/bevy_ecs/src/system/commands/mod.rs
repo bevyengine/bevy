@@ -63,7 +63,7 @@ pub use parallel_scope::*;
 /// # use bevy_ecs::prelude::*;
 /// # fn foo(mut commands: Commands) {
 /// // NOTE: type inference fails here, so annotations are required on the closure.
-/// commands.add(|w: &mut World| {
+/// commands.enqueue(|w: &mut World| {
 ///     // Mutate the world however you want...
 ///     # todo!();
 /// });
@@ -527,10 +527,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     ///
     /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.add(AddToCounter(3));
+    ///     commands.enqueue(AddToCounter(3));
     /// }
     /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
-    ///     commands.add(|world: &mut World| {
+    ///     commands.enqueue(|world: &mut World| {
     ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
     ///         counter.0 += 25;
     ///     });

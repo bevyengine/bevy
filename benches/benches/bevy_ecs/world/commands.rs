@@ -146,9 +146,9 @@ pub fn fake_commands(criterion: &mut Criterion) {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..command_count {
                     if black_box(i % 2 == 0) {
-                        commands.add(FakeCommandA);
+                        commands.enqueue(FakeCommandA);
                     } else {
-                        commands.add(FakeCommandB(0));
+                        commands.enqueue(FakeCommandB(0));
                     }
                 }
                 command_queue.apply(&mut world);
@@ -190,7 +190,7 @@ pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for _ in 0..command_count {
-                    commands.add(T::default());
+                    commands.enqueue(T::default());
                 }
                 command_queue.apply(&mut world);
             });

@@ -83,7 +83,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// }
 ///
 /// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
+///     commands.enqueue(AddToCounter(42));
 /// }
 /// ```
 pub trait Command: Send + 'static {
