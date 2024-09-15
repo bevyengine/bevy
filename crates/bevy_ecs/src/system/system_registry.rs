@@ -134,15 +134,12 @@ impl World {
     /// This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<
+    pub fn register_system<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    where
         I: SystemInput + 'static,
         O: 'static,
-        M,
         S: IntoSystem<I, O, M> + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+    {
         self.register_boxed_system(Box::new(IntoSystem::into_system(system)))
     }
 
@@ -150,10 +147,11 @@ impl World {
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
     /// [`System`] trait object and put in a [`Box`].
-    pub fn register_boxed_system<I: SystemInput + 'static, O: 'static>(
-        &mut self,
-        system: BoxedSystem<I, O>,
-    ) -> SystemId<I, O> {
+    pub fn register_boxed_system<I, O>(&mut self, system: BoxedSystem<I, O>) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         let entity = self.spawn(system_bundle(system)).id();
         SystemId::from_entity(entity)
     }
@@ -164,10 +162,14 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I: SystemInput + 'static, O: 'static>(
+    pub fn remove_system<I, O>(
         &mut self,
         id: SystemId<I, O>,
-    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
+    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         match self.get_entity_mut(id.entity) {
             Some(mut entity) => {
                 let registered_system = entity

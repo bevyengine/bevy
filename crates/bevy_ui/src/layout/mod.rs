@@ -871,7 +871,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with::<_, In<Vec2>, _, _>(new_pos, move_ui_node);
+            world.run_system_once_with(new_pos, move_ui_node);
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
