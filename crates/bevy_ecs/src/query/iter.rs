@@ -812,7 +812,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use std::ops::Deref;
-    /// # use bevy_math::sin;
+    /// # use bevy::math::sin;
     /// #
     /// # #[derive(Component)]
     /// # struct PartMarker;
