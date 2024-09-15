@@ -175,7 +175,7 @@ pub mod prelude {
 /// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
 /// the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Pickable {
     /// Should this entity block entities below it from being picked?
     ///
@@ -317,7 +317,7 @@ impl Plugin for DefaultPickingPlugins {
 /// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Debug)]
 pub struct PickingPlugin {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
