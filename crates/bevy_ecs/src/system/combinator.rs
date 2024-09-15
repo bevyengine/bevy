@@ -437,6 +437,7 @@ where
 unsafe impl<A, B> ReadOnlySystem for PipeSystem<A, B>
 where
     A: ReadOnlySystem,
-    B: ReadOnlySystem<In = In<A::Out>>,
+    B: ReadOnlySystem,
+    for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 {
 }
