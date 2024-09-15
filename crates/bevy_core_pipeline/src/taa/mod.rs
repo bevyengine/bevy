@@ -8,13 +8,14 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{Bundle, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -136,6 +137,7 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
+#[reflect(Component, Default)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
