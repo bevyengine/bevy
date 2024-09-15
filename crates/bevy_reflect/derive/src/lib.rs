@@ -28,7 +28,7 @@ mod from_reflect;
 mod ident;
 mod impls;
 mod meta;
-mod reflect_value;
+mod reflect_opaque;
 mod registration;
 mod remote;
 mod result_sifter;
@@ -44,7 +44,7 @@ use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
-use reflect_value::ReflectOpaqueDef;
+use reflect_opaque::ReflectOpaqueDef;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
 
