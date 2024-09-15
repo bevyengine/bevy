@@ -2002,7 +2002,7 @@ impl Default for ZIndex {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, PartialEq, Default, Debug, PartialEq)]
+#[reflect(Component, PartialEq, Default, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
