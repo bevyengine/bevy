@@ -1095,13 +1095,19 @@ mod tests {
 
             assert!(d_text.is_none());
             assert!(matches!(d_load, LoadState::Failed(_)));
-            assert_eq!(d_deps, DependencyLoadState::Failed);
-            assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(matches!(d_deps, DependencyLoadState::Failed(_)));
+            assert!(matches!(
+                d_rec_deps,
+                RecursiveDependencyLoadState::Failed(_)
+            ));
 
             assert_eq!(a_text.text, "a");
             assert_eq!(a_load, LoadState::Loaded);
             assert_eq!(a_deps, DependencyLoadState::Loaded);
-            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(matches!(
+                a_rec_deps,
+                RecursiveDependencyLoadState::Failed(_)
+            ));
 
             assert_eq!(b_text.text, "b");
             assert_eq!(b_load, LoadState::Loaded);
@@ -1110,9 +1116,127 @@ mod tests {
 
             assert_eq!(c_text.text, "c");
             assert_eq!(c_load, LoadState::Loaded);
-            assert_eq!(c_deps, DependencyLoadState::Failed);
-            assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
+            assert!(matches!(c_deps, DependencyLoadState::Failed(_)));
+            assert!(matches!(
+                c_rec_deps,
+                RecursiveDependencyLoadState::Failed(_)
+            ));
 
+            assert_eq!(asset_server.load_state(a_id), LoadState::Loaded);
+            assert_eq!(
+                asset_server.dependency_load_state(a_id),
+                DependencyLoadState::Loaded
+            );
+            assert!(matches!(
+                asset_server.recursive_dependency_load_state(a_id),
+                RecursiveDependencyLoadState::Failed(_)
+            ));
+
+            assert!(asset_server.is_loaded(a_id));
+            assert!(asset_server.is_loaded_with_dependencies(a_id));
+            assert!(!asset_server.is_loaded_with_recursive_dependencies(a_id));
+
+            Some(())
+        });
+    }
+
+    #[test]
+    fn dependency_load_states() {
+        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
+        #[cfg(not(feature = "multi_threaded"))]
+        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
+
+        let a_path = "a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [
+        "b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+        let b_path = "b.cool.ron";
+        let b_ron = r#"
+(
+    text: "b",
+    dependencies: [],
+    MALFORMED
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+
+        let c_path = "c.cool.ron";
+        let c_ron = r#"
+(
+    text: "c",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: []
+)"#;
+
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        dir.insert_asset_text(Path::new(b_path), b_ron);
+        dir.insert_asset_text(Path::new(c_path), c_ron);
+
+        let (mut app, gate_opener) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<CoolText> = asset_server.load(a_path);
+        let a_id = handle.id();
+        app.world_mut().spawn(handle);
+
+        gate_opener.open(a_path);
+        run_app_until(&mut app, |world| {
+            let _a_text = get::<CoolText>(world, a_id)?;
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert_eq!(a_load, LoadState::Loaded);
+            assert_eq!(a_deps, DependencyLoadState::Loading);
+            assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Loading);
+            Some(())
+        });
+
+        gate_opener.open(b_path);
+        run_app_until(&mut app, |world| {
+            let a_text = get::<CoolText>(world, a_id)?;
+            let b_id = a_text.dependencies[0].id();
+
+            let (b_load, _b_deps, _b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
+            if !matches!(b_load, LoadState::Failed(_)) {
+                // wait until b fails
+                return None;
+            }
+
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert_eq!(a_load, LoadState::Loaded);
+            assert!(matches!(a_deps, DependencyLoadState::Failed(_)));
+            assert!(matches!(
+                a_rec_deps,
+                RecursiveDependencyLoadState::Failed(_)
+            ));
+            Some(())
+        });
+
+        gate_opener.open(c_path);
+        run_app_until(&mut app, |world| {
+            let a_text = get::<CoolText>(world, a_id)?;
+            let c_id = a_text.dependencies[1].id();
+            // wait until c loads
+            let _c_text = get::<CoolText>(world, c_id)?;
+
+            let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
+            assert_eq!(a_load, LoadState::Loaded);
+            assert!(
+                matches!(a_deps, DependencyLoadState::Failed(_)),
+                "Successful dependency load should not overwrite a previous failure"
+            );
+            assert!(
+                matches!(a_rec_deps, RecursiveDependencyLoadState::Failed(_)),
+                "Successful dependency load should not overwrite a previous failure"
+            );
             Some(())
         });
     }
