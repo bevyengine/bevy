@@ -118,30 +118,4 @@ mod tests {
         let mut world = World::new();
         world.observe(a.pipe(b));
     }
-
-    // TODO: uncomment this to check that 'static no longer is allowed
-    // #[derive(Debug, Event)]
-    // struct E(#[allow(dead_code)] String);
-
-    // fn observer(
-    //     In(trigger): In<Trigger<'static, E, ()>>,
-    //     mut last_trigger: crate::system::Local<Option<Trigger<E, ()>>>,
-    // ) {
-    //     println!("Now: {:?}", trigger.event());
-
-    //     if let Some(last_trigger) = &*last_trigger {
-    //         println!("Before: {:?}", last_trigger.event());
-    //     }
-
-    //     *last_trigger = Some(trigger);
-    // }
-
-    // #[test]
-    // fn test_static_trigger() {
-    //     let mut world = World::new();
-    //     world.observe(observer);
-    //     world.flush();
-    //     world.trigger(E("foo".to_string()));
-    //     world.trigger(E("bar".to_string()));
-    // }
 }
