@@ -88,12 +88,20 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
+    /// Updates the filter to allow all component and resource types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively denied
+    /// with [`deny_component`](`Self::deny_component`) and [`deny_resource`](`Self::deny_resource`).
     pub fn allow_all(mut self) -> Self {
         self.component_filter = SceneFilter::allow_all();
         self.resource_filter = SceneFilter::allow_all();
         self
     }
 
+    /// Updates the filter to deny all component and resource types.
+    ///
+    /// This is useful for resetting the filter so that types may be selectively allowed
+    /// with [`allow_component`](`Self::allow_component`) and [`allow_resource`](`Self::allow_resource`).
     pub fn deny_all(mut self) -> Self {
         self.component_filter = SceneFilter::deny_all();
         self.resource_filter = SceneFilter::deny_all();
