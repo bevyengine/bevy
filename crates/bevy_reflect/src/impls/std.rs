@@ -14,7 +14,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
     TypeRegistration, TypeRegistry, Typed,
 };
-use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
+use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use std::fmt;
 use std::{
     any::Any,
@@ -24,7 +24,7 @@ use std::{
     path::Path,
 };
 
-impl_reflect_value!(bool(
+impl_reflect_opaque!(bool(
     Debug,
     Hash,
     PartialEq,
@@ -32,7 +32,7 @@ impl_reflect_value!(bool(
     Deserialize,
     Default
 ));
-impl_reflect_value!(char(
+impl_reflect_opaque!(char(
     Debug,
     Hash,
     PartialEq,
@@ -40,11 +40,11 @@ impl_reflect_value!(char(
     Deserialize,
     Default
 ));
-impl_reflect_value!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(u128(
+impl_reflect_opaque!(u8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(u16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(u32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(u64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(u128(
     Debug,
     Hash,
     PartialEq,
@@ -52,7 +52,7 @@ impl_reflect_value!(u128(
     Deserialize,
     Default
 ));
-impl_reflect_value!(usize(
+impl_reflect_opaque!(usize(
     Debug,
     Hash,
     PartialEq,
@@ -60,11 +60,11 @@ impl_reflect_value!(usize(
     Deserialize,
     Default
 ));
-impl_reflect_value!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(i128(
+impl_reflect_opaque!(i8(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(i16(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(i32(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(i64(Debug, Hash, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(i128(
     Debug,
     Hash,
     PartialEq,
@@ -72,7 +72,7 @@ impl_reflect_value!(i128(
     Deserialize,
     Default
 ));
-impl_reflect_value!(isize(
+impl_reflect_opaque!(isize(
     Debug,
     Hash,
     PartialEq,
@@ -80,10 +80,10 @@ impl_reflect_value!(isize(
     Deserialize,
     Default
 ));
-impl_reflect_value!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
-impl_reflect_value!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(f32(Debug, PartialEq, Serialize, Deserialize, Default));
+impl_reflect_opaque!(f64(Debug, PartialEq, Serialize, Deserialize, Default));
 impl_type_path!(str);
-impl_reflect_value!(::alloc::string::String(
+impl_reflect_opaque!(::alloc::string::String(
     Debug,
     Hash,
     PartialEq,
@@ -91,7 +91,7 @@ impl_reflect_value!(::alloc::string::String(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::std::path::PathBuf(
+impl_reflect_opaque!(::std::path::PathBuf(
     Debug,
     Hash,
     PartialEq,
@@ -99,16 +99,16 @@ impl_reflect_value!(::std::path::PathBuf(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
-impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::ops::RangeFull());
-impl_reflect_value!(::std::ops::Bound<T: Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::Duration(
+impl_reflect_opaque!(::std::any::TypeId(Debug, Hash, PartialEq,));
+impl_reflect_opaque!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::Range<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::RangeTo<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::ops::RangeFull());
+impl_reflect_opaque!(::std::ops::Bound<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::bevy_utils::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -116,99 +116,99 @@ impl_reflect_value!(::bevy_utils::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::bevy_utils::Instant(Debug, Hash, PartialEq));
-impl_reflect_value!(::core::num::NonZeroI128(
+impl_reflect_opaque!(::bevy_utils::Instant(Debug, Hash, PartialEq));
+impl_reflect_opaque!(::core::num::NonZeroI128(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroU128(
+impl_reflect_opaque!(::core::num::NonZeroU128(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroIsize(
+impl_reflect_opaque!(::core::num::NonZeroIsize(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroUsize(
+impl_reflect_opaque!(::core::num::NonZeroUsize(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroI64(
+impl_reflect_opaque!(::core::num::NonZeroI64(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroU64(
+impl_reflect_opaque!(::core::num::NonZeroU64(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroU32(
+impl_reflect_opaque!(::core::num::NonZeroU32(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroI32(
+impl_reflect_opaque!(::core::num::NonZeroI32(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroI16(
+impl_reflect_opaque!(::core::num::NonZeroI16(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroU16(
+impl_reflect_opaque!(::core::num::NonZeroU16(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroU8(
+impl_reflect_opaque!(::core::num::NonZeroU8(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::NonZeroI8(
+impl_reflect_opaque!(::core::num::NonZeroI8(
     Debug,
     Hash,
     PartialEq,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>());
-impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>());
-impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
+impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::std::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(any(unix, windows))]
-impl_reflect_value!(::std::ffi::OsString(
+impl_reflect_opaque!(::std::ffi::OsString(
     Debug,
     Hash,
     PartialEq,
@@ -216,8 +216,8 @@ impl_reflect_value!(::std::ffi::OsString(
     Deserialize
 ));
 #[cfg(not(any(unix, windows)))]
-impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
-impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
+impl_reflect_opaque!(::std::ffi::OsString(Debug, Hash, PartialEq));
+impl_reflect_opaque!(::alloc::collections::BinaryHeap<T: Clone>);
 
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {

@@ -53,12 +53,12 @@ pub struct E {
 }
 
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
-/// You can tell reflect to treat your type instead as an "opaque type" by using the `reflect_value`
-/// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)
-/// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
-/// that these values behave as expected when nested underneath Reflect-ed structs.
+/// You can tell reflect to treat your type instead as an "opaque type" by using the `#[reflect(opaque)]`.
+/// It is generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
+/// traits on opaque types to ensure that these values behave as expected when nested in other reflected types.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(opaque)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 #[allow(dead_code)]
 enum F {
     X,

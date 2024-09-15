@@ -1959,7 +1959,7 @@ mod tests {
 
             #[derive(Clone)]
             struct SomePrimitive;
-            impl_reflect_value!(
+            impl_reflect_opaque!(
                 /// Some primitive for which we have attributed custom documentation.
                 (in bevy_reflect::tests) SomePrimitive
             );
@@ -2159,27 +2159,6 @@ bevy_reflect::tests::Test {
         #[derive(Hash, PartialEq, Reflect)]
         #[reflect(Debug, Hash)]
         #[reflect(PartialEq)]
-        struct Foo(i32);
-
-        impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                write!(f, "Foo")
-            }
-        }
-
-        let foo = Foo(123);
-        let foo: &dyn PartialReflect = &foo;
-
-        assert!(foo.reflect_hash().is_some());
-        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
-        assert_eq!("Foo".to_string(), format!("{foo:?}"));
-    }
-
-    #[test]
-    fn multiple_reflect_value_lists() {
-        #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
-        #[reflect_value(PartialEq)]
         struct Foo(i32);
 
         impl Debug for Foo {
@@ -2594,7 +2573,8 @@ bevy_reflect::tests::Test {
         // === Remote Wrapper === //
         #[reflect_remote(external_crate::TheirType)]
         #[derive(Clone, Debug, Default)]
-        #[reflect_value(Debug, Default)]
+        #[reflect(opaque)]
+        #[reflect(Debug, Default)]
         struct MyType {
             pub value: String,
         }
