@@ -92,7 +92,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`deny`](Self::deny).
+    /// This is the inverse of [`deny`](Self::deny_component).
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
     pub fn allow_component<T: Component>(mut self) -> Self {
@@ -104,7 +104,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`allow`](Self::allow).
+    /// This is the inverse of [`allow`](Self::allow_component).
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
     pub fn deny_component<T: Component>(mut self) -> Self {
@@ -116,7 +116,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This is useful for resetting the filter so that types may be selectively [denied].
     ///
-    /// [denied]: Self::deny
+    /// [denied]: Self::deny_component
     #[must_use]
     pub fn allow_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::allow_all();
@@ -127,7 +127,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This is useful for resetting the filter so that types may be selectively [allowed].
     ///
-    /// [allowed]: Self::allow
+    /// [allowed]: Self::allow_component
     #[must_use]
     pub fn deny_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::deny_all();
