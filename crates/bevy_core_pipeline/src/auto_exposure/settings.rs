@@ -3,6 +3,7 @@ use std::ops::RangeInclusive;
 use super::compensation_curve::AutoExposureCompensationCurve;
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{extract_component::ExtractComponent, texture::Image};
 use bevy_utils::default;
@@ -24,7 +25,7 @@ use bevy_utils::default;
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
 ///
 #[derive(Component, Clone, Reflect, ExtractComponent)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct AutoExposure {
     /// The range of exposure values for the histogram.
     ///
