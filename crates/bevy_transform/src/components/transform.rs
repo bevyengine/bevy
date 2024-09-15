@@ -40,6 +40,10 @@ use std::ops::Mul;
     derive(Component, Reflect),
     reflect(Component, Default, PartialEq)
 )]
+#[cfg_attr(
+    all(feature = "bevy-support", feature = "serialize"),
+    reflect(serde::Serialize, serde::Deserialize)
+)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///

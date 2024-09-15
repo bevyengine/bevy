@@ -41,6 +41,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     derive(Component, Reflect),
     reflect(Component, Default, PartialEq)
 )]
+#[cfg_attr(
+    all(feature = "bevy-support", feature = "serialize"),
+    reflect(serde::Serialize, serde::Deserialize)
+)]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
