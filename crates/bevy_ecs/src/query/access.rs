@@ -1,62 +1,25 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
-use fixedbitset::FixedBitSet;
-use std::fmt::Debug;
+use smallvec::SmallVec;
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-/// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
-/// to read, when used to store [`SparseSetIndex`].
-///
-/// Instead of the raw integer representation of the `FixedBitSet`, the list of
-/// `T` valid for [`SparseSetIndex`] is shown.
-///
-/// Normal `FixedBitSet` `Debug` output:
-/// ```text
-/// read_and_writes: FixedBitSet { data: [ 160 ], length: 8 }
-/// ```
-///
-/// Which, unless you are a computer, doesn't help much understand what's in
-/// the set. With `FormattedBitSet`, we convert the present set entries into
-/// what they stand for, it is much clearer what is going on:
-/// ```text
-/// read_and_writes: [ ComponentId(5), ComponentId(7) ]
-/// ```
-struct FormattedBitSet<'a, T: SparseSetIndex> {
-    bit_set: &'a FixedBitSet,
-    _marker: PhantomData<T>,
-}
-
-impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
-    fn new(bit_set: &'a FixedBitSet) -> Self {
-        Self {
-            bit_set,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.bit_set.ones().map(T::get_sparse_set_index))
-            .finish()
-    }
-}
+const ACCESS_SMALL_VEC_SIZE: usize = 8;
 
 /// Tracks read and write access to specific elements in a collection.
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
 #[derive(Eq, PartialEq)]
-pub struct Access<T: SparseSetIndex> {
+pub struct Access<T> {
     /// All accessed components.
-    component_read_and_writes: FixedBitSet,
+    component_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// The exclusively-accessed components.
-    component_writes: FixedBitSet,
+    component_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// All accessed resources.
-    resource_read_and_writes: FixedBitSet,
+    resource_read_and_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// The exclusively-accessed resources.
-    resource_writes: FixedBitSet,
+    resource_writes: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     /// Is `true` if this has access to all components.
     /// (Note that this does not include `Resources`)
     reads_all_components: bool,
@@ -70,7 +33,7 @@ pub struct Access<T: SparseSetIndex> {
     /// If this is true, then `reads_all` must also be true.
     writes_all_resources: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
-    archetypal: FixedBitSet,
+    archetypal: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     marker: PhantomData<T>,
 }
 
@@ -106,30 +69,18 @@ impl<T: SparseSetIndex> Clone for Access<T> {
     }
 }
 
-impl<T: SparseSetIndex + Debug> Debug for Access<T> {
+impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Access")
-            .field(
-                "component_read_and_writes",
-                &FormattedBitSet::<T>::new(&self.component_read_and_writes),
-            )
-            .field(
-                "component_writes",
-                &FormattedBitSet::<T>::new(&self.component_writes),
-            )
-            .field(
-                "resource_read_and_writes",
-                &FormattedBitSet::<T>::new(&self.resource_read_and_writes),
-            )
-            .field(
-                "resource_writes",
-                &FormattedBitSet::<T>::new(&self.resource_writes),
-            )
+            .field("component_read_and_writes", &self.component_read_and_writes)
+            .field("component_writes", &self.component_writes)
+            .field("resource_read_and_writes", &self.resource_read_and_writes)
+            .field("resource_read_and_writes", &self.resource_read_and_writes)
             .field("reads_all_components", &self.reads_all_components)
             .field("writes_all_components", &self.writes_all_components)
             .field("reads_all_resources", &self.reads_all_resources)
             .field("writes_all_resources", &self.writes_all_resources)
-            .field("archetypal", &FormattedBitSet::<T>::new(&self.archetypal))
+            .field("archetypal", &self.archetypal)
             .finish()
     }
 }
@@ -137,6 +88,220 @@ impl<T: SparseSetIndex + Debug> Debug for Access<T> {
 impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Stores a sorted list of indices with quick implementation for
+/// union, difference, intersection.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SortedSmallVec<const N: usize>(SmallVec<[usize; N]>);
+
+impl<const N: usize> IntoIterator for SortedSmallVec<N> {
+    type Item = usize;
+    type IntoIter = <SmallVec<[usize; N]> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<const N: usize> Default for SortedSmallVec<N> {
+    fn default() -> Self {
+        Self::new_const()
+    }
+}
+
+impl<const N: usize> SortedSmallVec<N> {
+    fn new() -> Self {
+        Self(SmallVec::new())
+    }
+
+    const fn new_const() -> Self {
+        Self(SmallVec::new_const())
+    }
+
+    pub(crate) fn ones(&self) -> impl Iterator<Item = usize> + '_ {
+        self.0.iter().copied()
+    }
+
+    /// Insert the value if it's not already present in the vector.
+    /// Maintains a sorted order.
+    fn insert(&mut self, index: usize) {
+        match self.0.binary_search(&index) {
+            // element already present in the vector
+            Ok(_) => {}
+            Err(pos) => {
+                self.0.insert(pos, index);
+            }
+        }
+    }
+
+    /// Returns true if the vector contains the value.
+    fn contains(&self, index: usize) -> bool {
+        self.0.binary_search(&index).is_ok()
+    }
+
+    /// Returns true if the vector is empty.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Empties the contents of the vector
+    pub(crate) fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Adds all the elements from `other` into this vector. (skipping duplicates)
+    fn union_with(&mut self, other: &Self) {
+        let mut i = 0;
+        let mut j = 0;
+        while i < self.len() && j < other.len() {
+            match self.0[i].cmp(&other.0[j]) {
+                Ordering::Less => i += 1,
+                Ordering::Greater => {
+                    self.0.insert(i, other.0[j]);
+                    j += 1;
+                }
+                Ordering::Equal => {
+                    i += 1;
+                    j += 1;
+                }
+            }
+        }
+        while j < other.len() {
+            self.0.push(other.0[j]);
+            j += 1;
+        }
+    }
+
+    /// Returns the elements that are in both `self` and `other`.
+    fn intersection<'a>(&'a self, other: &'a Self) -> Intersection<'a, N> {
+        Intersection {
+            this: self,
+            other,
+            i: 0,
+            j: 0,
+        }
+    }
+
+    /// Return the elements that are in `self` but not in `other`.
+    fn difference<'a>(&'a self, other: &'a Self) -> Difference<'a, N> {
+        Difference {
+            this: self,
+            other,
+            i: 0,
+            j: 0,
+        }
+    }
+
+    /// Returns true if the two vectors have no common elements.
+    fn is_disjoint(&self, other: &Self) -> bool {
+        self.intersection(other).next().is_none()
+    }
+
+    /// Returns true if all the elements in `self` are also in `other`.
+    fn is_subset(&self, other: &Self) -> bool {
+        self.difference(other).next().is_none()
+    }
+}
+
+impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
+    fn extend<T: IntoIterator<Item = usize>>(&mut self, other: T) {
+        let mut i = 0;
+        let mut other_iter = other.into_iter();
+        let mut other_val = other_iter.next();
+        while i < self.len() && other_val.is_some() {
+            let val_j = other_val.unwrap();
+            match self.0[i].cmp(&val_j) {
+                Ordering::Less => {
+                    i += 1;
+                }
+                Ordering::Greater => {
+                    self.0.insert(i, val_j);
+                    other_val = other_iter.next();
+                }
+                Ordering::Equal => {
+                    i += 1;
+                    other_val = other_iter.next();
+                }
+            }
+        }
+        while let Some(val_j) = other_val {
+            self.0.push(val_j);
+            other_val = other_iter.next();
+        }
+    }
+}
+
+/// Intersection between `this` and `other` sorted vectors.
+struct Intersection<'a, const N: usize> {
+    this: &'a SortedSmallVec<N>,
+    other: &'a SortedSmallVec<N>,
+    i: usize,
+    j: usize,
+}
+
+impl<'a, const N: usize> Iterator for Intersection<'a, N> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut res = None;
+        while self.i < self.this.len() && self.j < self.other.len() {
+            if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
+                && self.this.0[self.i] == self.other.0[self.j]
+            {
+                res = Some(self.this.0[self.i]);
+                self.i += 1;
+                self.j += 1;
+                return res;
+            } else if self.this.0[self.i] < self.other.0[self.j] {
+                self.i += 1;
+            } else {
+                self.j += 1;
+            }
+        }
+        res
+    }
+}
+
+/// Difference between `this` and `other` sorted vectors.
+struct Difference<'a, const N: usize> {
+    this: &'a SortedSmallVec<N>,
+    other: &'a SortedSmallVec<N>,
+    i: usize,
+    j: usize,
+}
+
+impl<'a, const N: usize> Iterator for Difference<'a, N> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut res = None;
+        while self.i < self.this.len() && self.j < self.other.len() {
+            if self.this.0[self.i] == self.other.0[self.j] {
+                self.i += 1;
+                self.j += 1;
+            } else if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
+                && self.this.0[self.i] < self.other.0[self.j]
+            {
+                res = Some(self.this.0[self.i]);
+                self.i += 1;
+                return res;
+            } else {
+                self.j += 1;
+            }
+        }
+        if self.i < self.this.len() {
+            if self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1] {
+                res = Some(self.this.0[self.i]);
+            }
+            self.i += 1;
+        }
+        res
     }
 }
 
@@ -148,11 +313,11 @@ impl<T: SparseSetIndex> Access<T> {
             writes_all_resources: false,
             reads_all_components: false,
             writes_all_components: false,
-            component_read_and_writes: FixedBitSet::new(),
-            component_writes: FixedBitSet::new(),
-            resource_read_and_writes: FixedBitSet::new(),
-            resource_writes: FixedBitSet::new(),
-            archetypal: FixedBitSet::new(),
+            component_read_and_writes: SortedSmallVec::new_const(),
+            component_writes: SortedSmallVec::new_const(),
+            resource_read_and_writes: SortedSmallVec::new_const(),
+            resource_writes: SortedSmallVec::new_const(),
+            archetypal: SortedSmallVec::new_const(),
             marker: PhantomData,
         }
     }
@@ -160,29 +325,27 @@ impl<T: SparseSetIndex> Access<T> {
     /// Adds access to the component given by `index`.
     pub fn add_component_read(&mut self, index: T) {
         self.component_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_component_write(&mut self, index: T) {
         self.component_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
-        self.component_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
+        self.component_writes.insert(index.sparse_set_index());
     }
 
     /// Adds access to the resource given by `index`.
     pub fn add_resource_read(&mut self, index: T) {
         self.resource_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the resource given by `index`.
     pub fn add_resource_write(&mut self, index: T) {
         self.resource_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
-        self.resource_writes
-            .grow_and_insert(index.sparse_set_index());
+            .insert(index.sparse_set_index());
+        self.resource_writes.insert(index.sparse_set_index());
     }
 
     /// Adds an archetypal (indirect) access to the component given by `index`.
@@ -194,7 +357,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Has<T>`]: crate::query::Has
     pub fn add_archetypal(&mut self, index: T) {
-        self.archetypal.grow_and_insert(index.sparse_set_index());
+        self.archetypal.insert(index.sparse_set_index());
     }
 
     /// Returns `true` if this can access the component given by `index`.
@@ -207,7 +370,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access any component.
     pub fn has_any_component_read(&self) -> bool {
-        self.reads_all_components || !self.component_read_and_writes.is_clear()
+        self.reads_all_components || !self.component_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
@@ -217,7 +380,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_component_write(&self) -> bool {
-        self.writes_all_components || !self.component_writes.is_clear()
+        self.writes_all_components || !self.component_writes.is_empty()
     }
 
     /// Returns `true` if this can access the resource given by `index`.
@@ -230,7 +393,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access any resource.
     pub fn has_any_resource_read(&self) -> bool {
-        self.reads_all_resources || !self.resource_read_and_writes.is_clear()
+        self.reads_all_resources || !self.resource_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the resource given by `index`.
@@ -240,7 +403,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this accesses any resource mutably.
     pub fn has_any_resource_write(&self) -> bool {
-        self.writes_all_resources || !self.resource_writes.is_clear()
+        self.writes_all_resources || !self.resource_writes.is_empty()
     }
 
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
@@ -485,7 +648,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = FixedBitSet::new();
+        let mut conflicts = SortedSmallVec::new_const();
         if self.reads_all_components {
             if other.writes_all_components {
                 return AccessConflicts::All;
@@ -602,7 +765,7 @@ impl<T: SparseSetIndex> Access<T> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     pub(crate) access: Access<T>,
-    pub(crate) required: FixedBitSet,
+    pub(crate) required: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters<T>>,
@@ -645,7 +808,7 @@ pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
     /// There is a conflict for a subset of indices
-    Individual(FixedBitSet),
+    Individual(SortedSmallVec<ACCESS_SMALL_VEC_SIZE>),
 }
 
 impl AccessConflicts {
@@ -655,7 +818,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.ones());
+                this.union_with(other);
             }
             _ => {}
         }
@@ -669,20 +832,21 @@ impl AccessConflicts {
     }
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
-    pub(crate) fn empty() -> Self {
-        Self::Individual(FixedBitSet::new())
+    pub(crate) const fn empty() -> Self {
+        Self::Individual(SortedSmallVec::new_const())
     }
 }
 
-impl From<FixedBitSet> for AccessConflicts {
-    fn from(value: FixedBitSet) -> Self {
+impl From<SortedSmallVec<ACCESS_SMALL_VEC_SIZE>> for AccessConflicts {
+    fn from(value: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>) -> Self {
         Self::Individual(value)
     }
 }
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        Self::Individual(value.iter().map(T::sparse_set_index).collect())
+        let indices = value.iter().map(SparseSetIndex::sparse_set_index).collect();
+        Self::Individual(SortedSmallVec(indices))
     }
 }
 
@@ -692,7 +856,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_everything() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: SortedSmallVec::new_const(),
             filter_sets: vec![AccessFilters::default()],
         }
     }
@@ -702,7 +866,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn matches_nothing() -> Self {
         Self {
             access: Access::default(),
-            required: FixedBitSet::default(),
+            required: SortedSmallVec::new_const(),
             filter_sets: Vec::new(),
         }
     }
@@ -744,7 +908,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     fn add_required(&mut self, index: T) {
-        self.required.grow_and_insert(index.sparse_set_index());
+        self.required.insert(index.sparse_set_index());
     }
 
     /// Adds a `With` filter: corresponds to a conjunction (AND) operation.
@@ -753,7 +917,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adding `AND With<C>` via this method transforms it into the equivalent of  `Or<((With<A>, With<C>), (With<B>, With<C>))>`.
     pub fn and_with(&mut self, index: T) {
         for filter in &mut self.filter_sets {
-            filter.with.grow_and_insert(index.sparse_set_index());
+            filter.with.insert(index.sparse_set_index());
         }
     }
 
@@ -763,7 +927,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Adding `AND Without<C>` via this method transforms it into the equivalent of  `Or<((With<A>, Without<C>), (With<B>, Without<C>))>`.
     pub fn and_without(&mut self, index: T) {
         for filter in &mut self.filter_sets {
-            filter.without.grow_and_insert(index.sparse_set_index());
+            filter.without.insert(index.sparse_set_index());
         }
     }
 
@@ -886,8 +1050,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
 #[derive(Eq, PartialEq)]
 pub(crate) struct AccessFilters<T> {
-    pub(crate) with: FixedBitSet,
-    pub(crate) without: FixedBitSet,
+    pub(crate) with: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
+    pub(crate) without: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
     _index_type: PhantomData<T>,
 }
 
@@ -907,11 +1071,11 @@ impl<T: SparseSetIndex> Clone for AccessFilters<T> {
     }
 }
 
-impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
+impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for AccessFilters<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AccessFilters")
-            .field("with", &FormattedBitSet::<T>::new(&self.with))
-            .field("without", &FormattedBitSet::<T>::new(&self.without))
+            .field("with", &self.with)
+            .field("without", &self.without)
             .finish()
     }
 }
@@ -919,8 +1083,8 @@ impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
 impl<T: SparseSetIndex> Default for AccessFilters<T> {
     fn default() -> Self {
         Self {
-            with: FixedBitSet::default(),
-            without: FixedBitSet::default(),
+            with: SortedSmallVec::new(),
+            without: SortedSmallVec::new(),
             _index_type: PhantomData,
         }
     }
@@ -1080,10 +1244,59 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::AccessFilters;
+    use crate::query::access::{AccessFilters, SortedSmallVec};
     use crate::query::{Access, AccessConflicts, FilteredAccess, FilteredAccessSet};
-    use fixedbitset::FixedBitSet;
+    use smallvec::{smallvec, SmallVec};
     use std::marker::PhantomData;
+
+    #[test]
+    fn sorted_vec_union() {
+        let mut a = SortedSmallVec(SmallVec::from([1, 3, 4]));
+        let b = SortedSmallVec(SmallVec::from([2, 3, 5]));
+        a.union_with(&b);
+        assert_eq!(a.0, SmallVec::from([1, 2, 3, 4, 5]));
+
+        let mut a = SortedSmallVec(SmallVec::from([2, 3, 4]));
+        let b = SortedSmallVec(SmallVec::from([1, 4, 5]));
+        a.union_with(&b);
+        assert_eq!(a.0, SmallVec::from([1, 2, 3, 4, 5]));
+    }
+
+    #[test]
+    fn sorted_vec_intersection() {
+        let a = SortedSmallVec(SmallVec::from([1, 3, 4, 6]));
+        let b = SortedSmallVec(smallvec![7, 8]);
+        assert_eq!(a.intersection(&b).collect::<Vec<_>>(), vec![]);
+
+        let a = SortedSmallVec(SmallVec::from([2, 3, 4]));
+        let b = SortedSmallVec(SmallVec::from([1, 3, 5]));
+        assert_eq!(a.intersection(&b).collect::<Vec<_>>(), vec![3]);
+    }
+
+    #[test]
+    fn sorted_vec_difference() {
+        let a = SortedSmallVec(SmallVec::from([1, 3, 4, 6]));
+        let b = SortedSmallVec(smallvec![7, 8]);
+        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![1, 3, 4, 6]);
+
+        let a = SortedSmallVec(SmallVec::from([2, 3, 4]));
+        let b = SortedSmallVec(SmallVec::from([1, 3, 5]));
+        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![2, 4]);
+    }
+
+    #[test]
+    fn sorted_vec_is_subset() {
+        let a = SortedSmallVec(SmallVec::from([1, 3, 4, 6]));
+        let b = SortedSmallVec(smallvec![1, 3, 4, 6, 8]);
+        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![]);
+        assert!(a.is_subset(&b));
+
+        // TODO: allow different values of N?
+        let a = SortedSmallVec(SmallVec::from([2, 3, 4, 5]));
+        let b = SortedSmallVec(SmallVec::from([1, 2, 3, 4]));
+        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![5]);
+        assert!(!a.is_subset(&b));
+    }
 
     fn create_sample_access() -> Access<usize> {
         let mut access = Access::<usize>::default();
@@ -1111,8 +1324,8 @@ mod tests {
     fn create_sample_access_filters() -> AccessFilters<usize> {
         let mut access_filters = AccessFilters::<usize>::default();
 
-        access_filters.with.grow_and_insert(3);
-        access_filters.without.grow_and_insert(5);
+        access_filters.with.extend(vec![3]);
+        access_filters.without.extend(vec![5]);
 
         access_filters
     }
@@ -1185,8 +1398,8 @@ mod tests {
         let original: AccessFilters<usize> = create_sample_access_filters();
         let mut cloned = AccessFilters::<usize>::default();
 
-        cloned.with.grow_and_insert(1);
-        cloned.without.grow_and_insert(2);
+        cloned.with.extend(vec![1]);
+        cloned.without.extend(vec![2]);
 
         cloned.clone_from(&original);
 
@@ -1325,7 +1538,7 @@ mod tests {
         access_c.and_with(3);
         access_c.and_without(4);
 
-        // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
+        // Turns `access_b` into `Or<(With<C>, (With<D>, Without<E>))>`.
         access_b.append_or(&access_c);
         // Applies the filters to the initial query, which corresponds to the FilteredAccess'
         // representation of `Query<(&mut A, &mut B), Or<(With<C>, (With<D>, Without<E>))>>`.
@@ -1340,13 +1553,13 @@ mod tests {
         // The resulted access is expected to represent `Or<((With<A>, With<B>, With<C>), (With<A>, With<B>, With<D>, Without<E>))>`.
         expected.filter_sets = vec![
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(3, [0b111]),
-                without: FixedBitSet::default(),
+                with: SortedSmallVec(SmallVec::from(vec![0, 1, 2])),
+                without: SortedSmallVec::new(),
                 _index_type: PhantomData,
             },
             AccessFilters {
-                with: FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
-                without: FixedBitSet::with_capacity_and_blocks(5, [0b10000]),
+                with: SortedSmallVec(SmallVec::from(vec![0, 1, 3])),
+                without: SortedSmallVec(SmallVec::from(vec![4])),
                 _index_type: PhantomData,
             },
         ];
