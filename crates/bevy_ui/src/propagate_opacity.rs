@@ -129,6 +129,9 @@ pub(crate) fn propagate_opacity_values(
 /// Stores the aggregate opacity modifier that should be applied to UI components when rendering.
 ///
 /// If an ancestor has [`PropagateOpacity`], then this component will be inserted to/updated on UI nodes automatically.
+///
+/// **IMPORTANT**: The modifier is **only** applied for each tick where it is mutated. If you are setting this manually,
+/// then you need to trigger change detection on it every tick.
 #[derive(Component, Copy, Clone, Deref, DerefMut, Debug, Default)]
 pub struct OpacityModifier(pub f32);
 
