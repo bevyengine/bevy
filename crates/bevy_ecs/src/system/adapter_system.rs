@@ -32,8 +32,8 @@ use crate::{
 ///
 ///     fn adapt(
 ///         &mut self,
-///         input: Self::In,
-///         run_system: impl FnOnce(S::In) -> S::Out,
+///         input: <Self::In as SystemInput>::Inner<'_>,
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
 ///     ) -> Self::Out {
 ///         !run_system(input)
 ///     }

@@ -24,8 +24,6 @@ pub trait SystemInput: Sized {
     fn into_param(this: Self::Inner<'_>) -> Self::Param<'_>;
 }
 
-/// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Param`].
-pub type SystemInParam<'a, S> = <<S as System>::In as SystemInput>::Param<'a>;
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
 pub type SystemIn<'a, S> = <<S as System>::In as SystemInput>::Inner<'a>;
 
@@ -42,7 +40,7 @@ impl SystemInput for () {
 /// Wrapper type to mark a [`SystemParam`] as an input.
 ///
 /// [`System`]s may take an optional input which they require to be passed to them when they
-/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
+/// are being [`run`](System::run). For [`FunctionSystem`]s the input may be marked
 /// with this `In` type, but only the first param of a function may be tagged as an input. This also
 /// means a system can only have one or zero input parameters.
 ///
@@ -67,6 +65,7 @@ impl SystemInput for () {
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
+/// [`FunctionSystem`]: crate::system::FunctionSystem
 pub struct In<In>(pub In);
 
 impl<T: 'static> SystemInput for In<T> {

@@ -58,7 +58,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn identity() -> impl Condition<(), bool> {
+/// fn identity() -> impl Condition<(), In<bool>> {
 ///     IntoSystem::into_system(|In(x)| x)
 /// }
 ///
@@ -1190,10 +1190,7 @@ pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
 #[derive(Clone, Copy)]
 pub struct NotMarker;
 
-impl<S: System> Adapt<S> for NotMarker
-where
-    S::Out: Not,
-{
+impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     type In = S::In;
     type Out = <S::Out as Not>::Output;
 
