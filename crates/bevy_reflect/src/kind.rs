@@ -265,3 +265,62 @@ impl ReflectOwned {
     impl_cast_method!(into_enum: Enum => Box<dyn Enum>);
     impl_cast_method!(into_value: Value => Box<dyn PartialReflect>);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn should_cast_ref() {
+        let value = vec![1, 2, 3];
+
+        let result = value.reflect_ref().as_list();
+        assert!(result.is_ok());
+
+        let result = value.reflect_ref().as_array();
+        assert!(matches!(
+            result,
+            Err(ReflectKindMismatchError {
+                expected: ReflectKind::Array,
+                received: ReflectKind::List
+            })
+        ));
+    }
+
+    #[test]
+    fn should_cast_mut() {
+        let mut value: HashSet<i32> = HashSet::new();
+
+        let result = value.reflect_mut().as_set();
+        assert!(result.is_ok());
+
+        let result = value.reflect_mut().as_map();
+        assert!(matches!(
+            result,
+            Err(ReflectKindMismatchError {
+                expected: ReflectKind::Map,
+                received: ReflectKind::Set
+            })
+        ));
+    }
+
+    #[test]
+    fn should_cast_owned() {
+        let value = Box::new(Some(123));
+
+        let result = value.reflect_owned().into_enum();
+        assert!(result.is_ok());
+
+        let value = Box::new(Some(123));
+
+        let result = value.reflect_owned().into_struct();
+        assert!(matches!(
+            result,
+            Err(ReflectKindMismatchError {
+                expected: ReflectKind::Struct,
+                received: ReflectKind::Enum
+            })
+        ));
+    }
+}
