@@ -216,7 +216,7 @@ macro_rules! impl_exclusive_system_function {
         #[allow(non_snake_case)]
         impl<Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
                 FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
@@ -245,7 +245,7 @@ macro_rules! impl_exclusive_system_function {
         #[allow(non_snake_case)]
         impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut(In<Input>, &mut World, $($param),*) -> Out +
                 FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Input: 'static,
@@ -276,10 +276,10 @@ macro_rules! impl_exclusive_system_function {
         #[allow(non_snake_case)]
         impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(InRef<'static, Input>, $($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut(InRef<'_, Input>, &mut World, $($param),*) -> Out +
                 FnMut(InRef<'_, Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
-            Input: 'static,
+            Input: ?Sized + 'static,
             Out: 'static,
         {
             type In = InRef<'static, Input>;
@@ -291,7 +291,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
+                fn call_inner<Input: ?Sized, Out, $($param,)*>(
                     mut f: impl FnMut(InRef<'_, Input>, &mut World, $($param,)*) -> Out,
                     input: &Input,
                     world: &mut World,
@@ -307,10 +307,10 @@ macro_rules! impl_exclusive_system_function {
         #[allow(non_snake_case)]
         impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn(InMut<'static, Input>, $($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            for <'a> &'a mut Func:
                 FnMut(InMut<'_, Input>, &mut World, $($param),*) -> Out +
                 FnMut(InMut<'_, Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
-            Input: 'static,
+            Input: ?Sized + 'static,
             Out: 'static,
         {
             type In = InMut<'static, Input>;
@@ -322,7 +322,7 @@ macro_rules! impl_exclusive_system_function {
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
+                fn call_inner<Input: ?Sized, Out, $($param,)*>(
                     mut f: impl FnMut(InMut<'_, Input>, &mut World, $($param,)*) -> Out,
                     input: &mut Input,
                     world: &mut World,

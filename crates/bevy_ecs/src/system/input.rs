@@ -90,22 +90,28 @@ impl<T: 'static> SystemInput for In<T> {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # use std::fmt::Write as _;
 /// #
-/// fn double(InRef(input): InRef<usize>) -> usize {
-///     *input + *input
+/// #[derive(Resource, Default)]
+/// struct Log(String);
+///
+/// fn log(InRef(msg): InRef<str>, mut log: ResMut<Log>) {
+///     writeln!(log.0, "{}", msg).unwrap();
 /// }
 ///
 /// let mut world = World::new();
-/// let mut double_system = IntoSystem::into_system(double);
-/// double_system.initialize(&mut world);
+/// world.init_resource::<Log>();
+/// let mut log_system = IntoSystem::into_system(log);
+/// log_system.initialize(&mut world);
 ///
-/// assert_eq!(double_system.run(&12, &mut world), 24);
+/// log_system.run("Hello, world!", &mut world);
+/// # assert_eq!(world.get_resource::<Log>().unwrap().0, "Hello, world!\n");
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
-pub struct InRef<'i, T>(pub &'i T);
+pub struct InRef<'i, T: ?Sized>(pub &'i T);
 
-impl<T: 'static> SystemInput for InRef<'_, T> {
+impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     type Param<'i> = InRef<'i, T>;
     type Inner<'i> = &'i T;
 
@@ -144,9 +150,9 @@ impl<T: 'static> SystemInput for InRef<'_, T> {
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
-pub struct InMut<'a, T>(pub &'a mut T);
+pub struct InMut<'a, T: ?Sized>(pub &'a mut T);
 
-impl<T: 'static> SystemInput for InMut<'_, T> {
+impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
     type Param<'i> = InMut<'i, T>;
     type Inner<'i> = &'i mut T;
 

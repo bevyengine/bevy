@@ -866,7 +866,7 @@ macro_rules! impl_system_function {
             for <'a> &'a mut Func:
                 FnMut(InRef<'_, Input>, $($param),*) -> Out +
                 FnMut(InRef<'_, Input>, $(SystemParamItem<$param>),*) -> Out,
-            Input: 'static,
+            Input: ?Sized + 'static,
             Out: 'static
         {
             type In = InRef<'static, Input>;
@@ -875,7 +875,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, input: &Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
+                fn call_inner<Input: ?Sized, Out, $($param,)*>(
                     mut f: impl FnMut(InRef<'_, Input>, $($param,)*)->Out,
                     input: &Input,
                     $($param: $param,)*
@@ -893,7 +893,7 @@ macro_rules! impl_system_function {
             for <'a> &'a mut Func:
                 FnMut(InMut<'_, Input>, $($param),*) -> Out +
                 FnMut(InMut<'_, Input>, $(SystemParamItem<$param>),*) -> Out,
-            Input: 'static,
+            Input: ?Sized + 'static,
             Out: 'static
         {
             type In = InMut<'static, Input>;
@@ -902,7 +902,7 @@ macro_rules! impl_system_function {
             #[inline]
             fn run(&mut self, input: &mut Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
+                fn call_inner<Input: ?Sized, Out, $($param,)*>(
                     mut f: impl FnMut(InMut<'_, Input>, $($param,)*)->Out,
                     input: &mut Input,
                     $($param: $param,)*
