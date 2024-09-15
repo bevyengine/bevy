@@ -117,7 +117,7 @@ pub(crate) fn propagate_opacity_values(
         recursively_propagate_opacity_value(
             true,
             1.0,
-            &mut *seen_propagators,
+            &mut seen_propagators,
             &mut c,
             &children,
             &mut nodes,
