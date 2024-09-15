@@ -843,8 +843,8 @@ impl<'w, 's> Commands<'w, 's> {
 /// # assert_schedule.run(&mut world);
 ///
 /// fn setup(mut commands: Commands) {
-///     commands.spawn_empty().add(count_name);
-///     commands.spawn_empty().add(count_name);
+///     commands.spawn_empty().enqueue(count_name);
+///     commands.spawn_empty().enqueue(count_name);
 /// }
 ///
 /// fn assert_names(named: Query<&Name>) {
