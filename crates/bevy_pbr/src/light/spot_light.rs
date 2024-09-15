@@ -5,7 +5,7 @@ use super::*;
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpotLight {
     pub color: Color,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.

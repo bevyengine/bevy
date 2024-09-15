@@ -227,7 +227,7 @@ pub enum ViewportConversionError {
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,

@@ -50,7 +50,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct DistanceFog {
     /// The color of the fog effect.
     ///
