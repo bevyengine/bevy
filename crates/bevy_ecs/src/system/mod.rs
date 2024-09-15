@@ -1672,7 +1672,7 @@ mod tests {
             second_flag: bool,
         }
 
-        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> In<Info> {
+        fn first(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
             if flag.is_changed() {
                 info.first_flag = true;
             }
@@ -1680,10 +1680,10 @@ mod tests {
                 *flag = Flag;
             }
 
-            In(info)
+            info
         }
 
-        fn second(In(In(mut info)): In<In<Info>>, mut flag: ResMut<Flag>) -> Info {
+        fn second(In(mut info): In<Info>, mut flag: ResMut<Flag>) -> Info {
             if flag.is_changed() {
                 info.second_flag = true;
             }

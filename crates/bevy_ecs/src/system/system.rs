@@ -364,7 +364,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with::<_, In<usize>, _, _>(1, system);
+        let n = world.run_system_once_with(1, system);
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }

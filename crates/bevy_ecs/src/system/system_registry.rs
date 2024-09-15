@@ -809,5 +809,6 @@ mod tests {
 
         let id = world.register_system(with_ref);
         world.run_system_with_input(id, &2).unwrap();
+        assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 }
