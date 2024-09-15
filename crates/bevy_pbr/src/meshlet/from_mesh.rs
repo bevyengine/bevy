@@ -1,9 +1,13 @@
-use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
+use super::asset::{
+    Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh, MeshletVertexAttributes,
+};
+use bevy_math::{UVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
 use bevy_utils::HashMap;
+use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
@@ -12,6 +16,8 @@ use meshopt::{
 use metis::Graph;
 use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Range};
+
+const GLOBAL_VERTEX_QUANTIZATION_BITS: u32 = 14;
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -120,23 +126,73 @@ impl MeshletMesh {
             simplification_queue = next_lod_start..meshlets.len();
         }
 
-        // Convert meshopt_Meshlet data to a custom format
-        let bevy_meshlets = meshlets
-            .meshlets
-            .into_iter()
-            .map(|m| Meshlet {
-                start_vertex_id: m.vertex_offset,
-                start_index_id: m.triangle_offset,
-                vertex_count: m.vertex_count,
-                triangle_count: m.triangle_count,
-            })
-            .collect();
+        // Copy vertex data per meshlet and compress
+        let mut vertex_positions = BitVec::<u8, Lsb0>::new();
+        let mut vertex_attributes = Vec::new();
+        let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
+        let global_quantization_factor = (1 << GLOBAL_VERTEX_QUANTIZATION_BITS) as f32;
+        for (meshlet_id, meshlet) in meshlets.meshlets.into_iter().enumerate() {
+            // Calculate quantization factor for the meshlet
+            let culling_bounding_sphere = &mut bounding_spheres[meshlet_id].self_culling;
+            let bounding_sphere_diameter = culling_bounding_sphere.radius * 2.0;
+            let meshlet_quantization_bits = bounding_sphere_diameter.log2().ceil() as u8;
+            let meshlet_quantization_factor = (1 << meshlet_quantization_bits) as f32;
+
+            // Globally quantize meshlet culling bounding sphere center
+            culling_bounding_sphere.center =
+                (culling_bounding_sphere.center * global_quantization_factor).round();
+
+            bevy_meshlets.push(Meshlet {
+                start_vertex_position_bit: vertex_positions.len() as u32,
+                start_vertex_attribute_id: vertex_attributes.len() as u32,
+                start_index_id: meshlet.triangle_offset,
+                vertex_count: meshlet.vertex_count as u8,
+                triangle_count: meshlet.triangle_count as u8,
+                bits_per_vertex_position_channel: meshlet_quantization_bits,
+                padding: 0,
+            });
+
+            // Compress each vertex
+            for vertex_id in meshlet.vertex_offset..(meshlet.vertex_offset + meshlet.vertex_count) {
+                // Load source vertex data
+                let vertex_id_byte = (vertex_id * 32) as usize;
+                let vertex_data = &vertex_buffer[vertex_id_byte..(vertex_id_byte + 32)];
+                let mut position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
+                let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
+                let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
+
+                // Globally quantize vertex position
+                position = (position * global_quantization_factor).round();
+
+                // Make position relative to the culling bounding sphere center
+                position -= culling_bounding_sphere.center;
+
+                // Quantize position using the meshlet quantization factor
+                position = (position * meshlet_quantization_factor).round();
+
+                let position: UVec3 = bytemuck::cast(position);
+                for i in 0..meshlet_quantization_bits {
+                    vertex_positions.extend_from_bitslice(position.x.view_bits());
+                }
+                for i in 0..meshlet_quantization_bits {
+                    vertex_positions.extend_from_bitslice(position.y.view_bits());
+                }
+                for i in 0..meshlet_quantization_bits {
+                    vertex_positions.extend_from_bitslice(position.z.view_bits());
+                }
+
+                vertex_attributes.push(MeshletVertexAttributes {
+                    normal: octahedral_encode(normal),
+                    uv,
+                });
+            }
+        }
 
         Ok(Self {
-            vertex_data: vertex_buffer.into(),
-            vertex_ids: meshlets.vertices.into(),
+            vertex_positions: vertex_positions.into_vec().into(),
+            vertex_attributes: vertex_attributes.into(),
             indices: meshlets.triangles.into(),
-            meshlets: bevy_meshlets,
+            meshlets: bevy_meshlets.into(),
             bounding_spheres: bounding_spheres.into(),
         })
     }
@@ -327,6 +383,17 @@ fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
         center: bounds.center.into(),
         radius: bounds.radius,
     }
+}
+
+fn octahedral_encode(v: Vec3) -> Vec2 {
+    let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
+    let octahedral_wrap = (1.0 - n.yx().abs())
+        * Vec2::new(
+            if n.x > 0.0 { 1.0 } else { -1.0 },
+            if n.y > 0.0 { 1.0 } else { -1.0 },
+        );
+    let n_xy = if n.z >= 0.0 { n.xy() } else { octahedral_wrap };
+    n_xy * 0.5 + 0.5
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].

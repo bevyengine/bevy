@@ -32,7 +32,7 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
+pub use self::asset::{MeshletMesh, MeshletMeshLoader, MeshletMeshSaver};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
@@ -201,7 +201,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoader)
+            .register_asset_loader(MeshletMeshLoader)
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
