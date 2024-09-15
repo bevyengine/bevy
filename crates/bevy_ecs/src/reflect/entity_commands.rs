@@ -79,7 +79,7 @@ pub trait ReflectCommandExt {
     ///
     ///     // Or even with BundleA
     ///     prefab.data = boxed_reflect_bundle_a;
-    ///     
+    ///
     ///     // No matter which component or bundle is in the resource and without knowing the exact type, you can
     ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
@@ -174,7 +174,7 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.commands.add(InsertReflect {
+        self.commands.enqueue(InsertReflect {
             entity: self.entity,
             component,
         });
@@ -185,7 +185,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.commands.add(InsertReflectWithRegistry::<T> {
+        self.commands.enqueue(InsertReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component,
@@ -194,7 +194,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.commands.add(RemoveReflect {
+        self.commands.enqueue(RemoveReflect {
             entity: self.entity,
             component_type_path: component_type_path.into(),
         });
@@ -205,7 +205,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component_type_name: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.commands.add(RemoveReflectWithRegistry::<T> {
+        self.commands.enqueue(RemoveReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component_type_name: component_type_name.into(),

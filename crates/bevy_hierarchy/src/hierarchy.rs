@@ -94,12 +94,12 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let entity = self.id();
-        self.commands().add(DespawnRecursive { entity });
+        self.commands().enqueue(DespawnRecursive { entity });
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
-        self.commands().add(DespawnChildrenRecursive { entity });
+        self.commands().enqueue(DespawnChildrenRecursive { entity });
         self
     }
 }

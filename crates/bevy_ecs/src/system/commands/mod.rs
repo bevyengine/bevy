@@ -303,7 +303,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
-        self.add(move |world: &mut World| {
+        self.enqueue(move |world: &mut World| {
             world.get_or_spawn(entity);
         });
         EntityCommands {
@@ -503,11 +503,43 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.push(spawn_batch(bundles_iter));
+        self.enqueue(spawn_batch(bundles_iter));
     }
 
-    /// Push a [`Command`] onto the queue.
-    pub fn push<C: Command>(&mut self, command: C) {
+    /// Pushes a generic [`Command`] to the command queue.
+    ///
+    /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
+    /// that takes [`&mut World`](World) as an argument.
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{world::Command, prelude::*};
+    /// #[derive(Resource, Default)]
+    /// struct Counter(u64);
+    ///
+    /// struct AddToCounter(u64);
+    ///
+    /// impl Command for AddToCounter {
+    ///     fn apply(self, world: &mut World) {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += self.0;
+    ///     }
+    /// }
+    ///
+    /// fn add_three_to_counter_system(mut commands: Commands) {
+    ///     commands.add(AddToCounter(3));
+    /// }
+    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
+    ///     commands.add(|world: &mut World| {
+    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
+    ///         counter.0 += 25;
+    ///     });
+    /// }
+
+    /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
+    /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
+    /// ```
+    pub fn enqueue<C: Command>(&mut self, command: C) {
         match &mut self.queue {
             InternalQueue::CommandQueue(queue) => {
                 queue.push(command);
@@ -549,7 +581,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.push(insert_or_spawn_batch(bundles_iter));
+        self.enqueue(insert_or_spawn_batch(bundles_iter));
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -578,7 +610,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        self.push(init_resource::<R>);
+        self.enqueue(init_resource::<R>);
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
@@ -608,7 +640,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// ```
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
-        self.push(insert_resource(resource));
+        self.enqueue(insert_resource(resource));
     }
 
     /// Pushes a [`Command`] to the queue for removing a [`Resource`] from the [`World`].
@@ -632,7 +664,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     pub fn remove_resource<R: Resource>(&mut self) {
-        self.push(remove_resource::<R>);
+        self.enqueue(remove_resource::<R>);
     }
 
     /// Runs the system corresponding to the given [`SystemId`].
@@ -658,7 +690,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
-        self.push(RunSystemWithInput::new_with_input(id, input));
+        self.enqueue(RunSystemWithInput::new_with_input(id, input));
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
@@ -720,45 +752,8 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
     ) -> SystemId<I, O> {
         let entity = self.spawn_empty().id();
-        self.push(RegisterSystem::new(system, entity));
+        self.enqueue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
-    }
-
-    /// Pushes a generic [`Command`] to the command queue.
-    ///
-    /// `command` can be a built-in command, custom struct that implements [`Command`] or a closure
-    /// that takes [`&mut World`](World) as an argument.
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{world::Command, prelude::*};
-    /// #[derive(Resource, Default)]
-    /// struct Counter(u64);
-    ///
-    /// struct AddToCounter(u64);
-    ///
-    /// impl Command for AddToCounter {
-    ///     fn apply(self, world: &mut World) {
-    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-    ///         counter.0 += self.0;
-    ///     }
-    /// }
-    ///
-    /// fn add_three_to_counter_system(mut commands: Commands) {
-    ///     commands.add(AddToCounter(3));
-    /// }
-    /// fn add_twenty_five_to_counter_system(mut commands: Commands) {
-    ///     commands.add(|world: &mut World| {
-    ///         let mut counter = world.get_resource_or_insert_with(Counter::default);
-    ///         counter.0 += 25;
-    ///     });
-    /// }
-
-    /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
-    /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
-    /// ```
-    pub fn add<C: Command>(&mut self, command: C) {
-        self.push(command);
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -766,7 +761,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
-        self.add(TriggerEvent { event, targets: () });
+        self.enqueue(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
@@ -778,7 +773,7 @@ impl<'w, 's> Commands<'w, 's> {
         event: impl Event,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
-        self.add(TriggerEvent { event, targets });
+        self.enqueue(TriggerEvent { event, targets });
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
@@ -800,7 +795,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [`EventWriter`]: crate::event::EventWriter
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.add(SendEvent { event });
+        self.enqueue(SendEvent { event });
         self
     }
 }
@@ -1276,7 +1271,7 @@ impl EntityCommands<'_> {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn add<M: 'static>(mut self, command: impl EntityCommand<M>) -> Self {
-        self.commands.add(command.with_entity(self.entity));
+        self.commands.enqueue(command.with_entity(self.entity));
         self
     }
 
@@ -1667,12 +1662,12 @@ mod tests {
             let mut commands = Commands::new(&mut command_queue, &world);
 
             // set up a simple command using a closure that adds one additional entity
-            commands.add(|world: &mut World| {
+            commands.enqueue(|world: &mut World| {
                 world.spawn((W(42u32), W(0u64)));
             });
 
             // set up a simple command using a function that adds one additional entity
-            commands.add(simple_command);
+            commands.enqueue(simple_command);
         }
         command_queue.apply(&mut world);
         let results3 = world

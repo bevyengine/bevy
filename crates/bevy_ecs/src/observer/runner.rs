@@ -65,7 +65,7 @@ impl Component for ObserverState {
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
+            world.commands().enqueue(move |world: &mut World| {
                 world.register_observer(entity);
             });
         });
@@ -78,7 +78,7 @@ impl Component for ObserverState {
                     .as_mut()
                     .descriptor,
             );
-            world.commands().add(move |world: &mut World| {
+            world.commands().enqueue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
         });
@@ -398,7 +398,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     entity: Entity,
     _: ComponentId,
 ) {
-    world.commands().add(move |world: &mut World| {
+    world.commands().enqueue(move |world: &mut World| {
         let event_type = world.init_component::<E>();
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
