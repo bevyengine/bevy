@@ -482,9 +482,7 @@ mod test {
         world.commands().queue(add_index(1));
         world.commands().queue(|world: &mut World| {
             world.commands().queue(add_index(2));
-            world
-                .commands()
-                .queue(PanicCommand("I panic!".to_owned()));
+            world.commands().queue(PanicCommand("I panic!".to_owned()));
             world.commands().queue(add_index(3));
             world.flush_commands();
         });
