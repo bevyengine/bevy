@@ -282,7 +282,7 @@ where
 ///
 /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
 /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is
-/// tagged with [`In`] or `()` if the function has no designated input parameter.
+/// tagged with [`In`](crate::system::In) or `()` if the function has no designated input parameter.
 ///
 /// # Examples
 ///
