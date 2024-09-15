@@ -49,19 +49,17 @@ impl SystemInput for () {
 /// Here is a simple example of a system that takes a [`usize`] returning the square of it.
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
-/// }
-///
+/// # use bevy_ecs::prelude::*;
+/// #
 /// fn square(In(input): In<usize>) -> usize {
 ///     input * input
 /// }
+///
+/// let mut world = World::new();
+/// let mut square_system = IntoSystem::into_system(square);
+/// square_system.initialize(&mut world);
+///
+/// assert_eq!(square_system.run(12, &mut world), 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
@@ -91,19 +89,17 @@ impl<T: 'static> SystemInput for In<T> {
 /// Here is a simple example of a system that takes a `&usize` returning it doubled.
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut double_system = IntoSystem::into_system(double);
-///
-///     let mut world = World::default();
-///     double_system.initialize(&mut world);
-///     assert_eq!(double_system.run(&12, &mut world), 24);
-/// }
-///
+/// # use bevy_ecs::prelude::*;
+/// #
 /// fn double(InRef(input): InRef<usize>) -> usize {
 ///     *input + *input
 /// }
+///
+/// let mut world = World::new();
+/// let mut double_system = IntoSystem::into_system(double);
+/// double_system.initialize(&mut world);
+///
+/// assert_eq!(double_system.run(&12, &mut world), 24);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
@@ -132,21 +128,19 @@ impl<T: 'static> SystemInput for InRef<'_, T> {
 /// Here is a simple example of a system that takes a `&mut usize` and squares it.
 ///
 /// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     let mut value = 12;
-///     square_system.run(&mut value, &mut world);
-///     assert_eq!(value, 144);
-/// }
-///
+/// # use bevy_ecs::prelude::*;
+/// #
 /// fn square(InMut(input): InMut<usize>) {
 ///     *input *= *input;
 /// }
+///
+/// let mut world = World::new();
+/// let mut square_system = IntoSystem::into_system(square);
+/// square_system.initialize(&mut world);
+///     
+/// let mut value = 12;
+/// square_system.run(&mut value, &mut world);
+/// assert_eq!(value, 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam

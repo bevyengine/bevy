@@ -1756,4 +1756,6 @@ mod tests {
         sched.run(&mut world);
         assert_eq!(world.get_resource(), Some(&C(3)));
     }
+
+    
 }
