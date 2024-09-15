@@ -180,3 +180,25 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
         this
     }
 }
+
+/// A helper for using [`SystemInput`]s in generic contexts.
+///
+/// This type is a [`SystemInput`] adapter which always has
+/// `Self::Param::Inner == Self::Inner`.
+///
+/// This makes it useful for having arbitrary [`SystemInput`]s in
+/// function systems.
+pub struct StaticSystemInput<'a, I: SystemInput>(pub I::Inner<'a>);
+
+impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
+    type Param<'i> = StaticSystemInput<'i, I>;
+    type Inner<'i> = I::Inner<'i>;
+
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this.0
+    }
+
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+        StaticSystemInput(this)
+    }
+}

@@ -1,8 +1,6 @@
-use bevy_utils::all_tuples;
-
 use crate::{
     prelude::{Bundle, Trigger},
-    system::{System, SystemParam, SystemParamFunction, SystemParamItem},
+    system::System,
 };
 
 use super::IntoSystem;
@@ -54,37 +52,6 @@ where
         IntoSystem::into_system(this)
     }
 }
-
-macro_rules! impl_system_function {
-    ($($param: ident),*) => {
-        #[allow(non_snake_case)]
-        impl<E: 'static, B: Bundle, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Trigger<E, B>, $($param,)*)> for Func
-        where
-        for <'a> &'a mut Func:
-                FnMut(Trigger<E, B>, $($param),*) -> Out +
-                FnMut(Trigger<E, B>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
-        {
-            type In = Trigger<'static, E, B>;
-            type Out = Out;
-            type Param = ($($param,)*);
-            #[inline]
-            fn run(&mut self, input: Trigger<E, B>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
-                #[allow(clippy::too_many_arguments)]
-                fn call_inner<E: 'static, B: Bundle, Out, $($param,)*>(
-                    mut f: impl FnMut(Trigger<E, B>, $($param,)*) -> Out,
-                    input: Trigger<E, B>,
-                    $($param: $param,)*
-                ) -> Out{
-                    f(input, $($param,)*)
-                }
-                let ($($param,)*) = param_value;
-                call_inner(self, input, $($param),*)
-            }
-        }
-    }
-}
-
-all_tuples!(impl_system_function, 0, 16, F);
 
 #[cfg(test)]
 mod tests {
