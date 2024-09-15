@@ -87,11 +87,7 @@ use std::ops::{Deref, DerefMut};
 /// [`EventWriter`]: super::EventWriter
 /// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Resource, Default)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
