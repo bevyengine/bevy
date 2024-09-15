@@ -16,8 +16,8 @@ use std::collections::BTreeMap;
 ///
 /// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow)/[denying](DynamicSceneBuilder::deny) certain components.
+/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
@@ -76,7 +76,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     /// Specify a custom component [`SceneFilter`] to be used with this builder.
     #[must_use]
-    pub fn with_filter(mut self, filter: SceneFilter) -> Self {
+    pub fn with_component_filter(mut self, filter: SceneFilter) -> Self {
         self.component_filter = filter;
         self
     }
@@ -92,10 +92,10 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`deny`](Self::deny).
+    /// This is the inverse of [`deny_component`](Self::deny_component).
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
-    pub fn allow<T: Component>(mut self) -> Self {
+    pub fn allow_component<T: Component>(mut self) -> Self {
         self.component_filter = self.component_filter.allow::<T>();
         self
     }
@@ -104,10 +104,10 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`allow`](Self::allow).
+    /// This is the inverse of [`allow_component`](Self::allow_component).
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
-    pub fn deny<T: Component>(mut self) -> Self {
+    pub fn deny_component<T: Component>(mut self) -> Self {
         self.component_filter = self.component_filter.deny::<T>();
         self
     }
@@ -116,9 +116,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This is useful for resetting the filter so that types may be selectively [denied].
     ///
-    /// [denied]: Self::deny
+    /// [denied]: Self::deny_component
     #[must_use]
-    pub fn allow_all(mut self) -> Self {
+    pub fn allow_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::allow_all();
         self
     }
@@ -127,9 +127,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This is useful for resetting the filter so that types may be selectively [allowed].
     ///
-    /// [allowed]: Self::allow
+    /// [allowed]: Self::allow_component
     #[must_use]
-    pub fn deny_all(mut self) -> Self {
+    pub fn deny_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::deny_all();
         self
     }
@@ -242,8 +242,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// Note that components extracted from queried entities must still pass through the filter if one is set.
     ///
-    /// [`allow`]: Self::allow
-    /// [`deny`]: Self::deny
+    /// [`allow`]: Self::allow_component
+    /// [`deny`]: Self::deny_component
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
@@ -582,7 +582,7 @@ mod tests {
         let entity_b = world.spawn(ComponentB).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
-            .allow::<ComponentA>()
+            .allow_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
@@ -609,7 +609,7 @@ mod tests {
         let entity_b = world.spawn(ComponentB).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
-            .deny::<ComponentA>()
+            .deny_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
