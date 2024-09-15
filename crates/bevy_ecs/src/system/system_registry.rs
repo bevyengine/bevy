@@ -442,7 +442,7 @@ impl World {
 /// execution of the system happens later. To get the output of a system, use
 /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
 #[derive(Debug, Clone)]
-pub struct RunSystemWithInput<I: SystemInput> {
+pub struct RunSystemWithInput<I: SystemInput + 'static> {
     system_id: SystemId<I>,
     input: I::Inner<'static>,
 }
@@ -467,7 +467,7 @@ impl RunSystem {
     }
 }
 
-impl<I: SystemInput> RunSystemWithInput<I> {
+impl<I: SystemInput + 'static> RunSystemWithInput<I> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
     pub fn new_with_input(system_id: SystemId<I>, input: I::Inner<'static>) -> Self {
@@ -488,12 +488,16 @@ where
 /// The [`Command`] type for registering one shot systems from [`Commands`](crate::system::Commands).
 ///
 /// This command needs an already boxed system to register, and an already spawned entity.
-pub struct RegisterSystem<I: 'static, O: 'static> {
+pub struct RegisterSystem<I: SystemInput + 'static, O: 'static> {
     system: BoxedSystem<I, O>,
     entity: Entity,
 }
 
-impl<I: SystemInput, O: 'static> RegisterSystem<I, O> {
+impl<I, O> RegisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
         Self {
@@ -503,7 +507,11 @@ impl<I: SystemInput, O: 'static> RegisterSystem<I, O> {
     }
 }
 
-impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
+impl<I, O> Command for RegisterSystem<I, O>
+where
+    I: SystemInput + Send + 'static,
+    O: Send + 'static,
+{
     fn apply(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(system_bundle(self.system));

@@ -775,7 +775,7 @@ impl<'w, 's> Commands<'w, 's> {
     ) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
-        O: 'static + Send,
+        O: Send + 'static,
     {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));

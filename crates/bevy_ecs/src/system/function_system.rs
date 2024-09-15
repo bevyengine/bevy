@@ -226,7 +226,7 @@ macro_rules! impl_build_system {
                 Out: 'static,
                 Marker,
                 F: FnMut($(SystemParamItem<$param>),*) -> Out
-                    + SystemParamFunction<Marker, Param = ($($param,)*), Out = Out>
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = Out>
             >
             (
                 self,
@@ -244,7 +244,7 @@ macro_rules! impl_build_system {
                 Out: 'static,
                 Marker,
                 F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
-                    + SystemParamFunction< Marker, Param = ($($param,)*), Out = Out>,
+                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
                 func: F,
@@ -554,7 +554,6 @@ where
     F: SystemParamFunction<Marker>,
 {
     type System = FunctionSystem<Marker, F>;
-
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
             func,

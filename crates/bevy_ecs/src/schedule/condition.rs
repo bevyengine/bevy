@@ -1113,7 +1113,7 @@ pub mod common_conditions {
     /// ```
     pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl Condition<(), CIn>
     where
-        CIn: SystemInput + 'static,
+        CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
         condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
@@ -1169,7 +1169,7 @@ pub mod common_conditions {
     /// ```
     pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl Condition<(), CIn>
     where
-        CIn: SystemInput + 'static,
+        CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
         condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
