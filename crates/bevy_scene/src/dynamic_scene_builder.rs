@@ -88,6 +88,18 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
+    pub fn allow_all(mut self) -> Self {
+        self.component_filter = SceneFilter::allow_all();
+        self.resource_filter = SceneFilter::allow_all();
+        self
+    }
+
+    pub fn deny_all(mut self) -> Self {
+        self.component_filter = SceneFilter::deny_all();
+        self.resource_filter = SceneFilter::deny_all();
+        self
+    }
+
     /// Allows the given component type, `T`, to be included in the generated scene.
     ///
     /// This method may be called multiple times for any number of components.
