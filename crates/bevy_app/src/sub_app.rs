@@ -189,11 +189,13 @@ impl SubApp {
     }
 
     /// See [`App::register_system`].
-    pub fn register_system<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    pub fn register_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
     where
         I: SystemInput + 'static,
         O: 'static,
-        S: IntoSystem<I, O, M> + 'static,
     {
         self.world.register_system(system)
     }

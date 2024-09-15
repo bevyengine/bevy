@@ -769,11 +769,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_system<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    pub fn register_system<I, O, M>(
+        &mut self,
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
     where
         I: SystemInput + Send + 'static,
         O: 'static + Send,
-        S: IntoSystem<I, O, M> + 'static,
     {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
