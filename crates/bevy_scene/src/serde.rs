@@ -3,11 +3,11 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
-use bevy_reflect::PartialReflect;
 use bevy_reflect::{
     serde::{ReflectDeserializer, TypeRegistrationDeserializer},
     TypeRegistry,
 };
+use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
@@ -488,9 +488,19 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 )));
             }
 
-            entries.push(
-                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
-            );
+            let value =
+                map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?;
+
+            // Attempt to convert using FromReflect.
+            let value = self
+                .registry
+                .get(registration.type_id())
+                .and_then(|tr| tr.data::<ReflectFromReflect>())
+                .and_then(|fr| fr.from_reflect(value.as_partial_reflect()))
+                .map(PartialReflect::into_partial_reflect)
+                .unwrap_or(value);
+
+            entries.push(value);
         }
 
         Ok(entries)
@@ -508,10 +518,10 @@ mod tests {
     use bevy_ecs::query::{With, Without};
     use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
     use bevy_ecs::world::FromWorld;
-    use bevy_reflect::{Reflect, ReflectSerialize};
+    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]
@@ -523,6 +533,30 @@ mod tests {
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
     struct Baz(i32);
+
+    // De/serialize as hex.
+    mod qux {
+        use serde::{de::Error, Deserialize, Deserializer, Serializer};
+
+        pub fn serialize<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("{:X}", value))
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<u32, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            u32::from_str_radix(<&str as Deserialize>::deserialize(deserializer)?, 16)
+                .map_err(Error::custom)
+        }
+    }
+
+    #[derive(Component, Copy, Clone, Reflect, Debug, PartialEq, Serialize, Deserialize)]
+    #[reflect(Component, Serialize, Deserialize)]
+    struct Qux(#[serde(with = "qux")] u32);
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -572,6 +606,7 @@ mod tests {
             registry.register::<Foo>();
             registry.register::<Bar>();
             registry.register::<Baz>();
+            registry.register::<Qux>();
             registry.register::<MyComponent>();
             registry.register::<MyEnum>();
             registry.register::<String>();
@@ -696,6 +731,18 @@ mod tests {
         assert_eq!(1, dst_world.query::<&Baz>().iter(&dst_world).count());
     }
 
+    fn roundtrip_ron(world: &World) -> (DynamicScene, DynamicScene) {
+        let scene = DynamicScene::from_world(world);
+        let registry = world.resource::<AppTypeRegistry>().read();
+        let serialized = scene.serialize(&registry).unwrap();
+        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &registry,
+        };
+        let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+        (scene, deserialized_scene)
+    }
+
     #[test]
     fn should_roundtrip_with_later_generations_and_obsolete_references() {
         let mut world = create_world();
@@ -707,19 +754,7 @@ mod tests {
         world.despawn(a);
         world.spawn(MyEntityRef(foo)).insert(Bar(123));
 
-        let registry = world.resource::<AppTypeRegistry>();
-
-        let scene = DynamicScene::from_world(&world);
-
-        let serialized = scene
-            .serialize(&world.resource::<AppTypeRegistry>().read())
-            .unwrap();
-        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let scene_deserializer = SceneDeserializer {
-            type_registry: &registry.0.read(),
-        };
-
-        let deserialized_scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+        let (scene, deserialized_scene) = roundtrip_ron(&world);
 
         let mut map = EntityHashMap::default();
         let mut dst_world = create_world();
@@ -745,6 +780,24 @@ mod tests {
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
             .all(|r| world.get_entity(r.0).is_none()));
+    }
+
+    #[test]
+    fn should_roundtrip_with_custom_serialization() {
+        let mut world = create_world();
+        let qux = Qux(42);
+        world.spawn(qux);
+
+        let (scene, deserialized_scene) = roundtrip_ron(&world);
+
+        assert_eq!(1, deserialized_scene.entities.len());
+        assert_scene_eq(&scene, &deserialized_scene);
+
+        let mut world = create_world();
+        deserialized_scene
+            .write_to_world(&mut world, &mut EntityHashMap::default())
+            .unwrap();
+        assert_eq!(&qux, world.query::<&Qux>().single(&world));
     }
 
     #[test]
