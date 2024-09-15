@@ -960,7 +960,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn insert(self, bundle: impl Bundle) -> Self {
-        self.add(insert(bundle, InsertMode::Replace))
+        self.enqueue(insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -998,7 +998,7 @@ impl EntityCommands<'_> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.add(insert(bundle, InsertMode::Replace))
+            self.enqueue(insert(bundle, InsertMode::Replace))
         } else {
             self
         }
@@ -1018,7 +1018,7 @@ impl EntityCommands<'_> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
     /// instead.
     pub fn insert_if_new(self, bundle: impl Bundle) -> Self {
-        self.add(insert(bundle, InsertMode::Keep))
+        self.enqueue(insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a dynamic component to an entity.
@@ -1043,7 +1043,7 @@ impl EntityCommands<'_> {
     ) -> Self {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
-        self.add(unsafe {insert_by_id(component_id, value, move |entity| {
+        self.enqueue(unsafe {insert_by_id(component_id, value, move |entity| {
             panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
         })})
     }
@@ -1062,7 +1062,7 @@ impl EntityCommands<'_> {
         value: T,
     ) -> Self {
         // SAFETY: same invariants as parent call
-        self.add(unsafe { insert_by_id(component_id, value, |_| {}) })
+        self.enqueue(unsafe { insert_by_id(component_id, value, |_| {}) })
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1115,7 +1115,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn try_insert(self, bundle: impl Bundle) -> Self {
-        self.add(try_insert(bundle, InsertMode::Replace))
+        self.enqueue(try_insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1150,7 +1150,7 @@ impl EntityCommands<'_> {
         F: FnOnce() -> bool,
     {
         if condition() {
-            self.add(try_insert(bundle, InsertMode::Replace))
+            self.enqueue(try_insert(bundle, InsertMode::Replace))
         } else {
             self
         }
@@ -1166,7 +1166,7 @@ impl EntityCommands<'_> {
     ///
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
     pub fn try_insert_if_new(self, bundle: impl Bundle) -> Self {
-        self.add(try_insert(bundle, InsertMode::Keep))
+        self.enqueue(try_insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1208,17 +1208,17 @@ impl EntityCommands<'_> {
     where
         T: Bundle,
     {
-        self.add(remove::<T>)
+        self.enqueue(remove::<T>)
     }
 
     /// Removes a component from the entity.
     pub fn remove_by_id(self, component_id: ComponentId) -> Self {
-        self.add(remove_by_id(component_id))
+        self.enqueue(remove_by_id(component_id))
     }
 
     /// Removes all components associated with the entity.
     pub fn clear(self) -> Self {
-        self.add(clear())
+        self.enqueue(clear())
     }
 
     /// Despawns the entity.
@@ -1250,7 +1250,7 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn despawn(self) -> Self {
-        self.add(despawn())
+        self.enqueue(despawn())
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -1263,14 +1263,14 @@ impl EntityCommands<'_> {
     /// commands
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
-    ///     .add(|entity: EntityWorldMut| {
+    ///     .enqueue(|entity: EntityWorldMut| {
     ///         println!("Executed an EntityCommand for {:?}", entity.id());
     ///     });
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
     #[allow(clippy::should_implement_trait)]
-    pub fn add<M: 'static>(mut self, command: impl EntityCommand<M>) -> Self {
+    pub fn enqueue<M: 'static>(mut self, command: impl EntityCommand<M>) -> Self {
         self.commands.enqueue(command.with_entity(self.entity));
         self
     }
@@ -1316,7 +1316,7 @@ impl EntityCommands<'_> {
     where
         T: Bundle,
     {
-        self.add(retain::<T>)
+        self.enqueue(retain::<T>)
     }
 
     /// Logs the components of the entity at the info level.
@@ -1325,7 +1325,7 @@ impl EntityCommands<'_> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(self) -> Self {
-        self.add(log_components)
+        self.enqueue(log_components)
     }
 
     /// Returns the underlying [`Commands`].
@@ -1344,7 +1344,7 @@ impl EntityCommands<'_> {
 
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(self, system: impl IntoObserverSystem<E, B, M>) -> Self {
-        self.add(observe(system))
+        self.enqueue(observe(system))
     }
 }
 
