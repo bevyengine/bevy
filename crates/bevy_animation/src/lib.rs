@@ -23,6 +23,7 @@ use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
 use bevy_math::{FloatExt, Quat, Vec3};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
@@ -540,7 +541,7 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a `SceneBundle` when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct AnimationPlayer {
     /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
     /// ordering when applying the animations.
