@@ -1,7 +1,8 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, ReflectKind,
+    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
+    ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -46,6 +47,15 @@ pub enum ApplyError {
         enum_name: Box<str>,
         variant_name: Box<str>,
     },
+}
+
+impl From<ReflectKindMismatchError> for ApplyError {
+    fn from(value: ReflectKindMismatchError) -> Self {
+        Self::MismatchedKinds {
+            from_kind: value.received,
+            to_kind: value.expected,
+        }
+    }
 }
 
 /// The foundational trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
