@@ -5,8 +5,8 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 /// Provided implementations are:
 /// - `()`: No input
 /// - [`In<T>`]: For values
-/// - [`InRef<T>`]: For read-only references
-/// - [`InMut<T>`]: For mutable references
+/// - [`InRef<T>`]: For read-only references to values
+/// - [`InMut<T>`]: For mutable references to values
 /// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
@@ -17,16 +17,11 @@ pub trait SystemInput: Sized {
     /// The inner input type that is passed to system run functions.
     type Inner<'i>;
 
-    /// Converts `self` into a `'static` version of [`SystemInput::Param`].
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static;
-
     /// Converts a [`SystemInput::Param`] into a [`SystemInput::Inner`].
-    fn to_inner(this: Self::Param<'_>) -> Self::Inner<'_>;
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_>;
 
     /// Converts a [`SystemInput::Inner`] into a [`SystemInput::Param`].
-    fn to_param(this: Self::Inner<'_>) -> Self::Param<'_>;
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_>;
 }
 
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Param`].
@@ -39,15 +34,9 @@ impl SystemInput for () {
     type Param<'i> = ();
     type Inner<'i> = ();
 
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static,
-    {
-    }
+    fn into_inner(_this: Self::Param<'_>) -> Self::Inner<'_> {}
 
-    fn to_inner(_this: Self::Param<'_>) -> Self::Inner<'_> {}
-
-    fn to_param(_this: Self::Inner<'_>) -> Self::Param<'_> {}
+    fn into_param(_this: Self::Inner<'_>) -> Self::Param<'_> {}
 }
 
 /// Wrapper type to mark a [`SystemParam`] as an input.
@@ -84,26 +73,39 @@ impl<T: 'static> SystemInput for In<T> {
     type Param<'i> = In<T>;
     type Inner<'i> = T;
 
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static,
-    {
-        self
-    }
-
-    fn to_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn to_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         In(this)
     }
 }
 
 /// Wrapper type to mark a [`SystemParam`] as an input which takes a read-only reference.
 ///
-/// This is similar to [`In`] but takes a reference instead of the value itself.
+/// This is similar to [`In`] but takes a reference to a value instead of the value itself.
 /// See [`InMut`] for the mutable version.
+///
+/// # Examples
+///
+/// Here is a simple example of a system that takes a `&usize` returning it doubled.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut double_system = IntoSystem::into_system(double);
+///
+///     let mut world = World::default();
+///     double_system.initialize(&mut world);
+///     assert_eq!(double_system.run(&12, &mut world), 24);
+/// }
+///
+/// fn double(InRef(input): InRef<usize>) -> usize {
+///     *input + *input
+/// }
+/// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct InRef<'i, T>(pub &'i T);
@@ -112,26 +114,41 @@ impl<T: 'static> SystemInput for InRef<'_, T> {
     type Param<'i> = InRef<'i, T>;
     type Inner<'i> = &'i T;
 
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static,
-    {
-        self
-    }
-
-    fn to_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn to_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         InRef(this)
     }
 }
 
 /// Wrapper type to mark a [`SystemParam`] as an input which takes a mutable reference.
 ///
-/// This is similar to [`In`] but takes a mutable reference instead of the value itself.
+/// This is similar to [`In`] but takes a mutable reference to a value instead of the value itself.
 /// See [`InRef`] for the read-only version.
+///
+/// # Examples
+///
+/// Here is a simple example of a system that takes a `&mut usize` and squares it.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// fn main() {
+///     let mut square_system = IntoSystem::into_system(square);
+///
+///     let mut world = World::default();
+///     square_system.initialize(&mut world);
+///     let mut value = 12;
+///     square_system.run(&mut value, &mut world);
+///     assert_eq!(value, 144);
+/// }
+///
+/// fn square(InMut(input): InMut<usize>) {
+///     *input *= *input;
+/// }
+/// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct InMut<'a, T>(pub &'a mut T);
@@ -140,38 +157,27 @@ impl<T: 'static> SystemInput for InMut<'_, T> {
     type Param<'i> = InMut<'i, T>;
     type Inner<'i> = &'i mut T;
 
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static,
-    {
-        self
-    }
-
-    fn to_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn to_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         InMut(this)
     }
 }
 
+/// Used for [`ObserverSystem`]s.
+///
+/// [`ObserverSystem`]: crate::system::ObserverSystem
 impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
     type Param<'i> = Trigger<'i, E, B>;
     type Inner<'i> = Trigger<'i, E, B>;
 
-    fn to_static(self) -> Self::Param<'static>
-    where
-        Self: 'static,
-    {
-        self
-    }
-
-    fn to_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
         this
     }
 
-    fn to_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
     }
 }
