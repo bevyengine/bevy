@@ -10,13 +10,18 @@ use crate::{bundle::Bundle, prelude::Trigger, system::System};
 /// - [`InRef<T>`]: For read-only references to values
 /// - [`InMut<T>`]: For mutable references to values
 /// - [`Trigger<E, B>`]: For [`ObserverSystem`]s
+/// - [`StaticSystemInput<I>`]: For arbitrary [`SystemInput`]s in generic contexts
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
 pub trait SystemInput: Sized {
-    /// The outer input type that is defined as the first argument to systems,
-    /// similar to [`SystemParam`](crate::system::SystemParam)s.
+    /// The wrapper input type that is defined as the first argument to [`FunctionSystem`]s.
+    ///
+    /// [`FunctionSystem`]: crate::system::FunctionSystem
     type Param<'i>: SystemInput;
-    /// The inner input type that is passed to system run functions.
+    /// The inner input type that is passed to functions that run systems,
+    /// such as [`System::run`].
+    ///
+    /// [`System::run`]: crate::system::System::run
     type Inner<'i>;
 
     /// Converts a [`SystemInput::Param`] into a [`SystemInput::Inner`].
