@@ -1,6 +1,7 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
 use bevy::{prelude::*, remote::RemotePlugin};
+use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
@@ -52,6 +53,6 @@ fn setup(
     });
 }
 
-#[derive(Component, Reflect)]
-#[reflect(Component)]
+#[derive(Component, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 struct Cube(f32);
