@@ -4,20 +4,61 @@ use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStr
 
 /// A zero-sized enumeration of the "kinds" of a reflected type.
 ///
+/// Each kind corresponds to a specific reflection trait,
+/// such as [`Struct`] or [`List`],
+/// which itself corresponds to the kind or structure of a type.
+///
 /// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ReflectKind {
+    /// A [struct-like] type.
+    ///
+    /// [struct-like]: Struct
     Struct,
+    /// A [tuple-struct-like] type.
+    ///
+    /// [tuple-struct-like]: TupleStruct
     TupleStruct,
+    /// A [tuple-like] type.
+    ///
+    /// [tuple-like]: Tuple
     Tuple,
+    /// A [list-like] type.
+    ///
+    /// [list-like]: List
     List,
+    /// An [array-like] type.
+    ///
+    /// [array-like]: Array
     Array,
+    /// A [map-like] type.
+    ///
+    /// [map-like]: Map
     Map,
+    /// A [set-like] type.
+    ///
+    /// [set-like]: Set
     Set,
+    /// An [enum-like] type.
+    ///
+    /// [enum-like]: Enum
     Enum,
+    /// A [function-like] type.
+    ///
+    /// [function-like]: Function
     #[cfg(feature = "functions")]
     Function,
+    /// A value-like type.
+    ///
+    /// This most often represents a primitive or opaque type,
+    /// where it is not possible, difficult, or not useful to reflect the type further.
+    ///
+    /// For example, `u32` and `String` are examples of value-like types.
+    /// Additionally, any type that derives [`Reflect`] with the `#[reflect_value]` attribute
+    /// will be considered a value-like type.
+    ///
+    /// [`Reflect`]: crate::Reflect
     Value,
 }
 
@@ -39,7 +80,7 @@ impl std::fmt::Display for ReflectKind {
     }
 }
 
-macro_rules! impl_reflect_enum {
+macro_rules! impl_reflect_kind_conversions {
     ($name:ident$(<$lifetime:lifetime>)?) => {
         impl $name$(<$lifetime>)? {
             /// Returns the "kind" of this reflected type without any information.
@@ -80,12 +121,14 @@ macro_rules! impl_reflect_enum {
     };
 }
 
-/// An immutable enumeration of "kinds" of a reflected type.
+/// An immutable enumeration of ["kinds"] of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
 /// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
+///
+/// ["kinds"]: ReflectKind
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -99,14 +142,16 @@ pub enum ReflectRef<'a> {
     Function(&'a dyn Function),
     Value(&'a dyn PartialReflect),
 }
-impl_reflect_enum!(ReflectRef<'_>);
+impl_reflect_kind_conversions!(ReflectRef<'_>);
 
-/// A mutable enumeration of "kinds" of a reflected type.
+/// A mutable enumeration of ["kinds"] of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
 /// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
+///
+/// ["kinds"]: ReflectKind
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -120,14 +165,16 @@ pub enum ReflectMut<'a> {
     Function(&'a mut dyn Function),
     Value(&'a mut dyn PartialReflect),
 }
-impl_reflect_enum!(ReflectMut<'_>);
+impl_reflect_kind_conversions!(ReflectMut<'_>);
 
-/// An owned enumeration of "kinds" of a reflected type.
+/// An owned enumeration of ["kinds"] of a reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
 /// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
+///
+/// ["kinds"]: ReflectKind
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -141,4 +188,4 @@ pub enum ReflectOwned {
     Function(Box<dyn Function>),
     Value(Box<dyn PartialReflect>),
 }
-impl_reflect_enum!(ReflectOwned);
+impl_reflect_kind_conversions!(ReflectOwned);
