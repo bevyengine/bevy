@@ -1,6 +1,6 @@
 //! Demonstrates how to animate colors in different color spaces using mixing and splines.
 
-use bevy::{math::VectorSpace, prelude::*};
+use bevy::{math::{VectorSpace, sin}, prelude::*};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
 trait CurveColor: VectorSpace + Into<Color> + Send + Sync + 'static {}
@@ -100,7 +100,7 @@ fn animate_curve<T: CurveColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
 ) {
-    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (sin(time.elapsed_seconds()) + 1.) / 2.;
 
     for (mut transform, mut sprite, cubic_curve) in &mut query {
         // position takes a point from the curve where 0 is the initial point
@@ -114,7 +114,7 @@ fn animate_mixed<T: MixedColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
 ) {
-    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (sin(time.elapsed_seconds()) + 1.) / 2.;
 
     for (mut transform, mut sprite, mixed) in &mut query {
         sprite.color = {

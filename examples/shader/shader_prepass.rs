@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    math::sin,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -189,7 +190,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (time.elapsed_seconds().sin() * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
+        let rot = (sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }

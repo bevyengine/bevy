@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
+    math::sin,
 };
 use bevy_render::storage::ShaderStorageBuffer;
 
@@ -73,9 +74,9 @@ fn update(
             .map(|i| {
                 let t = time.elapsed_seconds() * 5.0;
                 [
-                    (t + i as f32).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 2.0).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 4.0).sin() / 2.0 + 0.5,
+                    sin(t + i as f32) / 2.0 + 0.5,
+                    sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+                    sin(t + i as f32 + 4.0) / 2.0 + 0.5,
                     1.0,
                 ]
             })

@@ -53,6 +53,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
+use bevy_math::tan;
 use smallvec::SmallVec;
 
 use crate::{
@@ -848,7 +849,7 @@ fn extract_depth_of_field_settings(
 ///
 /// See <https://photo.stackexchange.com/a/97218>.
 pub fn calculate_focal_length(sensor_height: f32, fov: f32) -> f32 {
-    0.5 * sensor_height / f32::tan(0.5 * fov)
+    0.5 * sensor_height / tan(0.5 * fov)
 }
 
 impl DepthOfFieldPipelines {

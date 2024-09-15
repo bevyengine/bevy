@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
     Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{atan2, hypot, FloatPow, Vec3, Vec4, cos, sin};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -191,9 +191,9 @@ impl Luminance for Oklcha {
 impl EuclideanDistance for Oklcha {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2)
-            + (self.chroma - other.chroma).powi(2)
-            + (self.hue - other.hue).powi(2)
+        FloatPow::squared(self.lightness - other.lightness)
+            + FloatPow::squared(self.chroma - other.chroma)
+            + FloatPow::squared(self.hue - other.hue)
     }
 }
 
@@ -260,8 +260,8 @@ impl From<Oklaba> for Oklcha {
             alpha,
         }: Oklaba,
     ) -> Self {
-        let chroma = a.hypot(b);
-        let hue = b.atan2(a).to_degrees();
+        let chroma = hypot(a, b);
+        let hue = atan2(b, a).to_degrees();
 
         let hue = if hue < 0.0 { hue + 360.0 } else { hue };
 
@@ -279,8 +279,8 @@ impl From<Oklcha> for Oklaba {
         }: Oklcha,
     ) -> Self {
         let l = lightness;
-        let a = chroma * hue.to_radians().cos();
-        let b = chroma * hue.to_radians().sin();
+        let a = chroma * cos(hue.to_radians());
+        let b = chroma * sin(hue.to_radians());
 
         Oklaba::new(l, a, b, alpha)
     }

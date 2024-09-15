@@ -5,6 +5,7 @@ use bevy::audio::Source;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::utils::Duration;
+use bevy::math::sin;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
@@ -46,7 +47,7 @@ impl Iterator for SineDecoder {
         self.current_progress += self.progress_per_frame;
         // we loop back round to 0 to avoid floating point inaccuracies
         self.current_progress %= 1.;
-        Some(f32::sin(self.period * self.current_progress))
+        Some(sin(self.period * self.current_progress))
     }
 }
 // `Source` is what allows the audio source to be played by bevy.

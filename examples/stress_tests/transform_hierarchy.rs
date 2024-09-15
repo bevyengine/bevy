@@ -22,6 +22,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::ExitCondition,
+    math::{sin, cos},
 };
 use rand::Rng;
 
@@ -265,8 +266,8 @@ fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>)
 
 /// set translation based on the angle `a`
 fn set_translation(translation: &mut Vec3, a: f32) {
-    translation.x = a.cos() * 32.0;
-    translation.y = a.sin() * 32.0;
+    translation.x = cos(a) * 32.0;
+    translation.y = sin(a) * 32.0;
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {

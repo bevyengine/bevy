@@ -4,6 +4,7 @@
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
     prelude::*,
+    math::{cos, sin, FloatPow}
 };
 
 fn main() {
@@ -304,12 +305,12 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
     let x_tweak = 2.0;
     let y_tweak = 3.0;
     let scale = 8.0;
-    let x0 = (x_tweak * t).sin();
-    let y0 = (y_tweak * t).cos();
-    let dx = x_tweak * (x_tweak * t).cos();
-    let dy = y_tweak * -(y_tweak * t).sin();
-    let x = x0 + offset * dy / (dx.powi(2) + dy.powi(2)).sqrt();
-    let y = y0 - offset * dx / (dx.powi(2) + dy.powi(2)).sqrt();
+    let x0 = sin(x_tweak * t);
+    let y0 = cos(y_tweak * t);
+    let dx = x_tweak * cos(x_tweak * t);
+    let dy = y_tweak * -sin(y_tweak * t);
+    let x = x0 + offset * dy / (FloatPow::squared(dx) + FloatPow::squared(dy)).sqrt();
+    let y = y0 - offset * dx / (FloatPow::squared(dx) + FloatPow::squared(dy)).sqrt();
     Vec2::new(x, y) * scale
 }
 
@@ -321,8 +322,8 @@ fn move_cars(
     for (mut transform, moves, children) in &mut movables {
         let time = time.elapsed_seconds() * 0.25;
         let t = time + 0.5 * moves.0;
-        let dx = t.cos();
-        let dz = -(3.0 * t).sin();
+        let dx = cos(t);
+        let dz = -sin(3.0 * t);
         let speed_variation = (dx * dx + dz * dz).sqrt() * 0.15;
         let t = t + speed_variation;
         let prev = transform.translation;

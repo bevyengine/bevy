@@ -7,6 +7,7 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     prelude::*,
+    math::sin,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -219,6 +220,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            (transform.translation.x + transform.translation.z + time.elapsed_seconds()).sin();
+            sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
     }
 }

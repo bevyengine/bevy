@@ -5,6 +5,7 @@
 use bevy::{
     input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
     sprite::MaterialMesh2dBundle,
+    math::{sin, cos}
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
@@ -635,9 +636,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            sin(time.elapsed_seconds()),
+            cos(time.elapsed_seconds()),
+            sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -655,9 +656,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            sin(time.elapsed_seconds()),
+            cos(time.elapsed_seconds()),
+            sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),

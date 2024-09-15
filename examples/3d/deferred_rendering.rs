@@ -6,13 +6,10 @@ use bevy::{
     core_pipeline::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
-    pbr::{
+    }, math::exp2, pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    },
-    prelude::*,
-    render::texture::ImageLoaderSettings,
+    }, prelude::*, render::texture::ImageLoaderSettings
 };
 
 fn main() {
@@ -263,7 +260,7 @@ fn setup_parallax(
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
-        max_parallax_layer_count: 5.0f32.exp2(),
+        max_parallax_layer_count: exp2(5.0f32),
         ..default()
     });
     commands.spawn((

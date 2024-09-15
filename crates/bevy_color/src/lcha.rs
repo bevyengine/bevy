@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{Vec3, Vec4, cos, sin, powf, atan2};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -257,8 +257,8 @@ impl From<Lcha> for Laba {
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
         let l = lightness;
-        let a = chroma * hue.to_radians().cos();
-        let b = chroma * hue.to_radians().sin();
+        let a = chroma * cos(hue.to_radians());
+        let b = chroma * sin(hue.to_radians());
 
         Laba::new(l, a, b, alpha)
     }
@@ -274,9 +274,9 @@ impl From<Laba> for Lcha {
         }: Laba,
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
-        let c = (a.powf(2.0) + b.powf(2.0)).sqrt();
+        let c = (powf(a, 2.0) + powf(b, 2.0)).sqrt();
         let h = {
-            let h = b.to_radians().atan2(a.to_radians()).to_degrees();
+            let h = atan2(b.to_radians(), a.to_radians()).to_degrees();
 
             if h < 0.0 {
                 h + 360.0

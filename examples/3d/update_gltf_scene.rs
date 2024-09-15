@@ -1,7 +1,7 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*, math::{sin, cos}};
 
 fn main() {
     App::new()
@@ -69,9 +69,9 @@ fn move_scene_entities(
         for entity in children.iter_descendants(moved_scene_entity) {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
-                    offset * time.elapsed_seconds().sin() / 20.,
+                    offset * sin(time.elapsed_seconds()) / 20.,
                     0.,
-                    time.elapsed_seconds().cos() / 20.,
+                    cos(time.elapsed_seconds()) / 20.,
                 );
                 offset += 0.5;
             }

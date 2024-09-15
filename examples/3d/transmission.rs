@@ -32,6 +32,7 @@ use bevy::{
         camera::{Exposure, TemporalJitter},
         view::{ColorGrading, ColorGradingGlobal},
     },
+    math::{exp, cos},
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -578,7 +579,7 @@ fn example_control_system(
             0.0
         };
 
-    camera_transform.translation *= distance_change.exp();
+    camera_transform.translation *= exp(distance_change);
 
     camera_transform.rotate_around(
         Vec3::ZERO,
@@ -642,9 +643,9 @@ fn flicker_system(
     time: Res<Time>,
 ) {
     let s = time.elapsed_seconds();
-    let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
-    let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
-    let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
+    let a = cos(s * 6.0) * 0.0125 + cos(s * 4.0) * 0.025;
+    let b = cos(s * 5.0) * 0.0125 + cos(s * 3.0) * 0.025;
+    let c = cos(s * 7.0) * 0.0125 + cos(s * 2.0) * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);

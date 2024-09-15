@@ -6,6 +6,7 @@ use std::time::Duration;
 use bevy::{
     color::palettes::css::*, input::common_conditions::input_just_pressed, prelude::*,
     time::common_conditions::on_real_timer,
+    math::sin,
 };
 
 fn main() {
@@ -169,7 +170,7 @@ fn move_virtual_time_sprites(
 }
 
 fn get_sprite_translation_x(elapsed: f32) -> f32 {
-    elapsed.sin() * 500.
+    sin(elapsed) * 500.
 }
 
 /// Update the speed of `Time<Virtual>.` by `DELTA`

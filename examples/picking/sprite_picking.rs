@@ -1,7 +1,7 @@
 //! Demonstrates picking for sprites and sprite atlases. The picking backend only tests against the
 //! sprite bounds, so the sprite atlas can be picked by clicking on its trnasparent areas.
 
-use bevy::{prelude::*, sprite::Anchor};
+use bevy::{prelude::*, sprite::Anchor, math::sin};
 use std::fmt::Debug;
 
 fn main() {
@@ -19,8 +19,8 @@ fn move_sprite(
     let t = time.elapsed_seconds() * 0.1;
     for mut transform in &mut sprite {
         let new = Vec2 {
-            x: 50.0 * t.sin(),
-            y: 50.0 * (t * 2.0).sin(),
+            x: 50.0 * sin(t),
+            y: 50.0 * sin(t * 2.0),
         };
         transform.translation.x = new.x;
         transform.translation.y = new.y;

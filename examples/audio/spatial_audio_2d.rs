@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::css::*,
     prelude::*,
     sprite::MaterialMesh2dBundle,
+    math::sin,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -108,7 +109,7 @@ fn update_emitters(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
+            emitter_transform.translation.x = sin(time.elapsed_seconds()) * 500.0;
         }
     }
 }

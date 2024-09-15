@@ -22,7 +22,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
-use bevy_math::{FloatExt, Quat, Vec3};
+use bevy_math::{FloatExt, FloatPow, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
@@ -1210,10 +1210,10 @@ fn cubic_spline_interpolation<T>(
 where
     T: Mul<f32, Output = T> + Add<Output = T>,
 {
-    value_start * (2.0 * lerp.powi(3) - 3.0 * lerp.powi(2) + 1.0)
-        + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
-        + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
-        + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
+    value_start * (2.0 * FloatPow::cubed(lerp) - 3.0 * FloatPow::squared(lerp) + 1.0)
+        + tangent_out_start * (step_duration) * (FloatPow::cubed(lerp) - 2.0 * FloatPow::squared(lerp) + lerp)
+        + value_end * (-2.0 * FloatPow::cubed(lerp) + 3.0 * FloatPow::squared(lerp))
+        + tangent_in_end * step_duration * (FloatPow::cubed(lerp) - FloatPow::squared(lerp))
 }
 
 /// Adds animation support to an app

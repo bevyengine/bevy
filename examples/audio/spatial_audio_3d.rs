@@ -2,6 +2,7 @@
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
     prelude::*,
+    math::{sin, cos},
 };
 
 fn main() {
@@ -101,8 +102,8 @@ fn update_positions(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 3.0;
-            emitter_transform.translation.z = time.elapsed_seconds().cos() * 3.0;
+            emitter_transform.translation.x = sin(time.elapsed_seconds()) * 3.0;
+            emitter_transform.translation.z = cos(time.elapsed_seconds()) * 3.0;
         }
     }
 }

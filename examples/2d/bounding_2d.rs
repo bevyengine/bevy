@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::*,
-    math::{bounding::*, Isometry2d},
+    math::{bounding::*, Isometry2d, cos, sin},
     prelude::*,
 };
 
@@ -302,8 +302,8 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
 }
 
 fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
-    let ray = Vec2::new(time.elapsed_seconds().cos(), time.elapsed_seconds().sin());
-    let dist = 150. + (0.5 * time.elapsed_seconds()).sin().abs() * 500.;
+    let ray = Vec2::new(cos(time.elapsed_seconds()), sin(time.elapsed_seconds()));
+    let dist = 150. + sin(0.5 * time.elapsed_seconds()).abs() * 500.;
 
     let aabb_ray = Ray2d {
         origin: ray * 250.,
@@ -399,8 +399,8 @@ fn bounding_circle_cast_system(
 }
 
 fn get_intersection_position(time: &Time) -> Vec2 {
-    let x = (0.8 * time.elapsed_seconds()).cos() * 250.;
-    let y = (0.4 * time.elapsed_seconds()).sin() * 100.;
+    let x = cos(0.8 * time.elapsed_seconds()) * 250.;
+    let y = sin(0.4 * time.elapsed_seconds()) * 100.;
     Vec2::new(x, y)
 }
 

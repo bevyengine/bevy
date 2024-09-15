@@ -20,6 +20,8 @@ use bevy_ecs::{
 use bevy_math::{
     primitives::{Cone, Sphere},
     Isometry3d, Quat, Vec3,
+    sin,
+    cos,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -78,12 +80,12 @@ fn spot_light_gizmo(
 
     // Offset the tip of the cone to the light position.
     for angle in [spot_light.inner_angle, spot_light.outer_angle] {
-        let height = spot_light.range * angle.cos();
+        let height = spot_light.range * cos(angle);
         let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
         gizmos
             .primitive_3d(
                 &Cone {
-                    radius: spot_light.range * angle.sin(),
+                    radius: spot_light.range * sin(angle),
                     height,
                 },
                 Isometry3d::new(position, rotation * Quat::from_rotation_x(PI / 2.0)),
