@@ -4,7 +4,7 @@ use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    math::{sin_cos, sin},
+    math::{sin, sin_cos},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},

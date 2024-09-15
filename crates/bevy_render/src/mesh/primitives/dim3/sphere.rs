@@ -4,7 +4,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{atan2, primitives::Sphere, acos, sin, cos};
+use bevy_math::{acos, atan2, cos, primitives::Sphere, sin};
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;

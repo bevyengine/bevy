@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     ecs::entity::EntityHashMap,
-    math::{FloatOrd, sin, cos},
+    math::{cos, sin, FloatOrd},
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute, RenderMesh},

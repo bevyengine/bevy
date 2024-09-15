@@ -2,9 +2,9 @@
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
+    math::sin,
     prelude::*,
     sprite::MaterialMesh2dBundle,
-    math::sin,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,

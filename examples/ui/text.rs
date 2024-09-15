@@ -6,8 +6,8 @@
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    prelude::*,
     math::sin,
+    prelude::*,
 };
 
 fn main() {

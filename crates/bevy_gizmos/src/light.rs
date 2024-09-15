@@ -18,10 +18,9 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_math::{
-    primitives::{Cone, Sphere},
-    Isometry3d, Quat, Vec3,
-    sin,
     cos,
+    primitives::{Cone, Sphere},
+    sin, Isometry3d, Quat, Vec3,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

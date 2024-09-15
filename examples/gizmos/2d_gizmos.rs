@@ -2,7 +2,12 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*, math::{sin, cos}};
+use bevy::{
+    color::palettes::css::*,
+    math::Isometry2d,
+    math::{cos, sin},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -118,7 +123,11 @@ fn draw_example_collection(
 
     // You can create more complex arrows using the arrow builder.
     gizmos
-        .arrow_2d(Vec2::ZERO, Vec2::from_angle(sin_t_scaled / -10.) * 50., GREEN)
+        .arrow_2d(
+            Vec2::ZERO,
+            Vec2::from_angle(sin_t_scaled / -10.) * 50.,
+            GREEN,
+        )
         .with_double_end()
         .with_tip_length(10.);
 }

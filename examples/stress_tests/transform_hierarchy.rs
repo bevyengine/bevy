@@ -20,9 +20,9 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::{cos, sin},
     prelude::*,
     window::ExitCondition,
-    math::{sin, cos},
 };
 use rand::Rng;
 

@@ -1212,7 +1212,9 @@ where
     T: Mul<f32, Output = T> + Add<Output = T>,
 {
     value_start * (2.0 * FloatPow::cubed(lerp) - 3.0 * FloatPow::squared(lerp) + 1.0)
-        + tangent_out_start * (step_duration) * (FloatPow::cubed(lerp) - 2.0 * FloatPow::squared(lerp) + lerp)
+        + tangent_out_start
+            * (step_duration)
+            * (FloatPow::cubed(lerp) - 2.0 * FloatPow::squared(lerp) + lerp)
         + value_end * (-2.0 * FloatPow::cubed(lerp) + 3.0 * FloatPow::squared(lerp))
         + tangent_in_end * step_duration * (FloatPow::cubed(lerp) - FloatPow::squared(lerp))
 }

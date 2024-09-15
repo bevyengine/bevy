@@ -9,7 +9,8 @@ use bevy::{
     math::{
         bounding::{
             Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
-        }, powf, sin_cos, Isometry2d
+        },
+        powf, sin_cos, Isometry2d,
     },
     prelude::*,
     render::{

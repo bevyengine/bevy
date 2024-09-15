@@ -2,13 +2,13 @@
 
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    math::sin,
     pbr::{
         ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle,
         ScreenSpaceAmbientOcclusionQualityLevel,
     },
     prelude::*,
     render::camera::TemporalJitter,
-    math::sin,
 };
 use std::f32::consts::PI;
 

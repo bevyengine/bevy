@@ -1,6 +1,10 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{color::palettes::css::ORANGE_RED, math::{cbrt, FloatPow}, prelude::*};
+use bevy::{
+    color::palettes::css::ORANGE_RED,
+    math::{cbrt, FloatPow},
+    prelude::*,
+};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

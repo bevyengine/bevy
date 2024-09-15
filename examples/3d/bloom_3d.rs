@@ -6,8 +6,8 @@ use bevy::{
         bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
-    prelude::*,
     math::sin,
+    prelude::*,
 };
 use std::{
     collections::hash_map::DefaultHasher,

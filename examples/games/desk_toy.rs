@@ -7,7 +7,12 @@
 //! - Creating simple 2D meshes based on shape primitives.
 
 use bevy::{
-    app::AppExit, input::common_conditions::{input_just_pressed, input_just_released}, math::powf, prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}, window::{PrimaryWindow, WindowLevel}
+    app::AppExit,
+    input::common_conditions::{input_just_pressed, input_just_released},
+    math::powf,
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    window::{PrimaryWindow, WindowLevel},
 };
 
 #[cfg(target_os = "macos")]

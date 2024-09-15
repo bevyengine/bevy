@@ -1,4 +1,4 @@
-use bevy_math::{primitives::Torus, Vec3, cos, sin};
+use bevy_math::{cos, primitives::Torus, sin, Vec3};
 use std::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 

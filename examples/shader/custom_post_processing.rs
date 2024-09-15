@@ -12,6 +12,7 @@ use bevy::{
         fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     },
     ecs::query::QueryItem,
+    math::sin,
     prelude::*,
     render::{
         extract_component::{
@@ -30,7 +31,6 @@ use bevy::{
         view::ViewTarget,
         RenderApp,
     },
-    math::sin,
 };
 
 /// This example uses a shader source file from the assets subdirectory

@@ -3,7 +3,11 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{color::palettes::css::*, math::{sin_cos, sin, cos}, prelude::*};
+use bevy::{
+    color::palettes::css::*,
+    math::{cos, sin, sin_cos},
+    prelude::*,
+};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -132,9 +136,7 @@ fn draw_example_collection(
     );
 
     let domain = Interval::EVERYWHERE;
-    let curve = function_curve(domain, |t| {
-        (Vec2::from(sin_cos(t * 10.0))).extend(t - 6.0)
-    });
+    let curve = function_curve(domain, |t| (Vec2::from(sin_cos(t * 10.0))).extend(t - 6.0));
     let resolution = ((sin(time.elapsed_seconds()) + 1.0) * 100.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)

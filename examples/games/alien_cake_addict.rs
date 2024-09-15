@@ -2,10 +2,10 @@
 
 use std::f32::consts::PI;
 
+use bevy::math::sin;
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use bevy::math::sin;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {

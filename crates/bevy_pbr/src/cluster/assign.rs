@@ -4,7 +4,9 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{ln, powf, sin_cos, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
+use bevy_math::{
+    ln, powf, sin_cos, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
+};
 use bevy_render::{
     camera::Camera,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
@@ -723,7 +725,11 @@ fn compute_aabb_for_cluster(
         let cluster_near = if ijk.z == 0.0 {
             0.0
         } else {
-            -z_near * powf(z_far_over_z_near, (ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
+            -z_near
+                * powf(
+                    z_far_over_z_near,
+                    (ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32,
+                )
         };
         // NOTE: This could be simplified to:
         // cluster_far = cluster_near * z_far_over_z_near;

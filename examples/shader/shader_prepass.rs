@@ -4,11 +4,11 @@
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    math::sin,
     pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
-    math::sin,
 };
 
 /// This example uses a shader source file from the assets subdirectory

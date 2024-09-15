@@ -6,10 +6,14 @@ use bevy::{
     core_pipeline::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    }, math::exp2, pbr::{
+    },
+    math::exp2,
+    pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
-    }, prelude::*, render::texture::ImageLoaderSettings
+    },
+    prelude::*,
+    render::texture::ImageLoaderSettings,
 };
 
 fn main() {

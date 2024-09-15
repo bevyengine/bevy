@@ -5,11 +5,11 @@
 use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::sin,
     prelude::*,
     text::{BreakLineOn, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
-    math::sin,
 };
 
 fn main() {

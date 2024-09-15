@@ -26,13 +26,13 @@ use bevy::{
         bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
+    math::{cos, exp},
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
         view::{ColorGrading, ColorGradingGlobal},
     },
-    math::{exp, cos},
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]

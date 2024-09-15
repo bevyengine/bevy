@@ -1,5 +1,9 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::{input::common_conditions::input_just_pressed, prelude::*, math::{sin, cos}};
+use bevy::{
+    input::common_conditions::input_just_pressed,
+    math::{cos, sin},
+    prelude::*,
+};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;

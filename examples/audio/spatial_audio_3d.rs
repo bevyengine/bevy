@@ -1,8 +1,8 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
+    math::{cos, sin},
     prelude::*,
-    math::{sin, cos},
 };
 
 fn main() {

@@ -10,7 +10,8 @@ use bevy_math::{
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
         RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
-    }, sin_cos, FloatExt, Vec2
+    },
+    sin_cos, FloatExt, Vec2,
 };
 use wgpu::PrimitiveTopology;
 

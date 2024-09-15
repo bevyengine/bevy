@@ -1,9 +1,9 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    math::sin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
-    math::sin,
 };
 use bevy_render::storage::ShaderStorageBuffer;
 

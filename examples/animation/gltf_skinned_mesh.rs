@@ -3,7 +3,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh, math::sin};
+use bevy::{math::sin, prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()

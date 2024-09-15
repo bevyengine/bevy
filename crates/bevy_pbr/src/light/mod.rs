@@ -154,7 +154,10 @@ fn calculate_cascade_bounds(
     if num_cascades == 1 {
         return vec![shadow_maximum_distance];
     }
-    let base = powf(shadow_maximum_distance / nearest_bound, 1.0 / (num_cascades - 1) as f32);
+    let base = powf(
+        shadow_maximum_distance / nearest_bound,
+        1.0 / (num_cascades - 1) as f32,
+    );
     (0..num_cascades)
         .map(|i| nearest_bound * powf(base, i as f32))
         .collect()

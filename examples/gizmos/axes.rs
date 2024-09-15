@@ -1,7 +1,10 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
-use bevy::{math::{log2, exp2, cos, sin, acos}, prelude::*};
 use bevy::render::primitives::Aabb;
+use bevy::{
+    math::{acos, cos, exp2, log2, sin},
+    prelude::*,
+};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
@@ -174,11 +177,7 @@ fn random_scale(rng: &mut impl Rng) -> Vec3 {
     let z_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
 
-    Vec3::new(
-        exp2(x_factor_log),
-        exp2(y_factor_log),
-        exp2(z_factor_log),
-    )
+    Vec3::new(exp2(x_factor_log), exp2(y_factor_log), exp2(z_factor_log))
 }
 
 fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
@@ -186,11 +185,7 @@ fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
     let y_factor_log = (1. - t) * log2(v1.y) + t * log2(v2.y);
     let z_factor_log = (1. - t) * log2(v1.z) + t * log2(v2.z);
 
-    Vec3::new(
-        exp2(x_factor_log),
-        exp2(y_factor_log),
-        exp2(z_factor_log),
-    )
+    Vec3::new(exp2(x_factor_log), exp2(y_factor_log), exp2(z_factor_log))
 }
 
 fn random_rotation(rng: &mut impl Rng) -> Quat {

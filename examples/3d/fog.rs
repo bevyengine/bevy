@@ -15,9 +15,9 @@
 //! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
 use bevy::{
+    math::{cos, sin},
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
-    math::{cos, sin}
 };
 
 fn main() {

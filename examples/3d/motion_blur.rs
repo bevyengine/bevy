@@ -3,8 +3,8 @@
 
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
+    math::{cos, sin, FloatPow},
     prelude::*,
-    math::{cos, sin, FloatPow}
 };
 
 fn main() {

@@ -7,10 +7,10 @@
 
 use bevy::{
     color::palettes::css::*,
+    math::{cos, sin},
     prelude::*,
     sprite::Anchor,
     text::{BreakLineOn, TextBounds},
-    math::{cos, sin},
 };
 
 fn main() {

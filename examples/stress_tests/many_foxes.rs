@@ -6,7 +6,12 @@ use std::time::Duration;
 
 use argh::FromArgs;
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin}, math::sin_cos, pbr::CascadeShadowConfigBuilder, prelude::*, window::{PresentMode, WindowResolution}, winit::{UpdateMode, WinitSettings}
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    math::sin_cos,
+    pbr::CascadeShadowConfigBuilder,
+    prelude::*,
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 #[derive(FromArgs, Resource)]

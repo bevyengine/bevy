@@ -3,9 +3,11 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
+    input::common_conditions::input_just_pressed,
+    math::Isometry2d,
+    math::{cos, sin},
+    prelude::*,
     sprite::MaterialMesh2dBundle,
-    math::{sin, cos}
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;

@@ -4,9 +4,9 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    math::sin,
     pbr::NotShadowCaster,
     prelude::*,
-    math::sin,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

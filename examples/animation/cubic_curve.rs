@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::{ORANGE, SILVER, WHITE},
-    math::{vec3, sin},
+    math::{sin, vec3},
     prelude::*,
 };
 

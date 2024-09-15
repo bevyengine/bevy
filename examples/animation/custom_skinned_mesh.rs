@@ -4,6 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
+    math::sin,
     prelude::*,
     render::{
         mesh::{
@@ -12,7 +13,6 @@ use bevy::{
         },
         render_asset::RenderAssetUsages,
     },
-    math::sin,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

@@ -2,10 +2,10 @@
 use bevy::audio::AddAudioSource;
 use bevy::audio::AudioPlugin;
 use bevy::audio::Source;
+use bevy::math::sin;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::utils::Duration;
-use bevy::math::sin;
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.

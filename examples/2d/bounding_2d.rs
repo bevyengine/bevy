@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::*,
-    math::{bounding::*, Isometry2d, cos, sin},
+    math::{bounding::*, cos, sin, Isometry2d},
     prelude::*,
 };
 

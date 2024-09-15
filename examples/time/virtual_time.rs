@@ -4,9 +4,8 @@
 use std::time::Duration;
 
 use bevy::{
-    color::palettes::css::*, input::common_conditions::input_just_pressed, prelude::*,
+    color::palettes::css::*, input::common_conditions::input_just_pressed, math::sin, prelude::*,
     time::common_conditions::on_real_timer,
-    math::sin,
 };
 
 fn main() {
