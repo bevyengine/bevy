@@ -80,7 +80,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,

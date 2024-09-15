@@ -44,6 +44,7 @@ use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::{Mesh, Meshable},
@@ -71,14 +72,14 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
@@ -138,7 +139,7 @@ pub struct FogVolumeBundle {
 }
 
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
