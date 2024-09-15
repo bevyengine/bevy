@@ -238,7 +238,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     let type_registry = app_type_registry.read();
     let entity_ref = get_entity(world, entity)?;
 
-    let mut serialized_components_map = HashMap::new();
+    let mut response = BrpGetResponse::default();
 
     for component_path in components {
         let reflect_component = get_reflect_component(&type_registry, &component_path)
@@ -266,10 +266,10 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
             });
         };
 
-        serialized_components_map.extend(serialized_object.into_iter());
+        response.extend(serialized_object.into_iter());
     }
 
-    serde_json::to_value(serialized_components_map).map_err(BrpError::internal)
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Handles a `bevy/query` request coming from a client.
@@ -335,7 +335,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
         .map_err(BrpError::component_error)?;
 
-    let mut rows = vec![];
+    let mut response = BrpQueryResponse::default();
     let mut query = query.build();
     for row in query.iter(world) {
         // The map of component values:
@@ -351,14 +351,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             row.clone(),
             has_paths_and_reflect_components.iter().copied(),
         );
-        rows.push(BrpQueryRow {
+        response.push(BrpQueryRow {
             entity: row.id(),
             components: components_map,
             has: has_map,
         });
     }
 
-    serde_json::to_value(rows).map_err(BrpError::internal)
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Handles a `bevy/spawn` request coming from a client.
@@ -370,10 +370,14 @@ pub fn process_remote_spawn_request(In(params): In<Option<Value>>, world: &mut W
 
     let reflect_components =
         deserialize_components(&type_registry, components).map_err(BrpError::component_error)?;
-    insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)
+
+    let entity = world.spawn_empty();
+    let entity_id = entity.id();
+    insert_reflected_components(&type_registry, entity, reflect_components)
         .map_err(BrpError::component_error)?;
 
-    Ok(Value::Null)
+    let response = BrpSpawnResponse { entity: entity_id };
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Handles a `bevy/insert` request (insert components) coming from a client.
@@ -469,7 +473,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
 
-    let mut result = vec![];
+    let mut response = BrpListResponse::default();
 
     // If `Some`, return all components of the provided entity.
     if let Some(BrpListParams { entity }) = params.map(parse).transpose()? {
@@ -478,23 +482,23 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
-            result.push(component_info.name().to_owned());
+            response.push(component_info.name().to_owned());
         }
     }
     // If `None`, list all registered components.
     else {
         for registered_type in type_registry.iter() {
             if registered_type.data::<ReflectComponent>().is_some() {
-                result.push(registered_type.type_info().type_path().to_owned());
+                response.push(registered_type.type_info().type_path().to_owned());
             }
         }
     }
 
     // Sort both for cleanliness and to reduce the risk that clients start
     // accidentally depending on the order.
-    result.sort();
+    response.sort();
 
-    serde_json::to_value(result).map_err(BrpError::internal)
+    serde_json::to_value(response).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
