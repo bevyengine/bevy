@@ -154,8 +154,8 @@ pub struct BlockOpacityPropagation;
 ///
 /// This is a convenient tool for fading in/fading out pop-ups like on-hover help text. However, it may not be
 /// efficient to *hide* those popups using inherited opacity, because it does require hierarchy traversal.
-/// If perf becomes an issue, you should use [`Visibility::Hidden`] to hide popups, and only insert
-/// this component when animating a transition to full opacity.
+/// If perf becomes an issue, you should use [`Visibility::Hidden`](bevy_render::prelude::Visibility) to hide popups,
+/// and only insert this component when animating a transition to full opacity.
 #[derive(Component, Reflect, Default, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
