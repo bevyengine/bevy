@@ -7,7 +7,7 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, at which point we create
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
-use bevy::{dev_tools::states::*, prelude::*};
+use bevy::{dev_tools::states::*, prelude::*, math::sin};
 
 use ui::*;
 
@@ -117,7 +117,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            blue: sin(time.elapsed_seconds() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 

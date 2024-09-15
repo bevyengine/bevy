@@ -196,7 +196,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            blue: sin(time.elapsed_seconds() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 
