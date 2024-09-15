@@ -573,7 +573,6 @@ impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::*;
-    use crate::system::InRef;
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
