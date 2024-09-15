@@ -812,7 +812,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use std::ops::Deref;
-    /// # use bevy::math::sin;
     /// #
     /// # #[derive(Component)]
     /// # struct PartMarker;
@@ -846,7 +845,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     // Sort by the sines of the part values.
     ///     let parts: Vec<(Entity, &PartValue)> = query
     ///         .iter()
-    ///         .sort_by_key::<&PartValue, _>(|value| sin(value) as usize)
+    ///         .sort_by_key::<&PartValue, _>(|value| value.sin() as usize)
     ///         .collect();
     /// }
     ///

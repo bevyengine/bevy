@@ -22,7 +22,7 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
-    math::vec3,
+    math::{cos, sin, vec3},
     pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
     render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
@@ -257,11 +257,8 @@ fn animate_light(
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(
-            f32::sin(now * 1.4),
-            f32::cos(now * 1.0),
-            f32::cos(now * 0.6),
-        ) * vec3(3.0, 4.0, 3.0);
+        transform.translation =
+            vec3(sin(now * 1.4), cos(now * 1.0), cos(now * 0.6)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
