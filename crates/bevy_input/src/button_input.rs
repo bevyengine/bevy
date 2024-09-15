@@ -125,7 +125,7 @@ use std::hash::Hash;
 ///             Update,
 ///             something_used.run_if(
 ///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(GamepadButton::new(
+///                     .or(input_just_pressed(GamepadButton::new(
 ///                         Gamepad::new(0),
 ///                         GamepadButtonType::West,
 ///                     ))),
