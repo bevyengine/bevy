@@ -272,7 +272,7 @@ macro_rules! impl_exclusive_system_function {
                     world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
-                    f(In::into_param(input), world, $($param,)*)
+                    f(In::wrap(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, world, $($param),*)

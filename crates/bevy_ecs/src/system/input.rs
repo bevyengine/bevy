@@ -25,10 +25,10 @@ pub trait SystemInput: Sized {
     type Inner<'i>;
 
     /// Converts a [`SystemInput::Param`] into a [`SystemInput::Inner`].
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_>;
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_>;
 
     /// Converts a [`SystemInput::Inner`] into a [`SystemInput::Param`].
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_>;
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_>;
 }
 
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
@@ -39,9 +39,9 @@ impl SystemInput for () {
     type Param<'i> = ();
     type Inner<'i> = ();
 
-    fn into_inner(_this: Self::Param<'_>) -> Self::Inner<'_> {}
+    fn unwrap(_this: Self::Param<'_>) -> Self::Inner<'_> {}
 
-    fn into_param(_this: Self::Inner<'_>) -> Self::Param<'_> {}
+    fn wrap(_this: Self::Inner<'_>) -> Self::Param<'_> {}
 }
 
 /// Wrapper type to mark a [`SystemParam`] as an input.
@@ -78,11 +78,11 @@ impl<T: 'static> SystemInput for In<T> {
     type Param<'i> = In<T>;
     type Inner<'i> = T;
 
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         In(this)
     }
 }
@@ -138,11 +138,11 @@ impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     type Param<'i> = InRef<'i, T>;
     type Inner<'i> = &'i T;
 
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InRef(this)
     }
 }
@@ -188,11 +188,11 @@ impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
     type Param<'i> = InMut<'i, T>;
     type Inner<'i> = &'i mut T;
 
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InMut(this)
     }
 }
@@ -218,11 +218,11 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
     type Param<'i> = Trigger<'i, E, B>;
     type Inner<'i> = Trigger<'i, E, B>;
 
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
         this
     }
 
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
     }
 }
@@ -241,11 +241,11 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
     type Param<'i> = StaticSystemInput<'i, I>;
     type Inner<'i> = I::Inner<'i>;
 
-    fn into_inner(this: Self::Param<'_>) -> Self::Inner<'_> {
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
         this.0
     }
 
-    fn into_param(this: Self::Inner<'_>) -> Self::Param<'_> {
+    fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         StaticSystemInput(this)
     }
 }

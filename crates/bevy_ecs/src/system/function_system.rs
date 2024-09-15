@@ -859,7 +859,7 @@ macro_rules! impl_system_function {
                     input: In::Inner<'_>,
                     $($param: $param,)*
                 )->Out{
-                    f(In::into_param(input), $($param,)*)
+                    f(In::wrap(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, $($param),*)
