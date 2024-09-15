@@ -104,7 +104,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`deny`](Self::deny_component).
+    /// This is the inverse of [`deny_component`](Self::deny_component).
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
     pub fn allow_component<T: Component>(mut self) -> Self {
@@ -116,7 +116,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// This method may be called multiple times for any number of components.
     ///
-    /// This is the inverse of [`allow`](Self::allow_component).
+    /// This is the inverse of [`allow_component`](Self::allow_component).
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
     pub fn deny_component<T: Component>(mut self) -> Self {
