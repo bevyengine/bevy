@@ -119,7 +119,7 @@ where
     #[inline]
     unsafe fn run_unsafe(
         &mut self,
-        input: <Func::In as SystemInput>::Inner<'_>,
+        input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
@@ -129,11 +129,7 @@ where
     }
 
     #[inline]
-    fn run(
-        &mut self,
-        input: <Func::In as SystemInput>::Inner<'_>,
-        world: &mut crate::prelude::World,
-    ) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
         self.func
             .adapt(input, |input| self.system.run(input, world))
     }
