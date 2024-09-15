@@ -3,7 +3,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
@@ -24,8 +24,8 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiImage, UiScale, Val,
+    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, OpacityModifier,
+    Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -201,6 +201,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &BackgroundColor,
+            Option<Ref<OpacityModifier>>,
             &Style,
             Option<&Parent>,
         )>,
@@ -215,6 +216,7 @@ pub fn extract_uinode_background_colors(
         clip,
         camera,
         background_color,
+        maybe_opacity_modifier,
         style,
         parent,
     ) in &uinode_query
@@ -224,8 +226,17 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
+        // Apply modifier if present and changed this tick.
+        let mut bg_color = background_color.0;
+
+        if let Some(modifier) = maybe_opacity_modifier {
+            if modifier.is_changed() {
+                bg_color = set_color_alpha(bg_color, color_alpha(bg_color) * **modifier);
+            }
+        }
+
         // Skip invisible backgrounds
-        if !view_visibility.get() || background_color.0.is_fully_transparent() {
+        if !view_visibility.get() || bg_color.is_fully_transparent() {
             continue;
         }
 
@@ -267,7 +278,7 @@ pub fn extract_uinode_background_colors(
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
-                color: background_color.0.into(),
+                color: bg_color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.calculated_size,
@@ -303,6 +314,7 @@ pub fn extract_uinode_images(
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
                 &UiImage,
+                Option<Ref<OpacityModifier>>,
                 Option<&TextureAtlas>,
                 Option<&Parent>,
                 &Style,
@@ -312,17 +324,36 @@ pub fn extract_uinode_images(
     >,
     node_query: Extract<Query<&Node>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, parent, style) in
-        &uinode_query
+    for (
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        maybe_opacity_modifier,
+        atlas,
+        parent,
+        style,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
 
+        // Apply modifier if present and changed this tick.
+        let mut img_color = image.color;
+
+        if let Some(modifier) = maybe_opacity_modifier {
+            if modifier.is_changed() {
+                img_color = set_color_alpha(img_color, color_alpha(img_color) * **modifier);
+            }
+        }
+
         // Skip invisible images
         if !view_visibility.get()
-            || image.color.is_fully_transparent()
+            || img_color.is_fully_transparent()
             || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             continue;
@@ -393,7 +424,7 @@ pub fn extract_uinode_images(
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
-                color: image.color.into(),
+                color: img_color.into(),
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
@@ -459,6 +490,7 @@ pub fn extract_uinode_borders(
             Option<&Parent>,
             &Style,
             AnyOf<(&BorderColor, &Outline)>,
+            Option<Ref<OpacityModifier>>,
         )>,
     >,
     node_query: Extract<Query<&Node>>,
@@ -474,6 +506,7 @@ pub fn extract_uinode_borders(
         maybe_parent,
         style,
         (maybe_border_color, maybe_outline),
+        maybe_opacity_modifier,
     ) in &uinode_query
     {
         let Some(camera_entity) = maybe_camera
@@ -483,11 +516,25 @@ pub fn extract_uinode_borders(
             continue;
         };
 
+        // Apply modifier if present and changed this tick.
+        let mut maybe_br_color = maybe_border_color.map(|br| br.0);
+        let mut maybe_outline_color = maybe_outline.map(|o| o.color);
+
+        if let Some(modifier) = maybe_opacity_modifier {
+            if modifier.is_changed() {
+                maybe_br_color = maybe_br_color
+                    .map(|color| set_color_alpha(color, color_alpha(color) * **modifier));
+                maybe_outline_color = maybe_outline_color
+                    .map(|color| set_color_alpha(color, color_alpha(color) * **modifier));
+            }
+        }
+
         // Skip invisible borders
         if !view_visibility.get()
             || style.display == Display::None
-            || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
-                && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
+            || maybe_br_color.is_some_and(|border_color| border_color.is_fully_transparent())
+                && maybe_outline_color
+                    .is_some_and(|outline_color| outline_color.is_fully_transparent())
         {
             continue;
         }
@@ -529,13 +576,13 @@ pub fn extract_uinode_borders(
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
         if !uinode.is_empty() && border != [0.; 4] {
-            if let Some(border_color) = maybe_border_color {
+            if let Some(border_color) = maybe_br_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         stack_index: uinode.stack_index,
                         transform: global_transform.compute_matrix(),
-                        color: border_color.0.into(),
+                        color: border_color.into(),
                         rect: Rect {
                             max: uinode.size(),
                             ..Default::default()
@@ -554,7 +601,7 @@ pub fn extract_uinode_borders(
             }
         }
 
-        if let Some(outline) = maybe_outline {
+        if let Some(outline_color) = maybe_outline_color {
             let outer_distance = uinode.outline_offset() + uinode.outline_width();
             let outline_radius = border_radius.map(|radius| {
                 if radius > 0. {
@@ -569,7 +616,7 @@ pub fn extract_uinode_borders(
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: global_transform.compute_matrix(),
-                    color: outline.color.into(),
+                    color: outline_color.into(),
                     rect: Rect {
                         max: outline_size,
                         ..Default::default()
@@ -689,11 +736,20 @@ pub fn extract_uinode_text(
             Option<&TargetCamera>,
             &Text,
             &TextLayoutInfo,
+            Option<Ref<OpacityModifier>>,
         )>,
     >,
 ) {
-    for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
-        &uinode_query
+    for (
+        uinode,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        text,
+        text_layout_info,
+        maybe_opacity_modifier,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -731,6 +787,8 @@ pub fn extract_uinode_text(
 
         let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
+        let maybe_opacity_modifier =
+            maybe_opacity_modifier.and_then(|m| if m.is_changed() { Some(*m) } else { None });
         for PositionedGlyph {
             position,
             atlas_info,
@@ -739,7 +797,12 @@ pub fn extract_uinode_text(
         } in &text_layout_info.glyphs
         {
             if *section_index != current_section {
-                color = LinearRgba::from(text.sections[*section_index].style.color);
+                let mut text_color = text.sections[*section_index].style.color;
+                // Apply modifier if present and changed this tick.
+                if let Some(modifier) = maybe_opacity_modifier {
+                    text_color = set_color_alpha(text_color, color_alpha(text_color) * *modifier);
+                }
+                color = LinearRgba::from(text_color);
                 current_section = *section_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
@@ -1138,4 +1201,37 @@ pub fn prepare_uinodes(
         commands.insert_or_spawn_batch(batches);
     }
     extracted_uinodes.uinodes.clear();
+}
+
+fn color_alpha(color: Color) -> f32 {
+    match color {
+        Color::Srgba(bevy_color::Srgba { alpha, .. })
+        | Color::LinearRgba(LinearRgba { alpha, .. })
+        | Color::Hsla(bevy_color::Hsla { alpha, .. })
+        | Color::Hsva(bevy_color::Hsva { alpha, .. })
+        | Color::Hwba(bevy_color::Hwba { alpha, .. })
+        | Color::Laba(bevy_color::Laba { alpha, .. })
+        | Color::Lcha(bevy_color::Lcha { alpha, .. })
+        | Color::Oklaba(bevy_color::Oklaba { alpha, .. })
+        | Color::Oklcha(bevy_color::Oklcha { alpha, .. })
+        | Color::Xyza(bevy_color::Xyza { alpha, .. }) => alpha,
+    }
+}
+
+fn set_color_alpha(mut color: Color, new_alpha: f32) -> Color {
+    match &mut color {
+        Color::Srgba(bevy_color::Srgba { alpha, .. })
+        | Color::LinearRgba(LinearRgba { alpha, .. })
+        | Color::Hsla(bevy_color::Hsla { alpha, .. })
+        | Color::Hsva(bevy_color::Hsva { alpha, .. })
+        | Color::Hwba(bevy_color::Hwba { alpha, .. })
+        | Color::Laba(bevy_color::Laba { alpha, .. })
+        | Color::Lcha(bevy_color::Lcha { alpha, .. })
+        | Color::Oklaba(bevy_color::Oklaba { alpha, .. })
+        | Color::Oklcha(bevy_color::Oklcha { alpha, .. })
+        | Color::Xyza(bevy_color::Xyza { alpha, .. }) => {
+            *alpha = new_alpha;
+        }
+    }
+    color
 }

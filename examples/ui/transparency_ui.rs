@@ -77,5 +77,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     ));
                 });
+
+            // Another button, this time using PropagateOpacity to adjust opacity for children.
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(150.0),
+                            height: Val::Px(65.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: bevy::color::palettes::tailwind::AMBER_600.into(),
+                        ..default()
+                    },
+                    PropagateOpacity(0.05),
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Button 3",
+                        TextStyle {
+                            font: font_handle.clone(),
+                            font_size: 40.0,
+                            // This time alpha is left to default.
+                            color: bevy::color::palettes::tailwind::SKY_600.into(),
+                        },
+                    ));
+                });
         });
 }

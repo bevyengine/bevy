@@ -13,6 +13,7 @@
 
 pub mod measurement;
 pub mod node_bundles;
+pub mod propagate_opacity;
 pub mod ui_material;
 pub mod update;
 pub mod widget;
@@ -35,6 +36,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
+pub use propagate_opacity::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
@@ -46,8 +48,8 @@ use widget::UiImageSize;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+        geometry::*, node_bundles::*, propagate_opacity::*, ui_material::*, ui_node::*,
+        widget::Button, widget::Label, Interaction, UiMaterialPlugin, UiScale,
     };
     // `bevy_sprite` re-exports for texture slicing
     #[doc(hidden)]
@@ -144,6 +146,8 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .register_type::<PropagateOpacity>()
+            .register_type::<BlockOpacityPropagation>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -163,7 +167,7 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
-                update_target_camera_system.in_set(UiSystem::Prepare),
+                (update_target_camera_system, propagate_opacity_values).in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate)
