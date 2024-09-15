@@ -1,10 +1,12 @@
 use crate as bevy_ecs;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::detailed_trace;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
@@ -85,7 +87,7 @@ use std::ops::{Deref, DerefMut};
 /// [`EventWriter`]: super::EventWriter
 /// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
