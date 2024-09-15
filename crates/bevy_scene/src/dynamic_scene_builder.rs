@@ -76,7 +76,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     /// Specify a custom component [`SceneFilter`] to be used with this builder.
     #[must_use]
-    pub fn with_filter(mut self, filter: SceneFilter) -> Self {
+    pub fn with_component_filter(mut self, filter: SceneFilter) -> Self {
         self.component_filter = filter;
         self
     }
@@ -95,7 +95,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// This is the inverse of [`deny`](Self::deny).
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
-    pub fn allow<T: Component>(mut self) -> Self {
+    pub fn allow_component<T: Component>(mut self) -> Self {
         self.component_filter = self.component_filter.allow::<T>();
         self
     }
@@ -107,7 +107,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// This is the inverse of [`allow`](Self::allow).
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
-    pub fn deny<T: Component>(mut self) -> Self {
+    pub fn deny_component<T: Component>(mut self) -> Self {
         self.component_filter = self.component_filter.deny::<T>();
         self
     }
@@ -118,7 +118,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// [denied]: Self::deny
     #[must_use]
-    pub fn allow_all(mut self) -> Self {
+    pub fn allow_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::allow_all();
         self
     }
@@ -129,7 +129,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// [allowed]: Self::allow
     #[must_use]
-    pub fn deny_all(mut self) -> Self {
+    pub fn deny_all_components(mut self) -> Self {
         self.component_filter = SceneFilter::deny_all();
         self
     }
@@ -571,7 +571,7 @@ mod tests {
         let entity_b = world.spawn(ComponentB).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
-            .allow::<ComponentA>()
+            .allow_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
@@ -598,7 +598,7 @@ mod tests {
         let entity_b = world.spawn(ComponentB).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
-            .deny::<ComponentA>()
+            .deny_component::<ComponentA>()
             .extract_entities([entity_a_b, entity_a, entity_b].into_iter())
             .build();
 
