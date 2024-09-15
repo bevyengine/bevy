@@ -2384,6 +2384,259 @@ pub enum TryFromFilteredError {
     MissingWriteAllAccess,
 }
 
+/// A type-level set of components.
+///
+/// This is used to name components in [`EntityRefExcept`] and
+/// [`EntityMutExcept`].
+pub trait ComponentList {
+    /// An array of component IDs, one for each component in the list.
+    type Ids: ComponentIdList;
+
+    /// Returns the component IDs of each component in the list.
+    fn get_ids(components: &Components) -> Self::Ids;
+
+    /// Returns true if the component `C` is a member of this list and false
+    /// otherwise.
+    fn contains<C>() -> bool
+    where
+        C: Component;
+}
+
+/// A fixed-length array of component IDs.
+///
+/// This is essentially an implementation detail of [`ComponentList`].
+pub trait ComponentIdList: Clone + Send + Sync {
+    /// Returns true if this list contains the given component ID and false
+    /// otherwise.
+    fn contains(&self, id: ComponentId) -> bool;
+}
+
+impl<C> ComponentList for C
+where
+    C: Component,
+{
+    type Ids = ComponentId;
+
+    #[inline]
+    fn get_ids(components: &Components) -> Self::Ids {
+        components.component_id::<C>().unwrap()
+    }
+
+    #[inline]
+    fn contains<K>() -> bool
+    where
+        K: Component,
+    {
+        TypeId::of::<K>() == TypeId::of::<C>()
+    }
+}
+
+// Replaces a token tree with a constant. This is a helper for
+// `impl_component_list_tuple!` below.
+//
+// https://veykril.github.io/tlborm/decl-macros/patterns/repetition-replacement.html
+macro_rules! replace_expr {
+    ($_t:tt $sub:expr) => {
+        $sub
+    };
+}
+
+// A helper macro to reduce internal boilerplate when for `ComponentList` tuple
+// implementations.
+macro_rules! impl_component_list_tuple {
+    ($($name: ident),*) => {
+        impl<$($name),*> ComponentList for ($($name,)*) where $($name: Component),* {
+            type Ids = [ComponentId; 0 $(+ replace_expr!($name 1))*];
+
+            #[inline]
+            fn get_ids(components: &Components) -> Self::Ids {
+                [$(components.component_id::<$name>().unwrap()),*]
+            }
+
+            #[inline]
+            fn contains<C>() -> bool where C: Component {
+                true $(|| TypeId::of::<C>() == TypeId::of::<$name>())*
+            }
+        }
+    }
+}
+
+impl_component_list_tuple!(C1);
+impl_component_list_tuple!(C1, C2);
+impl_component_list_tuple!(C1, C2, C3);
+impl_component_list_tuple!(C1, C2, C3, C4);
+impl_component_list_tuple!(C1, C2, C3, C4, C5);
+impl_component_list_tuple!(C1, C2, C3, C4, C5, C6);
+impl_component_list_tuple!(C1, C2, C3, C4, C5, C6, C7);
+impl_component_list_tuple!(C1, C2, C3, C4, C5, C6, C7, C8);
+
+impl ComponentIdList for ComponentId {
+    fn contains(&self, id: ComponentId) -> bool {
+        *self == id
+    }
+}
+
+impl<const N: usize> ComponentIdList for [ComponentId; N] {
+    fn contains(&self, query_id: ComponentId) -> bool {
+        self.iter().any(|id| *id == query_id)
+    }
+}
+
+/// Provides read-only access to a single entity and all its components, save
+/// for an explicitly-enumerated set.
+#[derive(Clone)]
+pub struct EntityRefExcept<'w, CL>
+where
+    CL: ComponentList,
+{
+    entity: UnsafeEntityCell<'w>,
+    phantom: PhantomData<CL>,
+}
+
+impl<'w, CL> EntityRefExcept<'w, CL>
+where
+    CL: ComponentList,
+{
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
+        Self {
+            entity,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Gets access to the component of type `C` for the current entity. Returns
+    /// `None` if the component doesn't have a component of that type or if the
+    /// type is one of the excluded components.
+    #[inline]
+    pub fn get<C>(&self) -> Option<&'w C>
+    where
+        C: Component,
+    {
+        if CL::contains::<C>() {
+            None
+        } else {
+            // SAFETY: We have read access for all components that weren't
+            // covered by the `contains` check above.
+            unsafe { self.entity.get() }
+        }
+    }
+
+    /// Gets access to the component of type `C` for the current entity,
+    /// including change detection information. Returns `None` if the component
+    /// doesn't have a component of that type or if the type is one of the
+    /// excluded components.
+    #[inline]
+    pub fn get_ref<C>(&self) -> Option<Ref<'w, C>>
+    where
+        C: Component,
+    {
+        if CL::contains::<C>() {
+            None
+        } else {
+            // SAFETY: We have read access for all components that weren't
+            // covered by the `contains` check above.
+            unsafe { self.entity.get_ref() }
+        }
+    }
+}
+
+impl<'a, CL> From<&'a EntityMutExcept<'_, CL>> for EntityRefExcept<'a, CL>
+where
+    CL: ComponentList,
+{
+    fn from(entity_mut: &'a EntityMutExcept<'_, CL>) -> Self {
+        // SAFETY: All accesses that `EntityRefExcept` provides are also
+        // accesses that `EntityMutExcept` provides.
+        unsafe { EntityRefExcept::new(entity_mut.entity) }
+    }
+}
+
+/// Provides mutable access to all components of an entity, with the exception
+/// of an explicit set.
+///
+/// This is a rather niche type that should only be used if you need access to
+/// *all* components of an entity, while still allowing you to consult other
+/// queries that might match entities that this query also matches. If you don't
+/// need access to all components, prefer a standard query with a
+/// [`crate::query::Without`] filter.
+#[derive(Clone)]
+pub struct EntityMutExcept<'w, CL>
+where
+    CL: ComponentList,
+{
+    entity: UnsafeEntityCell<'w>,
+    phantom: PhantomData<CL>,
+}
+
+impl<'w, CL> EntityMutExcept<'w, CL>
+where
+    CL: ComponentList,
+{
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
+        Self {
+            entity,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Returns a new instance with a shorter lifetime.
+    ///
+    /// This is useful if you have `&mut EntityMutExcept`, but you need
+    /// `EntityMutExcept`.
+    pub fn reborrow(&mut self) -> EntityMutExcept<'_, CL> {
+        // SAFETY: We have exclusive access to the entire entity and the
+        // applicable components.
+        unsafe { Self::new(self.entity) }
+    }
+
+    /// Gets read-only access to all of the entity's components, except for the
+    /// ones in `CL`.
+    #[inline]
+    pub fn as_readonly(&self) -> EntityRefExcept<'_, CL> {
+        EntityRefExcept::from(self)
+    }
+
+    /// Gets access to the component of type `C` for the current entity. Returns
+    /// `None` if the component doesn't have a component of that type or if the
+    /// type is one of the excluded components.
+    #[inline]
+    pub fn get<C>(&self) -> Option<&'_ C>
+    where
+        C: Component,
+    {
+        self.as_readonly().get()
+    }
+
+    /// Gets access to the component of type `C` for the current entity,
+    /// including change detection information. Returns `None` if the component
+    /// doesn't have a component of that type or if the type is one of the
+    /// excluded components.
+    #[inline]
+    pub fn get_ref<C>(&self) -> Option<Ref<'_, C>>
+    where
+        C: Component,
+    {
+        self.as_readonly().get_ref()
+    }
+
+    /// Gets mutable access to the component of type `C` for the current entity.
+    /// Returns `None` if the component doesn't have a component of that type or
+    /// if the type is one of the excluded components.
+    #[inline]
+    pub fn get_mut<C>(&self) -> Option<Mut<'_, C>>
+    where
+        C: Component,
+    {
+        if CL::contains::<C>() {
+            None
+        } else {
+            // SAFETY: We have write access for all components that weren't
+            // covered by the `contains` check above.
+            unsafe { self.entity.get_mut() }
+        }
+    }
+}
+
 /// Inserts a dynamic [`Bundle`] into the entity.
 ///
 /// # Safety
@@ -2603,8 +2856,11 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
+    use crate::system::{QueryParamBuilder, RunSystemOnce as _};
     use crate::world::{FilteredEntityMut, FilteredEntityRef};
     use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
+
+    use super::{EntityMutExcept, EntityRefExcept};
 
     #[test]
     fn sorted_remove() {
@@ -2996,6 +3252,187 @@ mod tests {
 
         // remove non-existent component does not panic
         world.spawn_empty().remove_by_id(test_component_id);
+    }
+
+    /// Tests that components can be accessed through an `EntityRefExcept`.
+    #[test]
+    fn entity_ref_except() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        let mut query = world.query::<EntityRefExcept<TestComponent>>();
+
+        let mut found = false;
+        for entity_ref in query.iter_mut(&mut world) {
+            found = true;
+            assert!(entity_ref.get::<TestComponent>().is_none());
+            assert!(matches!(
+                entity_ref.get::<TestComponent2>(),
+                Some(TestComponent2(0))
+            ));
+        }
+
+        assert!(found);
+    }
+
+    // Test that an `EntityRefExcept` that doesn't include a component C among
+    // its exclusions can't coexist with a mutable query for that component.
+    #[test]
+    #[should_panic]
+    fn entity_ref_except_conflicts() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        // This should panic, because we have a mutable borrow on
+        // `TestComponent` but have a simultaneous indirect immutable borrow on
+        // that component via `EntityRefExcept`.
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<&mut TestComponent>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityRefExcept<TestComponent2>>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>| {},
+            );
+
+        world.run_system_once(system);
+    }
+
+    // Test that an `EntityRefExcept` with an exception for some component C can
+    // coexist with a query for that component C.
+    #[test]
+    fn entity_ref_except_doesnt_conflict() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<&mut TestComponent>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityRefExcept<TestComponent>>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>| {
+                    for entity_ref in query.iter() {
+                        assert!(matches!(
+                            entity_ref.get::<TestComponent2>(),
+                            Some(TestComponent2(0))
+                        ));
+                    }
+                },
+            );
+
+        world.run_system_once(system);
+    }
+
+    /// Tests that components can be mutably accessed through an
+    /// `EntityMutExcept`.
+    #[test]
+    fn entity_mut_except() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        let mut query = world.query::<EntityMutExcept<TestComponent>>();
+
+        let mut found = false;
+        for entity_mut in query.iter_mut(&mut world) {
+            found = true;
+            assert!(entity_mut.get::<TestComponent>().is_none());
+            assert!(matches!(
+                entity_mut.get::<TestComponent2>(),
+                Some(TestComponent2(0))
+            ));
+        }
+
+        assert!(found);
+    }
+
+    // Test that an `EntityMutExcept` that doesn't include a component C among
+    // its exclusions can't coexist with a query for that component.
+    #[test]
+    #[should_panic]
+    fn entity_mut_except_conflicts() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        // This should panic, because we have a mutable borrow on
+        // `TestComponent` but have a simultaneous indirect immutable borrow on
+        // that component via `EntityRefExcept`.
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<&mut TestComponent>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityMutExcept<TestComponent2>>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |_: Query<&mut TestComponent>,
+                 mut query: Query<EntityMutExcept<TestComponent2>>| {
+                    for entity_mut in query.iter_mut() {
+                        assert!(entity_mut
+                            .get_mut::<TestComponent2>()
+                            .is_some_and(|component| component.0 == 0));
+                    }
+                },
+            );
+
+        world.run_system_once(system);
+    }
+
+    // Test that an `EntityMutExcept` with an exception for some component C can
+    // coexist with a query for that component C.
+    #[test]
+    fn entity_mut_except_doesnt_conflict() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        let system = (
+            QueryParamBuilder::new(|builder| {
+                builder.data::<&mut TestComponent>();
+            }),
+            QueryParamBuilder::new(|builder| {
+                builder.data::<EntityMutExcept<TestComponent>>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>| {
+                    for entity_mut in query.iter_mut() {
+                        assert!(entity_mut
+                            .get_mut::<TestComponent2>()
+                            .is_some_and(|component| component.0 == 0));
+                    }
+                },
+            );
+
+        world.run_system_once(system);
     }
 
     #[derive(Component)]
