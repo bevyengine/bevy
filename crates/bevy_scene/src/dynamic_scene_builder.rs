@@ -16,8 +16,8 @@ use std::collections::BTreeMap;
 ///
 /// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
-/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_filter) or by explicitly
-/// [allowing](DynamicSceneBuilder::allow)/[denying](DynamicSceneBuilder::deny) certain components.
+/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
 ///
 /// Extraction happens immediately and uses the filter as it exists during the time of extraction.
 ///
@@ -262,8 +262,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// Note that components extracted from queried entities must still pass through the filter if one is set.
     ///
-    /// [`allow`]: Self::allow
-    /// [`deny`]: Self::deny
+    /// [`allow`]: Self::allow_component
+    /// [`deny`]: Self::deny_component
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
