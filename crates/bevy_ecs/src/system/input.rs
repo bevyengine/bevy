@@ -225,7 +225,8 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
 /// A helper for using [`SystemInput`]s in generic contexts.
 ///
 /// This type is a [`SystemInput`] adapter which always has
-/// `Self::Param::Inner == Self::Inner`.
+/// `Self::Param == Self` (ignoring lifetimes for brevity),
+/// no matter the argument [`SystemInput`] (`I`).
 ///
 /// This makes it useful for having arbitrary [`SystemInput`]s in
 /// function systems.
