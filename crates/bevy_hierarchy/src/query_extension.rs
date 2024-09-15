@@ -1,10 +1,12 @@
 use std::collections::VecDeque;
 
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     query::{QueryData, QueryFilter, WorldQuery},
     system::Query,
 };
+use smallvec::SmallVec;
 
 use crate::{Children, Parent};
 
@@ -55,6 +57,16 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, D, F>
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+
+    /// Returns an [`Iterator`] of [`Entity`]s over `entity`s children while recursively ignoring shadow entities marked by `T`, instead treating their children as children of `entity`.
+    ///
+    /// Can only be called on a [`Query`] of `Option<&Children>` and `Option<&T>` and  (i.e. `Query<Option<&Children>, Option<&ShadowChild>`).
+    ///
+    /// Traverses the hierarchy depth-first to maintain child order.
+    fn iter_children_shadowed<T>(&'w self, entity: Entity) -> ShadowedChildIter<'w, 's, D, F, T>
+    where
+        T: Component,
+        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Children>, Option<&'w T>)>;
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
@@ -70,6 +82,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         AncestorIter::new(self, entity)
+    }
+
+    fn iter_children_shadowed<T>(&'w self, entity: Entity) -> ShadowedChildIter<'w, 's, D, F, T>
+    where
+        T: Component,
+        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Children>, Option<&'w T>)>,
+    {
+        ShadowedChildIter::<D, F, T>::new(self, entity)
     }
 }
 
@@ -153,6 +173,57 @@ where
     }
 }
 
+/// An [`Iterator`] of [`Entity`]s over `entity`s children while recursively ignoring (shadow) entities marked by `T`, instead treating their children as children of `entity`.
+///
+/// Traverses the hierarchy depth-first to ensure child order.
+pub struct ShadowedChildIter<'w, 's, D: QueryData, F: QueryFilter, T: Component>
+where
+    T: Component,
+    D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Children>, Option<&'w T>)>,
+{
+    query: &'w Query<'w, 's, D, F>,
+    stack: SmallVec<[Entity; 8]>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, T: Component> ShadowedChildIter<'w, 's, D, F, T>
+where
+    T: Component,
+    D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Children>, Option<&'w T>)>,
+{
+    /// Returns a new [`ShadowedChildIter`].
+    pub fn new(query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
+        ShadowedChildIter {
+            query,
+            stack: query.get(entity).map_or(SmallVec::new(), |(children, _)| {
+                children.into_iter().flatten().rev().copied().collect()
+            }),
+        }
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, T> Iterator for ShadowedChildIter<'w, 's, D, F, T>
+where
+    T: Component,
+    D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Children>, Option<&'w T>)>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let entity = self.stack.pop()?;
+            let (children, fragment) = self.query.get(entity).ok()?;
+
+            if fragment.is_none() {
+                return Some(entity);
+            }
+
+            if let Some(children) = children {
+                self.stack.extend(children.iter().copied());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
@@ -200,5 +271,34 @@ mod tests {
         let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
+    }
+
+    #[test]
+    fn children_shadowed_iter() {
+        #[derive(Component)]
+        struct ShadowChild;
+
+        let world = &mut World::new();
+
+        let a = world.spawn(A(0)).id();
+        let b = world.spawn((A(1), ShadowChild)).id();
+        let c = world.spawn((A(2), ShadowChild)).id();
+        let d = world.spawn(A(3)).id();
+        let e = world.spawn(A(4)).id();
+
+        world.entity_mut(a).push_children(&[b, c, d]);
+        world.entity_mut(b).push_children(&[e]);
+
+        let mut system_state = SystemState::<(
+            Query<(Option<&Children>, Option<&ShadowChild>)>,
+            Query<&A>,
+        )>::new(world);
+        let (children_query, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query
+            .iter_many(children_query.iter_children_shadowed(a))
+            .collect();
+
+        assert_eq!([&A(4), &A(3)], result.as_slice());
     }
 }
