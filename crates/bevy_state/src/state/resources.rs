@@ -52,7 +52,7 @@ use bevy_reflect::prelude::ReflectDefault;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Debug, PartialEq)
 )]
 pub struct State<S: States>(pub(crate) S);
 
@@ -118,7 +118,7 @@ impl<S: States> Deref for State<S> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource, Default)
+    reflect(Resource, Default, Debug)
 )]
 pub enum NextState<S: FreelyMutableState> {
     /// No state transition is pending

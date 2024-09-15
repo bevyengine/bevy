@@ -27,7 +27,7 @@ impl Default for CosmicBuffer {
 ///
 /// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Text {
     /// The text's sections
     pub sections: Vec<TextSection>,
