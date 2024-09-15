@@ -2486,6 +2486,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_cameras_lights"
+path = "examples/stress_tests/many_cameras_lights.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_cameras_lights]
+name = "Many Cameras & Lights"
+description = "Test rendering of many cameras and lights"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cubes"
 path = "examples/stress_tests/many_cubes.rs"
 doc-scrape-examples = true
