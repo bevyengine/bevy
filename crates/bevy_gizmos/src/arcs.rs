@@ -6,7 +6,7 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{sin_cos, Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===

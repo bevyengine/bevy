@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
-use bevy_math::{atan2, cos, hypot, sin, Vec3, Vec4};
+use bevy_math::{atan2, hypot, sin_cos, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 

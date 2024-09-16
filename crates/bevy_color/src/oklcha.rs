@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
     Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{atan2, cos, hypot, sin, FloatPow, Vec3, Vec4};
+use bevy_math::{atan2, hypot, sin_cos, FloatPow, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 

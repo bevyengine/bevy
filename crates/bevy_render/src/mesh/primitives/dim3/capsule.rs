@@ -2,7 +2,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{cos, primitives::Capsule3d, sin, sin_cos, Vec2, Vec3};
+use bevy_math::{primitives::Capsule3d, sin_cos, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// Manner in which UV coordinates are distributed vertically.
