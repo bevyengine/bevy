@@ -26,7 +26,7 @@ use bevy_utils::tracing::warn;
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 
 use self::{
-    node::{ApplyAtmosphereNode, AtmosphereLutsNode, AtmosphereNodes},
+    node::{AtmosphereNode, AtmosphereNodeLabel},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
         AtmospherePipelines, AtmosphereSamplers,
@@ -130,32 +130,16 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
-                Core3d,
-                AtmosphereNodes::Luts,
-            )
-            .add_render_graph_node::<ViewNodeRunner<ApplyAtmosphereNode>>(
-                Core3d,
-                AtmosphereNodes::Apply,
-            )
+            .add_render_graph_node::<ViewNodeRunner<AtmosphereNode>>(Core3d, AtmosphereNodeLabel)
             .add_render_graph_edges(
                 Core3d,
                 (
                     // END_PRE_PASSES -> PREPARE_SKY -> MAIN_PASS
                     Node3d::EndPrepasses,
-                    AtmosphereNodes::Luts,
+                    AtmosphereNodeLabel,
                     Node3d::StartMainPass,
                 ),
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndMainPass,
-                    AtmosphereNodes::Apply,
-                    Node3d::PostProcessing,
-                ),
-            )
-            .add_render_graph_edges(Core3d, (AtmosphereNodes::Luts, AtmosphereNodes::Apply));
+            );
     }
 }
 

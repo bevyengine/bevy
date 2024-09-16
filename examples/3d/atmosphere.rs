@@ -29,6 +29,11 @@ fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            msaa: Msaa::Off,
             ..default()
         },
         Atmosphere::EARTH,
