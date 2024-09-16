@@ -1,11 +1,7 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
 use bevy::{
-    color::palettes::css::WHITE,
-    core_pipeline::Skybox,
-    math::vec3,
-    prelude::*,
-    time::Stopwatch,
+    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
 };
 
 /// The initial position of the camera.
