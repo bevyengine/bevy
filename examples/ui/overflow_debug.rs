@@ -1,8 +1,5 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-};
+use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -71,7 +68,8 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
+        transform.rotation =
+            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
     }
 }
 

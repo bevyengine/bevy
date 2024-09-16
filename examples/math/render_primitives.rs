@@ -3,9 +3,7 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    math::Isometry2d,
-    prelude::*,
+    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
     sprite::MaterialMesh2dBundle,
 };
 
