@@ -665,11 +665,11 @@ pub fn extract_default_ui_camera_view(
                     color_grading: Default::default(),
                 })
                 .id();
-            commands
+            let entity_commands = commands
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
-                commands.get_or_spawn(entity).insert(*ui_anti_alias);
+                entity_commands.insert(*ui_anti_alias);
             }
             transparent_render_phases.insert_or_clear(entity);
 
