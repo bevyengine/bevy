@@ -19,8 +19,8 @@ pub use crate::{
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
-    ComponentIdList, ComponentList, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-    EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
+    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
+    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
 };
 pub use identifier::WorldId;
 pub use spawn_batch::*;

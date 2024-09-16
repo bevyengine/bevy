@@ -1,18 +1,19 @@
 use crate::{
     archetype::{Archetype, Archetypes},
+    bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, ComponentIdList, ComponentList, EntityMut,
-        EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut,
-        Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
+use smallvec::SmallVec;
 use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -631,22 +632,22 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         _table: &Table,
     ) {
         let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if archetype.contains(id) {
+        for id in archetype.components() {
+            if state.access.has_component_read(id) {
                 access.add_component_read(id);
             }
-        });
+        }
         fetch.1 = access;
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
         let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if table.has_column(id) {
+        for id in table.columns() {
+            if state.access.has_component_read(id) {
                 access.add_component_read(id);
             }
-        });
+        }
         fetch.1 = access;
     }
 
@@ -738,32 +739,28 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         _table: &Table,
     ) {
         let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if archetype.contains(id) {
+        for id in archetype.components() {
+            if state.access.has_component_read(id) {
                 access.add_component_read(id);
             }
-        });
-        state.access.component_writes().for_each(|id| {
-            if archetype.contains(id) {
+            if state.access.has_component_write(id) {
                 access.add_component_write(id);
             }
-        });
+        }
         fetch.1 = access;
     }
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
         let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if table.has_column(id) {
+        for id in table.columns() {
+            if state.access.has_component_read(id) {
                 access.add_component_read(id);
             }
-        });
-        state.access.component_writes().for_each(|id| {
-            if table.has_column(id) {
+            if state.access.has_component_write(id) {
                 access.add_component_write(id);
             }
-        });
+        }
         fetch.1 = access;
     }
 
@@ -811,20 +808,6 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     }
 }
 
-// The `State` that `EntityRefExcept` stores. This is simply the number of
-// registered components (so that the `Access` can be properly constructed) as
-// well as a list of excluded IDs.
-#[doc(hidden)]
-pub struct EntityRefExceptWorldQueryState<CIL>
-where
-    CIL: ComponentIdList,
-{
-    // The IDs of the excluded components.
-    ids: CIL,
-    // The total number of components that have been registered to the world.
-    component_count: usize,
-}
-
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
@@ -833,13 +816,13 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 /// SAFETY: `EntityRefExcept` guards access to all components in the list `CL`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, CL> WorldQuery for EntityRefExcept<'a, CL>
+unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     type Fetch<'w> = UnsafeWorldCell<'w>;
-    type Item<'w> = EntityRefExcept<'w, CL>;
-    type State = EntityRefExceptWorldQueryState<CL::Ids>;
+    type Item<'w> = EntityRefExcept<'w, B>;
+    type State = SmallVec<[ComponentId; 4]>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
@@ -883,18 +866,10 @@ where
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        // `Access` specifies which components are allowed, not which are
-        // disallowed. So we iterate through all component IDs in the `World`,
-        // except for the excluded ones, and add them one-by-one to the
-        // `Access`. This is somewhat slow, but this code shouldn't be a hot
-        // path.
-        for component_index in 0..state.component_count {
-            let component_id = ComponentId::new(component_index);
-            if !state.ids.contains(component_id) {
-                filtered_access
-                    .access_mut()
-                    .add_component_read(component_id);
-            }
+        let access = filtered_access.access_mut();
+        access.read_all_components();
+        for id in state {
+            access.remove_component_read(*id);
         }
     }
 
@@ -903,10 +878,13 @@ where
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        Some(Self::State {
-            ids: CL::get_ids(components),
-            component_count: components.len(),
-        })
+        let mut ids = SmallVec::new();
+        B::get_component_ids(components, &mut |maybe_id| {
+            if let Some(id) = maybe_id {
+                ids.push(id);
+            }
+        });
+        Some(ids)
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -916,27 +894,27 @@ where
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
-unsafe impl<'a, CL> QueryData for EntityRefExcept<'a, CL>
+unsafe impl<'a, B> QueryData for EntityRefExcept<'a, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     type ReadOnly = Self;
 }
 
 /// SAFETY: `EntityRefExcept` enforces read-only access to its contained
 /// components.
-unsafe impl<'a, CL> ReadOnlyQueryData for EntityRefExcept<'a, CL> where CL: ComponentList {}
+unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the list `CL`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, CL> WorldQuery for EntityMutExcept<'a, CL>
+unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     type Fetch<'w> = UnsafeWorldCell<'w>;
-    type Item<'w> = EntityMutExcept<'w, CL>;
-    type State = EntityRefExceptWorldQueryState<CL::Ids>;
+    type Item<'w> = EntityMutExcept<'w, B>;
+    type State = SmallVec<[ComponentId; 4]>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
@@ -980,18 +958,10 @@ where
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        // `Access` specifies which components are allowed, not which are
-        // disallowed. So we iterate through all component IDs in the `World`,
-        // except for the excluded ones, and add them one-by-one to the
-        // `Access`. This is somewhat slow, but this code shouldn't be a hot
-        // path.
-        for component_index in 0..state.component_count {
-            let component_id = ComponentId::new(component_index);
-            if !state.ids.contains(component_id) {
-                filtered_access
-                    .access_mut()
-                    .add_component_write(component_id);
-            }
+        let access = filtered_access.access_mut();
+        access.write_all_components();
+        for id in state {
+            access.remove_component_read(*id);
         }
     }
 
@@ -1000,10 +970,13 @@ where
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        Some(Self::State {
-            ids: CL::get_ids(components),
-            component_count: components.len(),
-        })
+        let mut ids = SmallVec::new();
+        B::get_component_ids(components, &mut |maybe_id| {
+            if let Some(id) = maybe_id {
+                ids.push(id);
+            }
+        });
+        Some(ids)
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -1013,11 +986,11 @@ where
 
 /// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
 /// `EntityMutExcept` provides.
-unsafe impl<'a, CL> QueryData for EntityMutExcept<'a, CL>
+unsafe impl<'a, B> QueryData for EntityMutExcept<'a, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
-    type ReadOnly = EntityRefExcept<'a, CL>;
+    type ReadOnly = EntityRefExcept<'a, B>;
 }
 
 /// SAFETY:

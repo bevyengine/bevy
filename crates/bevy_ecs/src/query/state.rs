@@ -508,22 +508,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        self.component_access
-            .access
-            .component_reads()
-            .for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_read(id);
-                }
-            });
-        self.component_access
-            .access
-            .component_writes()
-            .for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_write(id);
-                }
-            });
+        for component_id in archetype.components() {
+            let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) else { continue };
+            if self.component_access.access.has_component_read(component_id) {
+                access.add_component_read(archetype_component_id);
+            }
+            if self.component_access.access.has_component_write(component_id) {
+                access.add_component_write(archetype_component_id);
+            }
+        }
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].

@@ -1927,12 +1927,6 @@ impl<'w> FilteredEntityRef<'w> {
         self.entity.archetype()
     }
 
-    /// Returns an iterator over the component ids that are accessed by self.
-    #[inline]
-    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.component_reads_and_writes()
-    }
-
     /// Returns a reference to the underlying [`Access`].
     #[inline]
     pub fn access(&self) -> &Access<ComponentId> {
@@ -2184,12 +2178,6 @@ impl<'w> FilteredEntityMut<'w> {
         self.entity.archetype()
     }
 
-    /// Returns an iterator over the component ids that are accessed by self.
-    #[inline]
-    pub fn accessed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.component_reads_and_writes()
-    }
-
     /// Returns a reference to the underlying [`Access`].
     #[inline]
     pub fn access(&self) -> &Access<ComponentId> {
@@ -2384,118 +2372,20 @@ pub enum TryFromFilteredError {
     MissingWriteAllAccess,
 }
 
-/// A type-level set of components.
-///
-/// This is used to name components in [`EntityRefExcept`] and
-/// [`EntityMutExcept`].
-pub trait ComponentList {
-    /// An array of component IDs, one for each component in the list.
-    type Ids: ComponentIdList;
-
-    /// Returns the component IDs of each component in the list.
-    fn get_ids(components: &Components) -> Self::Ids;
-
-    /// Returns true if the component `C` is a member of this list and false
-    /// otherwise.
-    fn contains<C>() -> bool
-    where
-        C: Component;
-}
-
-/// A fixed-length array of component IDs.
-///
-/// This is essentially an implementation detail of [`ComponentList`].
-pub trait ComponentIdList: Clone + Send + Sync {
-    /// Returns true if this list contains the given component ID and false
-    /// otherwise.
-    fn contains(&self, id: ComponentId) -> bool;
-}
-
-impl<C> ComponentList for C
-where
-    C: Component,
-{
-    type Ids = ComponentId;
-
-    #[inline]
-    fn get_ids(components: &Components) -> Self::Ids {
-        components.component_id::<C>().unwrap()
-    }
-
-    #[inline]
-    fn contains<K>() -> bool
-    where
-        K: Component,
-    {
-        TypeId::of::<K>() == TypeId::of::<C>()
-    }
-}
-
-// Replaces a token tree with a constant. This is a helper for
-// `impl_component_list_tuple!` below.
-//
-// https://veykril.github.io/tlborm/decl-macros/patterns/repetition-replacement.html
-macro_rules! replace_expr {
-    ($_t:tt $sub:expr) => {
-        $sub
-    };
-}
-
-// A helper macro to reduce internal boilerplate when for `ComponentList` tuple
-// implementations.
-macro_rules! impl_component_list_tuple {
-    ($($name: ident),*) => {
-        impl<$($name),*> ComponentList for ($($name,)*) where $($name: Component),* {
-            type Ids = [ComponentId; 0 $(+ replace_expr!($name 1))*];
-
-            #[inline]
-            fn get_ids(components: &Components) -> Self::Ids {
-                [$(components.component_id::<$name>().unwrap()),*]
-            }
-
-            #[inline]
-            fn contains<C>() -> bool where C: Component {
-                true $(|| TypeId::of::<C>() == TypeId::of::<$name>())*
-            }
-        }
-    }
-}
-
-impl_component_list_tuple!(C1);
-impl_component_list_tuple!(C1, C2);
-impl_component_list_tuple!(C1, C2, C3);
-impl_component_list_tuple!(C1, C2, C3, C4);
-impl_component_list_tuple!(C1, C2, C3, C4, C5);
-impl_component_list_tuple!(C1, C2, C3, C4, C5, C6);
-impl_component_list_tuple!(C1, C2, C3, C4, C5, C6, C7);
-impl_component_list_tuple!(C1, C2, C3, C4, C5, C6, C7, C8);
-
-impl ComponentIdList for ComponentId {
-    fn contains(&self, id: ComponentId) -> bool {
-        *self == id
-    }
-}
-
-impl<const N: usize> ComponentIdList for [ComponentId; N] {
-    fn contains(&self, query_id: ComponentId) -> bool {
-        self.iter().any(|id| *id == query_id)
-    }
-}
-
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
 #[derive(Clone)]
-pub struct EntityRefExcept<'w, CL>
+pub struct EntityRefExcept<'w, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
-    phantom: PhantomData<CL>,
+    phantom: PhantomData<B>,
 }
 
-impl<'w, CL> EntityRefExcept<'w, CL>
+impl<'w, B> EntityRefExcept<'w, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
         Self {
@@ -2512,7 +2402,9 @@ where
     where
         C: Component,
     {
-        if CL::contains::<C>() {
+        let components = self.entity.world().components();
+        let id = components.component_id::<C>()?;
+        if bundle_contains_component::<B>(components, id) {
             None
         } else {
             // SAFETY: We have read access for all components that weren't
@@ -2530,7 +2422,9 @@ where
     where
         C: Component,
     {
-        if CL::contains::<C>() {
+        let components = self.entity.world().components();
+        let id = components.component_id::<C>()?;
+        if bundle_contains_component::<B>(components, id) {
             None
         } else {
             // SAFETY: We have read access for all components that weren't
@@ -2540,11 +2434,11 @@ where
     }
 }
 
-impl<'a, CL> From<&'a EntityMutExcept<'_, CL>> for EntityRefExcept<'a, CL>
+impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
-    fn from(entity_mut: &'a EntityMutExcept<'_, CL>) -> Self {
+    fn from(entity_mut: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
         // accesses that `EntityMutExcept` provides.
         unsafe { EntityRefExcept::new(entity_mut.entity) }
@@ -2560,17 +2454,17 @@ where
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
 #[derive(Clone)]
-pub struct EntityMutExcept<'w, CL>
+pub struct EntityMutExcept<'w, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
-    phantom: PhantomData<CL>,
+    phantom: PhantomData<B>,
 }
 
-impl<'w, CL> EntityMutExcept<'w, CL>
+impl<'w, B> EntityMutExcept<'w, B>
 where
-    CL: ComponentList,
+    B: Bundle,
 {
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
         Self {
@@ -2583,7 +2477,7 @@ where
     ///
     /// This is useful if you have `&mut EntityMutExcept`, but you need
     /// `EntityMutExcept`.
-    pub fn reborrow(&mut self) -> EntityMutExcept<'_, CL> {
+    pub fn reborrow(&mut self) -> EntityMutExcept<'_, B> {
         // SAFETY: We have exclusive access to the entire entity and the
         // applicable components.
         unsafe { Self::new(self.entity) }
@@ -2592,7 +2486,7 @@ where
     /// Gets read-only access to all of the entity's components, except for the
     /// ones in `CL`.
     #[inline]
-    pub fn as_readonly(&self) -> EntityRefExcept<'_, CL> {
+    pub fn as_readonly(&self) -> EntityRefExcept<'_, B> {
         EntityRefExcept::from(self)
     }
 
@@ -2623,11 +2517,13 @@ where
     /// Returns `None` if the component doesn't have a component of that type or
     /// if the type is one of the excluded components.
     #[inline]
-    pub fn get_mut<C>(&self) -> Option<Mut<'_, C>>
+    pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
     where
         C: Component,
     {
-        if CL::contains::<C>() {
+        let components = self.entity.world().components();
+        let id = components.component_id::<C>()?;
+        if bundle_contains_component::<B>(components, id) {
             None
         } else {
             // SAFETY: We have write access for all components that weren't
@@ -2635,6 +2531,19 @@ where
             unsafe { self.entity.get_mut() }
         }
     }
+}
+
+fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
+where
+    B: Bundle,
+{
+    let mut found = false;
+    B::get_component_ids(components, &mut |maybe_id| {
+        if let Some(id) = maybe_id {
+            found = found || id == query_id;
+        }
+    });
+    found
 }
 
 /// Inserts a dynamic [`Bundle`] into the entity.
@@ -3269,6 +3178,7 @@ mod tests {
         for entity_ref in query.iter_mut(&mut world) {
             found = true;
             assert!(entity_ref.get::<TestComponent>().is_none());
+            assert!(entity_ref.get_ref::<TestComponent>().is_none());
             assert!(matches!(
                 entity_ref.get::<TestComponent2>(),
                 Some(TestComponent2(0))
@@ -3354,9 +3264,11 @@ mod tests {
         let mut query = world.query::<EntityMutExcept<TestComponent>>();
 
         let mut found = false;
-        for entity_mut in query.iter_mut(&mut world) {
+        for mut entity_mut in query.iter_mut(&mut world) {
             found = true;
             assert!(entity_mut.get::<TestComponent>().is_none());
+            assert!(entity_mut.get_ref::<TestComponent>().is_none());
+            assert!(entity_mut.get_mut::<TestComponent>().is_none());
             assert!(matches!(
                 entity_mut.get::<TestComponent2>(),
                 Some(TestComponent2(0))
@@ -3392,7 +3304,7 @@ mod tests {
             .build_system(
                 |_: Query<&mut TestComponent>,
                  mut query: Query<EntityMutExcept<TestComponent2>>| {
-                    for entity_mut in query.iter_mut() {
+                    for mut entity_mut in query.iter_mut() {
                         assert!(entity_mut
                             .get_mut::<TestComponent2>()
                             .is_some_and(|component| component.0 == 0));
@@ -3424,7 +3336,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(
                 |_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>| {
-                    for entity_mut in query.iter_mut() {
+                    for mut entity_mut in query.iter_mut() {
                         assert!(entity_mut
                             .get_mut::<TestComponent2>()
                             .is_some_and(|component| component.0 == 0));

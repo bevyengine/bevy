@@ -79,10 +79,12 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .map_or(false, |info| info.storage_type() == StorageType::Table)
         };
 
-        self.access
-            .access()
-            .component_reads_and_writes()
-            .all(is_dense)
+        !self.access.access().component_reads_and_writes_inverted()
+            && self
+                .access
+                .access()
+                .component_reads_and_writes()
+                .all(is_dense)
             && self.access.access().archetypal().all(is_dense)
             && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)

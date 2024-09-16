@@ -902,6 +902,11 @@ impl Table {
             column.clear();
         }
     }
+
+    /// Returns the component ID of every column in the [`Table`].
+    pub(crate) fn columns(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.columns.indices()
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
