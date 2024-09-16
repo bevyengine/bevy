@@ -24,29 +24,167 @@ fn setup(mut commands: Commands) {
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                row_gap: Val::Px(75.),
+                column_gap: Val::Px(75.),
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
             background_color: BackgroundColor(LIGHT_CORAL.into()),
             ..Default::default()
         })
         .with_children(|commands| {
-            commands.spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Px(300.),
-                        height: Val::Px(200.),
-                        ..default()
-                    },
-                    background_color: BackgroundColor(Color::WHITE),
-                    ..Default::default()
-                },
-                BoxShadow {
-                    color: Color::BLACK,
-                    x_offset: Val::Percent(50.),
-                    y_offset: Val::Percent(50.),
-                    blur_radius: Val::Px(5.),
-                    ..Default::default()
-                },
-            ));
+            let example_nodes = [
+                (
+                    Vec2::splat(100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(50.),
+                    Vec2::ZERO,
+                    0.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(50.),
+                    Vec2::ZERO,
+                    0.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    0.,
+                    BorderRadius::MAX,
+                ),
+                (
+                    Vec2::splat(100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::MAX,
+                ),
+                (
+                    Vec2::splat(100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::all(Val::Px(20.)),
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::all(Val::Px(20.)),
+                ),
+                (
+                    Vec2::new(50., 100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    3.,
+                    BorderRadius::MAX,
+                ),
+                (
+                    Vec2::splat(100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    25.,
+                    BorderRadius::all(Val::Px(20.)),
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    25.,
+                    BorderRadius::all(Val::Px(20.)),
+                ),
+                (
+                    Vec2::new(50., 100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    25.,
+                    BorderRadius::MAX,
+                ),
+            ];
+
+            for (size, color, shadow_color, offset, spread, blur, border_radius) in example_nodes {
+                commands.spawn(box_shadow_node_bundle(
+                    size,
+                    color,
+                    shadow_color,
+                    offset,
+                    spread,
+                    blur,
+                    border_radius,
+                ));
+            }
         });
+}
+
+fn box_shadow_node_bundle(
+    size: Vec2,
+    color: Color,
+    shadow_color: Color,
+    offset: Vec2,
+    spread: Vec2,
+    blur: f32,
+    border_radius: BorderRadius,
+) -> impl Bundle {
+    (
+        NodeBundle {
+            style: Style {
+                width: Val::Px(size.x),
+                height: Val::Px(size.y),
+                ..default()
+            },
+            border_radius,
+            background_color: BackgroundColor(color),
+            ..Default::default()
+        },
+        BoxShadow {
+            color: shadow_color,
+            x_offset: Val::Percent(offset.x),
+            y_offset: Val::Percent(offset.y),
+            x_spread: Val::Percent(spread.x),
+            y_spread: Val::Percent(spread.y),
+            blur_radius: Val::Px(blur),
+        },
+    )
 }
