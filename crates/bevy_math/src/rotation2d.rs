@@ -105,7 +105,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range `(-pi, pi]` by design.
+    /// The input rotation will always be clamped to the range `(-π, π]` by design.
     ///
     /// # Example
     ///
@@ -132,7 +132,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range `(-180.0, 180.0]` by design.
+    /// The input rotation will always be clamped to the range `(-180°, 180°]` by design.
     ///
     /// # Example
     ///
@@ -157,7 +157,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// The resulting rotation will always be clamped to the range `(-0.5, 0.5]` by design.
+    /// The input rotation will always be clamped to the range `(-50%, 50%]` by design.
     ///
     /// # Example
     ///
@@ -546,8 +546,8 @@ mod tests {
 
     #[test]
     fn rotation_range() {
-        // the rotation range is `(-180, 180]` and the constructors normalize the rotations to that
-        // range
+        // the rotation range is `(-180, 180]` and the constructors
+        // normalize the rotations to that range
         assert_relative_eq!(Rot2::radians(3.0 * FRAC_PI_2), Rot2::radians(-FRAC_PI_2));
         assert_relative_eq!(Rot2::degrees(270.0), Rot2::degrees(-90.0));
         assert_relative_eq!(Rot2::turn_fraction(0.75), Rot2::turn_fraction(-0.25));
