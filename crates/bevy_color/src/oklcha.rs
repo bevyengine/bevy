@@ -279,8 +279,9 @@ impl From<Oklcha> for Oklaba {
         }: Oklcha,
     ) -> Self {
         let l = lightness;
-        let a = chroma * cos(hue.to_radians());
-        let b = chroma * sin(hue.to_radians());
+        let (sin, cos) = sin_cos(hue.to_radians());
+        let a = chroma * cos;
+        let b = chroma * sin;
 
         Oklaba::new(l, a, b, alpha)
     }
