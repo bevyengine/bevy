@@ -257,8 +257,11 @@ fn animate_light(
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
-        transform.translation =
-            vec3(ops::sin(now * 1.4), ops::cos(now * 1.0), ops::cos(now * 0.6)) * vec3(3.0, 4.0, 3.0);
+        transform.translation = vec3(
+            ops::sin(now * 1.4),
+            ops::cos(now * 1.0),
+            ops::cos(now * 0.6),
+        ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
