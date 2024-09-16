@@ -2394,12 +2394,12 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 ///         Camera2dBundle::default(),
 ///         // This will cause all Ui in this camera to be rendered without
 ///         // anti-aliasing
-///         UiAntialias::Off,
+///         UiAntiAlias::Off,
 ///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
-pub enum UiAntialias {
+pub enum UiAntiAlias {
     /// UI will render with anti-aliasing
     #[default]
     On,

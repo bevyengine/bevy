@@ -25,7 +25,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiAntialias, UiImage, UiScale, Val,
+    TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -612,14 +612,14 @@ pub fn extract_default_ui_camera_view(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<
-        Query<(Entity, &Camera, Option<&UiAntialias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+        Query<(Entity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
     >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera, ui_antialias) in &query {
+    for (entity, camera, ui_anti_alias) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -668,8 +668,8 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
-            if let Some(ui_antialias) = ui_antialias {
-                commands.get_or_spawn(entity).insert(*ui_antialias);
+            if let Some(ui_anti_alias) = ui_anti_alias {
+                commands.get_or_spawn(entity).insert(*ui_anti_alias);
             }
             transparent_render_phases.insert_or_clear(entity);
 
@@ -845,13 +845,13 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntialias>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_antialias)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -865,7 +865,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                antialias: matches!(ui_antialias, None | Some(UiAntialias::On)),
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );
         transparent_phase.add(TransparentUi {
