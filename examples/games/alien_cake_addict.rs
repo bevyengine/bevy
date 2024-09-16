@@ -180,7 +180,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font_size: 40.0,
+                font_size: 33.0,
                 color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
@@ -414,7 +414,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font_size: 80.0,
+                    font_size: 67.0,
                     color: Color::srgb(0.5, 0.5, 1.0),
                     ..default()
                 },

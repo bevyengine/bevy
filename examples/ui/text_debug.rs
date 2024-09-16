@@ -60,7 +60,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This is\ntext with\nline breaks\nin the top left.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 30.0,
+                    font_size: 25.0,
                     ..default()
                 },
             )
@@ -68,7 +68,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         builder.spawn(TextBundle::from_section(
                 "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
                     font: font.clone(),
-                    font_size: 30.0,
+                    font_size: 25.0,
                     color: YELLOW.into(),
                 },
             )
@@ -83,7 +83,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This\ntext has\nline breaks and also a set width in the bottom left.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 30.0,
+                    font_size: 25.0,
                     ..default()
                 },
             )
@@ -110,7 +110,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 40.0,
+                    font_size: 33.0,
                     color: Color::srgb(0.8, 0.2, 0.7),
                 },
             )
@@ -126,7 +126,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 35.0,
+                    font_size: 29.0,
                     color: YELLOW.into(),
                 },
             )
@@ -142,7 +142,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "This text is fully justified and is positioned in the same way.",
                 TextStyle {
                     font: font.clone(),
-                    font_size: 35.0,
+                    font_size: 29.0,
                     color: GREEN_YELLOW.into(),
                 },
             )
@@ -159,7 +159,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 21.0,
                         ..default()
                     },
                 ),
@@ -167,7 +167,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "\nThis text changes in the bottom right",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 21.0,
                         ..default()
                     },
                 ),
@@ -183,33 +183,33 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "\nThis text changes in the bottom right - ",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 21.0,
                         color: RED.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
-                    font_size: 25.0,
+                    font_size: 21.0,
                     color: ORANGE_RED.into(),
                 }),
                 TextSection::new(
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 12.0,
+                        font_size: 10.0,
                         color: YELLOW.into(),
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     font: font.clone(),
-                    font_size: 25.0,
+                    font_size: 21.0,
                     color: LIME.into(),
                 }),
                 TextSection::new(
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 50.0,
+                        font_size: 42.0,
                         color: BLUE.into(),
                     },
                 ),
@@ -217,7 +217,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " this text has negative fontsize",
                     TextStyle {
                         font: font.clone(),
-                        font_size: -50.0,
+                        font_size: -42.0,
                         color: BLUE.into(),
                     },
                 ),

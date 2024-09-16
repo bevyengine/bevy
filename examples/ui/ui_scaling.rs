@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font_size: 16.,
+        font_size: 13.,
         color: Color::BLACK,
         ..default()
     };
