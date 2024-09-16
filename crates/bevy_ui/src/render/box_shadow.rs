@@ -248,24 +248,24 @@ pub fn extract_shadows(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        let resolve_val = |val| match val {
+        let resolve_val = |val, base| match val {
             Val::Auto => 0.,
             Val::Px(px) => px,
-            Val::Percent(percent) => percent / 100. * uinode.size().x,
+            Val::Percent(percent) => percent / 100. * base,
             Val::Vw(percent) => percent / 100. * ui_logical_viewport_size.x,
             Val::Vh(percent) => percent / 100. * ui_logical_viewport_size.y,
             Val::VMin(percent) => percent / 100. * ui_logical_viewport_size.min_element(),
             Val::VMax(percent) => percent / 100. * ui_logical_viewport_size.max_element(),
         };
 
-        let blur = resolve_val(box_shadow.blur_radius);
+        let blur = resolve_val(box_shadow.blur_radius, uinode.size().y);
         let offset = vec2(
-            resolve_val(box_shadow.x_offset),
-            resolve_val(box_shadow.y_offset),
+            resolve_val(box_shadow.x_offset, uinode.size().x),
+            resolve_val(box_shadow.y_offset, uinode.size().y),
         );
         let spread = vec2(
-            resolve_val(box_shadow.x_spread),
-            resolve_val(box_shadow.y_spread),
+            resolve_val(box_shadow.x_spread, uinode.size().x),
+            resolve_val(box_shadow.y_spread, uinode.size().y),
         );
 
         let size = uinode.size() + spread;
