@@ -1,4 +1,4 @@
-use bevy_math::{cos, primitives::Torus, sin, Vec3};
+use bevy_math::{primitives::Torus, sin_cos, Vec3};
 use std::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 
@@ -98,17 +98,20 @@ impl MeshBuilder for TorusMeshBuilder {
 
             for side in 0..=self.minor_resolution {
                 let phi = side_stride * side as f32;
+                let (sin_theta, cos_theta) = sin_cos(theta);
+                let (sin_phi, cos_phi) = sin_cos(phi);
+                let radius = self.torus.major_radius + self.torus.minor_radius * cos_phi;
 
                 let position = Vec3::new(
-                    cos(theta) * (self.torus.major_radius + self.torus.minor_radius * cos(phi)),
-                    self.torus.minor_radius * sin(phi),
-                    sin(theta) * (self.torus.major_radius + self.torus.minor_radius * cos(phi)),
+                    cos_theta * radius,
+                    self.torus.minor_radius * sin_phi,
+                    sin_theta * radius,
                 );
 
                 let center = Vec3::new(
-                    self.torus.major_radius * cos(theta),
+                    self.torus.major_radius * cos_theta,
                     0.,
-                    self.torus.major_radius * sin(theta),
+                    self.torus.major_radius * sin_theta,
                 );
                 let normal = (position - center).normalize();
 

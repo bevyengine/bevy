@@ -1211,12 +1211,10 @@ fn cubic_spline_interpolation<T>(
 where
     T: Mul<f32, Output = T> + Add<Output = T>,
 {
-    value_start * (2.0 * FloatPow::cubed(lerp) - 3.0 * FloatPow::squared(lerp) + 1.0)
-        + tangent_out_start
-            * (step_duration)
-            * (FloatPow::cubed(lerp) - 2.0 * FloatPow::squared(lerp) + lerp)
-        + value_end * (-2.0 * FloatPow::cubed(lerp) + 3.0 * FloatPow::squared(lerp))
-        + tangent_in_end * step_duration * (FloatPow::cubed(lerp) - FloatPow::squared(lerp))
+    value_start * (2.0 * lerp.cubed() - 3.0 * lerp.squared() + 1.0)
+        + tangent_out_start * (step_duration) * (lerp.cubed() - 2.0 * lerp.squared() + lerp)
+        + value_end * (-2.0 * lerp.cubed() + 3.0 * lerp.squared())
+        + tangent_in_end * step_duration * (lerp.cubed() - lerp.squared())
 }
 
 /// Adds animation support to an app

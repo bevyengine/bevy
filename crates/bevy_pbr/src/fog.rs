@@ -207,7 +207,7 @@ pub enum FogFalloff {
     /// The fog intensity for a given point in the scene is determined by the following formula:
     ///
     /// ```text
-    /// let fog_intensity = 1.0 - 1.0 / FloatPow::squared(distance * density).exp();
+    /// let fog_intensity = 1.0 - 1.0 / (distance * density).squared().exp();
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
