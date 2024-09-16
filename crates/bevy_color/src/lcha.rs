@@ -257,8 +257,9 @@ impl From<Lcha> for Laba {
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_LCH_to_Lab.html
         let l = lightness;
-        let a = chroma * cos(hue.to_radians());
-        let b = chroma * sin(hue.to_radians());
+        let (sin, cos) = sin_cos(hue.to_radians());
+        let a = chroma * cos;
+        let b = chroma * sin;
 
         Laba::new(l, a, b, alpha)
     }
