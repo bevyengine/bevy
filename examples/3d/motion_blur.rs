@@ -3,7 +3,7 @@
 
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
-    math::{cos, sin, FloatPow},
+    math::{cos, hypot, sin, FloatPow},
     prelude::*,
 };
 
@@ -309,8 +309,9 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
     let y0 = cos(y_tweak * t);
     let dx = x_tweak * cos(x_tweak * t);
     let dy = y_tweak * -sin(y_tweak * t);
-    let x = x0 + offset * dy / (FloatPow::squared(dx) + FloatPow::squared(dy)).sqrt();
-    let y = y0 - offset * dx / (FloatPow::squared(dx) + FloatPow::squared(dy)).sqrt();
+    let dl = hypot(dx, dy);
+    let x = x0 + offset * dy / dl;
+    let y = y0 - offset * dx / dl;
     Vec2::new(x, y) * scale
 }
 
