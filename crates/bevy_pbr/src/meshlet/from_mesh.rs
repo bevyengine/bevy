@@ -171,15 +171,12 @@ impl MeshletMesh {
                 position = (position * meshlet_quantization_factor).round();
 
                 let position: UVec3 = bytemuck::cast(position);
-                for i in 0..meshlet_quantization_bits {
-                    vertex_positions.extend_from_bitslice(position.x.view_bits());
-                }
-                for i in 0..meshlet_quantization_bits {
-                    vertex_positions.extend_from_bitslice(position.y.view_bits());
-                }
-                for i in 0..meshlet_quantization_bits {
-                    vertex_positions.extend_from_bitslice(position.z.view_bits());
-                }
+                vertex_positions
+                    .extend_from_bitslice(&position.x.view_bits()[..meshlet_quantization_bits]);
+                vertex_positions
+                    .extend_from_bitslice(&position.y.view_bits()[..meshlet_quantization_bits]);
+                vertex_positions
+                    .extend_from_bitslice(&position.z.view_bits()[..meshlet_quantization_bits]);
 
                 vertex_attributes.push(MeshletVertexAttributes {
                     normal: octahedral_encode(normal),
