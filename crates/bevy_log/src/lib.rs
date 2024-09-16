@@ -49,7 +49,6 @@ pub use bevy_utils::{
     },
     warn_once,
 };
-pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
