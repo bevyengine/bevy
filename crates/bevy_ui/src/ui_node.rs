@@ -2276,11 +2276,13 @@ impl ResolvedBorderRadius {
 pub struct BoxShadow {
     /// The shadow's color
     pub color: Color,
-    /// Offset increasing to the right and down
+    /// Horizontal offset
     pub x_offset: Val,
+    /// Vertical offset
     pub y_offset: Val,
-    /// Difference in size from occluding uninode
+    /// Horizontal difference in size from occluding uninode
     pub x_spread: Val,
+    /// Vertical difference in size from occluding uninode
     pub y_spread: Val,
     /// Blurriness of the shadow
     pub blur_radius: Val,
