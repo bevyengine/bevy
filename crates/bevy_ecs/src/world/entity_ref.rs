@@ -2765,7 +2765,7 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
-    use crate::system::{QueryParamBuilder, RunSystemOnce as _};
+    use crate::system::RunSystemOnce as _;
     use crate::world::{FilteredEntityMut, FilteredEntityRef};
     use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
 
