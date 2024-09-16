@@ -1,10 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{
-    color::palettes::css::ORANGE_RED,
-    math::{cbrt, FloatPow},
-    prelude::*,
-};
+use bevy::{color::palettes::css::ORANGE_RED, math::FloatPow, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -62,7 +58,7 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * cbrt(rng.gen_range(0.2f32..1.0))
+            * ops::cbrt(rng.gen_range(0.2f32..1.0))
             * 15.;
 
         commands.spawn(BodyBundle {

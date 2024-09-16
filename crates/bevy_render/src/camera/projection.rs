@@ -5,7 +5,7 @@ use crate::primitives::Frustum;
 use crate::view::VisibilitySystems;
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{tan, AspectRatio, Mat4, Rect, Vec2, Vec3A};
+use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
@@ -200,7 +200,7 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-        let tan_half_fov = tan(self.fov / 2.);
+        let tan_half_fov = ops::tan(self.fov / 2.);
         let a = z_near.abs() * tan_half_fov;
         let b = z_far.abs() * tan_half_fov;
         let aspect_ratio = self.aspect_ratio;

@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
     Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{atan2, hypot, sin_cos, FloatPow, Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -260,8 +260,8 @@ impl From<Oklaba> for Oklcha {
             alpha,
         }: Oklaba,
     ) -> Self {
-        let chroma = hypot(a, b);
-        let hue = atan2(b, a).to_degrees();
+        let chroma = ops::hypot(a, b);
+        let hue = ops::atan2(b, a).to_degrees();
 
         let hue = if hue < 0.0 { hue + 360.0 } else { hue };
 
@@ -279,7 +279,7 @@ impl From<Oklcha> for Oklaba {
         }: Oklcha,
     ) -> Self {
         let l = lightness;
-        let (sin, cos) = sin_cos(hue.to_radians());
+        let (sin, cos) = ops::sin_cos(hue.to_radians());
         let a = chroma * cos;
         let b = chroma * sin;
 

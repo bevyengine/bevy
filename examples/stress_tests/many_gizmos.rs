@@ -4,7 +4,6 @@ use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    math::{sin, sin_cos},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -71,7 +70,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
-            let vector = Vec2::from(sin_cos(angle)).extend(sin(time.elapsed_seconds()));
+            let vector = Vec2::from(ops::sin_cos(angle)).extend(ops::sin(time.elapsed_seconds()));
             let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
             let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 

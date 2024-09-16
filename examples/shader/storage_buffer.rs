@@ -1,6 +1,5 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
-    math::sin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -74,9 +73,9 @@ fn update(
             .map(|i| {
                 let t = time.elapsed_seconds() * 5.0;
                 [
-                    sin(t + i as f32) / 2.0 + 0.5,
-                    sin(t + i as f32 + 2.0) / 2.0 + 0.5,
-                    sin(t + i as f32 + 4.0) / 2.0 + 0.5,
+                    ops::sin(t + i as f32) / 2.0 + 0.5,
+                    ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+                    ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
                     1.0,
                 ]
             })

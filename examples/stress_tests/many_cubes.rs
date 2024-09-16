@@ -13,7 +13,7 @@ use std::{f64::consts::PI, str::FromStr};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::{sin_cos, DVec2, DVec3},
+    math::{DVec2, DVec3},
     pbr::NotShadowCaster,
     prelude::*,
     render::{
@@ -361,7 +361,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 let mut vertices = [Vec2::ZERO; 3];
                 let dtheta = std::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
-                    let (s, c) = sin_cos(i as f32 * dtheta);
+                    let (s, c) = ops::sin_cos(i as f32 * dtheta);
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (

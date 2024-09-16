@@ -5,7 +5,6 @@
 use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::sin,
     prelude::*,
     text::{BreakLineOn, TextBounds},
     window::{PresentMode, WindowResolution},
@@ -74,7 +73,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // changing the bounds of the text will cause a recomputation
 fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut TextBounds>) {
-    let width = (1. + sin(time.elapsed_seconds())) * 600.0;
+    let width = (1. + ops::sin(time.elapsed_seconds())) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.width = Some(width);
     }

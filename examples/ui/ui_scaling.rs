@@ -1,6 +1,6 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{color::palettes::css::*, math::powf, prelude::*, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
@@ -139,6 +139,6 @@ fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        powf(2.0f32, 5. * x - 5.)
+        ops::powf(2.0f32, 5. * x - 5.)
     }
 }

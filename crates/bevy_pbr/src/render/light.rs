@@ -4,7 +4,7 @@ use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
-use bevy_math::{cos, ln, tan, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -283,7 +283,7 @@ pub fn extract_lights(
             // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
             let render_visible_entities = visible_entities.clone();
             let texel_size =
-                2.0 * tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
+                2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
 
             spot_lights_values.push((
                 entity,
@@ -467,10 +467,10 @@ pub fn calculate_cluster_factors(
     if is_orthographic {
         Vec2::new(-near, z_slices / (-far - -near))
     } else {
-        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ln(far / near);
+        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
         Vec2::new(
             z_slices_of_ln_zfar_over_znear,
-            ln(near) * z_slices_of_ln_zfar_over_znear,
+            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
         )
     }
 }
@@ -692,14 +692,14 @@ pub fn prepare_lights(
                     flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
                 }
 
-                let cos_outer = cos(outer);
-                let spot_scale = 1.0 / f32::max(cos(inner) - cos_outer, 1e-4);
+                let cos_outer = ops::cos(outer);
+                let spot_scale = 1.0 / f32::max(ops::cos(inner) - cos_outer, 1e-4);
                 let spot_offset = -cos_outer * spot_scale;
 
                 (
                     // For spot lights: the direction (x,z), spot_scale and spot_offset
                     light_direction.xz().extend(spot_scale).extend(spot_offset),
-                    tan(outer),
+                    ops::tan(outer),
                 )
             }
             None => {

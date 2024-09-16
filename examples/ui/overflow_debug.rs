@@ -1,7 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 use bevy::{
     input::common_conditions::input_just_pressed,
-    math::{cos, sin},
     prelude::*,
 };
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
@@ -52,8 +51,8 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
-        transform.translation.y = -cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
     }
 }
 
@@ -62,8 +61,8 @@ struct Scale;
 
 impl UpdateTransform for Scale {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.scale.x = 1.0 + 0.5 * cos(t * TAU).max(0.0);
-        transform.scale.y = 1.0 + 0.5 * cos(t * TAU + PI).max(0.0);
+        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -72,7 +71,7 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, (cos(t * TAU) * 45.0).to_radians());
+        transform.rotation = Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
     }
 }
 

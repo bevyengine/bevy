@@ -2,7 +2,7 @@ use std::ops::DerefMut;
 
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
-use bevy_math::{powf, Mat4, Vec3A, Vec4};
+use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
@@ -154,12 +154,12 @@ fn calculate_cascade_bounds(
     if num_cascades == 1 {
         return vec![shadow_maximum_distance];
     }
-    let base = powf(
+    let base = ops::powf(
         shadow_maximum_distance / nearest_bound,
         1.0 / (num_cascades - 1) as f32,
     );
     (0..num_cascades)
-        .map(|i| nearest_bound * powf(base, i as f32))
+        .map(|i| nearest_bound * ops::powf(base, i as f32))
         .collect()
 }
 

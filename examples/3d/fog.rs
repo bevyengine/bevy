@@ -15,7 +15,7 @@
 //! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
 use bevy::{
-    math::{cos, sin},
+    math::ops,
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
@@ -147,11 +147,11 @@ fn update_system(
     let mut text = text.single_mut();
 
     // Orbit camera around pyramid
-    let orbit_scale = 8.0 + sin(now / 10.0) * 7.0;
+    let orbit_scale = 8.0 + ops::sin(now / 10.0) * 7.0;
     *transform = Transform::from_xyz(
-        cos(now / 5.0) * orbit_scale,
+        ops::cos(now / 5.0) * orbit_scale,
         12.0 - orbit_scale / 2.0,
-        sin(now / 5.0) * orbit_scale,
+        ops::sin(now / 5.0) * orbit_scale,
     )
     .looking_at(Vec3::ZERO, Vec3::Y);
 

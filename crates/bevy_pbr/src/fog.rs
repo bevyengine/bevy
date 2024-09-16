@@ -1,6 +1,6 @@
 use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_math::{ln, powf, Vec3};
+use bevy_math::{ops, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
@@ -419,15 +419,15 @@ impl FogFalloff {
                 // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
                 // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
                 // get blue and _not_ yellow results)
-                powf(1.0 - r_e, E),
-                powf(1.0 - g_e, E),
-                powf(1.0 - b_e, E),
+                ops::powf(1.0 - r_e, E),
+                ops::powf(1.0 - g_e, E),
+                ops::powf(1.0 - b_e, E),
             ) * FogFalloff::koschmieder(visibility, contrast_threshold)
-                * powf(a_e, E),
+                * ops::powf(a_e, E),
 
-            inscattering: Vec3::new(powf(r_i, E), powf(g_i, E), powf(b_i, E))
+            inscattering: Vec3::new(ops::powf(r_i, E), ops::powf(g_i, E), ops::powf(b_i, E))
                 * FogFalloff::koschmieder(visibility, contrast_threshold)
-                * powf(a_i, E),
+                * ops::powf(a_i, E),
         }
     }
 
@@ -462,7 +462,7 @@ impl FogFalloff {
     /// - <https://en.wikipedia.org/wiki/Visibility>
     /// - <https://www.biral.com/wp-content/uploads/2015/02/Introduction_to_visibility-v2-2.pdf>
     pub fn koschmieder(v: f32, c_t: f32) -> f32 {
-        -ln(c_t) / v
+        -ops::ln(c_t) / v
     }
 }
 

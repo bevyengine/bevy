@@ -2,7 +2,6 @@
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
-    math::sin,
     prelude::*,
     sprite::MaterialMesh2dBundle,
 };
@@ -109,7 +108,7 @@ fn update_emitters(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = sin(time.elapsed_seconds()) * 500.0;
+            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 500.0;
         }
     }
 }

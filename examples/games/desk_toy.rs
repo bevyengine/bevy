@@ -9,7 +9,6 @@
 use bevy::{
     app::AppExit,
     input::common_conditions::{input_just_pressed, input_just_released},
-    math::powf,
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::{PrimaryWindow, WindowLevel},
@@ -384,7 +383,7 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= powf(0.04f32, time.delta_seconds());
+        pupil.velocity *= ops::powf(0.04f32, time.delta_seconds());
         // Move the pupil
         translation += pupil.velocity * time.delta_seconds();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.

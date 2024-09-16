@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{math::exp2, prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
@@ -139,7 +139,7 @@ fn update_parallax_layers(
     } else {
         return;
     }
-    let layer_count = exp2(target_layers.0);
+    let layer_count = ops::exp2(target_layers.0);
     let mut text = text.single_mut();
     text.sections[1].value = format!("Layers: {layer_count:.0}\n");
 
@@ -250,7 +250,7 @@ fn setup(
     });
 
     let parallax_depth_scale = TargetDepth::default().0;
-    let max_parallax_layer_count = exp2(TargetLayers::default().0);
+    let max_parallax_layer_count = ops::exp2(TargetLayers::default().0);
     let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,

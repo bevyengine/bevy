@@ -1,7 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
-    math::{cos, sin},
     prelude::*,
 };
 
@@ -102,8 +101,8 @@ fn update_positions(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = sin(time.elapsed_seconds()) * 3.0;
-            emitter_transform.translation.z = cos(time.elapsed_seconds()) * 3.0;
+            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 3.0;
+            emitter_transform.translation.z = ops::cos(time.elapsed_seconds()) * 3.0;
         }
     }
 }

@@ -4,9 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{
-    ln, powf, sin_cos, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
-};
+use bevy_math::{ops, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     camera::Camera,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
@@ -486,7 +484,7 @@ pub(crate) fn assign_objects_to_clusters(
                     radius: clusterable_object_sphere.radius * view_from_world_scale_max,
                 };
                 let spot_light_dir_sin_cos = clusterable_object.spot_light_angle.map(|angle| {
-                    let (angle_sin, angle_cos) = sin_cos(angle);
+                    let (angle_sin, angle_cos) = ops::sin_cos(angle);
                     (
                         (view_from_world * clusterable_object.transform.back().extend(0.0))
                             .truncate()
@@ -726,7 +724,7 @@ fn compute_aabb_for_cluster(
             0.0
         } else {
             -z_near
-                * powf(
+                * ops::powf(
                     z_far_over_z_near,
                     (ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32,
                 )
@@ -736,7 +734,7 @@ fn compute_aabb_for_cluster(
         let cluster_far = if cluster_dimensions.z == 1 {
             -z_far
         } else {
-            -z_near * powf(z_far_over_z_near, ijk.z / (cluster_dimensions.z - 1) as f32)
+            -z_near * ops::powf(z_far_over_z_near, ijk.z / (cluster_dimensions.z - 1) as f32)
         };
 
         // Calculate the four intersection points of the min and max points with the cluster near and far planes
@@ -768,7 +766,7 @@ fn z_slice_to_view_z(
     if z_slice == 0 {
         0.0
     } else {
-        -near * powf(far / near, (z_slice - 1) as f32 / (z_slices - 1) as f32)
+        -near * ops::powf(far / near, (z_slice - 1) as f32 / (z_slices - 1) as f32)
     }
 }
 
@@ -906,7 +904,7 @@ fn view_z_to_z_slice(
         ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        (ln(-view_z) * cluster_factors.x - cluster_factors.y + 1.0) as u32
+        (ops::ln(-view_z) * cluster_factors.x - cluster_factors.y + 1.0) as u32
     };
     // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.

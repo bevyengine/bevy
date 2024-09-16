@@ -6,7 +6,7 @@ use bevy::{
         bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
-    math::sin,
+    math::ops,
     prelude::*,
 };
 use std::{
@@ -220,6 +220,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
     }
 }

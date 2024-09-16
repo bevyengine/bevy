@@ -4,7 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
-    math::sin,
+    math::ops,
     prelude::*,
     render::{
         mesh::{
@@ -168,6 +168,6 @@ fn setup(
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * sin(time.elapsed_seconds()));
+        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

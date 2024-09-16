@@ -7,7 +7,6 @@ use std::time::Duration;
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::sin_cos,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowResolution},
@@ -170,7 +169,7 @@ fn setup(
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
-            let (s, c) = sin_cos(fox_angle);
+            let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {

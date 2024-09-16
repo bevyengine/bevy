@@ -2,12 +2,7 @@
 
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::{
-    color::palettes::css::*,
-    math::Isometry2d,
-    math::{cos, sin},
-    prelude::*,
-};
+use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -48,7 +43,7 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
-    let sin_t_scaled = sin(time.elapsed_seconds()) * 50.;
+    let sin_t_scaled = ops::sin(time.elapsed_seconds()) * 50.;
     gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
     gizmos.ray_2d(Vec2::Y * sin_t_scaled, Vec2::splat(80.), LIME);
 
@@ -79,8 +74,8 @@ fn draw_example_collection(
     );
 
     let domain = Interval::EVERYWHERE;
-    let curve = function_curve(domain, |t| Vec2::new(t, sin(t / 25.0) * 100.0));
-    let resolution = ((sin(time.elapsed_seconds()) + 1.0) * 50.0) as usize;
+    let curve = function_curve(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
+    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 50.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| (t - 0.5) * 600.0)
@@ -89,7 +84,7 @@ fn draw_example_collection(
 
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
-        .corner_radius(cos(time.elapsed_seconds() / 3.) * 100.);
+        .corner_radius(ops::cos(time.elapsed_seconds() / 3.) * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.

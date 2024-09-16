@@ -1,6 +1,6 @@
 //! This example illustrates how to play a single-frequency sound (aka a pitch)
 
-use bevy::{math::powf, prelude::*};
+use bevy::prelude::*;
 use std::time::Duration;
 
 fn main() {
@@ -44,10 +44,10 @@ fn keyboard_input_system(
     mut events: EventWriter<PlayPitch>,
 ) {
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-        frequency.0 *= powf(2.0f32, 1.0 / 12.0);
+        frequency.0 *= ops::powf(2.0f32, 1.0 / 12.0);
     }
     if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-        frequency.0 /= powf(2.0f32, 1.0 / 12.0);
+        frequency.0 /= ops::powf(2.0f32, 1.0 / 12.0);
     }
     if keyboard_input.just_pressed(KeyCode::Space) {
         events.send(PlayPitch);

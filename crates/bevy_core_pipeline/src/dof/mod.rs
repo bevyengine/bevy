@@ -26,7 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::tan;
+use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
@@ -849,7 +849,7 @@ fn extract_depth_of_field_settings(
 ///
 /// See <https://photo.stackexchange.com/a/97218>.
 pub fn calculate_focal_length(sensor_height: f32, fov: f32) -> f32 {
-    0.5 * sensor_height / tan(0.5 * fov)
+    0.5 * sensor_height / ops::tan(0.5 * fov)
 }
 
 impl DepthOfFieldPipelines {

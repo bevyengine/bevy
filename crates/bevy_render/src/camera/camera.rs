@@ -24,7 +24,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{exp2, log2, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -136,7 +136,7 @@ impl Exposure {
     /// <https://google.github.io/filament/Filament.md.html#imagingpipeline/physicallybasedcamera/exposure>
     #[inline]
     pub fn exposure(&self) -> f32 {
-        exp2(-self.ev100) / 1.2
+        ops::exp2(-self.ev100) / 1.2
     }
 }
 
@@ -170,7 +170,7 @@ pub struct PhysicalCameraParameters {
 impl PhysicalCameraParameters {
     /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
     pub fn ev100(&self) -> f32 {
-        log2(
+        ops::log2(
             self.aperture_f_stops * self.aperture_f_stops * 100.0
                 / (self.shutter_speed_s * self.sensitivity_iso),
         )

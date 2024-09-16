@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
     Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{cbrt, FloatPow, Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -229,9 +229,9 @@ impl From<LinearRgba> for Oklaba {
         let l = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue;
         let m = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue;
         let s = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue;
-        let l_ = cbrt(l);
-        let m_ = cbrt(m);
-        let s_ = cbrt(s);
+        let l_ = ops::cbrt(l);
+        let m_ = ops::cbrt(m);
+        let s_ = ops::cbrt(s);
         let l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
         let a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
         let b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
