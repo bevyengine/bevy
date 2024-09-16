@@ -589,11 +589,6 @@ mod tests {
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
 
-    #[derive(Event)]
-    struct MyEvent {
-        cancelled: bool,
-    }
-
     #[test]
     fn change_detection() {
         #[derive(Resource, Default)]
@@ -829,6 +824,11 @@ mod tests {
 
     #[test]
     fn system_with_input_mut() {
+        #[derive(Event)]
+        struct MyEvent {
+            cancelled: bool,
+        }
+
         fn post(InMut(event): InMut<MyEvent>, counter: ResMut<Counter>) {
             if counter.0 > 0 {
                 event.cancelled = true;
