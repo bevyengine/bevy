@@ -10,5 +10,6 @@
 @group(0) @binding(6) var multiscattering_lut_sampler: sampler;
 
 @fragment
-fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn main(in: FullscreenVertexOutput) -> @location(0) vec3<f32> {
+    return vec3(1.0, 0.0, 0.0);
 }

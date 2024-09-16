@@ -343,6 +343,14 @@ fn layout_entries(
         (28, sampler(SamplerBindingType::Filtering)),
     ));
 
+    entries = entries.extend_with_indices((
+        (
+            29,
+            texture_3d(TextureSampleType::Float { filterable: true }),
+        ),
+        (30, sampler(SamplerBindingType::Filtering)),
+    ));
+
     entries.to_vec()
 }
 

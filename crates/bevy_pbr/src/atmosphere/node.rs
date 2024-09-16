@@ -8,7 +8,7 @@ use bevy_render::{
         RenderPassDescriptor,
     },
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
 use super::{
@@ -17,15 +17,12 @@ use super::{
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub enum AtmosphereNodes {
-    Luts,
-    Apply,
-}
+pub struct AtmosphereNodeLabel;
 
 #[derive(Default)]
-pub(super) struct AtmosphereLutsNode {}
+pub(super) struct AtmosphereNode {}
 
-impl ViewNode for AtmosphereLutsNode {
+impl ViewNode for AtmosphereNode {
     type ViewQuery = (
         Read<AtmosphereTextures>,
         Read<AtmosphereSettings>,
@@ -162,39 +159,6 @@ impl ViewNode for AtmosphereLutsNode {
         }
 
         render_context.command_encoder().pop_debug_group();
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-pub(super) struct ApplyAtmosphereNode;
-
-impl ViewNode for ApplyAtmosphereNode {
-    type ViewQuery = (
-        Read<AtmosphereTextures>,
-        Read<AtmosphereBindGroups>,
-        Read<ViewTarget>,
-        Read<DynamicUniformIndex<Atmosphere>>,
-    );
-
-    fn run<'w>(
-        &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (textures, bind_groups, view_target, atmosphere_index): QueryItem<'w, Self::ViewQuery>,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        let render_pass =
-            render_context
-                .command_encoder()
-                .begin_render_pass(&RenderPassDescriptor {
-                    label: Some("atmosphere_apply_pass"),
-                    color_attachments: &[Some(view_target.get_color_attachment())],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                });
-
         Ok(())
     }
 }

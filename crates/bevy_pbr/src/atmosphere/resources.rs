@@ -14,12 +14,12 @@ use bevy_render::{
         binding_types::{
             sampler, texture_2d, texture_3d, texture_storage_2d, texture_storage_3d, uniform_buffer,
         },
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedComputePipelineId, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        ComputePipelineDescriptor, Extent3d, FilterMode, FragmentState, MultisampleState,
-        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
+        BlendFactor, BlendOperation, BlendState, CachedComputePipelineId, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, ComputePipelineDescriptor, Extent3d, FilterMode,
+        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
+        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StorageTextureAccess,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
@@ -274,7 +274,18 @@ impl FromWorld for AtmospherePipelines {
                 targets: vec![Some(ColorTargetState {
                     //TODO: only works with HDR for now. Need to integrate non-hdr + tonemap in shader. But then this node doesn't work at all, so idk. Maybe just add stuff to view bind group and integrate with normal lighting?
                     format: ViewTarget::TEXTURE_FORMAT_HDR,
-                    blend: None,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::Zero,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -394,7 +405,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
-    pub apply: BindGroup,
+    pub apply_atmosphere: BindGroup,
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -440,7 +451,6 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 &textures.transmittance_lut.default_view,
                 &samplers.transmittance_lut,
                 &textures.multiscattering_lut.default_view,
-                &samplers.multiscattering_lut,
             )),
         );
 
@@ -490,7 +500,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            apply: apply_atmosphere,
+            apply_atmosphere,
         });
     }
 }

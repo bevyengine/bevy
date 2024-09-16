@@ -98,3 +98,6 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 
 @group(0) @binding(27) var view_transmission_texture: texture_2d<f32>;
 @group(0) @binding(28) var view_transmission_sampler: sampler;
+
+@group(0) @binding(29) var atmospheric_scattering_texture: texture_3d<f32>;
+@group(0) @binding(30) var atmospheric_scattering_sampler: sampler;

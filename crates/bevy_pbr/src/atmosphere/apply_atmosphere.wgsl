@@ -16,4 +16,6 @@
 
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec3<f32> {
+    let depth = textureSample(depth, depth_sampler).r;
+    return textureSample(sky_view_lut, sky_view_lut_sampler, in.uv).rgb;
 }
