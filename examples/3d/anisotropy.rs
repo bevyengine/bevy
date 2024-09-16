@@ -4,7 +4,6 @@ use bevy::{
     color::palettes::css::WHITE,
     core_pipeline::Skybox,
     math::vec3,
-    math::{cos, sin},
     prelude::*,
     time::Stopwatch,
 };

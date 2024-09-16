@@ -13,7 +13,7 @@
 
 use std::marker::PhantomData;
 
-use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, math::sin, prelude::*};
+use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*};
 
 use custom_transitions::*;
 

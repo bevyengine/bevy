@@ -22,7 +22,7 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
-    math::{cos, sin, vec3},
+    math::vec3,
     pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
     render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
