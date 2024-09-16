@@ -158,11 +158,8 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let s_texture_polar = 1.0 - ((jf + 0.5) * to_tex_horizontal);
             let theta = jf * to_theta;
 
-            let cos_theta = cos(theta);
-            let sin_theta = sin(theta);
-
-            theta_cartesian[j] = Vec2::new(cos_theta, sin_theta);
-            rho_theta_cartesian[j] = Vec2::new(radius * cos_theta, radius * sin_theta);
+            theta_cartesian[j] = Vec2::from_angle(theta);
+            rho_theta_cartesian[j] = radius * theta_cartesian[j];
 
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
