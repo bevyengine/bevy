@@ -628,27 +628,15 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
-        archetype: &'w Archetype,
+        _: &'w Archetype,
         _table: &Table,
     ) {
-        let mut access = Access::default();
-        for id in archetype.components() {
-            if state.access.has_component_read(id) {
-                access.add_component_read(id);
-            }
-        }
-        fetch.1 = access;
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        let mut access = Access::default();
-        for id in table.columns() {
-            if state.access.has_component_read(id) {
-                access.add_component_read(id);
-            }
-        }
-        fetch.1 = access;
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
@@ -735,33 +723,15 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
-        archetype: &'w Archetype,
+        _: &'w Archetype,
         _table: &Table,
     ) {
-        let mut access = Access::default();
-        for id in archetype.components() {
-            if state.access.has_component_read(id) {
-                access.add_component_read(id);
-            }
-            if state.access.has_component_write(id) {
-                access.add_component_write(id);
-            }
-        }
-        fetch.1 = access;
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        let mut access = Access::default();
-        for id in table.columns() {
-            if state.access.has_component_read(id) {
-                access.add_component_read(id);
-            }
-            if state.access.has_component_write(id) {
-                access.add_component_write(id);
-            }
-        }
-        fetch.1 = access;
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
@@ -866,11 +836,18 @@ where
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        let access = filtered_access.access_mut();
-        access.read_all_components();
+        let mut my_access = Access::new();
+        my_access.read_all_components();
         for id in state {
-            access.remove_component_read(*id);
+            my_access.remove_component_read(*id);
         }
+
+        let access = filtered_access.access_mut();
+        assert!(
+            access.is_compatible(&my_access),
+            "`EntityRefExcept` conflicts with a previous access in this query."
+        );
+        access.extend(&my_access);
     }
 
     fn init_state(world: &mut World) -> Self::State {
@@ -888,7 +865,6 @@ where
     }
 
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
-        // Be conservative for performance.
         true
     }
 }
@@ -958,11 +934,18 @@ where
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        let access = filtered_access.access_mut();
-        access.write_all_components();
+        let mut my_access = Access::new();
+        my_access.write_all_components();
         for id in state {
-            access.remove_component_read(*id);
+            my_access.remove_component_read(*id);
         }
+
+        let access = filtered_access.access_mut();
+        assert!(
+            access.is_compatible(&my_access),
+            "`EntityMutExcept` conflicts with a previous access in this query."
+        );
+        access.extend(&my_access);
     }
 
     fn init_state(world: &mut World) -> Self::State {

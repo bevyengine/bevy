@@ -484,40 +484,36 @@ impl<T: SparseSetIndex> Access<T> {
         for (
             lhs_writes,
             rhs_reads_and_writes,
-            rhs_reads_and_writes_inverted,
             lhs_writes_inverted,
+            rhs_reads_and_writes_inverted,
         ) in [
             (
                 &self.component_writes,
                 &other.component_read_and_writes,
-                other.component_read_and_writes_inverted,
                 self.component_writes_inverted,
+                other.component_read_and_writes_inverted,
             ),
             (
                 &other.component_writes,
                 &self.component_read_and_writes,
-                self.component_read_and_writes_inverted,
                 other.component_writes_inverted,
+                self.component_read_and_writes_inverted,
             ),
         ] {
-            match (rhs_reads_and_writes_inverted, lhs_writes_inverted) {
+            match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
                 (true, true) => return false,
-                (true, false) => {
-                    if lhs_writes.difference(rhs_reads_and_writes).next().is_some() {
+                (false, true) => {
+                    if !lhs_writes.is_subset(rhs_reads_and_writes) {
                         return false;
                     }
                 }
-                (false, true) => {
-                    if rhs_reads_and_writes.difference(lhs_writes).next().is_some() {
+                (true, false) => {
+                    if !rhs_reads_and_writes.is_subset(lhs_writes) {
                         return false;
                     }
                 }
                 (false, false) => {
-                    if lhs_writes
-                        .intersection(rhs_reads_and_writes)
-                        .next()
-                        .is_some()
-                    {
+                    if !lhs_writes.is_disjoint(rhs_reads_and_writes) {
                         return false;
                     }
                 }
@@ -588,7 +584,7 @@ impl<T: SparseSetIndex> Access<T> {
         ] {
             match (our_components_inverted, their_components_inverted) {
                 (true, true) => {
-                    if their_components.difference(our_components).next().is_some() {
+                    if !their_components.is_subset(our_components) {
                         return false;
                     }
                 }
@@ -596,16 +592,12 @@ impl<T: SparseSetIndex> Access<T> {
                     return false;
                 }
                 (false, true) => {
-                    if our_components
-                        .intersection(their_components)
-                        .next()
-                        .is_some()
-                    {
+                    if !our_components.is_disjoint(their_components) {
                         return false;
                     }
                 }
                 (false, false) => {
-                    if our_components.difference(their_components).next().is_some() {
+                    if !our_components.is_subset(their_components) {
                         return false;
                     }
                 }
@@ -653,29 +645,29 @@ impl<T: SparseSetIndex> Access<T> {
         for (
             lhs_writes,
             rhs_reads_and_writes,
-            rhs_reads_and_writes_inverted,
             lhs_writes_inverted,
+            rhs_reads_and_writes_inverted,
         ) in [
             (
                 &self.component_writes,
                 &other.component_read_and_writes,
-                other.component_read_and_writes_inverted,
                 self.component_writes_inverted,
+                other.component_read_and_writes_inverted,
             ),
             (
                 &other.component_writes,
                 &self.component_read_and_writes,
-                self.component_read_and_writes_inverted,
                 other.component_writes_inverted,
+                self.component_read_and_writes_inverted,
             ),
         ] {
             // There's no way that I can see to do this without a temporary.
-            // Neither CNF or DNF allows us to avoid one.
+            // Neither CNF nor DNF allows us to avoid one.
             let temp_conflicts: FixedBitSet =
-                match (rhs_reads_and_writes_inverted, lhs_writes_inverted) {
+                match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
                     (true, true) => return AccessConflicts::All,
-                    (true, false) => lhs_writes.difference(rhs_reads_and_writes).collect(),
-                    (false, true) => rhs_reads_and_writes.difference(lhs_writes).collect(),
+                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
+                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
                     (false, false) => lhs_writes.intersection(rhs_reads_and_writes).collect(),
                 };
             conflicts.union_with(&temp_conflicts);
@@ -736,30 +728,37 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Returns an iterator over the component IDs that this `Access` either
-    /// reads and writes or cannot read or write, depending on the value of
-    /// [`Access::component_reads_and_writes_inverted`].
+    /// reads and writes or can't read or write.
+    ///
+    /// The returned flag specifies whether the list consists of the components
+    /// that the access *can* read or write (false) or whether the list consists
+    /// of the components that the access *can't* read or write (true).
     ///
     /// Because this method depends on internal implementation details of
     /// `Access`, it's not recommended. Prefer to manage your own lists of
     /// accessible components if your application needs to do that.
     #[doc(hidden)]
-    pub fn component_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
-        self.component_read_and_writes
-            .ones()
-            .map(T::get_sparse_set_index)
+    #[deprecated]
+    pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
+        (
+            self.component_read_and_writes
+                .ones()
+                .map(T::get_sparse_set_index),
+            self.component_read_and_writes_inverted,
+        )
     }
 
-    /// Returns true if [`Access::component_reads_and_writes`] returns IDs of
-    /// components that this [`Access`] does *not* allow access to, or false if
-    /// that method returns IDs of components that this [`Access`] *does* allow
-    /// access to.
+    /// Returns an iterator over the component IDs that this `Access` either
+    /// writes or can't write.
     ///
-    /// Because this method depends on internal implementation details of
-    /// `Access`, it's not recommended. Prefer to manage your own lists of
-    /// accessible components if your application needs to do that.
-    #[doc(hidden)]
-    pub fn component_reads_and_writes_inverted(&self) -> bool {
-        self.component_read_and_writes_inverted
+    /// The returned flag specifies whether the list consists of the components
+    /// that the access *can* write (false) or whether the list consists of the
+    /// components that the access *can't* write (true).
+    pub(crate) fn component_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
+        (
+            self.component_writes.ones().map(T::get_sparse_set_index),
+            self.component_writes_inverted,
+        )
     }
 }
 

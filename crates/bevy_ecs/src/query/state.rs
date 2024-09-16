@@ -508,11 +508,31 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        for component_id in archetype.components() {
-            let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
-            else {
-                continue;
-            };
+        // As a fast path, we can iterate directly over the components involved
+        // if the `access` isn't inverted.
+        #[allow(deprecated)]
+        let (component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.component_access.access.component_reads_and_writes();
+        let (component_writes, component_writes_inverted) =
+            self.component_access.access.component_writes();
+
+        if !component_reads_and_writes_inverted && !component_writes_inverted {
+            component_reads_and_writes.for_each(|id| {
+                if let Some(id) = archetype.get_archetype_component_id(id) {
+                    access.add_component_read(id);
+                }
+            });
+            component_writes.for_each(|id| {
+                if let Some(id) = archetype.get_archetype_component_id(id) {
+                    access.add_component_write(id);
+                }
+            });
+            return;
+        }
+
+        for (component_id, archetype_component_id) in
+            archetype.components_with_archetype_component_id()
+        {
             if self
                 .component_access
                 .access

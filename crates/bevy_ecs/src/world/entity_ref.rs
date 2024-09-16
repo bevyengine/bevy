@@ -3188,11 +3188,35 @@ mod tests {
         assert!(found);
     }
 
+    // Test that a single query can't both contain a mutable reference to a
+    // component C and an `EntityRefExcept` that doesn't include C among its
+    // exclusions.
+    #[test]
+    #[should_panic]
+    fn entity_ref_except_conflicts_with_self() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        // This should panic, because we have a mutable borrow on
+        // `TestComponent` but have a simultaneous indirect immutable borrow on
+        // that component via `EntityRefExcept`.
+        let system = (QueryParamBuilder::new(|builder| {
+            builder.data::<(&mut TestComponent, EntityRefExcept<TestComponent2>)>();
+        }),)
+            .build_state(&mut world)
+            .build_system(|_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>| {});
+
+        world.run_system_once(system);
+    }
+
     // Test that an `EntityRefExcept` that doesn't include a component C among
     // its exclusions can't coexist with a mutable query for that component.
     #[test]
     #[should_panic]
-    fn entity_ref_except_conflicts() {
+    fn entity_ref_except_conflicts_with_other() {
         let mut world = World::new();
         world.init_component::<TestComponent>();
         world.init_component::<TestComponent2>();
@@ -3278,11 +3302,35 @@ mod tests {
         assert!(found);
     }
 
+    // Test that a single query can't both contain a mutable reference to a
+    // component C and an `EntityMutExcept` that doesn't include C among its
+    // exclusions.
+    #[test]
+    #[should_panic]
+    fn entity_mut_except_conflicts_with_self() {
+        let mut world = World::new();
+        world.init_component::<TestComponent>();
+        world.init_component::<TestComponent2>();
+
+        world.spawn(TestComponent(0)).insert(TestComponent2(0));
+
+        // This should panic, because we have a mutable borrow on
+        // `TestComponent` but have a simultaneous indirect immutable borrow on
+        // that component via `EntityRefExcept`.
+        let system = (QueryParamBuilder::new(|builder| {
+            builder.data::<(&mut TestComponent, EntityMutExcept<TestComponent2>)>();
+        }),)
+            .build_state(&mut world)
+            .build_system(|_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>| {});
+
+        world.run_system_once(system);
+    }
+
     // Test that an `EntityMutExcept` that doesn't include a component C among
     // its exclusions can't coexist with a query for that component.
     #[test]
     #[should_panic]
-    fn entity_mut_except_conflicts() {
+    fn entity_mut_except_conflicts_with_other() {
         let mut world = World::new();
         world.init_component::<TestComponent>();
         world.init_component::<TestComponent2>();
