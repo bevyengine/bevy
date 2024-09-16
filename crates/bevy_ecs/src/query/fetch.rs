@@ -813,7 +813,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
 }
 
-/// SAFETY: `EntityRefExcept` guards access to all components in the list `CL`
+/// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
 unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
@@ -905,7 +905,7 @@ where
 /// components.
 unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
 
-/// SAFETY: `EntityMutExcept` guards access to all components in the list `CL`
+/// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
 unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
