@@ -1,10 +1,11 @@
 use crate::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
-use std::borrow::Cow;
+use std::{borrow::Cow, path::PathBuf};
 
 pub use wgpu::{
-    Backends, Dx12Compiler, Features as WgpuFeatures, Limits as WgpuLimits, PowerPreference,
+    Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
+    Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
@@ -44,12 +45,27 @@ pub struct WgpuSettings {
     pub constrained_limits: Option<WgpuLimits>,
     /// The shader compiler to use for the DX12 backend.
     pub dx12_shader_compiler: Dx12Compiler,
+    /// Allows you to choose which minor version of GLES3 to use (3.0, 3.1, 3.2, or automatic)
+    /// This only applies when using ANGLE and the GL backend.
+    pub gles3_minor_version: Gles3MinorVersion,
+    /// These are for controlling WGPU's debug information to eg. enable validation and shader debug info in release builds.
+    pub instance_flags: InstanceFlags,
+    /// This hints to the WGPU device about the preferred memory allocation strategy.
+    pub memory_hints: MemoryHints,
+    /// The path to pass to wgpu for API call tracing. This only has an effect if wgpu's tracing functionality is enabled.
+    pub trace_path: Option<PathBuf>,
 }
 
 impl Default for WgpuSettings {
     fn default() -> Self {
-        let default_backends = if cfg!(all(feature = "webgl", target_arch = "wasm32")) {
+        let default_backends = if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) {
             Backends::GL
+        } else if cfg!(all(feature = "webgpu", target_arch = "wasm32")) {
+            Backends::BROWSER_WEBGPU
         } else {
             Backends::all()
         };
@@ -61,8 +77,11 @@ impl Default for WgpuSettings {
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
-        let limits = if cfg!(all(feature = "webgl", target_arch = "wasm32"))
-            || matches!(priority, WgpuSettingsPriority::WebGL2)
+        let limits = if cfg!(all(
+            feature = "webgl",
+            target_arch = "wasm32",
+            not(feature = "webgpu")
+        )) || matches!(priority, WgpuSettingsPriority::WebGL2)
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
@@ -82,6 +101,10 @@ impl Default for WgpuSettings {
                 dxc_path: None,
             });
 
+        let gles3_minor_version = wgpu::util::gles_minor_version_from_env().unwrap_or_default();
+
+        let instance_flags = InstanceFlags::default().with_env();
+
         Self {
             device_label: Default::default(),
             backends,
@@ -92,6 +115,10 @@ impl Default for WgpuSettings {
             limits,
             constrained_limits: None,
             dx12_shader_compiler: dx12_compiler,
+            gles3_minor_version,
+            instance_flags,
+            memory_hints: MemoryHints::default(),
+            trace_path: None,
         }
     }
 }

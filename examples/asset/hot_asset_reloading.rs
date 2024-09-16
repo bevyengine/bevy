@@ -16,7 +16,8 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
-    let scene_handle = asset_server.load("models/torus/torus.gltf#Scene0");
+    let scene_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf"));
 
     // Any changes to the mesh will be reloaded automatically! Try making a change to torus.gltf.
     // You should see the changes immediately show up in your app.
@@ -27,8 +28,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight::default(),
+        transform: Transform::from_xyz(4.0, 5.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
     // camera

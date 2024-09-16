@@ -1,7 +1,7 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
-use bevy_utils::{FixedState, StableHashMap};
+use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
 use std::{
     any::{Any, TypeId},
     hash::BuildHasher,
@@ -49,7 +49,7 @@ mod sealed {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -70,20 +70,28 @@ mod sealed {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
-/// # impl Reflect for Foo {
+/// # impl PartialReflect for Foo {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// # }
+/// # impl Reflect for Foo {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
 ///
@@ -110,6 +118,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
     }
 }
 
+impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A container for [`TypedProperty`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
@@ -124,12 +138,12 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + TypePath> Typed for Foo<T> {
+/// impl<T: Reflect + Typed + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -143,20 +157,28 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
+/// # impl<T: PartialReflect + TypePath> PartialReflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// # }
+/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
 /// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #     fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #     fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
 ///
@@ -195,7 +217,7 @@ impl<T: TypedProperty> NonGenericTypeCell<T> {
 /// ```
 /// [`impl_type_path`]: crate::impl_type_path
 /// [`TypePath`]: crate::TypePath
-pub struct GenericTypeCell<T: TypedProperty>(RwLock<StableHashMap<TypeId, &'static T::Stored>>);
+pub struct GenericTypeCell<T: TypedProperty>(RwLock<TypeIdMap<&'static T::Stored>>);
 
 /// See [`GenericTypeCell`].
 pub type GenericTypeInfoCell = GenericTypeCell<TypeInfo>;
@@ -205,9 +227,7 @@ pub type GenericTypePathCell = GenericTypeCell<TypePathComponent>;
 impl<T: TypedProperty> GenericTypeCell<T> {
     /// Initialize a [`GenericTypeCell`] for generic types.
     pub const fn new() -> Self {
-        // Use `bevy_utils::StableHashMap` over `bevy_utils::HashMap`
-        // because `BuildHasherDefault` is unfortunately not const.
-        Self(RwLock::new(StableHashMap::with_hasher(FixedState)))
+        Self(RwLock::new(TypeIdMap::with_hasher(NoOpHash)))
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -219,22 +239,38 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         G: Any + ?Sized,
         F: FnOnce() -> T::Stored,
     {
-        let type_id = TypeId::of::<G>();
+        self.get_or_insert_by_type_id(TypeId::of::<G>(), f)
+    }
 
-        // Put in a separate scope, so `mapping` is dropped before `f`,
-        // since `f` might want to call `get_or_insert` recursively
-        // and we don't want a deadlock!
-        {
-            let mapping = self.0.read().unwrap_or_else(PoisonError::into_inner);
-            if let Some(info) = mapping.get(&type_id) {
-                return info;
-            }
+    /// Returns a reference to the [`TypedProperty`] stored in the cell, if any.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    fn get_by_type_id(&self, type_id: TypeId) -> Option<&T::Stored> {
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&type_id)
+            .copied()
+    }
+
+    /// Returns a reference to the [`TypedProperty`] stored in the cell.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    /// If there is no entry found, a new one will be generated from the given function.
+    fn get_or_insert_by_type_id<F>(&self, type_id: TypeId, f: F) -> &T::Stored
+    where
+        F: FnOnce() -> T::Stored,
+    {
+        match self.get_by_type_id(type_id) {
+            Some(info) => info,
+            None => self.insert_by_type_id(type_id, f()),
         }
+    }
 
-        let value = f();
-
-        let mut mapping = self.0.write().unwrap_or_else(PoisonError::into_inner);
-        mapping
+    fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
+        self.0
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .entry(type_id)
             .insert({
                 // We leak here in order to obtain a `&'static` reference.
@@ -244,6 +280,12 @@ impl<T: TypedProperty> GenericTypeCell<T> {
                 Box::leak(Box::new(value))
             })
             .get()
+    }
+}
+
+impl<T: TypedProperty> Default for GenericTypeCell<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

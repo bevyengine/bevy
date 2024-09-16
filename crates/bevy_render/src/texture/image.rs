@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -14,8 +14,8 @@ use crate::{
 use bevy_asset::Asset;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
-use bevy_math::{UVec2, Vec2};
-use bevy_reflect::Reflect;
+use bevy_math::{AspectRatio, UVec2, Vec2};
+use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use thiserror::Error;
@@ -27,33 +27,66 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     Avif,
+    #[cfg(feature = "basis-universal")]
     Basis,
+    #[cfg(feature = "bmp")]
     Bmp,
+    #[cfg(feature = "dds")]
     Dds,
     Farbfeld,
     Gif,
+    #[cfg(feature = "exr")]
     OpenExr,
+    #[cfg(feature = "hdr")]
     Hdr,
     Ico,
+    #[cfg(feature = "jpeg")]
     Jpeg,
+    #[cfg(feature = "ktx2")]
     Ktx2,
+    #[cfg(feature = "png")]
     Png,
+    #[cfg(feature = "pnm")]
     Pnm,
+    #[cfg(feature = "tga")]
     Tga,
     Tiff,
+    #[cfg(feature = "webp")]
     WebP,
+}
+
+macro_rules! feature_gate {
+    ($feature: tt, $value: ident) => {{
+        #[cfg(not(feature = $feature))]
+        {
+            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            return None;
+        }
+        #[cfg(feature = $feature)]
+        ImageFormat::$value
+    }};
 }
 
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
-            "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
-            "image/vnd-ms.dds" => ImageFormat::Dds,
-            "image/jpeg" => ImageFormat::Jpeg,
-            "image/ktx2" => ImageFormat::Ktx2,
-            "image/png" => ImageFormat::Png,
-            "image/x-exr" => ImageFormat::OpenExr,
-            "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
+            "image/avif" => ImageFormat::Avif,
+            "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
+            "image/vnd-ms.dds" => feature_gate!("dds", Dds),
+            "image/vnd.radiance" => feature_gate!("hdr", Hdr),
+            "image/gif" => ImageFormat::Gif,
+            "image/x-icon" => ImageFormat::Ico,
+            "image/jpeg" => feature_gate!("jpeg", Jpeg),
+            "image/ktx2" => feature_gate!("ktx2", Ktx2),
+            "image/png" => feature_gate!("png", Png),
+            "image/x-exr" => feature_gate!("exr", OpenExr),
+            "image/x-portable-bitmap"
+            | "image/x-portable-graymap"
+            | "image/x-portable-pixmap"
+            | "image/x-portable-anymap" => feature_gate!("pnm", Pnm),
+            "image/x-targa" | "image/x-tga" => feature_gate!("tga", Tga),
+            "image/tiff" => ImageFormat::Tiff,
+            "image/webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
@@ -61,21 +94,21 @@ impl ImageFormat {
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
             "avif" => ImageFormat::Avif,
-            "basis" => ImageFormat::Basis,
-            "bmp" => ImageFormat::Bmp,
-            "dds" => ImageFormat::Dds,
+            "basis" => feature_gate!("basis-universal", Basis),
+            "bmp" => feature_gate!("bmp", Bmp),
+            "dds" => feature_gate!("dds", Dds),
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
-            "exr" => ImageFormat::OpenExr,
-            "hdr" => ImageFormat::Hdr,
+            "exr" => feature_gate!("exr", OpenExr),
+            "hdr" => feature_gate!("hdr", Hdr),
             "ico" => ImageFormat::Ico,
-            "jpg" | "jpeg" => ImageFormat::Jpeg,
-            "ktx2" => ImageFormat::Ktx2,
-            "pbm" | "pam" | "ppm" | "pgm" => ImageFormat::Pnm,
-            "png" => ImageFormat::Png,
-            "tga" => ImageFormat::Tga,
+            "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
+            "ktx2" => feature_gate!("ktx2", Ktx2),
+            "pbm" | "pam" | "ppm" | "pgm" => feature_gate!("pnm", Pnm),
+            "png" => feature_gate!("png", Png),
+            "tga" => feature_gate!("tga", Tga),
             "tif" | "tiff" => ImageFormat::Tiff,
-            "webp" => ImageFormat::WebP,
+            "webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
@@ -83,26 +116,58 @@ impl ImageFormat {
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
             ImageFormat::Avif => image::ImageFormat::Avif,
+            #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
+            #[cfg(feature = "dds")]
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            #[cfg(feature = "exr")]
             ImageFormat::OpenExr => image::ImageFormat::OpenExr,
+            #[cfg(feature = "hdr")]
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
+            #[cfg(feature = "jpeg")]
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            #[cfg(feature = "png")]
             ImageFormat::Png => image::ImageFormat::Png,
+            #[cfg(feature = "pnm")]
             ImageFormat::Pnm => image::ImageFormat::Pnm,
+            #[cfg(feature = "tga")]
             ImageFormat::Tga => image::ImageFormat::Tga,
             ImageFormat::Tiff => image::ImageFormat::Tiff,
+            #[cfg(feature = "webp")]
             ImageFormat::WebP => image::ImageFormat::WebP,
-            ImageFormat::Basis | ImageFormat::Ktx2 => return None,
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => return None,
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => return None,
+        })
+    }
+
+    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        Some(match format {
+            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
+            image::ImageFormat::Dds => feature_gate!("dds", Dds),
+            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
+            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::OpenExr => feature_gate!("exr", OpenExr),
+            image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
+            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
+            image::ImageFormat::Png => feature_gate!("png", Png),
+            image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
+            image::ImageFormat::Tga => feature_gate!("tga", Tga),
+            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::WebP => feature_gate!("webp", WebP),
+            _ => return None,
         })
     }
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value]
+#[reflect_value(Default)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -110,6 +175,7 @@ pub struct Image {
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
     pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub asset_usage: RenderAssetUsages,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -136,6 +202,23 @@ impl ImageSampler {
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
     }
+
+    /// Initialize the descriptor if it is not already initialized.
+    ///
+    /// Descriptor is typically initialized by Bevy when the image is loaded,
+    /// so this is convenient shortcut for updating the descriptor.
+    pub fn get_or_init_descriptor(&mut self) -> &mut ImageSamplerDescriptor {
+        match self {
+            ImageSampler::Default => {
+                *self = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
+                match self {
+                    ImageSampler::Descriptor(descriptor) => descriptor,
+                    _ => unreachable!(),
+                }
+            }
+            ImageSampler::Descriptor(descriptor) => descriptor,
+        }
+    }
 }
 
 /// A rendering resource for the default image sampler which is set during renderer
@@ -147,6 +230,8 @@ impl ImageSampler {
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
+///
+/// See [`ImageSamplerDescriptor`] for information how to configure this.
 ///
 /// This type mirrors [`wgpu::AddressMode`].
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
@@ -266,7 +351,7 @@ pub struct ImageSamplerDescriptor {
     pub compare: Option<ImageCompareFunction>,
     /// Must be at least 1. If this is not 1, all filter modes must be linear.
     pub anisotropy_clamp: u16,
-    /// Border color to use when `address_mode`` is [`ImageAddressMode::ClampToBorder`].
+    /// Border color to use when `address_mode` is [`ImageAddressMode::ClampToBorder`].
     pub border_color: Option<ImageSamplerBorderColor>,
 }
 
@@ -425,7 +510,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
-            label: value.label.map(|l| l.to_string()),
+            label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -464,6 +549,7 @@ impl Default for Image {
             },
             sampler: ImageSampler::Default,
             texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
@@ -479,6 +565,7 @@ impl Image {
         dimension: TextureDimension,
         data: Vec<u8>,
         format: TextureFormat,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
@@ -492,7 +579,40 @@ impl Image {
         image.texture_descriptor.dimension = dimension;
         image.texture_descriptor.size = size;
         image.texture_descriptor.format = format;
+        image.asset_usage = asset_usage;
         image
+    }
+
+    /// A transparent white 1x1x1 image.
+    ///
+    /// Contrast to [`Image::default`], which is opaque.
+    pub fn transparent() -> Image {
+        // We rely on the default texture format being RGBA8UnormSrgb
+        // when constructing a transparent color from bytes.
+        // If this changes, this function will need to be updated.
+        let format = TextureFormat::bevy_default();
+        debug_assert!(format.pixel_size() == 4);
+        let data = vec![255, 255, 255, 0];
+        Image {
+            data,
+            texture_descriptor: wgpu::TextureDescriptor {
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+        }
     }
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
@@ -505,20 +625,24 @@ impl Image {
         dimension: TextureDimension,
         pixel: &[u8],
         format: TextureFormat,
+        asset_usage: RenderAssetUsages,
     ) -> Self {
         let mut value = Image::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
+        value.asset_usage = asset_usage;
         value.resize(size);
 
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
-            "Must not have incomplete pixel data."
+            "Must not have incomplete pixel data (pixel size is {}B).",
+            format.pixel_size(),
         );
         debug_assert!(
             pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer."
+            "Fill data must fit within pixel buffer (expected {}B).",
+            value.data.len(),
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
@@ -539,10 +663,12 @@ impl Image {
         self.texture_descriptor.size.height
     }
 
-    /// Returns the aspect ratio (height/width) of a 2D image.
+    /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
-    pub fn aspect_ratio(&self) -> f32 {
-        self.height() as f32 / self.width() as f32
+    pub fn aspect_ratio(&self) -> AspectRatio {
+        AspectRatio::try_from_pixels(self.width(), self.height()).expect(
+            "Failed to calculate aspect ratio: Image dimensions must be positive, non-zero values",
+        )
     }
 
     /// Returns the size of a 2D image as f32.
@@ -573,8 +699,9 @@ impl Image {
     /// # Panics
     /// Panics if the `new_size` does not have the same volume as to old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+        assert_eq!(
+            new_size.volume(),
+            self.texture_descriptor.size.volume(),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -592,8 +719,8 @@ impl Image {
     /// the `layers`.
     pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert!(self.texture_descriptor.dimension == TextureDimension::D2);
-        assert!(self.texture_descriptor.size.depth_or_array_layers == 1);
+        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
+        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
         assert_eq!(self.height() % layers, 0);
 
         self.reinterpret_size(Extent3d {
@@ -628,17 +755,19 @@ impl Image {
                 }
                 _ => None,
             })
-            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb))
+            .map(|(dyn_img, is_srgb)| Self::from_dynamic(dyn_img, is_srgb, self.asset_usage))
     }
 
     /// Load a bytes buffer in a [`Image`], according to type `image_type`, using the `image`
     /// crate
     pub fn from_buffer(
+        #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Image, TextureError> {
         let format = image_type.to_image_format()?;
 
@@ -654,7 +783,13 @@ impl Image {
                 basis_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => dds_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?,
+            ImageFormat::Dds => dds_buffer_to_image(
+                #[cfg(debug_assertions)]
+                name,
+                buffer,
+                supported_compressed_formats,
+                is_srgb,
+            )?,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
@@ -663,11 +798,11 @@ impl Image {
                 let image_crate_format = format
                     .as_image_crate_format()
                     .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
-                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                let mut reader = image::ImageReader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;
-                Self::from_dynamic(dyn_img, is_srgb)
+                Self::from_dynamic(dyn_img, is_srgb, asset_usage)
             }
         };
         image.sampler = image_sampler;
@@ -781,7 +916,7 @@ impl TextureFormatPixelInfo for TextureFormat {
     fn pixel_size(&self) -> usize {
         let info = self;
         match info.block_dimensions() {
-            (1, 1) => info.block_size(None).unwrap() as usize,
+            (1, 1) => info.block_copy_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
     }
@@ -795,45 +930,48 @@ pub struct GpuImage {
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
-    pub size: Vec2,
+    pub size: UVec2,
     pub mip_level_count: u32,
 }
 
-impl RenderAsset for Image {
-    type ExtractedAsset = Image;
-    type PreparedAsset = GpuImage;
+impl RenderAsset for GpuImage {
+    type SourceAsset = Image;
     type Param = (
         SRes<RenderDevice>,
         SRes<RenderQueue>,
         SRes<DefaultImageSampler>,
     );
 
-    /// Clones the Image.
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
+    #[inline]
+    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
+        image.asset_usage
+    }
+
+    #[inline]
+    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
+        Some(image.data.len())
     }
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::ExtractedAsset,
+        image: Self::SourceAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,
             &image.texture_descriptor,
+            // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
+            wgpu::util::TextureDataOrder::default(),
             &image.data,
         );
 
+        let size = image.size();
         let texture_view = texture.create_view(
             image
                 .texture_view_descriptor
                 .or_else(|| Some(TextureViewDescriptor::default()))
                 .as_ref()
                 .unwrap(),
-        );
-        let size = Vec2::new(
-            image.texture_descriptor.size.width as f32,
-            image.texture_descriptor.size.height as f32,
         );
         let sampler = match image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
@@ -858,9 +996,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
-        const ASTC_LDR = (1 << 0);
-        const BC       = (1 << 1);
-        const ETC2     = (1 << 2);
+        const ASTC_LDR = 1 << 0;
+        const BC       = 1 << 1;
+        const ETC2     = 1 << 2;
     }
 }
 
@@ -913,7 +1051,6 @@ impl CompressedImageFormats {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
 
     #[test]
@@ -928,15 +1065,18 @@ mod test {
             TextureDimension::D2,
             &[0, 0, 0, 255],
             TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
         );
         assert_eq!(
             Vec2::new(size.width as f32, size.height as f32),
             image.size_f32()
         );
     }
+
     #[test]
     fn image_default_size() {
         let image = Image::default();
+        assert_eq!(UVec2::ONE, image.size());
         assert_eq!(Vec2::ONE, image.size_f32());
     }
 }

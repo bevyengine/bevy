@@ -1,31 +1,41 @@
 use bevy_asset::Handle;
+use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_render::color::Color;
 use bevy_utils::default;
+use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 
 use crate::Font;
+pub use cosmic_text::{
+    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
+    Weight as FontWeight,
+};
 
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+/// Wrapper for [`cosmic_text::Buffer`]
+#[derive(Component, Deref, DerefMut, Debug, Clone)]
+pub struct CosmicBuffer(pub Buffer);
+
+impl Default for CosmicBuffer {
+    fn default() -> Self {
+        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
+    }
+}
+
+/// A component that is the entry point for rendering text.
+///
+/// It contains all of the text value and styling information.
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub struct Text {
+    /// The text's sections
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub alignment: TextAlignment,
-    /// How the text should linebreak when running out of the bounds determined by max_size
+    pub justify: JustifyText,
+    /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
-}
-
-impl Default for Text {
-    fn default() -> Self {
-        Self {
-            sections: Default::default(),
-            alignment: TextAlignment::Left,
-            linebreak_behavior: BreakLineOn::WordBoundary,
-        }
-    }
 }
 
 impl Text {
@@ -33,8 +43,8 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_color::Color;
+    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -43,21 +53,21 @@ impl Text {
     ///     // Accepts a String or any type that converts into a String, such as &str.
     ///     "hello world!",
     ///     TextStyle {
-    ///         font: font_handle.clone(),
+    ///         font: font_handle.clone().into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
     /// );
     ///
     /// let hello_bevy = Text::from_section(
-    ///     "hello bevy!",
+    ///     "hello world\nand bevy!",
     ///     TextStyle {
-    ///         font: font_handle,
+    ///         font: font_handle.into(),
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::Center);
+    /// ) // You can still add text justifaction.
+    /// .with_justify(JustifyText::Center);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -70,7 +80,8 @@ impl Text {
     ///
     /// ```
     /// # use bevy_asset::Handle;
-    /// # use bevy_render::color::Color;
+    /// # use bevy_color::Color;
+    /// # use bevy_color::palettes::basic::{RED, BLUE};
     /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
@@ -79,17 +90,17 @@ impl Text {
     ///     TextSection::new(
     ///         "Hello, ",
     ///         TextStyle {
-    ///             font: font_handle.clone(),
+    ///             font: font_handle.clone().into(),
     ///             font_size: 60.0,
-    ///             color: Color::BLUE,
+    ///             color: BLUE.into(),
     ///         },
     ///     ),
     ///     TextSection::new(
     ///         "World!",
     ///         TextStyle {
-    ///             font: font_handle,
+    ///             font: font_handle.into(),
     ///             font_size: 60.0,
-    ///             color: Color::RED,
+    ///             color: RED.into(),
     ///         },
     ///     ),
     /// ]);
@@ -101,9 +112,9 @@ impl Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.alignment = alignment;
+    /// Returns this [`Text`] with a new [`JustifyText`].
+    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+        self.justify = justify;
         self
     }
 
@@ -115,9 +126,13 @@ impl Text {
     }
 }
 
+/// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Default)]
 pub struct TextSection {
+    /// The content (in `String` form) of the text in the section.
     pub value: String,
+    /// The style of the text in the section, including the font face, font size, and color.
     pub style: TextStyle,
 }
 
@@ -139,7 +154,6 @@ impl TextSection {
     }
 }
 
-#[cfg(feature = "default_font")]
 impl From<&str> for TextSection {
     fn from(value: &str) -> Self {
         Self {
@@ -149,7 +163,6 @@ impl From<&str> for TextSection {
     }
 }
 
-#[cfg(feature = "default_font")]
 impl From<String> for TextSection {
     fn from(value: String) -> Self {
         Self {
@@ -159,38 +172,52 @@ impl From<String> for TextSection {
     }
 }
 
-/// Describes horizontal alignment preference for positioning & bounds.
+/// Describes the horizontal alignment of multiple lines of text relative to each other.
+/// This only affects the internal positioning of the lines of text within a text entity and
+/// does not affect the text entity's position.
+///
+/// _Has no affect on a single line text entity._
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextAlignment {
-    /// Leftmost character is immediately to the right of the render position.<br/>
+pub enum JustifyText {
+    /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
     Left,
-    /// Leftmost & rightmost characters are equidistant to the render position.<br/>
+    /// Leftmost & rightmost characters are equidistant to the render position.
     /// Bounds start from the render position and advance equally left & right.
     Center,
-    /// Rightmost character is immediately to the left of the render position.<br/>
+    /// Rightmost character is immediately to the left of the render position.
     /// Bounds start from the render position and advance leftwards.
     Right,
+    /// Words are spaced so that leftmost & rightmost characters
+    /// align with their margins.
+    /// Bounds start from the render position and advance equally left & right.
+    Justified,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
-        match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
+impl From<JustifyText> for cosmic_text::Align {
+    fn from(justify: JustifyText) -> Self {
+        match justify {
+            JustifyText::Left => cosmic_text::Align::Left,
+            JustifyText::Center => cosmic_text::Align::Center,
+            JustifyText::Right => cosmic_text::Align::Right,
+            JustifyText::Justified => cosmic_text::Align::Justified,
         }
     }
 }
 
 #[derive(Clone, Debug, Reflect)]
+/// `TextStyle` determines the style of the text in a section, specifically
+/// the font face, the font size, and the color.
 pub struct TextStyle {
-    /// If this is not specified, then
+    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
+    ///
+    /// If the `font` is not specified, then
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///  `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered.
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
@@ -200,6 +227,7 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// The color of the text for this section.
     pub color: Color,
 }
 
@@ -207,38 +235,28 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 12.0,
+            font_size: 20.0,
             color: Color::WHITE,
         }
     }
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum BreakLineOn {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
     /// This behavior suits most cases, as it keeps words intact across linebreaks.
+    #[default]
     WordBoundary,
     /// Lines will be broken without discrimination on any character that would leave bounds.
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
+    /// Wraps at the word level, or fallback to character level if a word can’t fit on a line by itself
+    WordOrCharacter,
     /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
-}
-
-impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
-    fn from(val: BreakLineOn) -> Self {
-        match val {
-            // If `NoWrap` is set the choice of `BuiltInLineBreaker` doesn't matter as the text is given unbounded width and soft wrapping will never occur.
-            // But `NoWrap` does not disable hard breaks where a [`Text`] contains a newline character.
-            BreakLineOn::WordBoundary | BreakLineOn::NoWrap => {
-                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
-            }
-            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
-        }
-    }
 }

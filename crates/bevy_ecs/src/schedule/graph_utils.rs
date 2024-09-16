@@ -1,10 +1,8 @@
 use std::fmt::Debug;
 
-use bevy_utils::{
-    petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
+use petgraph::{algo::TarjanScc, graphmap::NodeTrait, prelude::*};
 
 use crate::schedule::set::*;
 
@@ -45,6 +43,10 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
+    /// A node that should be preceded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    BeforeNoSync,
+    /// A node that should be succeeded and will **not** automatically insert an instance of `apply_deferred` on the edge.
+    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
@@ -71,9 +73,12 @@ pub(crate) enum Ambiguity {
     IgnoreAll,
 }
 
+/// Metadata about how the node fits in the schedule graph
 #[derive(Clone, Default)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: Vec<InternedSystemSet>,
+    /// the sets that the node belongs to (hierarchy)
+    pub(crate) hierarchy: Vec<InternedSystemSet>,
+    /// the sets that the node depends on (must run before or after)
     pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }
@@ -315,8 +320,7 @@ where
                     // unblock this node's ancestors
                     while let Some(n) = unblock_stack.pop() {
                         if blocked.remove(&n) {
-                            let unblock_predecessors =
-                                unblock_together.entry(n).or_insert_with(HashSet::new);
+                            let unblock_predecessors = unblock_together.entry(n).or_default();
                             unblock_stack.extend(unblock_predecessors.iter());
                             unblock_predecessors.clear();
                         }
@@ -324,10 +328,7 @@ where
                 } else {
                     // if its descendants can be unblocked later, this node will be too
                     for successor in subgraph.neighbors(*node) {
-                        unblock_together
-                            .entry(successor)
-                            .or_insert_with(HashSet::new)
-                            .insert(*node);
+                        unblock_together.entry(successor).or_default().insert(*node);
                     }
                 }
 

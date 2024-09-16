@@ -7,7 +7,7 @@ mod graph_utils;
 #[allow(clippy::module_inception)]
 mod schedule;
 mod set;
-mod state;
+mod stepping;
 
 pub use self::condition::*;
 pub use self::config::*;
@@ -15,7 +15,6 @@ pub use self::executor::*;
 use self::graph_utils::*;
 pub use self::schedule::*;
 pub use self::set::*;
-pub use self::state::*;
 
 pub use self::graph_utils::NodeId;
 
@@ -25,7 +24,7 @@ mod tests {
     use std::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
-    pub use crate::schedule::{IntoSystemSetConfigs, Schedule, SystemSet};
+    pub use crate::schedule::{Schedule, SystemSet};
     pub use crate::system::{Res, ResMut};
     pub use crate::{prelude::World, system::Resource};
 
@@ -239,7 +238,7 @@ mod tests {
                 partially_ordered == [8, 9, 10] || partially_ordered == [10, 8, 9],
                 "partially_ordered must be [8, 9, 10] or [10, 8, 9]"
             );
-            assert!(order.len() == 11, "must have exactly 11 order entries");
+            assert_eq!(order.len(), 11, "must have exactly 11 order entries");
         }
     }
 
@@ -723,7 +722,6 @@ mod tests {
         use super::*;
         // Required to make the derive macro behave
         use crate as bevy_ecs;
-        use crate::event::Events;
         use crate::prelude::*;
 
         #[derive(Resource)]
@@ -739,6 +737,9 @@ mod tests {
         #[derive(Event)]
         struct E;
 
+        #[derive(Resource, Component)]
+        struct RC;
+
         fn empty_system() {}
         fn res_system(_res: Res<R>) {}
         fn resmut_system(_res: ResMut<R>) {}
@@ -748,6 +749,8 @@ mod tests {
         fn write_component_system(_query: Query<&mut A>) {}
         fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
         fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
+        fn entity_ref_system(_query: Query<EntityRef>) {}
+        fn entity_mut_system(_query: Query<EntityMut>) {}
         fn event_reader_system(_reader: EventReader<E>) {}
         fn event_writer_system(_writer: EventWriter<E>) {}
         fn event_resource_system(_events: ResMut<Events<E>>) {}
@@ -790,6 +793,8 @@ mod tests {
                 nonsend_system,
                 read_component_system,
                 read_component_system,
+                entity_ref_system,
+                entity_ref_system,
                 event_reader_system,
                 event_reader_system,
                 read_world_system,
@@ -893,6 +898,73 @@ mod tests {
             let _ = schedule.initialize(&mut world);
 
             assert_eq!(schedule.graph().conflicting_systems().len(), 3);
+        }
+
+        /// Test that when a struct is both a Resource and a Component, they do not
+        /// conflict with each other.
+        #[test]
+        fn shared_resource_mut_component() {
+            let mut world = World::new();
+            world.insert_resource(RC);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((|_: ResMut<RC>| {}, |_: Query<&mut RC>| {}));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn resource_mut_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((resmut_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn resource_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((res_system, nonsend_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn write_component_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((write_component_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+        }
+
+        #[test]
+        fn read_component_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((read_component_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
         }
 
         #[test]
@@ -1096,6 +1168,62 @@ mod tests {
             schedule.add_systems((write_component_system, read_component_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());
+        }
+    }
+
+    #[cfg(feature = "bevy_debug_stepping")]
+    mod stepping {
+        use super::*;
+        use bevy_ecs::system::SystemState;
+
+        #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+        pub struct TestSchedule;
+
+        macro_rules! assert_executor_supports_stepping {
+            ($executor:expr) => {
+                // create a test schedule
+                let mut schedule = Schedule::new(TestSchedule);
+                schedule
+                    .set_executor_kind($executor)
+                    .add_systems(|| panic!("Executor ignored Stepping"));
+
+                // Add our schedule to stepping & and enable stepping; this should
+                // prevent any systems in the schedule from running
+                let mut stepping = Stepping::default();
+                stepping.add_schedule(TestSchedule).enable();
+
+                // create a world, and add the stepping resource
+                let mut world = World::default();
+                world.insert_resource(stepping);
+
+                // start a new frame by running ihe begin_frame() system
+                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                    SystemState::new(&mut world);
+                let res = system_state.get_mut(&mut world);
+                Stepping::begin_frame(res);
+
+                // now run the schedule; this will panic if the executor doesn't
+                // handle stepping
+                schedule.run(&mut world);
+            };
+        }
+
+        /// verify the [`SimpleExecutor`] supports stepping
+        #[test]
+        fn simple_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::Simple);
+        }
+
+        /// verify the [`SingleThreadedExecutor`] supports stepping
+        #[test]
+        fn single_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::SingleThreaded);
+        }
+
+        /// verify the [`MultiThreadedExecutor`] supports stepping
+        #[test]
+        fn multi_threaded_executor() {
+            assert_executor_supports_stepping!(ExecutorKind::MultiThreaded);
         }
     }
 }

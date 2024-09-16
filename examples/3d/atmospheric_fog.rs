@@ -30,14 +30,14 @@ fn setup_camera_fog(mut commands: Commands) {
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
             ..default()
         },
-        FogSettings {
-            color: Color::rgba(0.35, 0.48, 0.66, 1.0),
-            directional_light_color: Color::rgba(1.0, 0.95, 0.85, 0.5),
+        DistanceFog {
+            color: Color::srgba(0.35, 0.48, 0.66, 1.0),
+            directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
             directional_light_exponent: 30.0,
             falloff: FogFalloff::from_visibility_colors(
                 15.0, // distance in world units up to which objects retain visibility (>= 5% contrast)
-                Color::rgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
-                Color::rgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
+                Color::srgb(0.35, 0.5, 0.66), // atmospheric extinction color (after light is lost due to absorption by atmospheric particles)
+                Color::srgb(0.8, 0.844, 1.0), // atmospheric inscattering color (light gained due to scattering from the sun)
             ),
         },
     ));
@@ -60,7 +60,7 @@ fn setup_terrain_scene(
     // Sun
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            color: Color::rgb(0.98, 0.95, 0.82),
+            color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()
         },
@@ -72,16 +72,17 @@ fn setup_terrain_scene(
 
     // Terrain
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/terrain/Mountains.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
         ..default()
     });
 
     // Sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::default())),
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
             material: materials.add(StandardMaterial {
-                base_color: Color::hex("888888").unwrap(),
+                base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
                 ..default()
@@ -97,10 +98,7 @@ fn setup_instructions(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
             "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -111,16 +109,16 @@ fn setup_instructions(mut commands: Commands) {
     );
 }
 
-fn toggle_system(keycode: Res<Input<KeyCode>>, mut fog: Query<&mut FogSettings>) {
-    let mut fog_settings = fog.single_mut();
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
+    let mut fog = fog.single_mut();
 
     if keycode.just_pressed(KeyCode::Space) {
-        let a = fog_settings.color.a();
-        fog_settings.color.set_a(1.0 - a);
+        let a = fog.color.alpha();
+        fog.color.set_alpha(1.0 - a);
     }
 
-    if keycode.just_pressed(KeyCode::S) {
-        let a = fog_settings.directional_light_color.a();
-        fog_settings.directional_light_color.set_a(0.5 - a);
+    if keycode.just_pressed(KeyCode::KeyS) {
+        let a = fog.directional_light_color.alpha();
+        fog.directional_light_color.set_alpha(0.5 - a);
     }
 }

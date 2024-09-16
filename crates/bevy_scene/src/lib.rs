@@ -1,10 +1,15 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Provides scene definition, instantiation and serialization/deserialization.
 //!
 //! Scenes are collections of entities and their associated components that can be
 //! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
 //! for example to save part of the world state to a file.
-
-#![warn(missing_docs)]
 
 mod bundle;
 mod dynamic_scene;
@@ -29,7 +34,9 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
-#[allow(missing_docs)]
+/// The scene prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -39,7 +46,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::AssetApp;
+use bevy_asset::{AssetApp, Handle};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -51,9 +58,39 @@ impl Plugin for ScenePlugin {
         app.init_asset::<DynamicScene>()
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
-            .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
+
+        // Register component hooks for DynamicScene
+        app.world_mut()
+            .register_component_hooks::<Handle<DynamicScene>>()
+            .on_remove(|mut world, entity, _| {
+                let Some(handle) = world.get::<Handle<DynamicScene>>(entity) else {
+                    return;
+                };
+                let id = handle.id();
+                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                    let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
+                        return;
+                    };
+                    if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
+                        instance_ids.remove(&scene_instance);
+                    }
+                    scene_spawner.despawn_instance(scene_instance);
+                }
+            });
+
+        // Register component hooks for Scene
+        app.world_mut()
+            .register_component_hooks::<Handle<Scene>>()
+            .on_remove(|mut world, entity, _| {
+                if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
+                    let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
+                        return;
+                    };
+                    scene_spawner.despawn_instance(scene_instance);
+                }
+            });
     }
 }
 

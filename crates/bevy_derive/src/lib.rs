@@ -1,6 +1,14 @@
+// FIXME(3492): remove once docs are ready
+#![allow(missing_docs)]
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 extern crate proc_macro;
 
-mod app_plugin;
 mod bevy_main;
 mod derefs;
 mod enum_variant_meta;
@@ -8,12 +16,6 @@ mod enum_variant_meta;
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
-
-/// Generates a dynamic plugin entry point function for the given `Plugin` type.
-#[proc_macro_derive(DynamicPlugin)]
-pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
-    app_plugin::derive_dynamic_plugin(input)
-}
 
 /// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
 ///

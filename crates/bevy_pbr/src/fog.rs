@@ -1,8 +1,8 @@
-use crate::ReflectComponent;
+use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
-use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
 /// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
@@ -25,6 +25,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// # use bevy_render::prelude::*;
 /// # use bevy_core_pipeline::prelude::*;
 /// # use bevy_pbr::prelude::*;
+/// # use bevy_color::Color;
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
@@ -33,7 +34,7 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// #       ..Default::default()
 ///     },
 ///     // Add fog to the same entity
-///     FogSettings {
+///     DistanceFog {
 ///         color: Color::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///         ..Default::default()
@@ -49,8 +50,8 @@ use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Ca
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
-pub struct FogSettings {
+#[reflect(Component, Default, Debug)]
+pub struct DistanceFog {
     /// The color of the fog effect.
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
@@ -71,6 +72,9 @@ pub struct FogSettings {
     /// Determines which falloff mode to use, and its parameters.
     pub falloff: FogFalloff,
 }
+
+#[deprecated(since = "0.15.0", note = "Renamed to `DistanceFog`")]
+pub type FogSettings = DistanceFog;
 
 /// Allows switching between different fog falloff modes, and configuring their parameters.
 ///
@@ -143,12 +147,12 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential falloff with the proper
-    /// density for a desired visibility distance in world units;
+    ///     density for a desired visibility distance in world units;
     /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
-    /// scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
-    /// in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
-    /// density;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///     scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
+    ///     in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
+    ///     density;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -195,8 +199,8 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
-    /// with the proper density for a desired visibility distance in world units;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///     with the proper density for a desired visibility distance in world units;
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -241,9 +245,9 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
-    /// to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
-    /// extinction and inscattering colors;
-    /// - Combine the atmospheric fog parameters with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    ///     to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
+    ///     extinction and inscattering colors;
+    /// - Combine the atmospheric fog parameters with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -407,8 +411,8 @@ impl FogFalloff {
     ) -> FogFalloff {
         use std::f32::consts::E;
 
-        let [r_e, g_e, b_e, a_e] = extinction_color.as_linear_rgba_f32();
-        let [r_i, g_i, b_i, a_i] = inscattering_color.as_linear_rgba_f32();
+        let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
+        let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
 
         FogFalloff::Atmospheric {
             extinction: Vec3::new(
@@ -462,10 +466,10 @@ impl FogFalloff {
     }
 }
 
-impl Default for FogSettings {
+impl Default for DistanceFog {
     fn default() -> Self {
-        FogSettings {
-            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+        DistanceFog {
+            color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,
                 end: 100.0,

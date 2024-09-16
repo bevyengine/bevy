@@ -1,15 +1,19 @@
 use crate::{
-    io::{
-        processor_gated::ProcessorGatedReader, AssetReader, AssetSourceEvent, AssetWatcher,
-        AssetWriter,
-    },
+    io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
+use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_log::{error, warn};
-use bevy_utils::{CowArc, Duration, HashMap};
+use bevy_utils::tracing::{error, warn};
+use bevy_utils::{Duration, HashMap};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
+
+use super::{ErasedAssetReader, ErasedAssetWriter};
+
+// Needed for doc strings.
+#[allow(unused_imports)]
+use crate::io::{AssetReader, AssetWriter};
 
 /// A reference to an "asset source", which maps to an [`AssetReader`] and/or [`AssetWriter`].
 ///
@@ -43,7 +47,7 @@ impl<'a> AssetSourceId<'a> {
     }
 
     /// Returns [`None`] if this is [`AssetSourceId::Default`] and [`Some`] containing the
-    /// the name if this is [`AssetSourceId::Name`].  
+    /// name if this is [`AssetSourceId::Name`].
     pub fn as_str(&self) -> Option<&str> {
         match self {
             AssetSourceId::Default => None,
@@ -67,9 +71,26 @@ impl<'a> AssetSourceId<'a> {
     }
 }
 
-impl From<&'static str> for AssetSourceId<'static> {
-    fn from(value: &'static str) -> Self {
-        AssetSourceId::Name(value.into())
+impl AssetSourceId<'static> {
+    /// Indicates this [`AssetSourceId`] should have a static lifetime.
+    #[inline]
+    pub fn as_static(self) -> Self {
+        match self {
+            Self::Default => Self::Default,
+            Self::Name(value) => Self::Name(value.as_static()),
+        }
+    }
+
+    /// Constructs an [`AssetSourceId`] with a static lifetime.
+    #[inline]
+    pub fn from_static(value: impl Into<Self>) -> Self {
+        value.into().as_static()
+    }
+}
+
+impl<'a> From<&'a str> for AssetSourceId<'a> {
+    fn from(value: &'a str) -> Self {
+        AssetSourceId::Name(CowArc::Borrowed(value))
     }
 }
 
@@ -79,10 +100,10 @@ impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
     }
 }
 
-impl From<Option<&'static str>> for AssetSourceId<'static> {
-    fn from(value: Option<&'static str>) -> Self {
+impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
+    fn from(value: Option<&'a str>) -> Self {
         match value {
-            Some(value) => AssetSourceId::Name(value.into()),
+            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
             None => AssetSourceId::Default,
         }
     }
@@ -110,8 +131,8 @@ impl<'a> PartialEq for AssetSourceId<'a> {
 /// and whether or not the source is processed.
 #[derive(Default)]
 pub struct AssetSourceBuilder {
-    pub reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
-    pub writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+    pub reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -119,8 +140,9 @@ pub struct AssetSourceBuilder {
                 + Sync,
         >,
     >,
-    pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn AssetReader> + Send + Sync>>,
-    pub processed_writer: Option<Box<dyn FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync>>,
+    pub processed_reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    pub processed_writer:
+        Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     pub processed_watcher: Option<
         Box<
             dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
@@ -141,14 +163,14 @@ impl AssetSourceBuilder {
         watch: bool,
         watch_processed: bool,
     ) -> Option<AssetSource> {
-        let reader = (self.reader.as_mut()?)();
-        let writer = self.writer.as_mut().and_then(|w| (w)());
-        let processed_writer = self.processed_writer.as_mut().and_then(|w| (w)());
+        let reader = self.reader.as_mut()?();
+        let writer = self.writer.as_mut().and_then(|w| w(false));
+        let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| (r)()),
+            processed_reader: self.processed_reader.as_mut().map(|r| r()),
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -158,7 +180,7 @@ impl AssetSourceBuilder {
 
         if watch {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
                     source.event_receiver = Some(receiver);
@@ -173,7 +195,7 @@ impl AssetSourceBuilder {
 
         if watch_processed {
             let (sender, receiver) = crossbeam_channel::unbounded();
-            match self.processed_watcher.as_mut().and_then(|w| (w)(sender)) {
+            match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
                     source.processed_event_receiver = Some(receiver);
@@ -191,7 +213,7 @@ impl AssetSourceBuilder {
     /// Will use the given `reader` function to construct unprocessed [`AssetReader`] instances.
     pub fn with_reader(
         mut self,
-        reader: impl FnMut() -> Box<dyn AssetReader> + Send + Sync + 'static,
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
     ) -> Self {
         self.reader = Some(Box::new(reader));
         self
@@ -200,7 +222,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct unprocessed [`AssetWriter`] instances.
     pub fn with_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.writer = Some(Box::new(writer));
         self
@@ -221,7 +243,7 @@ impl AssetSourceBuilder {
     /// Will use the given `reader` function to construct processed [`AssetReader`] instances.
     pub fn with_processed_reader(
         mut self,
-        reader: impl FnMut() -> Box<dyn AssetReader> + Send + Sync + 'static,
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
     ) -> Self {
         self.processed_reader = Some(Box::new(reader));
         self
@@ -230,7 +252,7 @@ impl AssetSourceBuilder {
     /// Will use the given `writer` function to construct processed [`AssetWriter`] instances.
     pub fn with_processed_writer(
         mut self,
-        writer: impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync + 'static,
+        writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
     ) -> Self {
         self.processed_writer = Some(Box::new(writer));
         self
@@ -298,7 +320,7 @@ pub struct AssetSourceBuilders {
 impl AssetSourceBuilders {
     /// Inserts a new builder with the given `id`
     pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
-        match id.into() {
+        match AssetSourceId::from_static(id) {
             AssetSourceId::Default => {
                 self.default = Some(source);
             }
@@ -354,10 +376,10 @@ impl AssetSourceBuilders {
 /// for a specific asset source, identified by an [`AssetSourceId`].
 pub struct AssetSource {
     id: AssetSourceId<'static>,
-    reader: Box<dyn AssetReader>,
-    writer: Option<Box<dyn AssetWriter>>,
-    processed_reader: Option<Box<dyn AssetReader>>,
-    processed_writer: Option<Box<dyn AssetWriter>>,
+    reader: Box<dyn ErasedAssetReader>,
+    writer: Option<Box<dyn ErasedAssetWriter>>,
+    processed_reader: Option<Box<dyn ErasedAssetReader>>,
+    processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
     event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
@@ -378,13 +400,13 @@ impl AssetSource {
 
     /// Return's this source's unprocessed [`AssetReader`].
     #[inline]
-    pub fn reader(&self) -> &dyn AssetReader {
+    pub fn reader(&self) -> &dyn ErasedAssetReader {
         &*self.reader
     }
 
     /// Return's this source's unprocessed [`AssetWriter`], if it exists.
     #[inline]
-    pub fn writer(&self) -> Result<&dyn AssetWriter, MissingAssetWriterError> {
+    pub fn writer(&self) -> Result<&dyn ErasedAssetWriter, MissingAssetWriterError> {
         self.writer
             .as_deref()
             .ok_or_else(|| MissingAssetWriterError(self.id.clone_owned()))
@@ -392,7 +414,9 @@ impl AssetSource {
 
     /// Return's this source's processed [`AssetReader`], if it exists.
     #[inline]
-    pub fn processed_reader(&self) -> Result<&dyn AssetReader, MissingProcessedAssetReaderError> {
+    pub fn processed_reader(
+        &self,
+    ) -> Result<&dyn ErasedAssetReader, MissingProcessedAssetReaderError> {
         self.processed_reader
             .as_deref()
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
@@ -400,7 +424,9 @@ impl AssetSource {
 
     /// Return's this source's processed [`AssetWriter`], if it exists.
     #[inline]
-    pub fn processed_writer(&self) -> Result<&dyn AssetWriter, MissingProcessedAssetWriterError> {
+    pub fn processed_writer(
+        &self,
+    ) -> Result<&dyn ErasedAssetWriter, MissingProcessedAssetWriterError> {
         self.processed_writer
             .as_deref()
             .ok_or_else(|| MissingProcessedAssetWriterError(self.id.clone_owned()))
@@ -428,7 +454,9 @@ impl AssetSource {
 
     /// Returns a builder function for this platform's default [`AssetReader`]. `path` is the relative path to
     /// the asset root.
-    pub fn get_default_reader(_path: String) -> impl FnMut() -> Box<dyn AssetReader> + Send + Sync {
+    pub fn get_default_reader(
+        _path: String,
+    ) -> impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync {
         move || {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
             return Box::new(super::file::FileAssetReader::new(&_path));
@@ -443,10 +471,13 @@ impl AssetSource {
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
         _path: String,
-    ) -> impl FnMut() -> Option<Box<dyn AssetWriter>> + Send + Sync {
-        move || {
+    ) -> impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync {
+        move |_create_root: bool| {
             #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
-            return Some(Box::new(super::file::FileAssetWriter::new(&_path)));
+            return Some(Box::new(super::file::FileAssetWriter::new(
+                &_path,
+                _create_root,
+            )));
             #[cfg(any(target_arch = "wasm32", target_os = "android"))]
             return None;
         }
@@ -458,8 +489,18 @@ impl AssetSource {
         return "Web does not currently support watching assets.";
         #[cfg(target_os = "android")]
         return "Android does not currently support watching assets.";
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(feature = "file_watcher")
+        ))]
         return "Consider enabling the `file_watcher` feature.";
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            feature = "file_watcher"
+        ))]
+        return "Consider adding an \"assets\" directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
@@ -480,14 +521,24 @@ impl AssetSource {
                 not(target_arch = "wasm32"),
                 not(target_os = "android")
             ))]
-            return Some(Box::new(
-                super::file::FileWatcher::new(
-                    std::path::PathBuf::from(path.clone()),
-                    sender,
-                    file_debounce_wait_time,
-                )
-                .unwrap(),
-            ));
+            {
+                let path = std::path::PathBuf::from(path.clone());
+                if path.exists() {
+                    Some(Box::new(
+                        super::file::FileWatcher::new(
+                            path.clone(),
+                            sender,
+                            file_debounce_wait_time,
+                        )
+                        .unwrap_or_else(|e| {
+                            panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                        }),
+                    ))
+                } else {
+                    warn!("Skip creating file watcher because path {path:?} does not exist.");
+                    None
+                }
+            }
             #[cfg(any(
                 not(feature = "file_watcher"),
                 target_arch = "wasm32",
@@ -510,7 +561,7 @@ impl AssetSource {
     }
 }
 
-/// A collection of [`AssetSources`].
+/// A collection of [`AssetSource`]s.
 pub struct AssetSources {
     sources: HashMap<CowArc<'static, str>, AssetSource>,
     default: AssetSource,
@@ -569,22 +620,22 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`] does not exist for a given id.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 

@@ -18,7 +18,6 @@ use bevy_render::{
 use bevy_ecs::query::QueryItem;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_resource::{Operations, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
 };
 
@@ -36,7 +35,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
             "copy_deferred_lighting_id.wgsl",
             Shader::from_wgsl
         );
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app.add_systems(
@@ -46,7 +45,7 @@ impl Plugin for CopyDeferredLightingIdPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -94,7 +93,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
-            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.default_view),
+            &BindGroupEntries::single(&deferred_lighting_pass_id_texture.texture.default_view),
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -104,10 +103,12 @@ impl ViewNode for CopyDeferredLightingIdNode {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
                 depth_ops: Some(Operations {
                     load: LoadOp::Clear(0.0),
-                    store: true,
+                    store: StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         render_pass.set_render_pipeline(pipeline);

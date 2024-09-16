@@ -33,9 +33,8 @@ impl<'w> Benchmark<'w> {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        // TODO: batch this
-        for _ in 0..10_000 {
-            world.spawn((
+        world.spawn_batch(
+            std::iter::repeat((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Rotation(Vec3::X),
                 Position::<0>(Vec3::X),
@@ -48,8 +47,9 @@ impl<'w> Benchmark<'w> {
                 Velocity::<3>(Vec3::X),
                 Position::<4>(Vec3::X),
                 Velocity::<4>(Vec3::X),
-            ));
-        }
+            ))
+            .take(10_000),
+        );
 
         let query = world.query();
         Self(world, query)

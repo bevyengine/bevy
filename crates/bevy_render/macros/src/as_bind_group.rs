@@ -11,6 +11,7 @@ use syn::{
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
+const STORAGE_TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("storage_texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
 const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
@@ -19,6 +20,7 @@ const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 enum BindingType {
     Uniform,
     Texture,
+    StorageTexture,
     Sampler,
     Storage,
 }
@@ -40,6 +42,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let render_path = manifest.get_path("bevy_render");
     let asset_path = manifest.get_path("bevy_asset");
+    let ecs_path = manifest.get_path("bevy_ecs");
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
@@ -60,7 +63,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 binding_impls.push(quote! {{
                     use #render_path::render_resource::AsBindGroupShaderType;
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
-                    let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
+                    let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                     buffer.write(&converted).unwrap();
                     (
                         #binding_index,
@@ -133,6 +136,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Uniform
             } else if attr_ident == TEXTURE_ATTRIBUTE_NAME {
                 BindingType::Texture
+            } else if attr_ident == STORAGE_TEXTURE_ATTRIBUTE_NAME {
+                BindingType::StorageTexture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
             } else if attr_ident == STORAGE_ATTRIBUTE_NAME {
@@ -207,13 +212,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
-                    let field_ty = &field.ty;
-
-                    let min_binding_size = if buffer {
-                        quote! {None}
-                    } else {
-                        quote! {Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size())}
-                    };
 
                     if buffer {
                         binding_impls.push(quote! {
@@ -225,21 +223,15 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         });
                     } else {
-                        binding_impls.push(quote! {{
-                            use #render_path::render_resource::AsBindGroupShaderType;
-                            let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
-                            buffer.write(&self.#field_name).unwrap();
-                            (
-                                #binding_index,
-                                #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                                    &#render_path::render_resource::BufferInitDescriptor {
-                                        label: None,
-                                        usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
-                                        contents: buffer.as_ref(),
-                                    },
-                                ))
-                            )
-                        }});
+                        binding_impls.push(quote! {
+                        (
+                            #binding_index,
+                            #render_path::render_resource::OwnedBindingResource::Buffer({
+                                let handle: &#asset_path::Handle<#render_path::storage::ShaderStorageBuffer> = (&self.#field_name);
+                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
+                            })
+                        )
+                        });
                     }
 
                     binding_layouts.push(quote! {
@@ -249,7 +241,47 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                 has_dynamic_offset: false,
-                                min_binding_size: #min_binding_size,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        }
+                    });
+                }
+                BindingType::StorageTexture => {
+                    let StorageTextureAttrs {
+                        dimension,
+                        image_format,
+                        access,
+                        visibility,
+                    } = get_storage_texture_binding_attr(nested_meta_items)?;
+
+                    let visibility =
+                        visibility.hygienic_quote(&quote! { #render_path::render_resource });
+
+                    let fallback_image = get_fallback_image(&render_path, dimension);
+
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
+                        ( #binding_index,
+                          #render_path::render_resource::OwnedBindingResource::TextureView({
+                              let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                              if let Some(handle) = handle {
+                                  images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                              } else {
+                                  #fallback_image.texture_view.clone()
+                              }
+                          })
+                        )
+                    });
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::StorageTexture {
+                                access: #render_path::render_resource::StorageTextureAccess::#access,
+                                format: #render_path::render_resource::TextureFormat::#image_format,
+                                view_dimension: #render_path::render_resource::#dimension,
                             },
                             count: None,
                         }
@@ -268,7 +300,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
-                    binding_impls.push(quote! {
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -310,13 +343,47 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
-                    binding_impls.push(quote! {
+                    let expected_samplers = match sampler_binding_type {
+                        SamplerBindingType::Filtering => {
+                            quote!( [#render_path::render_resource::TextureSampleType::Float { filterable: true }] )
+                        }
+                        SamplerBindingType::NonFiltering => quote!([
+                            #render_path::render_resource::TextureSampleType::Float { filterable: false },
+                            #render_path::render_resource::TextureSampleType::Sint,
+                            #render_path::render_resource::TextureSampleType::Uint,
+                        ]),
+                        SamplerBindingType::Comparison => {
+                            quote!( [#render_path::render_resource::TextureSampleType::Depth] )
+                        }
+                    };
+
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    binding_impls.insert(0, quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler({
                                 let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
-                                    images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
+                                    let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
+
+                                    let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            "None".to_string(),
+                                            format!("{:?}", #expected_samplers),
+                                        ));
+                                    };
+
+                                    let valid = #expected_samplers.contains(&sample_type);
+
+                                    if !valid {
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            format!("{:?}", sample_type),
+                                            format!("{:?}", #expected_samplers),
+                                        ));
+                                    }
+                                    image.sampler.clone()
                                 } else {
                                     #fallback_image.sampler.clone()
                                 }
@@ -444,6 +511,12 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         impl #impl_generics #render_path::render_resource::AsBindGroup for #struct_name #ty_generics #where_clause {
             type Data = #prepared_data;
 
+            type Param = (
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderStorageBuffer>>,
+            );
+
             fn label() -> Option<&'static str> {
                 Some(#struct_name_literal)
             }
@@ -452,8 +525,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
-                fallback_image: &#render_path::texture::FallbackImage,
+                (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
@@ -585,6 +657,10 @@ impl ShaderStageVisibility {
     fn vertex_fragment() -> Self {
         Self::Flags(VisibilityFlags::vertex_fragment())
     }
+
+    fn compute() -> Self {
+        Self::Flags(VisibilityFlags::compute())
+    }
 }
 
 impl VisibilityFlags {
@@ -592,6 +668,13 @@ impl VisibilityFlags {
         Self {
             vertex: true,
             fragment: true,
+            ..Default::default()
+        }
+    }
+
+    fn compute() -> Self {
+        Self {
+            compute: true,
             ..Default::default()
         }
     }
@@ -644,7 +727,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
     }
 
     if flags.len() == 1 {
-        if let Some(flag) = flags.get(0) {
+        if let Some(flag) = flags.first() {
             if flag == VISIBILITY_ALL {
                 return Ok(ShaderStageVisibility::All);
             } else if flag == VISIBILITY_NONE {
@@ -741,7 +824,72 @@ impl Default for TextureAttrs {
     }
 }
 
+struct StorageTextureAttrs {
+    dimension: BindingTextureDimension,
+    // Parsing of the image_format parameter is deferred to the type checker,
+    // which will error if the format is not member of the TextureFormat enum.
+    image_format: proc_macro2::TokenStream,
+    // Parsing of the access parameter is deferred to the type checker,
+    // which will error if the access is not member of the StorageTextureAccess enum.
+    access: proc_macro2::TokenStream,
+    visibility: ShaderStageVisibility,
+}
+
+impl Default for StorageTextureAttrs {
+    fn default() -> Self {
+        Self {
+            dimension: Default::default(),
+            image_format: quote! { Rgba8Unorm },
+            access: quote! { ReadWrite },
+            visibility: ShaderStageVisibility::compute(),
+        }
+    }
+}
+
+fn get_storage_texture_binding_attr(metas: Vec<Meta>) -> Result<StorageTextureAttrs> {
+    let mut storage_texture_attrs = StorageTextureAttrs::default();
+
+    for meta in metas {
+        use syn::Meta::{List, NameValue};
+        match meta {
+            // Parse #[storage_texture(0, dimension = "...")].
+            NameValue(m) if m.path == DIMENSION => {
+                let value = get_lit_str(DIMENSION, &m.value)?;
+                storage_texture_attrs.dimension = get_texture_dimension_value(value)?;
+            }
+            // Parse #[storage_texture(0, format = ...))].
+            NameValue(m) if m.path == IMAGE_FORMAT => {
+                storage_texture_attrs.image_format = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, access = ...))].
+            NameValue(m) if m.path == ACCESS => {
+                storage_texture_attrs.access = m.value.into_token_stream();
+            }
+            // Parse #[storage_texture(0, visibility(...))].
+            List(m) if m.path == VISIBILITY => {
+                storage_texture_attrs.visibility = get_visibility_flag_value(&m)?;
+            }
+            NameValue(m) => {
+                return Err(Error::new_spanned(
+                    m.path,
+                    "Not a valid name. Available attributes: `dimension`, `image_format`, `access`.",
+                ));
+            }
+            _ => {
+                return Err(Error::new_spanned(
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
+                ));
+            }
+        }
+    }
+
+    Ok(storage_texture_attrs)
+}
+
 const DIMENSION: Symbol = Symbol("dimension");
+const IMAGE_FORMAT: Symbol = Symbol("image_format");
+const ACCESS: Symbol = Symbol("access");
 const SAMPLE_TYPE: Symbol = Symbol("sample_type");
 const FILTERABLE: Symbol = Symbol("filterable");
 const MULTISAMPLED: Symbol = Symbol("multisampled");

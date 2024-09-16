@@ -2,12 +2,13 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
-    ecs::system::{CommandQueue, SystemState},
+    ecs::system::SystemState,
+    ecs::world::CommandQueue,
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 use rand::Rng;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn main() {
     App::new()
@@ -35,10 +36,10 @@ fn add_assets(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let box_mesh_handle = meshes.add(Mesh::from(shape::Cube { size: 0.25 }));
+    let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
 
-    let box_material_handle = materials.add(Color::rgb(1.0, 0.2, 0.3).into());
+    let box_material_handle = materials.add(Color::srgb(1.0, 0.2, 0.3));
     commands.insert_resource(BoxMaterialHandle(box_material_handle));
 }
 
@@ -59,19 +60,16 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
-                    let mut rng = rand::thread_rng();
-                    let start_time = Instant::now();
-                    let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
-                    while start_time.elapsed() < duration {
-                        // Spinning for 'duration', simulating doing hard
-                        // compute work generating translation coords!
-                    }
+                    let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
+
+                    // Pretend this is a time-intensive function. :)
+                    async_std::task::sleep(duration).await;
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
                     let mut command_queue = CommandQueue::default();
 
-                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // we use a raw command queue to pass a FnOnce(&mut World) back to be
                     // applied in a deferred manner.
                     command_queue.push(move |world: &mut World| {
                         let (box_mesh_handle, box_material_handle) = {

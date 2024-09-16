@@ -12,12 +12,12 @@ fn main() {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct PrintOnCompletionTimer(Timer);
+struct PrintOnCompletionTimer(Timer);
 
 #[derive(Resource)]
-pub struct Countdown {
-    pub percent_trigger: Timer,
-    pub main_timer: Timer,
+struct Countdown {
+    percent_trigger: Timer,
+    main_timer: Timer,
 }
 
 impl Countdown {

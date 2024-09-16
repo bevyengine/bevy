@@ -1,15 +1,16 @@
 use crate::{
     camera::Viewport,
-    prelude::Color,
+    diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
     renderer::RenderDevice,
 };
+use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
+use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
@@ -20,40 +21,41 @@ use wgpu::{IndexFormat, RenderPass};
 struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
-    vertex_buffers: Vec<Option<(BufferId, u64)>>,
+    /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
+    vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
+
+    /// Stores whether this state is populated or empty for quick state invalidation
+    stores_state: bool,
 }
 
 impl DrawState {
     /// Marks the `pipeline` as bound.
-    pub fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
+    fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
         // TODO: do these need to be cleared?
         // self.bind_groups.clear();
         // self.vertex_buffers.clear();
         // self.index_buffer = None;
         self.pipeline = Some(pipeline);
+        self.stores_state = true;
     }
 
     /// Checks, whether the `pipeline` is already bound.
-    pub fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
+    fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
         self.pipeline == Some(pipeline)
     }
 
     /// Marks the `bind_group` as bound to the `index`.
-    pub fn set_bind_group(
-        &mut self,
-        index: usize,
-        bind_group: BindGroupId,
-        dynamic_indices: &[u32],
-    ) {
+    fn set_bind_group(&mut self, index: usize, bind_group: BindGroupId, dynamic_indices: &[u32]) {
         let group = &mut self.bind_groups[index];
         group.0 = Some(bind_group);
         group.1.clear();
         group.1.extend(dynamic_indices);
+        self.stores_state = true;
     }
 
     /// Checks, whether the `bind_group` is already bound to the `index`.
-    pub fn is_bind_group_set(
+    fn is_bind_group_set(
         &self,
         index: usize,
         bind_group: BindGroupId,
@@ -67,32 +69,60 @@ impl DrawState {
     }
 
     /// Marks the vertex `buffer` as bound to the `index`.
-    pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
-        self.vertex_buffers[index] = Some((buffer, offset));
+    fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice) {
+        self.vertex_buffers[index] = Some(self.buffer_slice_key(&buffer_slice));
+        self.stores_state = true;
     }
 
     /// Checks, whether the vertex `buffer` is already bound to the `index`.
-    pub fn is_vertex_buffer_set(&self, index: usize, buffer: BufferId, offset: u64) -> bool {
+    fn is_vertex_buffer_set(&self, index: usize, buffer_slice: &BufferSlice) -> bool {
         if let Some(current) = self.vertex_buffers.get(index) {
-            *current == Some((buffer, offset))
+            *current == Some(self.buffer_slice_key(buffer_slice))
         } else {
             false
         }
     }
 
+    /// Returns the value used for checking whether `BufferSlice`s are equivalent.
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
+        (
+            buffer_slice.id(),
+            buffer_slice.offset(),
+            buffer_slice.size(),
+        )
+    }
+
     /// Marks the index `buffer` as bound.
-    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         self.index_buffer = Some((buffer, offset, index_format));
+        self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
-    pub fn is_index_buffer_set(
+    fn is_index_buffer_set(
         &self,
         buffer: BufferId,
         offset: u64,
         index_format: IndexFormat,
     ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
+    }
+
+    /// Resets tracking state
+    pub fn reset_tracking(&mut self) {
+        if !self.stores_state {
+            return;
+        }
+        self.pipeline = None;
+        self.bind_groups.iter_mut().for_each(|val| {
+            val.0 = None;
+            val.1.clear();
+        });
+        self.vertex_buffers.iter_mut().for_each(|val| {
+            *val = None;
+        });
+        self.index_buffer = None;
+        self.stores_state = false;
     }
 }
 
@@ -122,7 +152,11 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Returns the wgpu [`RenderPass`].
+    ///
+    /// Function invalidates internal tracking state,
+    /// some redundant pipeline operations may not be skipped.
     pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        self.state.reset_tracking();
         &mut self.pass
     }
 
@@ -179,7 +213,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Assign a vertex buffer to a slot.
     ///
     /// Subsequent calls to [`draw`] and [`draw_indexed`] on this
-    /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
+    /// [`TrackedRenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
@@ -187,30 +221,27 @@ impl<'a> TrackedRenderPass<'a> {
     /// [`draw`]: TrackedRenderPass::draw
     /// [`draw_indexed`]: TrackedRenderPass::draw_indexed
     pub fn set_vertex_buffer(&mut self, slot_index: usize, buffer_slice: BufferSlice<'a>) {
-        let offset = buffer_slice.offset();
-        if self
-            .state
-            .is_vertex_buffer_set(slot_index, buffer_slice.id(), offset)
-        {
+        if self.state.is_vertex_buffer_set(slot_index, &buffer_slice) {
             detailed_trace!(
-                "set vertex buffer {} (already set): {:?} ({})",
+                "set vertex buffer {} (already set): {:?} (offset = {}, size = {})",
                 slot_index,
                 buffer_slice.id(),
-                offset
+                buffer_slice.offset(),
+                buffer_slice.size(),
             );
             return;
         }
         detailed_trace!(
-            "set vertex buffer {}: {:?} ({})",
+            "set vertex buffer {}: {:?} (offset = {}, size = {})",
             slot_index,
             buffer_slice.id(),
-            offset
+            buffer_slice.offset(),
+            buffer_slice.size(),
         );
 
         self.pass
             .set_vertex_buffer(slot_index as u32, *buffer_slice);
-        self.state
-            .set_vertex_buffer(slot_index, buffer_slice.id(), offset);
+        self.state.set_vertex_buffer(slot_index, buffer_slice);
     }
 
     /// Sets the active index buffer.
@@ -269,7 +300,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -292,7 +323,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// The structure expected in `indirect_buffer` is the following:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -320,7 +351,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -358,7 +389,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -401,7 +432,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -441,7 +472,7 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// `indirect_buffer` should contain `count` tightly packed elements of the following structure:
     ///
-    /// ```rust
+    /// ```
     /// #[repr(C)]
     /// struct DrawIndexedIndirect {
     ///     vertex_count: u32, // The number of vertices to draw.
@@ -598,8 +629,28 @@ impl<'a> TrackedRenderPass<'a> {
     /// Sets the blend color as used by some of the blending modes.
     ///
     /// Subsequent blending tests will test against this value.
-    pub fn set_blend_constant(&mut self, color: Color) {
+    pub fn set_blend_constant(&mut self, color: LinearRgba) {
         detailed_trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
     }
+}
+
+impl WriteTimestamp for TrackedRenderPass<'_> {
+    fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
+        self.pass.write_timestamp(query_set, index);
+    }
+}
+
+impl WritePipelineStatistics for TrackedRenderPass<'_> {
+    fn begin_pipeline_statistics_query(&mut self, query_set: &QuerySet, index: u32) {
+        self.pass.begin_pipeline_statistics_query(query_set, index);
+    }
+
+    fn end_pipeline_statistics_query(&mut self) {
+        self.pass.end_pipeline_statistics_query();
+    }
+}
+
+impl Pass for TrackedRenderPass<'_> {
+    const KIND: PassKind = PassKind::Render;
 }

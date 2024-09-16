@@ -31,8 +31,13 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(ExtractSchedule, extract_resource::<R>);
+        } else {
+            bevy_utils::error_once!(
+                "Render app did not exist when trying to add `extract_resource` for <{}>.",
+                std::any::type_name::<R>()
+            );
         }
     }
 }
@@ -42,7 +47,6 @@ pub fn extract_resource<R: ExtractResource>(
     mut commands: Commands,
     main_resource: Extract<Option<Res<R::Source>>>,
     target_resource: Option<ResMut<R>>,
-    #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
 ) {
     if let Some(main_resource) = main_resource.as_ref() {
         if let Some(mut target_resource) = target_resource {
@@ -51,9 +55,8 @@ pub fn extract_resource<R: ExtractResource>(
             }
         } else {
             #[cfg(debug_assertions)]
-            if !main_resource.is_added() && !*has_warned_on_remove {
-                *has_warned_on_remove = true;
-                bevy_log::warn!(
+            if !main_resource.is_added() {
+                bevy_utils::warn_once!(
                     "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
                     std::any::type_name::<R>()

@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*,
+    color::palettes::css::*, input::common_conditions::input_just_pressed, prelude::*,
     time::common_conditions::on_real_timer,
 };
 
@@ -18,8 +18,8 @@ fn main() {
                 move_virtual_time_sprites,
                 move_real_time_sprites,
                 toggle_pause.run_if(input_just_pressed(KeyCode::Space)),
-                change_time_speed::<1>.run_if(input_just_pressed(KeyCode::Up)),
-                change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::Down)),
+                change_time_speed::<1>.run_if(input_just_pressed(KeyCode::ArrowUp)),
+                change_time_speed::<-1>.run_if(input_just_pressed(KeyCode::ArrowDown)),
                 (update_virtual_time_info_text, update_real_time_info_text)
                     // update the texts on a timer to make them more readable
                     // `on_timer` run condition uses `Virtual` time meaning it's scaled
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     commands.spawn(Camera2dBundle::default());
 
-    let virtual_color = Color::GOLD;
+    let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -114,11 +114,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
-                        color: Color::rgb(0.85, 0.85, 0.85),
+                        color: Color::srgb(0.85, 0.85, 0.85),
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
 
             // virtual time info
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Right),
+                .with_text_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });
@@ -146,7 +146,7 @@ fn move_real_time_sprites(
     for mut transform in sprite_query.iter_mut() {
         // move roughly half the screen in a `Real` second
         // when the time is scaled the speed is going to change
-        // and the sprite will stay still the the time is paused
+        // and the sprite will stay still the time is paused
         transform.translation.x = get_sprite_translation_x(time.elapsed_seconds());
     }
 }

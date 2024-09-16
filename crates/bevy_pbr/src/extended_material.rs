@@ -1,14 +1,13 @@
 use bevy_asset::{Asset, Handle};
+use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
-    mesh::MeshVertexBufferLayout,
-    render_asset::RenderAssets,
+    mesh::MeshVertexBufferLayoutRef,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -67,15 +66,39 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         ShaderRef::Default
     }
 
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh prepass fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
+    /// the default meshlet mesh deferred fragment shader will be used.
+    #[allow(unused_variables)]
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
-    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayout`] as input.
+    /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
     /// Specialization for the base material is applied before this function is called.
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         pipeline: &MaterialExtensionPipeline,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialExtensionKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
@@ -97,11 +120,24 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
-#[derive(Asset, Clone, Reflect)]
+#[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
     pub extension: E,
+}
+
+impl<B, E> Default for ExtendedMaterial<B, E>
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
+{
+    fn default() -> Self {
+        Self {
+            base: B::default(),
+            extension: E::default(),
+        }
+    }
 }
 
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
@@ -110,26 +146,21 @@ impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
+    type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
-        fallback_image: &FallbackImage,
+        (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(&self.base, layout, render_device, images, fallback_image)?;
-        let extended_bindgroup = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-        )?;
+        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param)?;
+        let extended_bindgroup =
+            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
 
         bindings.extend(extended_bindgroup.bindings);
 
@@ -167,6 +198,22 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
+    fn alpha_mode(&self) -> crate::AlphaMode {
+        B::alpha_mode(&self.base)
+    }
+
+    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
+        B::opaque_render_method(&self.base)
+    }
+
+    fn depth_bias(&self) -> f32 {
+        B::depth_bias(&self.base)
+    }
+
+    fn reads_view_transmission_texture(&self) -> bool {
+        B::reads_view_transmission_texture(&self.base)
+    }
+
     fn prepass_vertex_shader() -> ShaderRef {
         match E::prepass_vertex_shader() {
             ShaderRef::Default => B::prepass_vertex_shader(),
@@ -195,26 +242,34 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         }
     }
 
-    fn alpha_mode(&self) -> crate::AlphaMode {
-        B::alpha_mode(&self.base)
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_fragment_shader(),
+            specified => specified,
+        }
     }
 
-    fn depth_bias(&self) -> f32 {
-        B::depth_bias(&self.base)
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_prepass_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_prepass_fragment_shader(),
+            specified => specified,
+        }
     }
 
-    fn reads_view_transmission_texture(&self) -> bool {
-        B::reads_view_transmission_texture(&self.base)
-    }
-
-    fn opaque_render_method(&self) -> crate::OpaqueRendererMethod {
-        B::opaque_render_method(&self.base)
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+        match E::meshlet_mesh_deferred_fragment_shader() {
+            ShaderRef::Default => B::meshlet_mesh_deferred_fragment_shader(),
+            specified => specified,
+        }
     }
 
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function

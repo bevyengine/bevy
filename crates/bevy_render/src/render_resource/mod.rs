@@ -32,7 +32,11 @@ pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
-    util::BufferInitDescriptor, AdapterInfo as WgpuAdapterInfo, AddressMode, BindGroupDescriptor,
+    util::{
+        BufferInitDescriptor, DispatchIndirectArgs, DrawIndexedIndirectArgs, DrawIndirectArgs,
+        TextureDataOrder,
+    },
+    AdapterInfo as WgpuAdapterInfo, AddressMode, AstcBlock, AstcChannel, BindGroupDescriptor,
     BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, BufferAsyncError,
     BufferBinding, BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState,
@@ -42,15 +46,16 @@ pub use wgpu::{
     FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
     ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
     Limits as WgpuLimits, LoadOp, Maintain, MapMode, MultisampleState, Operations, Origin3d,
-    PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology,
-    PushConstantRange, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPassDescriptor, RenderPipelineDescriptor as RawRenderPipelineDescriptor,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
+    PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
+    PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor,
+    RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
+    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
+    StencilOperation, StencilState, StorageTextureAccess, StoreOp, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDescriptor, TextureViewDimension, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode,
+    VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
 pub mod encase {

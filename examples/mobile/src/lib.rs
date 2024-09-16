@@ -1,7 +1,10 @@
+//! A 3d Scene with a button and playing sound.
+
 use bevy::{
-    input::touch::TouchPhase,
+    color::palettes::basic::*,
+    input::{gestures::RotationGesture, touch::TouchPhase},
     prelude::*,
-    window::{ApplicationLifetime, WindowMode},
+    window::{AppLifecycle, WindowMode},
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -11,20 +14,17 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+            mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+            // on iOS, gestures must be enabled.
+            // This doesn't work on Android
+            recognize_rotation_gesture: true,
             ..default()
         }),
         ..default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
-
-    // MSAA makes some Android devices panic, this is under investigation
-    // https://github.com/bevyengine/bevy/issues/8229
-    #[cfg(target_os = "android")]
-    app.insert_resource(Msaa::Off);
-
-    app.run();
+    .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
+    .run();
 }
 
 fn touch_camera(
@@ -32,6 +32,7 @@ fn touch_camera(
     mut touches: EventReader<TouchInput>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
+    mut rotations: EventReader<RotationGesture>,
 ) {
     let window = windows.single();
 
@@ -52,6 +53,12 @@ fn touch_camera(
         }
         *last_position = Some(touch.position);
     }
+    // Rotation gestures only work on iOS
+    for rotation in rotations.read() {
+        let mut transform = camera.single_mut();
+        let forward = transform.forward();
+        transform.rotate_axis(forward, rotation.0 / 10.0);
+    }
 }
 
 /// set up a simple 3D scene
@@ -62,27 +69,21 @@ fn setup_scene(
 ) {
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(5.0).into()),
-        material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
         ..default()
     });
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+        mesh: meshes.add(Cuboid::default()),
+        material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(
-            Mesh::try_from(shape::Icosphere {
-                subdivisions: 4,
-                radius: 0.5,
-            })
-            .unwrap(),
-        ),
-        material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+        mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
+        material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
@@ -90,7 +91,7 @@ fn setup_scene(
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
-            intensity: 5000.0,
+            intensity: 1_000_000.0,
             // Shadows makes some Android devices segfault, this is under investigation
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
@@ -102,6 +103,10 @@ fn setup_scene(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // MSAA makes some Android devices panic, this is under investigation
+        // https://github.com/bevyengine/bevy/issues/8229
+        #[cfg(target_os = "android")]
+        msaa: Msaa::Off,
         ..default()
     });
 
@@ -129,7 +134,7 @@ fn setup_scene(
                         ..default()
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
+                .with_text_justify(JustifyText::Center),
             );
         });
 }
@@ -143,13 +148,13 @@ fn button_handler(
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = Color::BLUE.into();
+                *color = BLUE.into();
             }
             Interaction::Hovered => {
-                *color = Color::GRAY.into();
+                *color = GRAY.into();
             }
             Interaction::None => {
-                *color = Color::WHITE.into();
+                *color = WHITE.into();
             }
         }
     }
@@ -165,14 +170,18 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifetime_events: EventReader<ApplicationLifetime>,
+    mut lifecycle_events: EventReader<AppLifecycle>,
     music_controller: Query<&AudioSink>,
 ) {
-    for event in lifetime_events.read() {
+    let Ok(music_controller) = music_controller.get_single() else {
+        return;
+    };
+
+    for event in lifecycle_events.read() {
         match event {
-            ApplicationLifetime::Suspended => music_controller.single().pause(),
-            ApplicationLifetime::Resumed => music_controller.single().play(),
-            ApplicationLifetime::Started => (),
+            AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}
+            AppLifecycle::Suspended => music_controller.pause(),
+            AppLifecycle::Running => music_controller.play(),
         }
     }
 }

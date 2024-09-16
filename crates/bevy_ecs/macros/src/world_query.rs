@@ -19,12 +19,16 @@ pub(crate) fn item_struct(
     user_ty_generics_with_world: &TypeGenerics,
     user_where_clauses_with_world: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
-    let item_attrs = quote!(
-            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], returned when iterating over query results."]
-            #[automatically_derived]
-    );
+    let item_attrs = quote! {
+        #[doc = concat!(
+            "Automatically generated [`WorldQuery`](",
+            stringify!(#path),
+            "::query::WorldQuery) item type for [`",
+            stringify!(#struct_name),
+            "`], returned when iterating over query results."
+        )]
+        #[automatically_derived]
+    };
 
     match fields {
         Fields::Named(_) => quote! {
@@ -37,7 +41,6 @@ pub(crate) fn item_struct(
         Fields::Unnamed(_) => quote! {
             #derive_macro_call
             #item_attrs
-            #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world(
                 #( #field_visibilities <#field_types as #path::query::WorldQuery>::Item<'__w>, )*
             );
@@ -70,9 +73,13 @@ pub(crate) fn world_query_impl(
 ) -> proc_macro2::TokenStream {
     quote! {
         #[doc(hidden)]
-        #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
-        #[doc = stringify!(#struct_name)]
-        #[doc = "`], used to define the world data accessed by this query."]
+        #[doc = concat!(
+            "Automatically generated internal [`WorldQuery`](",
+            stringify!(#path),
+            "::query::WorldQuery) fetch type for [`",
+            stringify!(#struct_name),
+            "`], used to define the world data accessed by this query."
+        )]
         #[automatically_derived]
         #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
             #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
@@ -104,6 +111,17 @@ pub(crate) fn world_query_impl(
                     #(
                         #field_idents: <#field_types>::shrink(item.#field_idents),
                     )*
+                }
+            }
+
+            fn shrink_fetch<'__wlong: '__wshort, '__wshort>(
+                fetch: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wlong>
+            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wshort> {
+                #fetch_struct_name {
+                    #(
+                        #named_field_idents: <#field_types>::shrink_fetch(fetch.#named_field_idents),
+                    )*
+                    #marker_name: &(),
                 }
             }
 
@@ -165,20 +183,16 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 
-            fn update_archetype_component_access(
-                state: &Self::State,
-                _archetype: &#path::archetype::Archetype,
-                _access: &mut #path::query::Access<#path::archetype::ArchetypeComponentId>
-            ) {
-                #(
-                    <#field_types>::update_archetype_component_access(&state.#named_field_idents, _archetype, _access);
-                )*
-            }
-
             fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
                     #(#named_field_idents: <#field_types>::init_state(world),)*
                 }
+            }
+
+            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
+                Some(#state_struct_name {
+                    #(#named_field_idents: <#field_types>::get_state(components)?,)*
+                })
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
