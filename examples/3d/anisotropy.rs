@@ -1,7 +1,12 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
 use bevy::{
-    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
+    color::palettes::css::WHITE,
+    core_pipeline::Skybox,
+    math::vec3,
+    math::{cos, sin},
+    prelude::*,
+    time::Stopwatch,
 };
 
 /// The initial position of the camera.
@@ -132,7 +137,7 @@ fn animate_light(
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(f32::cos(now), 1.0, f32::sin(now)) * vec3(3.0, 4.0, 3.0);
+        transform.translation = vec3(cos(now), 1.0, sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
