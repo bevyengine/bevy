@@ -54,7 +54,7 @@ pub use parallel_scope::*;
 ///
 /// Each built-in command is implemented as a separate method, e.g. [`Commands::spawn`].
 /// In addition to the pre-defined command methods, you can add commands with any arbitrary
-/// behavior using [`Commands::add`], which accepts any type implementing [`Command`].
+/// behavior using [`Commands::queue`], which accepts any type implementing [`Command`].
 ///
 /// Since closures and other functions implement this trait automatically, this allows one-shot,
 /// anonymous custom commands.

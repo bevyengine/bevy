@@ -304,7 +304,7 @@ pub trait ChildBuild {
     /// Returns the parent entity.
     fn parent_entity(&self) -> Entity;
 
-    /// Adds a command to be executed, like [`Commands::add`].
+    /// Adds a command to be executed, like [`Commands::queue`].
     fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self;
 }
 
