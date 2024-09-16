@@ -509,11 +509,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) {
         for component_id in archetype.components() {
-            let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id) else { continue };
-            if self.component_access.access.has_component_read(component_id) {
+            let Some(archetype_component_id) = archetype.get_archetype_component_id(component_id)
+            else {
+                continue;
+            };
+            if self
+                .component_access
+                .access
+                .has_component_read(component_id)
+            {
                 access.add_component_read(archetype_component_id);
             }
-            if self.component_access.access.has_component_write(component_id) {
+            if self
+                .component_access
+                .access
+                .has_component_write(component_id)
+            {
                 access.add_component_write(archetype_component_id);
             }
         }
