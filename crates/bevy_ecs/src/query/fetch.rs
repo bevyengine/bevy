@@ -845,7 +845,8 @@ where
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(&my_access),
-            "`EntityRefExcept` conflicts with a previous access in this query."
+            "`EntityRefExcept<{}>` conflicts with a previous access in this query.",
+            std::any::type_name::<B>(),
         );
         access.extend(&my_access);
     }
@@ -943,7 +944,8 @@ where
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(&my_access),
-            "`EntityMutExcept` conflicts with a previous access in this query."
+            "`EntityMutExcept<{}>` conflicts with a previous access in this query.",
+            std::any::type_name::<B>()
         );
         access.extend(&my_access);
     }

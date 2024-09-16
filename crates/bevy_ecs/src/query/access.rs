@@ -222,6 +222,13 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Removes both read and write access to the component given by `index`.
+    ///
+    /// Because this method corresponds to the set difference operator ∖, it can
+    /// create complicated logical formulas that you should verify correctness
+    /// of. For example, A ∪ (B ∖ A) isn't equivalent to (A ∪ B) ∖ A, so you
+    /// can't replace a call to `remove_component_read` followed by a call to
+    /// `extend` with a call to `extend` followed by a call to
+    /// `remove_component_read`.
     pub fn remove_component_read(&mut self, index: T) {
         let sparse_set_index = index.sparse_set_index();
         self.remove_component_sparse_set_index_write(sparse_set_index);
@@ -229,6 +236,13 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Removes write access to the component given by `index`.
+    ///
+    /// Because this method corresponds to the set difference operator ∖, it can
+    /// create complicated logical formulas that you should verify correctness
+    /// of. For example, A ∪ (B ∖ A) isn't equivalent to (A ∪ B) ∖ A, so you
+    /// can't replace a call to `remove_component_write` followed by a call to
+    /// `extend` with a call to `extend` followed by a call to
+    /// `remove_component_write`.
     pub fn remove_component_write(&mut self, index: T) {
         let sparse_set_index = index.sparse_set_index();
         self.remove_component_sparse_set_index_write(sparse_set_index);

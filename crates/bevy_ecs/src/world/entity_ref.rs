@@ -3195,21 +3195,14 @@ mod tests {
     #[should_panic]
     fn entity_ref_except_conflicts_with_self() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        let system = (QueryParamBuilder::new(|builder| {
-            builder.data::<(&mut TestComponent, EntityRefExcept<TestComponent2>)>();
-        }),)
-            .build_state(&mut world)
-            .build_system(|_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>| {});
-
         world.run_system_once(system);
+
+        fn system(_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>) {}
     }
 
     // Test that an `EntityRefExcept` that doesn't include a component C among
@@ -3218,28 +3211,14 @@ mod tests {
     #[should_panic]
     fn entity_ref_except_conflicts_with_other() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        let system = (
-            QueryParamBuilder::new(|builder| {
-                builder.data::<&mut TestComponent>();
-            }),
-            QueryParamBuilder::new(|builder| {
-                builder.data::<EntityRefExcept<TestComponent2>>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(
-                |_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>| {},
-            );
-
         world.run_system_once(system);
+
+        fn system(_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>) {}
     }
 
     // Test that an `EntityRefExcept` with an exception for some component C can
@@ -3247,32 +3226,18 @@ mod tests {
     #[test]
     fn entity_ref_except_doesnt_conflict() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let system = (
-            QueryParamBuilder::new(|builder| {
-                builder.data::<&mut TestComponent>();
-            }),
-            QueryParamBuilder::new(|builder| {
-                builder.data::<EntityRefExcept<TestComponent>>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(
-                |_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>| {
-                    for entity_ref in query.iter() {
-                        assert!(matches!(
-                            entity_ref.get::<TestComponent2>(),
-                            Some(TestComponent2(0))
-                        ));
-                    }
-                },
-            );
-
         world.run_system_once(system);
+
+        fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
+            for entity_ref in query.iter() {
+                assert!(matches!(
+                    entity_ref.get::<TestComponent2>(),
+                    Some(TestComponent2(0))
+                ));
+            }
+        }
     }
 
     /// Tests that components can be mutably accessed through an
@@ -3280,9 +3245,6 @@ mod tests {
     #[test]
     fn entity_mut_except() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
         let mut query = world.query::<EntityMutExcept<TestComponent>>();
@@ -3309,21 +3271,14 @@ mod tests {
     #[should_panic]
     fn entity_mut_except_conflicts_with_self() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        let system = (QueryParamBuilder::new(|builder| {
-            builder.data::<(&mut TestComponent, EntityMutExcept<TestComponent2>)>();
-        }),)
-            .build_state(&mut world)
-            .build_system(|_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>| {});
-
         world.run_system_once(system);
+
+        fn system(_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>) {}
     }
 
     // Test that an `EntityMutExcept` that doesn't include a component C among
@@ -3332,35 +3287,20 @@ mod tests {
     #[should_panic]
     fn entity_mut_except_conflicts_with_other() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        let system = (
-            QueryParamBuilder::new(|builder| {
-                builder.data::<&mut TestComponent>();
-            }),
-            QueryParamBuilder::new(|builder| {
-                builder.data::<EntityMutExcept<TestComponent2>>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(
-                |_: Query<&mut TestComponent>,
-                 mut query: Query<EntityMutExcept<TestComponent2>>| {
-                    for mut entity_mut in query.iter_mut() {
-                        assert!(entity_mut
-                            .get_mut::<TestComponent2>()
-                            .is_some_and(|component| component.0 == 0));
-                    }
-                },
-            );
-
         world.run_system_once(system);
+
+        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
+            for mut entity_mut in query.iter_mut() {
+                assert!(entity_mut
+                    .get_mut::<TestComponent2>()
+                    .is_some_and(|component| component.0 == 0));
+            }
+        }
     }
 
     // Test that an `EntityMutExcept` with an exception for some component C can
@@ -3368,31 +3308,17 @@ mod tests {
     #[test]
     fn entity_mut_except_doesnt_conflict() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
-
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let system = (
-            QueryParamBuilder::new(|builder| {
-                builder.data::<&mut TestComponent>();
-            }),
-            QueryParamBuilder::new(|builder| {
-                builder.data::<EntityMutExcept<TestComponent>>();
-            }),
-        )
-            .build_state(&mut world)
-            .build_system(
-                |_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>| {
-                    for mut entity_mut in query.iter_mut() {
-                        assert!(entity_mut
-                            .get_mut::<TestComponent2>()
-                            .is_some_and(|component| component.0 == 0));
-                    }
-                },
-            );
-
         world.run_system_once(system);
+
+        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
+            for mut entity_mut in query.iter_mut() {
+                assert!(entity_mut
+                    .get_mut::<TestComponent2>()
+                    .is_some_and(|component| component.0 == 0));
+            }
+        }
     }
 
     #[derive(Component)]
