@@ -207,7 +207,7 @@ pub enum FogFalloff {
     /// The fog intensity for a given point in the scene is determined by the following formula:
     ///
     /// ```text
-    /// let fog_intensity = 1.0 - 1.0 / (distance * density).powi(2).exp();
+    /// let fog_intensity = 1.0 - 1.0 / FloatPow::squared(distance * density).exp();
     /// ```
     ///
     /// <svg width="370" height="212" viewBox="0 0 370 212" fill="none">
@@ -462,7 +462,7 @@ impl FogFalloff {
     /// - <https://en.wikipedia.org/wiki/Visibility>
     /// - <https://www.biral.com/wp-content/uploads/2015/02/Introduction_to_visibility-v2-2.pdf>
     pub fn koschmieder(v: f32, c_t: f32) -> f32 {
-        ln(-c_t) / v
+        -ln(c_t) / v
     }
 }
 

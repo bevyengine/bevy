@@ -191,9 +191,9 @@ impl Luminance for Oklcha {
 impl EuclideanDistance for Oklcha {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        FloatPow::squared(self.lightness - other.lightness)
-            + FloatPow::squared(self.chroma - other.chroma)
-            + FloatPow::squared(self.hue - other.hue)
+        (self.lightness - other.lightness).squared()
+            + (self.chroma - other.chroma).squared()
+            + (self.hue - other.hue).squared()
     }
 }
 
