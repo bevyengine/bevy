@@ -589,6 +589,11 @@ mod tests {
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
 
+    #[derive(Event)]
+    struct MyEvent {
+        cancelled: bool,
+    }
+
     #[test]
     fn change_detection() {
         #[derive(Resource, Default)]
@@ -820,5 +825,30 @@ mod tests {
         let id = world.register_system(with_ref);
         world.run_system_with_input(id, &2).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
+    }
+
+    #[test]
+    fn system_with_input_mut() {
+        fn post(InMut(event): InMut<MyEvent>, counter: ResMut<Counter>) {
+            if counter.0 > 0 {
+                event.cancelled = true;
+            }
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+        let post_system = world.register_system(post);
+
+        let mut event = MyEvent { cancelled: false };
+        world
+            .run_system_with_input(post_system, &mut event)
+            .unwrap();
+        assert!(!event.cancelled);
+
+        world.resource_mut::<Counter>().0 = 1;
+        world
+            .run_system_with_input(post_system, &mut event)
+            .unwrap();
+        assert!(event.cancelled);
     }
 }
