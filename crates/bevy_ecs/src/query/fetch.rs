@@ -982,9 +982,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     ) {
         fetch.table_components = Some(
             table
-                .get_column(component_id)
+                .get_data_slice_for(component_id)
                 .debug_checked_unwrap()
-                .get_data_slice()
                 .into(),
         );
     }
@@ -1147,11 +1146,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         fetch.table_data = Some((
-            column.get_data_slice().into(),
-            column.get_added_ticks_slice().into(),
-            column.get_changed_ticks_slice().into(),
+            column.get_data_slice(table.entity_count()).into(),
+            column.get_added_ticks_slice(table.entity_count()).into(),
+            column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_changed_by_slice().into(),
+            column.get_changed_by_slice(table.entity_count()).into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));
@@ -1346,11 +1345,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         fetch.table_data = Some((
-            column.get_data_slice().into(),
-            column.get_added_ticks_slice().into(),
-            column.get_changed_ticks_slice().into(),
+            column.get_data_slice(table.entity_count()).into(),
+            column.get_added_ticks_slice(table.entity_count()).into(),
+            column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_changed_by_slice().into(),
+            column.get_changed_by_slice(table.entity_count()).into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));
