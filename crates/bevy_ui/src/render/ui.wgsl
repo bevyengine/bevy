@@ -150,11 +150,15 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
+#ifdef ANTI_ALIAS
     // At external edges with no border, `border_distance` is equal to zero. 
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present, otherwise an outline about the external boundary would be drawn even without 
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+#else
+    let t = 1.0 - step(0.0, border_distance);
+#endif
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, saturate(color.a * t));
@@ -165,7 +169,13 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+
+#ifdef ANTI_ALIAS
     let t = antialias(internal_distance);
+#else
+    let t = 1.0 - step(0.0, internal_distance);
+#endif
+
     return vec4(color.rgb, saturate(color.a * t));
 }
 
