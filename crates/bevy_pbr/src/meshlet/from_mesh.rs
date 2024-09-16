@@ -1,6 +1,4 @@
-use super::asset::{
-    Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh, MeshletVertexAttributes,
-};
+use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
 use bevy_math::{UVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
@@ -128,7 +126,8 @@ impl MeshletMesh {
 
         // Copy vertex data per meshlet and compress
         let mut vertex_positions = BitVec::<u8, Lsb0>::new();
-        let mut vertex_attributes = Vec::new();
+        let mut vertex_normals = Vec::new();
+        let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
         let global_quantization_factor = (1 << GLOBAL_VERTEX_QUANTIZATION_BITS) as f32;
         for (meshlet_id, meshlet) in meshlets.meshlets.into_iter().enumerate() {
@@ -144,7 +143,7 @@ impl MeshletMesh {
 
             bevy_meshlets.push(Meshlet {
                 start_vertex_position_bit: vertex_positions.len() as u32,
-                start_vertex_attribute_id: vertex_attributes.len() as u32,
+                start_vertex_attribute_id: vertex_normals.len() as u32,
                 start_index_id: meshlet.triangle_offset,
                 vertex_count: meshlet.vertex_count as u8,
                 triangle_count: meshlet.triangle_count as u8,
@@ -161,6 +160,12 @@ impl MeshletMesh {
                 let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
                 let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
 
+                // Copy uncompressed UVs
+                vertex_uvs.push(uv);
+
+                // Compress normals
+                vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
+
                 // Globally quantize vertex position
                 position = (position * global_quantization_factor).round();
 
@@ -170,6 +175,7 @@ impl MeshletMesh {
                 // Quantize position using the meshlet quantization factor
                 position = (position * meshlet_quantization_factor).round();
 
+                // Append compressed position bits to the bitstream
                 let position: UVec3 = bytemuck::cast(position);
                 vertex_positions
                     .extend_from_bitslice(&position.x.view_bits()[..meshlet_quantization_bits]);
@@ -177,17 +183,13 @@ impl MeshletMesh {
                     .extend_from_bitslice(&position.y.view_bits()[..meshlet_quantization_bits]);
                 vertex_positions
                     .extend_from_bitslice(&position.z.view_bits()[..meshlet_quantization_bits]);
-
-                vertex_attributes.push(MeshletVertexAttributes {
-                    normal: octahedral_encode(normal),
-                    uv,
-                });
             }
         }
 
         Ok(Self {
             vertex_positions: vertex_positions.into_vec().into(),
-            vertex_attributes: vertex_attributes.into(),
+            vertex_normals: vertex_normals.into(),
+            vertex_uvs: vertex_uvs.into(),
             indices: meshlets.triangles.into(),
             meshlets: bevy_meshlets.into(),
             bounding_spheres: bounding_spheres.into(),
@@ -382,6 +384,7 @@ fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
     }
 }
 
+// TODO: Precise encode variant
 fn octahedral_encode(v: Vec3) -> Vec2 {
     let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
     let octahedral_wrap = (1.0 - n.yx().abs())
@@ -391,6 +394,14 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
         );
     let n_xy = if n.z >= 0.0 { n.xy() } else { octahedral_wrap };
     n_xy * 0.5 + 0.5
+}
+
+// https://www.w3.org/TR/WGSL/#pack2x16snorm-builtin
+fn pack2x16snorm(v: Vec2) -> u32 {
+    let v = (v.clamp(Vec2::NEG_ONE, Vec2::ONE) * 32767.0)
+        .round()
+        .as_i16vec2();
+    bytemuck::cast([v.y, v.x])
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].

@@ -40,10 +40,12 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
-    /// Bitstream-packed vertex positions.
+    /// Bitstream-packed vertex positions for meshlet vertices.
     pub(crate) vertex_positions: Arc<[u8]>,
-    /// Vertex attributes for meshlet vertices.
-    pub(crate) vertex_attributes: Arc<[MeshletVertexAttributes]>,
+    /// Octahedral-encoded and 2x16snorm packed normals for meshlet vertices.
+    pub(crate) vertex_normals: Arc<[u32]>,
+    /// Uncompressed vertex texture coordinates for meshlet vertices.
+    pub(crate) vertex_uvs: Arc<[Vec2]>,
     /// Triangle indices for meshlets.
     pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
@@ -58,7 +60,8 @@ pub struct MeshletMesh {
 pub struct Meshlet {
     /// The bit offset within the parent mesh's [`MeshletMesh::vertex_positions`] buffer where the vertex positions for this meshlet begin.
     pub start_vertex_position_bit: u32,
-    /// The offset within the parent mesh's [`MeshletMesh::vertex_attributes`] buffer where the vertex attributes for this meshlet begin.
+    /// The offset within the parent mesh's [`MeshletMesh::vertex_normals`] and [`MeshletMesh::vertex_uvs`] buffers
+    /// where non-position vertex attributes for this meshlet begin.
     pub start_vertex_attribute_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
@@ -92,16 +95,6 @@ pub struct MeshletBoundingSphere {
     pub radius: f32,
 }
 
-/// Vertex attributes for vertices within a [`Meshlet`].
-#[derive(Copy, Clone, Pod, Zeroable)]
-#[repr(C)]
-pub struct MeshletVertexAttributes {
-    /// Octahedral-encoded normal.
-    pub normal: Vec2,
-    /// Uncompressed texture coordinates.
-    pub uv: Vec2,
-}
-
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
 pub struct MeshletMeshSaver;
 
@@ -130,7 +123,8 @@ impl AssetSaver for MeshletMeshSaver {
         // Compress and write asset data
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
         write_slice(&asset.vertex_positions, &mut writer)?;
-        write_slice(&asset.vertex_attributes, &mut writer)?;
+        write_slice(&asset.vertex_normals, &mut writer)?;
+        write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
         write_slice(&asset.bounding_spheres, &mut writer)?;
@@ -169,14 +163,16 @@ impl AssetLoader for MeshletMeshLoader {
         // Load and decompress asset data
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
         let vertex_positions = read_slice(reader)?;
-        let vertex_attributes = read_slice(reader)?;
+        let vertex_normals = read_slice(reader)?;
+        let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
         let bounding_spheres = read_slice(reader)?;
 
         Ok(MeshletMesh {
             vertex_positions,
-            vertex_attributes,
+            vertex_normals,
+            vertex_uvs,
             indices,
             meshlets,
             bounding_spheres,
