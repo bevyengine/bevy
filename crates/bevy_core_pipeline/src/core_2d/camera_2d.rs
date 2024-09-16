@@ -1,6 +1,7 @@
 use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::prelude::Msaa;
 use bevy_render::{
@@ -16,7 +17,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Camera2d;
 
 #[derive(Bundle, Clone)]

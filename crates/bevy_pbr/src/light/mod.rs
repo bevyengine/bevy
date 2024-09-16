@@ -88,7 +88,7 @@ pub mod light_consts {
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -105,7 +105,7 @@ pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLigh
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -130,7 +130,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -271,7 +271,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
@@ -439,7 +439,7 @@ fn calculate_cascade(
 }
 /// Add this component to make a [`Mesh`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
 /// Add this component to make a [`Mesh`] not receive shadows.
 ///
@@ -447,7 +447,7 @@ pub struct NotShadowCaster;
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
 /// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
@@ -457,7 +457,7 @@ pub struct NotShadowReceiver;
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
 /// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
@@ -466,7 +466,7 @@ pub struct TransmittedShadowReceiver;
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 #[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
