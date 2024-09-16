@@ -205,8 +205,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let phi = ip1f * to_phi;
 
             // For coordinates.
-            let cos_phi_south = cos(phi);
-            let sin_phi_south = sin(phi);
+            let (sin_phi_south, cos_phi_south) = sin_cos(phi);
 
             // Symmetrical hemispheres mean cosine and sine only needs
             // to be calculated once.
