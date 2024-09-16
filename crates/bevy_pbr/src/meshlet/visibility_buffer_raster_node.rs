@@ -9,6 +9,7 @@ use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
+use bevy_math::ops;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -101,10 +102,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             .first_node
             .fetch_and(false, Ordering::SeqCst);
 
-        let thread_per_cluster_workgroups =
-            (meshlet_view_resources.scene_cluster_count.div_ceil(128) as f32)
-                .cbrt()
-                .ceil() as u32;
+        let div_ceil = meshlet_view_resources.scene_cluster_count.div_ceil(128);
+        let thread_per_cluster_workgroups = ops::cbrt(div_ceil as f32).ceil() as u32;
 
         render_context
             .command_encoder()

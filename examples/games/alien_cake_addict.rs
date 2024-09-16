@@ -376,8 +376,9 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_seconds());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
+            cake_transform.scale = Vec3::splat(
+                1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_seconds())).abs(),
+            );
         }
     }
 }

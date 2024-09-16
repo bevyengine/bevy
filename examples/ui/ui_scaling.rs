@@ -139,6 +139,6 @@ fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        2.0f32.powf(5. * x - 5.)
+        ops::powf(2.0f32, 5. * x - 5.)
     }
 }

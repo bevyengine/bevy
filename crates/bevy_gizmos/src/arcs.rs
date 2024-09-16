@@ -114,8 +114,7 @@ fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<I
     (0..=resolution)
         .map(move |n| arc_angle * n as f32 / resolution as f32)
         .map(|angle| angle + FRAC_PI_2)
-        .map(f32::sin_cos)
-        .map(|(sin, cos)| Vec2::new(cos, sin))
+        .map(Vec2::from_angle)
         .map(move |vec2| vec2 * radius)
 }
 
