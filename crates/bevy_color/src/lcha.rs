@@ -2,7 +2,7 @@ use crate::{
     Alpha, ColorToComponents, Gray, Hue, Laba, LinearRgba, Luminance, Mix, Srgba, StandardColor,
     Xyza,
 };
-use bevy_math::{atan2, cos, powf, sin, Vec3, Vec4};
+use bevy_math::{atan2, cos, hypot, sin, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
@@ -274,7 +274,7 @@ impl From<Laba> for Lcha {
         }: Laba,
     ) -> Self {
         // Based on http://www.brucelindbloom.com/index.html?Eqn_Lab_to_LCH.html
-        let c = (powf(a, 2.0) + powf(b, 2.0)).sqrt();
+        let c = hypot(a, b);
         let h = {
             let h = atan2(b.to_radians(), a.to_radians()).to_degrees();
 

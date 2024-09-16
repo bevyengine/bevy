@@ -156,9 +156,9 @@ impl Luminance for Oklaba {
 impl EuclideanDistance for Oklaba {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        FloatPow::squared(self.lightness - other.lightness)
-            + FloatPow::squared(self.a - other.a)
-            + FloatPow::squared(self.b - other.b)
+        (self.lightness - other.lightness).squared()
+            + (self.a - other.a).squared()
+            + (self.b - other.b).squared()
     }
 }
 
