@@ -270,6 +270,19 @@ pub fn extract_shadows(
 
         let size = uinode.size() + spread;
 
+        if size.cmple(Vec2::ZERO).any() {
+            continue;
+        }
+
+        let p = (uinode.size() / size).min_element();
+
+        let radius = ResolvedBorderRadius {
+            top_left: uinode.border_radius.top_left * p,
+            top_right: uinode.border_radius.top_left * p,
+            bottom_left: uinode.border_radius.top_left * p,
+            bottom_right: uinode.border_radius.top_left * p,
+        };
+
         extracted_box_shadows.box_shadows.insert(
             commands.spawn_empty().id(),
             ExtractedBoxShadow {
@@ -282,7 +295,7 @@ pub fn extract_shadows(
                 },
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
-                radius: uinode.border_radius,
+                radius,
                 blur,
                 size,
             },
@@ -300,8 +313,8 @@ pub fn queue_shadows(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (entity, extracted_slicer) in extracted_ui_slicers.box_shadows.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
+    for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
+        let Ok((view_entity, view)) = views.get_mut(extracted_shadow.camera_entity) else {
             continue;
         };
 
@@ -320,7 +333,7 @@ pub fn queue_shadows(
             pipeline,
             entity: *entity,
             sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32),
+                FloatOrd(extracted_shadow.stack_index as f32 - 0.1),
                 entity.index(),
             ),
             batch_range: 0..0,
