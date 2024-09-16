@@ -36,7 +36,7 @@ bevy_math = { path = ".", version = "0.15.0-dev", features = ["approx"] }
 glam = { version = "0.28", features = ["approx"] }
 
 [features]
-default = ["rand", "bevy_reflect", "libm"]
+default = ["rand", "bevy_reflect"]
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
 approx = ["dep:approx", "glam/approx"]
