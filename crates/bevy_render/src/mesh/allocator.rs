@@ -588,6 +588,12 @@ impl MeshAllocator {
         }
 
         for empty_slab in empty_slabs {
+            self.slab_layouts.values_mut().for_each(|slab_ids| {
+                let idx = slab_ids.iter().position(|&slab_id| slab_id == empty_slab);
+                if let Some(idx) = idx {
+                    slab_ids.remove(idx);
+                }
+            });
             self.slabs.remove(&empty_slab);
         }
     }
