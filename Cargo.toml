@@ -2697,6 +2697,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "box_shadow"
+path = "examples/ui/box_shadow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.box_shadow]
+name = "Box Shadow"
+description = "Demonstrates how to create a node with a shadow"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 doc-scrape-examples = true
