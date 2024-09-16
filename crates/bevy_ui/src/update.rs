@@ -1,15 +1,15 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Display, OverflowAxis, Style, TargetCamera};
+use crate::{CalculatedClip, Display, OverflowAxis, ScrollPosition, Style, TargetCamera};
 
 use super::Node;
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, With, Without},
-    system::{Commands, Query},
+    entity::Entity, event::EventReader, query::{Changed, With, Without}, system::{Commands, Query, Res}
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Rect;
+use bevy_input::mouse::{MouseScrollUnit, MouseWheel};
+use bevy_math::{Rect, Vec2};
+use bevy_picking::focus::HoverMap;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 
@@ -179,5 +179,50 @@ fn update_children_target_camera(
             commands,
             updated_entities,
         );
+    }
+}
+
+pub fn update_scroll_position(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    mut scrolled_node_query: Query<(&mut ScrollPosition, &Style, &Children, &Node)>,
+    just_node_query: Query<&Node>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        // TODO: 90% sure this should be user-configurable, bevy shouldn't own scroll speed
+        let (dx, dy) = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+        };
+
+        for (_pointer, pointer_map) in hover_map.iter() {
+            for (entity, _hit) in pointer_map.iter() {
+                if let Ok((mut scroll_position, style, children, scrolled_node)) = scrolled_node_query.get_mut(*entity) {
+                    let Vec2 {
+                        x: container_width,
+                        y: container_height,
+                    } = scrolled_node.size();
+
+                    let (items_width, items_height): (f32, f32) =
+                        children.iter().fold((0.0, 0.0), |sum, child| {
+                            let size = just_node_query.get(*child).unwrap().size();
+                            (sum.0 + size.x, sum.1 + size.y)
+                        });
+    
+                    if style.overflow.x == OverflowAxis::Scroll {
+                        let max_scroll_x = (items_width - container_width).max(0.);
+                        scroll_position.offset_x =
+                            (scroll_position.offset_x + dx).clamp(-max_scroll_x, 0.);
+                    }
+                    if style.overflow.y == OverflowAxis::Scroll {
+                        let max_scroll_y = (items_height - container_height).max(0.);
+                        scroll_position.offset_y =
+                            (scroll_position.offset_y + dy).clamp(-max_scroll_y, 0.);
+                    }
+
+                    println!("new scroll possy: {:?} | scroll node size {:?} | items_w {:?} items_h {:?}", scroll_position, scrolled_node.size(), items_width, items_height);
+                }
+            }
+        }
     }
 }

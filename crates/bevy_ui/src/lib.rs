@@ -67,7 +67,7 @@ use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_target_camera_system};
+use update::{update_clipping_system, update_scroll_position, update_target_camera_system};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -80,6 +80,10 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    /// After this label, scroll positions will have been updated for UI entities.
+    ///
+    /// Runs in [`PreUpdate`].
+    Scroll,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// After this label, the ui layout state has been updated.
@@ -158,7 +162,10 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (
+                    ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                    update_scroll_position.in_set(UiSystem::Scroll).after(UiSystem::Focus),
+                )
             );
 
         app.add_systems(

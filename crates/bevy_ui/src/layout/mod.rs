@@ -1,5 +1,5 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, ScrollPosition, Style, TargetCamera, UiScale
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -117,6 +117,7 @@ pub fn ui_layout_system(
         &mut Transform,
         Option<&BorderRadius>,
         Option<&Outline>,
+        Option<&ScrollPosition>,
     )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
@@ -276,6 +277,7 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
+                Vec2::ZERO,
             );
         }
 
@@ -292,13 +294,15 @@ pub fn ui_layout_system(
             &mut Transform,
             Option<&BorderRadius>,
             Option<&Outline>,
+            Option<&ScrollPosition>,
         )>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
+        parent_scroll_position: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform, maybe_border_radius, maybe_outline)) =
+        if let Ok((mut node, mut transform, maybe_border_radius, maybe_outline, maybe_scroll_position)) =
             node_transform_query.get_mut(entity)
         {
             let Ok(layout) = ui_surface.get_layout(entity) else {
@@ -310,12 +314,12 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
-
+            
             let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
                 - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location + parent_scroll_position) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -351,6 +355,10 @@ pub fn ui_layout_system(
                 transform.translation = rounded_location.extend(0.);
             }
 
+            let scroll_position: Vec2 = maybe_scroll_position
+                .map(|scroll_pos| scroll_pos.into())
+                .unwrap_or_else(Vec2::default);
+
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
                     update_uinode_geometry_recursive(
@@ -361,6 +369,7 @@ pub fn ui_layout_system(
                         children_query,
                         inverse_target_scale_factor,
                         rounded_size,
+                        scroll_position,
                         absolute_location,
                     );
                 }
