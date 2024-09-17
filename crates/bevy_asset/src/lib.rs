@@ -7,7 +7,7 @@
 //! - Loading assets from disk is slow, and can cause long load times and delays.
 //!
 //! These problems play into each other, for if assets are expensive to store in memory,
-//! then larger game worlds will need to load them from disk as needed, ideally without a loading screen!
+//! then larger game worlds will need to load them from disk as needed, ideally without a loading screen.
 //!
 //! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks used to load assets while the game is running.
 //! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
@@ -28,8 +28,8 @@
 //! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
 //! which will be `true` when the asset is ready to use.
 //!
-//! Keep track of what you're waiting on by using a [`HashSet`] or similar data structure,
-//! which you poll in your update loop, and transition to the new scene when all assets are loaded.
+//! Keep track of what you're waiting on by using a [`HashSet`] of asset handles or similar data structure,
+//! which iterate over and poll in your update loop, and transition to the new scene once all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
 //!
 //! # Modifying entities that use assets
