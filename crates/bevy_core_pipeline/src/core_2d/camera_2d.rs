@@ -1,4 +1,4 @@
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
@@ -36,11 +36,7 @@ impl Camera2d {
     }
 
     fn default_projection() -> OrthographicProjection {
-        OrthographicProjection {
-            far: 1000.,
-            near: -1000.,
-            ..Default::default()
-        }
+        OrthographicProjection::default_2d()
     }
 
     fn default_frustum() -> Frustum {
