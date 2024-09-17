@@ -37,11 +37,11 @@
 //! 2. Despawn the entity and spawn a new one with the new asset data.
 //! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
 //!
-//! The first option is the simplest, but can be slow if done frequently,
+//! The first option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
+//!
+//! The second option is the simplest, but can be slow if done frequently,
 //! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
 //! Generally, this isn't a great strategy.
-//!
-//! The second option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
 //!
 //! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
 //! While this might be what you want, it generally isn't!
