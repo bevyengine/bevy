@@ -2,6 +2,7 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
+use bevy::math::ops;
 use bevy::prelude::*;
 
 fn main() {
@@ -115,7 +116,7 @@ fn setup(
 ///   completely opaque, then will be 7/8 opaque (1/8 transparent), then will be
 ///   6/8 opaque, then 5/8, etc.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
+    let alpha = (ops::sin(time.elapsed_seconds()) / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
         material.base_color.set_alpha(alpha);
     }
