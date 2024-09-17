@@ -1,5 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control how it's played.
 
+use bevy::math::ops;
 use bevy::prelude::*;
 
 fn main() {
@@ -25,7 +26,7 @@ struct MyMusic;
 
 fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
     if let Ok(sink) = music_controller.get_single() {
-        sink.set_speed(((time.elapsed_seconds() / 5.0).sin() + 1.0).max(0.1));
+        sink.set_speed((ops::sin(time.elapsed_seconds() / 5.0) + 1.0).max(0.1));
     }
 }
 

@@ -545,19 +545,20 @@ fn apply_pbr_lighting(
     // example, both lightmaps and irradiance volumes are present.
 
     var indirect_light = vec3(0.0f);
+    var found_diffuse_indirect = false;
 
 #ifdef LIGHTMAP
-    if (all(indirect_light == vec3(0.0f))) {
-        indirect_light += in.lightmap_light * diffuse_color;
-    }
+    indirect_light += in.lightmap_light * diffuse_color;
+    found_diffuse_indirect = true;
 #endif
 
-#ifdef IRRADIANCE_VOLUME {
+#ifdef IRRADIANCE_VOLUME
     // Irradiance volume light (indirect)
-    if (all(indirect_light == vec3(0.0f))) {
+    if (!found_diffuse_indirect) {
         let irradiance_volume_light = irradiance_volume::irradiance_volume_light(
             in.world_position.xyz, in.N);
         indirect_light += irradiance_volume_light * diffuse_color * diffuse_occlusion;
+        found_diffuse_indirect = true;
     }
 #endif
 
@@ -574,7 +575,7 @@ fn apply_pbr_lighting(
 
     let environment_light = environment_map::environment_map_light(
         environment_map_lighting_input,
-        any(indirect_light != vec3(0.0f))
+        found_diffuse_indirect
     );
 
     // If screen space reflections are going to be used for this material, don't
@@ -589,7 +590,7 @@ fn apply_pbr_lighting(
     if (!use_ssr) {
         let environment_light = environment_map::environment_map_light(
             &lighting_input,
-            any(indirect_light != vec3(0.0f))
+            found_diffuse_indirect
         );
 
         indirect_light += environment_light.diffuse * diffuse_occlusion +

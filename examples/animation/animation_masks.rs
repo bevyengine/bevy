@@ -143,8 +143,8 @@ fn setup_ui(mut commands: Commands) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(10.0),
-            top: Val::Px(10.0),
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
         }),
     );
@@ -156,8 +156,8 @@ fn setup_ui(mut commands: Commands) {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()

@@ -50,9 +50,11 @@
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
+    system::lifetimeless::Read,
 };
 use bevy_math::Quat;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_instances::ExtractInstance,
@@ -88,6 +90,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
+#[reflect(Component, Default)]
 #[require(
     LightProbe,
     Transform,

@@ -83,7 +83,7 @@ use thiserror::Error;
 ///
 /// [utility]: crate::utility
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not provide type information through reflection",
+    message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait Typed: Reflect + TypePath {
@@ -103,6 +103,10 @@ pub trait Typed: Reflect + TypePath {
 /// This trait has a blanket implementation for all types that implement `Typed`
 /// and manual implementations for all dynamic types (which simply return `None`).
 #[doc(hidden)]
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `Typed` so cannot provide static type information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait MaybeTyped: PartialReflect {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
@@ -131,6 +135,27 @@ impl MaybeTyped for DynamicList {}
 impl MaybeTyped for DynamicArray {}
 
 impl MaybeTyped for DynamicTuple {}
+
+/// Dynamic dispatch for [`Typed`].
+///
+/// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
+///
+/// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide dynamic type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
+pub trait DynamicTyped {
+    /// See [`Typed::type_info`].
+    fn reflect_type_info(&self) -> &'static TypeInfo;
+}
+
+impl<T: Typed> DynamicTyped for T {
+    #[inline]
+    fn reflect_type_info(&self) -> &'static TypeInfo {
+        Self::type_info()
+    }
+}
 
 /// A [`TypeInfo`]-specific error.
 #[derive(Debug, Error)]

@@ -237,7 +237,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not provide a reflection path",
+    message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait GetPath: PartialReflect {
@@ -478,6 +478,13 @@ impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     }
 }
 
+impl<'a> TryFrom<&'a str> for ParsedPath {
+    type Error = ReflectPathError<'a>;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        ParsedPath::parse(value)
+    }
+}
+
 impl fmt::Display for ParsedPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for OffsetAccess { access, .. } in &self.0 {
@@ -583,6 +590,21 @@ mod tests {
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
             offset: Some(offset),
         })
+    }
+
+    #[test]
+    fn try_from() {
+        assert_eq!(
+            ParsedPath::try_from("w").unwrap().0,
+            &[offset(access_field("w"), 1)]
+        );
+
+        let r = ParsedPath::try_from("w[");
+        let matches = matches!(r, Err(ReflectPathError::ParseError { .. }));
+        assert!(
+            matches,
+            "ParsedPath::try_from did not return a ParseError for \"w[\""
+        );
     }
 
     #[test]

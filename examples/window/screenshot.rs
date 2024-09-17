@@ -32,7 +32,9 @@ fn screenshot_saving(
     screenshot_saving: Query<Entity, With<Capturing>>,
     windows: Query<Entity, With<Window>>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
     match screenshot_saving.iter().count() {
         0 => {
             commands.entity(window).remove::<CursorIcon>();

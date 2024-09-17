@@ -9,18 +9,22 @@ use bevy::{
     prelude::*,
     utils::HashMap,
 };
-use bevy_render::{pipelined_rendering::RenderExtractApp, RenderApp};
+use bevy_render::pipelined_rendering::RenderExtractApp;
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
-    let sub_app = app.main_mut();
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderApp);
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(sub_app);
+    let main_app = app.main_mut();
+    configure_ambiguity_detection(main_app);
+    let render_extract_app = app.sub_app_mut(RenderExtractApp);
+    configure_ambiguity_detection(render_extract_app);
+
+    // Ambiguities in the RenderApp are currently allowed.
+    // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
+    // Uncomment the lines below to show the current ambiguities in the RenderApp.
+    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
+    // configure_ambiguity_detection(sub_app);
 
     app.finish();
     app.cleanup();
@@ -29,13 +33,8 @@ fn main() {
     let main_app_ambiguities = count_ambiguities(app.main());
     assert_eq!(
         main_app_ambiguities.total(),
-        // This number *should* be zero.
-        // Over time, we are working to reduce the number: your PR should not increase it.
-        // If you decrease this by fixing an ambiguity, reduce the number to prevent regressions.
-        // See https://github.com/bevyengine/bevy/issues/7386 for progress.
-        46,
-        "Main app has unexpected ambiguities among the following schedules: \n{:#?}.",
-        main_app_ambiguities,
+        0,
+        "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
 
     // RenderApp is not checked here, because it is not within the App at this point.
@@ -43,8 +42,7 @@ fn main() {
     assert_eq!(
         render_extract_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n{:#?}",
-        render_extract_ambiguities,
+        "RenderExtract app has unexpected ambiguities among the following schedules: \n{render_extract_ambiguities:#?}",
     );
 }
 

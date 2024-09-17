@@ -184,7 +184,7 @@ fn handle_click(
     if let Some(pos) = windows
         .single()
         .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
     {
         if mouse_button_input.just_pressed(MouseButton::Left) {

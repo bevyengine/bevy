@@ -37,7 +37,7 @@ fn runner(mut app: App) -> AppExit {
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         if let Err(err) = line {
-            println!("read err: {:#}", err);
+            println!("read err: {err:#}");
             break;
         }
         match line.unwrap().as_str() {

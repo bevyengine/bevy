@@ -23,8 +23,8 @@ fn setup(
                 text: Text::from_section("Click Me to get a box", TextStyle::default()),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    top: Val::Percent(10.0),
-                    left: Val::Percent(10.0),
+                    top: Val::Percent(12.0),
+                    left: Val::Percent(12.0),
                     ..default()
                 },
                 ..Default::default()
