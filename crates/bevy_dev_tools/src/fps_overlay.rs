@@ -5,7 +5,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     query::With,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
@@ -129,6 +129,9 @@ fn toggle_display(
     overlay_config: Res<FpsOverlayConfig>,
     mut query: Query<&mut Visibility, With<FpsText>>,
 ) {
+    if !overlay_config.is_changed() {
+        return;
+    }
     for mut visibility in &mut query {
         visibility.set_if_neq(match overlay_config.enabled {
             true => Visibility::Visible,
