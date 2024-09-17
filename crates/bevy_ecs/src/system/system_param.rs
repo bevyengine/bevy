@@ -205,9 +205,9 @@ pub unsafe trait SystemParam: Sized {
     }
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`](crate::prelude::Commands) during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
-    /// [`Commands`](crate::prelude::Commands)
+    /// [`Commands`]: crate::prelude::Commands
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
@@ -2310,9 +2310,9 @@ trait DynParamState: Sync + Send {
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
-    /// This is used to apply [`Commands`](crate::prelude::Commands) during [`apply_deferred`](crate::prelude::apply_deferred).
+    /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
-    /// [`Commands`](crate::prelude::Commands)
+    /// [`Commands`]: crate::prelude::Commands
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
