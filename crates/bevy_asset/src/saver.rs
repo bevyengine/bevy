@@ -11,7 +11,7 @@ use std::{borrow::Borrow, hash::Hash, ops::Deref};
 ///
 /// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
 ///
-/// For a complementary version of this trait that can load assets, see [`AssetLoader`](crate::loader::AssetLoader).
+/// For a complementary version of this trait that can load assets, see [`AssetLoader`].
 pub trait AssetSaver: Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
