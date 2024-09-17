@@ -26,7 +26,7 @@ use taffy::style::AvailableSpace;
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
     needs_new_measure_func: bool,

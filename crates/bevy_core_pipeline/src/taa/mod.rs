@@ -8,13 +8,14 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{Bundle, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -40,14 +41,14 @@ const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276
 
 /// Plugin for temporal anti-aliasing.
 ///
-/// See [`TemporalAntiAliasSettings`] for more details.
+/// See [`TemporalAntiAliasing`] for more details.
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.register_type::<TemporalAntiAliasSettings>();
+        app.register_type::<TemporalAntiAliasing>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -88,7 +89,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// Bundle to apply temporal anti-aliasing.
 #[derive(Bundle, Default, Clone)]
 pub struct TemporalAntiAliasBundle {
-    pub settings: TemporalAntiAliasSettings,
+    pub settings: TemporalAntiAliasing,
     pub jitter: TemporalJitter,
     pub depth_prepass: DepthPrepass,
     pub motion_vector_prepass: MotionVectorPrepass,
@@ -136,7 +137,9 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
 #[derive(Component, Reflect, Clone)]
-pub struct TemporalAntiAliasSettings {
+#[reflect(Component, Default)]
+#[doc(alias = "Taa")]
+pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
     ///
     /// Useful for preventing ghosting when the history is no longer
@@ -147,7 +150,10 @@ pub struct TemporalAntiAliasSettings {
     pub reset: bool,
 }
 
-impl Default for TemporalAntiAliasSettings {
+#[deprecated(since = "0.15.0", note = "Renamed to `TemporalAntiAliasing`")]
+pub type TemporalAntiAliasSettings = TemporalAntiAliasing;
+
+impl Default for TemporalAntiAliasing {
     fn default() -> Self {
         Self { reset: true }
     }
@@ -347,7 +353,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world
-        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasSettings), (
+        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasing), (
             With<Camera3d>,
             With<TemporalJitter>,
             With<DepthPrepass>,
@@ -367,10 +373,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<
-        (Entity, &mut TemporalJitter, Option<&MipBias>),
-        With<TemporalAntiAliasSettings>,
-    >,
+    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
@@ -407,7 +410,7 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {
@@ -461,7 +464,7 @@ fn prepare_taa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
     pipeline: Res<TaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasSettings)>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {

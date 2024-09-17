@@ -36,7 +36,6 @@ const TRANSFORM_2D: Transform = Transform {
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
     near: -1.0,
     far: 10.0,
-    scale: 1.0,
     viewport_origin: Vec2::new(0.5, 0.5),
     scaling_mode: ScalingMode::AutoMax {
         max_width: 8.0,
@@ -334,7 +333,7 @@ impl Heart {
 // If you implement `Measured2d` for a 2D primitive, `Measured3d` is automatically implemented for `Extrusion<T>`.
 impl Measured2d for Heart {
     fn perimeter(&self) -> f32 {
-        self.radius * (2.5 * PI + 2f32.powf(1.5) + 2.0)
+        self.radius * (2.5 * PI + ops::powf(2f32, 1.5) + 2.0)
     }
 
     fn area(&self) -> f32 {
@@ -367,7 +366,7 @@ impl Bounded2d for Heart {
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
         // The bounding circle of the heart is not at its origin. This `offset` is the offset between the center of the bounding circle and its translation.
-        let offset = self.radius / 2f32.powf(1.5);
+        let offset = self.radius / ops::powf(2f32, 1.5);
         // The center of the bounding circle
         let center = isometry * Vec2::new(0.0, -offset);
         // The radius of the bounding circle
@@ -442,7 +441,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // The left wing of the heart, starting from the point in the middle.
         for i in 1..self.resolution {
             let angle = (i as f32 / self.resolution as f32) * wing_angle;
-            let (sin, cos) = angle.sin_cos();
+            let (sin, cos) = ops::sin_cos(angle);
             vertices.push([radius * (cos - 1.0), radius * sin, 0.0]);
             uvs.push([0.5 - (cos - 1.0) / 4., 0.5 - sin / 2.]);
         }
@@ -454,7 +453,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // The right wing of the heart, starting from the bottom most point and going towards the middle point.
         for i in 0..self.resolution - 1 {
             let angle = (i as f32 / self.resolution as f32) * wing_angle - PI / 4.;
-            let (sin, cos) = angle.sin_cos();
+            let (sin, cos) = ops::sin_cos(angle);
             vertices.push([radius * (cos + 1.0), radius * sin, 0.0]);
             uvs.push([0.5 - (cos + 1.0) / 4., 0.5 - sin / 2.]);
         }

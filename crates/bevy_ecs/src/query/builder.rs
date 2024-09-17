@@ -79,10 +79,14 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .map_or(false, |info| info.storage_type() == StorageType::Table)
         };
 
-        self.access
-            .access()
-            .component_reads_and_writes()
-            .all(is_dense)
+        #[allow(deprecated)]
+        let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.access.access().component_reads_and_writes();
+        if component_reads_and_writes_inverted {
+            return false;
+        }
+
+        component_reads_and_writes.all(is_dense)
             && self.access.access().archetypal().all(is_dense)
             && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)
@@ -261,7 +265,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Create a [`QueryState`] with the accesses of the builder.
     ///
-    /// Takes `&mut self` to access the innner world reference while initializing
+    /// Takes `&mut self` to access the inner world reference while initializing
     /// state for the new [`QueryState`]
     pub fn build(&mut self) -> QueryState<D, F> {
         QueryState::<D, F>::from_builder(self)

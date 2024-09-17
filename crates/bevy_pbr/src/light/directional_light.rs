@@ -48,7 +48,7 @@ use super::*;
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct DirectionalLight {
     pub color: Color,
     /// Illuminance in lux (lumens per square meter), representing the amount of

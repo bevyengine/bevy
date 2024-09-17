@@ -21,6 +21,7 @@ pub mod widget;
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -29,7 +30,6 @@ mod geometry;
 mod layout;
 mod render;
 mod stack;
-mod texture_slice;
 mod ui_node;
 
 pub use focus::*;
@@ -41,7 +41,9 @@ pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
-#[doc(hidden)]
+/// The UI prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -99,6 +101,7 @@ pub enum UiSystem {
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+#[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
 
 impl Default for UiScale {
@@ -165,7 +168,9 @@ impl Plugin for UiPlugin {
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
+                    .before(TransformSystem::TransformPropagate)
+                    // Text and Text2D operate on disjoint sets of entities
+                    .ambiguous_with(bevy_text::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
@@ -181,11 +186,6 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Prepare)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
-                (
-                    texture_slice::compute_slices_on_asset_event,
-                    texture_slice::compute_slices_on_image_change,
-                )
-                    .in_set(UiSystem::PostLayout),
             ),
         );
 
@@ -232,7 +232,8 @@ fn build_text_interop(app: &mut App) {
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::update_text2d_layout),
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(bevy_text::calculate_bounds_text2d),
         ),
     );
 

@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Set, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, DynamicTyped, Enum, List, Map, Set, Struct, Tuple,
+    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -142,7 +142,7 @@ pub enum ApplyError {
     },
 }
 
-/// A zero-sized enumuration of the "kinds" of a reflected type.
+/// A zero-sized enumeration of the "kinds" of a reflected type.
 ///
 /// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
@@ -408,7 +408,7 @@ where
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + Any {
+pub trait Reflect: PartialReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
