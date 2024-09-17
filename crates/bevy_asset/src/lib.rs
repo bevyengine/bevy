@@ -33,11 +33,14 @@
 //!
 //! If we later want to change the asset data a given component uses (such as changing an entity's material), we have three options:
 //!
-//! 1. Change the handle field on the Component to the handle of a different asset
+//! 1. Change the handle stored on the responsible component to the handle of a different asset
 //! 2. Despawn the entity and spawn a new one with the new asset data.
 //! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
 //!
 //! The first option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
+//! Check how the handle was passed in to the entity when it was spawned: if a mesh-related component required a handle to a mesh asset,
+//! you'll need to find that component via a query and change the handle to the new mesh asset.
+//! This is so commonly done that you should think about strategies for how to store and swap handles in your game.
 //!
 //! The second option is the simplest, but can be slow if done frequently,
 //! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
