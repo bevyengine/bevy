@@ -1495,7 +1495,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     where
         T: Default,
     {
-        #[expect(clippy::unwrap_or_default)]
+        #[expect(
+            clippy::unwrap_or_default,
+            reason = "why is clippy firing here at all?"
+        )]
         self.or_insert(T::default())
     }
 
