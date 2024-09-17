@@ -90,8 +90,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -132,7 +132,7 @@ fn animate_light(
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(f32::cos(now), 1.0, f32::sin(now)) * vec3(3.0, 4.0, 3.0);
+        transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
@@ -240,12 +240,13 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..Default::default()
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2500.0,
+            ..default()
         });
 }
 

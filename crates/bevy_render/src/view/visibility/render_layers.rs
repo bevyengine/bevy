@@ -21,7 +21,7 @@ pub type Layer = usize;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
 
 /// The number of memory blocks stored inline
@@ -58,6 +58,10 @@ impl Default for RenderLayers {
 
 impl RenderLayers {
     /// Create a new `RenderLayers` belonging to the given layer.
+    ///
+    /// This `const` constructor is limited to `size_of::<usize>()` layers.
+    /// If you need to support an arbitrary number of layers, use [`with`](RenderLayers::with)
+    /// or [`from_layers`](RenderLayers::from_layers).
     pub const fn layer(n: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(n);
         assert!(
@@ -135,7 +139,7 @@ impl RenderLayers {
         false
     }
 
-    /// get the bitmask representation of the contained layers
+    /// Get the bitmask representation of the contained layers.
     pub fn bits(&self) -> &[u64] {
         self.0.as_slice()
     }

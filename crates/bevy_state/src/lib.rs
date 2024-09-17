@@ -27,9 +27,15 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
 pub mod app;
+/// Provides extension methods for [`Commands`](bevy_ecs::prelude::Commands).
+pub mod commands;
 /// Provides definitions for the runtime conditions that interact with the state system
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
@@ -38,14 +44,29 @@ pub mod state;
 /// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
 /// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
 pub mod state_scoped;
+#[cfg(feature = "bevy_app")]
+/// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering
+/// state-scoped events.
+pub mod state_scoped_events;
 
-/// Most commonly used re-exported types.
+#[cfg(feature = "bevy_reflect")]
+/// Provides definitions for the basic traits required by the state system
+pub mod reflect;
+
+/// The state prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
     pub use crate::app::AppExtStates;
     #[doc(hidden)]
+    pub use crate::commands::CommandsStatesExt;
+    #[doc(hidden)]
     pub use crate::condition::*;
+    #[cfg(feature = "bevy_reflect")]
+    #[doc(hidden)]
+    pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
     #[doc(hidden)]
     pub use crate::state::{
         last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter, OnExit,
@@ -54,4 +75,7 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::state_scoped::StateScoped;
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::state_scoped_events::StateScopedEventsAppExt;
 }

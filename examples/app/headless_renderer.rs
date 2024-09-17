@@ -381,7 +381,7 @@ impl render_graph::Node for ImageCopyDriver {
                     layout: ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
                                 .unwrap()
                                 .into(),
                         ),
@@ -435,8 +435,8 @@ fn receive_image_from_buffer(
         // buffered and receiving will just pick that up.
         //
         // It may also be worth noting that although on native, the usage of asynchronous
-        // channels is wholly unnecessary, for the sake of portability to WASM
-        // we'll use async channels that work on both native and WASM.
+        // channels is wholly unnecessary, for the sake of portability to Wasm
+        // we'll use async channels that work on both native and Wasm.
 
         let (s, r) = crossbeam_channel::bounded(1);
 
@@ -533,7 +533,7 @@ fn update(
                     // Finally saving image to file, this heavy blocking operation is kept here
                     // for example simplicity, but in real app you should move it to a separate task
                     if let Err(e) = img.save(image_path) {
-                        panic!("Failed to save image: {}", e);
+                        panic!("Failed to save image: {e}");
                     };
                 }
                 if scene_controller.single_image {

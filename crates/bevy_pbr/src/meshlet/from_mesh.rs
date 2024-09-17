@@ -7,7 +7,7 @@ use bevy_utils::HashMap;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
-    simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
+    Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use smallvec::SmallVec;
@@ -49,16 +49,9 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
-        let worst_case_meshlet_triangles = meshlets
-            .meshlets
-            .iter()
-            .map(|m| m.triangle_count as u64)
-            .sum();
-        let mesh_scale = simplify_scale(&vertices);
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
-        let mut lod_level = 1;
         while simplification_queue.len() > 1 {
             // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
             let connected_meshlets_per_meshlet =
@@ -75,19 +68,14 @@ impl MeshletMesh {
 
             for group_meshlets in groups.into_iter().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_groups(
-                    &group_meshlets,
-                    &meshlets,
-                    &vertices,
-                    lod_level,
-                    mesh_scale,
-                ) else {
+                let Some((simplified_group_indices, mut group_error)) =
+                    simplify_meshlet_group(&group_meshlets, &meshlets, &vertices)
+                else {
                     continue;
                 };
 
-                // Add the maximum child error to the parent error to make parent error cumulative from LOD 0
-                // (we're currently building the parent from its children)
-                group_error += group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
+                // Force parent error to be >= child error (we're currently building the parent from its children)
+                group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
                     acc.max(bounding_spheres[*meshlet_id].self_lod.radius)
                 });
 
@@ -104,7 +92,7 @@ impl MeshletMesh {
                 }
 
                 // Build new meshlets using the simplified group
-                let new_meshlets_count = split_simplified_groups_into_new_meshlets(
+                let new_meshlets_count = split_simplified_group_into_new_meshlets(
                     &simplified_group_indices,
                     &vertices,
                     &mut meshlets,
@@ -130,7 +118,6 @@ impl MeshletMesh {
             }
 
             simplification_queue = next_lod_start..meshlets.len();
-            lod_level += 1;
         }
 
         // Convert meshopt_Meshlet data to a custom format
@@ -140,12 +127,12 @@ impl MeshletMesh {
             .map(|m| Meshlet {
                 start_vertex_id: m.vertex_offset,
                 start_index_id: m.triangle_offset,
+                vertex_count: m.vertex_count,
                 triangle_count: m.triangle_count,
             })
             .collect();
 
         Ok(Self {
-            worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
@@ -160,7 +147,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
 
-    if mesh.attributes().map(|(id, _)| id).ne([
+    if mesh.attributes().map(|(attribute, _)| attribute.id).ne([
         Mesh::ATTRIBUTE_POSITION.id,
         Mesh::ATTRIBUTE_NORMAL.id,
         Mesh::ATTRIBUTE_UV_0.id,
@@ -177,7 +164,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 }
 
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
-    build_meshlets(indices, vertices, 64, 64, 0.0)
+    build_meshlets(indices, vertices, 255, 128, 0.0) // Meshoptimizer won't currently let us do 256 vertices
 }
 
 fn find_connected_meshlets(
@@ -257,7 +244,7 @@ fn group_meshlets(
     xadj.push(adjncy.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
-    let partition_count = simplification_queue.len().div_ceil(4);
+    let partition_count = simplification_queue.len().div_ceil(4); // TODO: Nanite uses groups of 8-32, probably based on some kind of heuristic
     Graph::new(1, partition_count as i32, &xadj, &adjncy)
         .unwrap()
         .set_adjwgt(&adjwgt)
@@ -272,12 +259,10 @@ fn group_meshlets(
     groups
 }
 
-fn simplify_meshlet_groups(
+fn simplify_meshlet_group(
     group_meshlets: &[usize],
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
-    lod_level: u32,
-    mesh_scale: f32,
 ) -> Option<(Vec<u32>, f32)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
@@ -288,24 +273,20 @@ fn simplify_meshlet_groups(
         }
     }
 
-    // Allow more deformation for high LOD levels (1% at LOD 1, 10% at LOD 20+)
-    let t = (lod_level - 1) as f32 / 19.0;
-    let target_error_relative = 0.1 * t + 0.01 * (1.0 - t);
-    let target_error = target_error_relative * mesh_scale;
-
     // Simplify the group to ~50% triangle count
+    // TODO: Simplify using vertex attributes
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,
         vertices,
         group_indices.len() / 2,
-        target_error,
-        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute,
+        f32::MAX,
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, // TODO: Specify manual vertex locks instead of meshopt's overly-strict locks
         Some(&mut error),
     );
 
-    // Check if we were able to simplify to at least 65% triangle count
-    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.65 {
+    // Check if we were able to simplify at least a little (95% of the original triangle count)
+    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.95 {
         return None;
     }
 
@@ -315,7 +296,7 @@ fn simplify_meshlet_groups(
     Some((simplified_group_indices, error))
 }
 
-fn split_simplified_groups_into_new_meshlets(
+fn split_simplified_group_into_new_meshlets(
     simplified_group_indices: &[u32],
     vertices: &VertexDataAdapter<'_>,
     meshlets: &mut Meshlets,

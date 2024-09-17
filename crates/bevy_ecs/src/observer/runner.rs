@@ -1,5 +1,7 @@
+use std::any::Any;
+
 use crate::{
-    component::{ComponentHooks, ComponentId, StorageType},
+    component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -63,7 +65,7 @@ impl Component for ObserverState {
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
+            world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
         });
@@ -76,7 +78,7 @@ impl Component for ObserverState {
                     .as_mut()
                     .descriptor,
             );
-            world.commands().add(move |world: &mut World| {
+            world.commands().queue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
         });
@@ -260,18 +262,20 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// serves as the "source of truth" of the observer.
 ///
 /// [`SystemParam`]: crate::system::SystemParam
-pub struct Observer<T: 'static, B: Bundle> {
-    system: BoxedObserverSystem<T, B>,
+pub struct Observer {
+    system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
+    hook_on_add: ComponentHook,
 }
 
-impl<E: Event, B: Bundle> Observer<E, B> {
+impl Observer {
     /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
-    pub fn new<M>(system: impl IntoObserverSystem<E, B, M>) -> Self {
+    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
         Self {
             system: Box::new(IntoObserverSystem::into_system(system)),
             descriptor: Default::default(),
+            hook_on_add: hook_on_add::<E, B, I::System>,
         }
     }
 
@@ -307,54 +311,20 @@ impl<E: Event, B: Bundle> Observer<E, B> {
     }
 }
 
-impl<E: Event, B: Bundle> Component for Observer<E, B> {
+impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
-                let event_type = world.init_component::<E>();
-                let mut components = Vec::new();
-                B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
-                    components.push(id);
-                });
-                let mut descriptor = ObserverDescriptor {
-                    events: vec![event_type],
-                    components,
-                    ..Default::default()
-                };
-
-                // Initialize System
-                let system: *mut dyn ObserverSystem<E, B> =
-                    if let Some(mut observe) = world.get_mut::<Self>(entity) {
-                        descriptor.merge(&observe.descriptor);
-                        &mut *observe.system
-                    } else {
-                        return;
-                    };
-                // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
-                unsafe {
-                    (*system).initialize(world);
-                }
-
-                {
-                    let mut entity = world.entity_mut(entity);
-                    if let crate::world::Entry::Vacant(entry) = entity.entry::<ObserverState>() {
-                        entry.insert(ObserverState {
-                            descriptor,
-                            runner: observer_system_runner::<E, B>,
-                            ..Default::default()
-                        });
-                    }
-                }
-            });
+        hooks.on_add(|world, entity, _id| {
+            let Some(observe) = world.get::<Self>(entity) else {
+                return;
+            };
+            let hook = observe.hook_on_add;
+            hook(world, entity, _id);
         });
     }
 }
 
-/// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
-pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
-
-fn observer_system_runner<E: Event, B: Bundle>(
+fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
@@ -375,8 +345,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
-    // SAFETY: We only access world metadata
-    let last_trigger = unsafe { world.world_metadata() }.last_trigger_id();
+    let last_trigger = world.last_trigger_id();
     if state.last_trigger_id == last_trigger {
         return;
     }
@@ -395,23 +364,75 @@ fn observer_system_runner<E: Event, B: Bundle>(
     // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
     // static constraint from ObserverSystem, but so far we have not found a way.
     let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
-    // SAFETY: Observer was triggered so must have an `Observer` component.
-    let system = unsafe {
-        &mut observer_cell
-            .get_mut::<Observer<E, B>>()
-            .debug_checked_unwrap()
-            .system
+    // SAFETY:
+    // - observer was triggered so must have an `Observer` component.
+    // - observer cannot be dropped or mutated until after the system pointer is already dropped.
+    let system: *mut dyn ObserverSystem<E, B> = unsafe {
+        let mut observe = observer_cell.get_mut::<Observer>().debug_checked_unwrap();
+        let system = observe.system.downcast_mut::<S>().unwrap();
+        &mut *system
     };
 
-    system.update_archetype_component_access(world);
-
     // SAFETY:
-    // - `update_archetype_component_access` was just called
+    // - `update_archetype_component_access` is called first
     // - there are no outstanding references to world except a private component
     // - system is an `ObserverSystem` so won't mutate world beyond the access of a `DeferredWorld`
     // - system is the same type erased system from above
     unsafe {
-        system.run_unsafe(trigger, world);
-        system.queue_deferred(world.into_deferred());
+        (*system).update_archetype_component_access(world);
+        (*system).run_unsafe(trigger, world);
+        (*system).queue_deferred(world.into_deferred());
     }
+}
+
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`ComponentHooks::on_add`).
+///
+/// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
+/// erased.
+///
+/// The type parameters of this function _must_ match those used to create the [`Observer`].
+/// As such, it is recommended to only use this function within the [`Observer::new`] method to
+/// ensure type parameters match.
+fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+) {
+    world.commands().queue(move |world: &mut World| {
+        let event_type = world.init_component::<E>();
+        let mut components = Vec::new();
+        B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+            components.push(id);
+        });
+        let mut descriptor = ObserverDescriptor {
+            events: vec![event_type],
+            components,
+            ..Default::default()
+        };
+
+        // Initialize System
+        let system: *mut dyn ObserverSystem<E, B> =
+            if let Some(mut observe) = world.get_mut::<Observer>(entity) {
+                descriptor.merge(&observe.descriptor);
+                let system = observe.system.downcast_mut::<S>().unwrap();
+                &mut *system
+            } else {
+                return;
+            };
+        // SAFETY: World reference is exclusive and initialize does not touch system, so references do not alias
+        unsafe {
+            (*system).initialize(world);
+        }
+
+        {
+            let mut entity = world.entity_mut(entity);
+            if let crate::world::Entry::Vacant(entry) = entity.entry::<ObserverState>() {
+                entry.insert(ObserverState {
+                    descriptor,
+                    runner: observer_system_runner::<E, B, S>,
+                    ..Default::default()
+                });
+            }
+        }
+    });
 }

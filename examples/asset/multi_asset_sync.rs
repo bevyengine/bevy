@@ -2,6 +2,7 @@
 
 use std::{
     f32::consts::PI,
+    ops::Drop,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,
@@ -185,7 +186,7 @@ fn setup_ui(mut commands: Commands) {
                         sections: vec![TextSection {
                             value: "Loading...".to_owned(),
                             style: TextStyle {
-                                font_size: 64.0,
+                                font_size: 53.0,
                                 color: Color::BLACK,
                                 ..Default::default()
                             },

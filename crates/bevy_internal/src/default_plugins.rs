@@ -56,6 +56,8 @@ plugin_group! {
         bevy_gizmos:::GizmoPlugin,
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
+        #[cfg(feature = "bevy_picking")]
+        bevy_picking:::DefaultPickingPlugins,
         #[cfg(feature = "bevy_dev_tools")]
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
@@ -86,6 +88,11 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
             app.ignore_ambiguity(
                 bevy_app::PostUpdate,
                 bevy_animation::advance_animations,
+                bevy_ui::ui_layout_system,
+            );
+            app.ignore_ambiguity(
+                bevy_app::PostUpdate,
+                bevy_animation::animate_targets,
                 bevy_ui::ui_layout_system,
             );
         }

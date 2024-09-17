@@ -224,12 +224,13 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..Default::default()
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         });
 }
 
@@ -257,9 +258,9 @@ fn animate_light(
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
-            f32::sin(now * 1.4),
-            f32::cos(now * 1.0),
-            f32::cos(now * 0.6),
+            ops::sin(now * 1.4),
+            ops::cos(now * 1.0),
+            ops::cos(now * 0.6),
         ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }

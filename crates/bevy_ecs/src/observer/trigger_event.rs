@@ -175,3 +175,13 @@ impl<const N: usize> TriggerTargets for [ComponentId; N] {
         &[]
     }
 }
+
+impl TriggerTargets for &Vec<Entity> {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
+    }
+}

@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    reflect::ReflectComponent,
+    system::{ResMut, Resource},
+};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -51,6 +56,10 @@ pub struct TextPipeline {
     ///
     /// See [`cosmic_text::SwashCache`] for more information.
     swash_cache: SwashCache,
+    /// Buffered vec for collecting spans.
+    ///
+    /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
+    spans_buffer: Vec<(&'static str, Attrs<'static>)>,
 }
 
 impl TextPipeline {
@@ -95,23 +104,29 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans: Vec<(&str, Attrs)> = sections
-            .iter()
-            .enumerate()
-            .filter(|(_section_index, section)| section.style.font_size > 0.0)
-            .map(|(section_index, section)| {
-                (
-                    &section.value[..],
-                    get_attrs(
-                        section,
-                        section_index,
-                        font_system,
-                        &self.map_handle_to_font_id,
-                        scale_factor,
-                    ),
-                )
-            })
+        let mut spans: Vec<(&str, Attrs)> = std::mem::take(&mut self.spans_buffer)
+            .into_iter()
+            .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
+        spans.extend(
+            sections
+                .iter()
+                .enumerate()
+                .filter(|(_section_index, section)| section.style.font_size > 0.0)
+                .map(|(section_index, section)| {
+                    (
+                        &section.value[..],
+                        get_attrs(
+                            section,
+                            section_index,
+                            font_system,
+                            &self.map_handle_to_font_id,
+                            scale_factor,
+                        ),
+                    )
+                }),
+        );
+        let spans_iter = spans.iter().copied();
 
         buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, bounds.width, bounds.height);
@@ -126,7 +141,7 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
 
         // PERF: https://github.com/pop-os/cosmic-text/issues/166:
         // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
@@ -134,6 +149,13 @@ impl TextPipeline {
             buffer_line.set_align(Some(alignment.into()));
         }
         buffer.shape_until_scroll(font_system, false);
+
+        // Recover the spans buffer.
+        spans.clear();
+        self.spans_buffer = spans
+            .into_iter()
+            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
+            .collect();
 
         Ok(())
     }
@@ -145,6 +167,7 @@ impl TextPipeline {
     #[allow(clippy::too_many_arguments)]
     pub fn queue_text(
         &mut self,
+        layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
@@ -156,9 +179,12 @@ impl TextPipeline {
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
         buffer: &mut CosmicBuffer,
-    ) -> Result<TextLayoutInfo, TextError> {
+    ) -> Result<(), TextError> {
+        layout_info.glyphs.clear();
+        layout_info.size = Default::default();
+
         if sections.is_empty() {
-            return Ok(TextLayoutInfo::default());
+            return Ok(());
         }
 
         self.update_buffer(
@@ -175,14 +201,14 @@ impl TextPipeline {
         let font_system = &mut self.font_system.0;
         let swash_cache = &mut self.swash_cache.0;
 
-        let glyphs = buffer
+        buffer
             .layout_runs()
             .flat_map(|run| {
                 run.glyphs
                     .iter()
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
-            .map(|(layout_glyph, line_y)| {
+            .try_for_each(|(layout_glyph, line_y)| {
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -224,22 +250,22 @@ impl TextPipeline {
                 // when glyphs are not limited to single byte representation, relevant for #1319
                 let pos_glyph =
                     PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
-                Ok(pos_glyph)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                layout_info.glyphs.push(pos_glyph);
+                Ok(())
+            })?;
 
-        Ok(TextLayoutInfo {
-            glyphs,
-            size: box_size,
-        })
+        layout_info.size = box_size;
+        Ok(())
     }
 
     /// Queues text for measurement
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure(
         &mut self,
+        entity: Entity,
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
@@ -270,9 +296,7 @@ impl TextPipeline {
         Ok(TextMeasureInfo {
             min: min_width_content_size,
             max: max_width_content_size,
-            // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
-            // that it doesn't need to own a buffer? - bytemunch
-            buffer: buffer.0.clone(),
+            entity,
         })
     }
 
@@ -288,7 +312,7 @@ impl TextPipeline {
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
@@ -299,23 +323,14 @@ pub struct TextLayoutInfo {
 /// Size information for a corresponding [`Text`](crate::Text) component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
+#[derive(Debug)]
 pub struct TextMeasureInfo {
     /// Minimum size for a text area in pixels, to be used when laying out widgets with taffy
     pub min: Vec2,
     /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
-    buffer: cosmic_text::Buffer,
-}
-
-impl std::fmt::Debug for TextMeasureInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TextMeasureInfo")
-            .field("min", &self.min)
-            .field("max", &self.max)
-            .field("buffer", &"_")
-            .field("font_system", &"_")
-            .finish()
-    }
+    /// The entity that is measured.
+    pub entity: Entity,
 }
 
 impl TextMeasureInfo {
@@ -323,11 +338,13 @@ impl TextMeasureInfo {
     pub fn compute_size(
         &mut self,
         bounds: TextBounds,
+        buffer: &mut Buffer,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
-        self.buffer
-            .set_size(font_system, bounds.width, bounds.height);
-        buffer_dimensions(&self.buffer)
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
+        // whenever a canonical state is required.
+        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer_dimensions(buffer)
     }
 }
 
@@ -394,4 +411,14 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let height = buffer.layout_runs().count() as f32 * line_height;
 
     Vec2::new(width.ceil(), height).ceil()
+}
+
+/// Discards stale data cached in `FontSystem`.
+pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
+    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
+    // See https://github.com/bevyengine/bevy/pull/15037
+    //
+    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
+    // text that is dynamically measured for UI).
+    pipeline.font_system_mut().shape_run_cache.trim(2);
 }

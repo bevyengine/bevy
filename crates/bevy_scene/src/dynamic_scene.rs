@@ -5,7 +5,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypePath, TypeRegistry};
+use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
 use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
@@ -28,7 +28,7 @@ use serde::Serialize;
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn Reflect>>,
+    pub resources: Vec<Box<dyn PartialReflect>>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -40,8 +40,8 @@ pub struct DynamicEntity {
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
     /// A vector of boxed components that belong to the given entity and
-    /// implement the [`Reflect`] trait.
-    pub components: Vec<Box<dyn Reflect>>,
+    /// implement the [`PartialReflect`] trait.
+    pub components: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicScene {
@@ -117,7 +117,11 @@ impl DynamicScene {
                 // If the entity already has the given component attached,
                 // just apply the (possibly) new value, otherwise add the
                 // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
+                reflect_component.apply_or_insert(
+                    entity_mut,
+                    component.as_partial_reflect(),
+                    &type_registry,
+                );
             }
         }
 
@@ -209,7 +213,7 @@ mod tests {
     use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
     use bevy_ecs::system::Resource;
     use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
-    use bevy_hierarchy::{Parent, PushChild};
+    use bevy_hierarchy::{AddChild, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -280,7 +284,7 @@ mod tests {
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        PushChild {
+        AddChild {
             parent: original_parent_entity,
             child: original_child_entity,
         }
@@ -301,7 +305,7 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        PushChild {
+        AddChild {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }

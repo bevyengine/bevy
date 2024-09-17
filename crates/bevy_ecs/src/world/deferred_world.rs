@@ -119,9 +119,9 @@ impl<'w> DeferredWorld<'w> {
     /// If state is from a different world then self
     #[inline]
     pub fn query<'s, D: QueryData, F: QueryFilter>(
-        &'w mut self,
+        &mut self,
         state: &'s mut QueryState<D, F>,
-    ) -> Query<'w, 's, D, F> {
+    ) -> Query<'_, 's, D, F> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches

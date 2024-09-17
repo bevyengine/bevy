@@ -40,7 +40,7 @@ struct A;
 struct B;
 
 fn setup_with_commands(mut commands: Commands) {
-    let system_id = commands.register_one_shot_system(system_a);
+    let system_id = commands.register_system(system_a);
     commands.spawn((Callback(system_id), A));
 }
 

@@ -16,7 +16,6 @@ crates=(
     bevy_app
     bevy_time
     bevy_log
-    bevy_dynamic_plugin
     bevy_asset/macros
     bevy_asset
     bevy_audio

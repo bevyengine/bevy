@@ -4,7 +4,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::primitives::Sphere;
+use bevy_math::{ops, primitives::Sphere};
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
 use wgpu::PrimitiveTopology;
@@ -120,10 +120,10 @@ impl SphereMeshBuilder {
             });
         }
         let generated = IcoSphere::new(subdivisions as usize, |point| {
-            let inclination = point.y.acos();
-            let azimuth = point.z.atan2(point.x);
+            let inclination = ops::acos(point.y);
+            let azimuth = ops::atan2(point.z, point.x);
 
-            let norm_inclination = inclination / std::f32::consts::PI;
+            let norm_inclination = inclination / PI;
             let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
 
             [norm_azimuth, norm_inclination]
@@ -183,13 +183,13 @@ impl SphereMeshBuilder {
 
         for i in 0..stacks + 1 {
             let stack_angle = PI / 2. - (i as f32) * stack_step;
-            let xy = self.sphere.radius * stack_angle.cos();
-            let z = self.sphere.radius * stack_angle.sin();
+            let xy = self.sphere.radius * ops::cos(stack_angle);
+            let z = self.sphere.radius * ops::sin(stack_angle);
 
             for j in 0..sectors + 1 {
                 let sector_angle = (j as f32) * sector_step;
-                let x = xy * sector_angle.cos();
-                let y = xy * sector_angle.sin();
+                let x = xy * ops::cos(sector_angle);
+                let y = xy * ops::sin(sector_angle);
 
                 vertices.push([x, y, z]);
                 normals.push([x * length_inv, y * length_inv, z * length_inv]);

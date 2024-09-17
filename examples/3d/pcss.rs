@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
-        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasSettings},
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },
@@ -165,6 +165,8 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
         // `TemporalAntiAliasSettings`.
         .insert(TemporalJitter::default())
+        // We want MSAA off for TAA to work properly.
+        .insert(Msaa::Off)
         // The depth prepass is needed for TAA.
         .insert(DepthPrepass)
         // The motion vector prepass is needed for TAA.
@@ -292,8 +294,8 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         for light in lights.iter_mut() {
-            let mut light_commands = commands.entity(light);
-            light_commands
+            let light_commands = commands
+                .entity(light)
                 .remove::<DirectionalLight>()
                 .remove::<PointLight>()
                 .remove::<SpotLight>();
@@ -332,15 +334,13 @@ fn handle_shadow_filter_change(
             match shadow_filter {
                 ShadowFilter::NonTemporal => {
                     *shadow_filtering_method = ShadowFilteringMethod::Gaussian;
-                    commands
-                        .entity(camera)
-                        .remove::<TemporalAntiAliasSettings>();
+                    commands.entity(camera).remove::<TemporalAntiAliasing>();
                 }
                 ShadowFilter::Temporal => {
                     *shadow_filtering_method = ShadowFilteringMethod::Temporal;
                     commands
                         .entity(camera)
-                        .insert(TemporalAntiAliasSettings::default());
+                        .insert(TemporalAntiAliasing::default());
                 }
             }
         }

@@ -18,8 +18,9 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_math::{
+    ops,
     primitives::{Cone, Sphere},
-    Quat, Vec3,
+    Isometry3d, Quat, Vec3,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -44,13 +45,16 @@ fn point_light_gizmo(
             &Sphere {
                 radius: point_light.radius,
             },
-            position,
-            Quat::IDENTITY,
+            Isometry3d::from_translation(position),
             color,
         )
         .resolution(16);
     gizmos
-        .sphere(position, Quat::IDENTITY, point_light.range, color)
+        .sphere(
+            Isometry3d::from_translation(position),
+            point_light.range,
+            color,
+        )
         .resolution(32);
 }
 
@@ -68,24 +72,22 @@ fn spot_light_gizmo(
             &Sphere {
                 radius: spot_light.radius,
             },
-            translation,
-            Quat::IDENTITY,
+            Isometry3d::from_translation(translation),
             color,
         )
         .resolution(16);
 
     // Offset the tip of the cone to the light position.
     for angle in [spot_light.inner_angle, spot_light.outer_angle] {
-        let height = spot_light.range * angle.cos();
+        let height = spot_light.range * ops::cos(angle);
         let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
         gizmos
             .primitive_3d(
                 &Cone {
-                    radius: spot_light.range * angle.sin(),
+                    radius: spot_light.range * ops::sin(angle),
                     height,
                 },
-                position,
-                rotation * Quat::from_rotation_x(PI / 2.0),
+                Isometry3d::new(position, rotation * Quat::from_rotation_x(PI / 2.0)),
                 color,
             )
             .height_resolution(4)
@@ -105,8 +107,7 @@ fn spot_light_gizmo(
             .arc_3d(
                 2.0 * spot_light.outer_angle,
                 spot_light.range,
-                translation,
-                rotation * arc_rotation,
+                Isometry3d::new(translation, rotation * arc_rotation),
                 color,
             )
             .resolution(16);
@@ -200,7 +201,7 @@ impl Default for LightGizmoConfigGroup {
 /// Add this [`Component`] to an entity to draw any of its lights components
 /// ([`PointLight`], [`SpotLight`] and [`DirectionalLight`]).
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
     /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///

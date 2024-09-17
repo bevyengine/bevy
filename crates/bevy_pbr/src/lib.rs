@@ -57,10 +57,15 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
+#[allow(deprecated)]
 pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
+    VolumetricLight,
 };
 
+/// The PBR prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -68,7 +73,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        fog::{FogFalloff, FogSettings},
+        fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
@@ -300,7 +305,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<FogSettings>()
+            .register_type::<DistanceFog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
@@ -340,11 +345,23 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::UpdateDirectionalLightCascades
+                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+            )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::CheckLightVisibility
+                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+            )
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    crate::assign_objects_to_clusters
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystem),
+                    assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)

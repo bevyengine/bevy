@@ -8,8 +8,8 @@ use bevy::{
     input::mouse::MouseWheel,
     math::{vec3, vec4},
     pbr::{
-        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension,
-        ScreenSpaceReflectionsBundle, ScreenSpaceReflectionsSettings,
+        DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        ScreenSpaceReflectionsBundle,
     },
     prelude::*,
     render::{
@@ -98,7 +98,6 @@ fn main() {
     // reflections at this time. Disable multisampled antialiasing, as deferred
     // rendering doesn't support that.
     App::new()
-        .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .init_resource::<AppSettings>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -236,17 +235,19 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 hdr: true,
                 ..default()
             },
+            msaa: Msaa::Off,
             ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
+            ..default()
         })
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
-            ..Default::default()
+            ..default()
         })
         .insert(ScreenSpaceReflectionsBundle::default())
         .insert(Fxaa::default());
@@ -387,11 +388,9 @@ fn adjust_app_settings(
         if app_settings.ssr_on {
             commands
                 .entity(camera)
-                .insert(ScreenSpaceReflectionsSettings::default());
+                .insert(ScreenSpaceReflections::default());
         } else {
-            commands
-                .entity(camera)
-                .remove::<ScreenSpaceReflectionsSettings>();
+            commands.entity(camera).remove::<ScreenSpaceReflections>();
         }
     }
 

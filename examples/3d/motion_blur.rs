@@ -3,6 +3,7 @@
 
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
+    math::ops,
     prelude::*,
 };
 
@@ -144,18 +145,17 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands.spawn((
-            PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.5)),
-                ..default()
-            },
-            Moves(i as f32 * 2.0),
-        ));
-        if i == 0 {
-            entity.insert(CameraTracked);
-        }
+        let mut entity = commands
+            .spawn((
+                PbrBundle {
+                    mesh: box_mesh.clone(),
+                    material: color.clone(),
+                    transform: Transform::from_scale(Vec3::splat(0.5)),
+                    ..default()
+                },
+                Moves(i as f32 * 2.0),
+            ))
+            .insert_if(CameraTracked, || i == 0);
         entity.with_children(|parent| {
             parent.spawn(PbrBundle {
                 mesh: box_mesh.clone(),
@@ -272,31 +272,31 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn keyboard_inputs(
-    mut settings: Query<&mut MotionBlur>,
+    mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut settings = settings.single_mut();
+    let mut motion_blur = motion_blur.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.25;
+        motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.25;
+        motion_blur.shutter_angle += 0.25;
     } else if presses.just_pressed(KeyCode::Digit3) {
-        settings.samples = settings.samples.saturating_sub(1);
+        motion_blur.samples = motion_blur.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
-        settings.samples += 1;
+        motion_blur.samples += 1;
     } else if presses.just_pressed(KeyCode::Space) {
         *camera = match *camera {
             CameraMode::Track => CameraMode::Chase,
             CameraMode::Chase => CameraMode::Track,
         };
     }
-    settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
-    settings.samples = settings.samples.clamp(0, 64);
+    motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
+    motion_blur.samples = motion_blur.samples.clamp(0, 64);
     let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset
@@ -305,12 +305,13 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
     let x_tweak = 2.0;
     let y_tweak = 3.0;
     let scale = 8.0;
-    let x0 = (x_tweak * t).sin();
-    let y0 = (y_tweak * t).cos();
-    let dx = x_tweak * (x_tweak * t).cos();
-    let dy = y_tweak * -(y_tweak * t).sin();
-    let x = x0 + offset * dy / (dx.powi(2) + dy.powi(2)).sqrt();
-    let y = y0 - offset * dx / (dx.powi(2) + dy.powi(2)).sqrt();
+    let x0 = ops::sin(x_tweak * t);
+    let y0 = ops::cos(y_tweak * t);
+    let dx = x_tweak * ops::cos(x_tweak * t);
+    let dy = y_tweak * -ops::sin(y_tweak * t);
+    let dl = ops::hypot(dx, dy);
+    let x = x0 + offset * dy / dl;
+    let y = y0 - offset * dx / dl;
     Vec2::new(x, y) * scale
 }
 
@@ -322,8 +323,8 @@ fn move_cars(
     for (mut transform, moves, children) in &mut movables {
         let time = time.elapsed_seconds() * 0.25;
         let t = time + 0.5 * moves.0;
-        let dx = t.cos();
-        let dz = -(3.0 * t).sin();
+        let dx = ops::cos(t);
+        let dz = -ops::sin(3.0 * t);
         let speed_variation = (dx * dx + dz * dz).sqrt() * 0.15;
         let t = t + speed_variation;
         let prev = transform.translation;

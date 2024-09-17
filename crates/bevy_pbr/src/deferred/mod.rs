@@ -1,7 +1,7 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
-    ScreenSpaceReflectionsUniform, ViewLightProbesUniformOffset,
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
+    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_app::prelude::*;
@@ -149,6 +149,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewEnvironmentMapUniformOffset,
         &'static MeshViewBindGroup,
         &'static ViewTarget,
         &'static DeferredLightingIdDepthTexture,
@@ -165,6 +166,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_environment_map_offset,
             mesh_view_bind_group,
             target,
             deferred_lighting_id_depth_texture,
@@ -220,6 +222,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_environment_map_offset,
             ],
         );
         render_pass.set_bind_group(1, &bind_group_1, &[]);
@@ -431,7 +434,7 @@ pub fn prepare_deferred_lighting_pipelines(
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
             (
-                Has<ScreenSpaceAmbientOcclusionSettings>,
+                Has<ScreenSpaceAmbientOcclusion>,
                 Has<ScreenSpaceReflectionsUniform>,
             ),
             (

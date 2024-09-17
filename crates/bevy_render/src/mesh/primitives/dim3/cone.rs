@@ -1,4 +1,4 @@
-use bevy_math::{primitives::Cone, Vec3};
+use bevy_math::{ops, primitives::Cone, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -116,7 +116,7 @@ impl MeshBuilder for ConeMeshBuilder {
         // Add vertices for the bottom of the lateral surface.
         for segment in 0..self.resolution {
             let theta = segment as f32 * step_theta;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
 
             // The vertex normal perpendicular to the side
             let normal = Vec3::new(cos, normal_slope, sin) * normalization_factor;
@@ -142,7 +142,7 @@ impl MeshBuilder for ConeMeshBuilder {
         // Add base vertices.
         for i in 0..self.resolution {
             let theta = i as f32 * step_theta;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
 
             positions.push([cos * self.cone.radius, -half_height, sin * self.cone.radius]);
             normals.push([0.0, -1.0, 0.0]);

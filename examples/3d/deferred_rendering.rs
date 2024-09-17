@@ -7,6 +7,7 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
+    math::ops,
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
@@ -17,7 +18,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
@@ -42,9 +42,11 @@ fn setup(
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            // MSAA needs to be off for Deferred rendering
+            msaa: Msaa::Off,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -56,6 +58,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -261,7 +264,7 @@ fn setup_parallax(
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
-        max_parallax_layer_count: 5.0f32.exp2(),
+        max_parallax_layer_count: ops::exp2(5.0f32),
         ..default()
     });
     commands.spawn((

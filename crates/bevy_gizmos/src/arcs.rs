@@ -6,8 +6,8 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Quat, Vec2, Vec3};
-use std::f32::consts::TAU;
+use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
+use std::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -21,9 +21,9 @@ where
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
-    ///     the vector from `position` to the midpoint of the arc.
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///   - the translation specifies the center of the arc
+    ///   - the rotation is counter-clockwise starting from `Vec2::Y`
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `color` sets the color to draw the arc.
@@ -31,17 +31,16 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
+    /// # use std::f32::consts::FRAC_PI_4;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -49,16 +48,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        position: Vec2,
-        direction_angle: f32,
+        isometry: Isometry2d,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            position,
-            direction_angle,
+            isometry,
             arc_angle,
             radius,
             color: color.into(),
@@ -74,8 +71,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec2,
-    direction_angle: f32,
+    isometry: Isometry2d,
     arc_angle: f32,
     radius: f32,
     color: Color,
@@ -108,31 +104,18 @@ where
             .resolution
             .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(
-            self.direction_angle,
-            self.arc_angle,
-            self.radius,
-            resolution,
-        )
-        .map(|vec2| (vec2 + self.position));
+        let positions =
+            arc_2d_inner(self.arc_angle, self.radius, resolution).map(|vec2| self.isometry * vec2);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-fn arc_2d_inner(
-    direction_angle: f32,
-    arc_angle: f32,
-    radius: f32,
-    resolution: u32,
-) -> impl Iterator<Item = Vec2> {
-    (0..resolution + 1).map(move |i| {
-        let start = direction_angle - arc_angle / 2.;
-
-        let angle =
-            start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
-
-        Vec2::new(angle.cos(), angle.sin()) * radius
-    })
+fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
+    (0..=resolution)
+        .map(move |n| arc_angle * n as f32 / resolution as f32)
+        .map(|angle| angle + FRAC_PI_2)
+        .map(Vec2::from_angle)
+        .map(move |vec2| vec2 * radius)
 }
 
 // === 3D ===
@@ -156,9 +139,9 @@ where
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
     ///     value should be in the range (-2 * PI..=2 * PI)
     /// - `radius`: distance between the arc and its center point
-    /// - `position`: position of the arcs center point
-    /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
-    ///     plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///              - the translation specifies the center of the arc
+    ///              - the rotation is counter-clockwise starting from `Vec3::Y`
     /// - `color`: color of the arc
     ///
     /// # Builder methods
@@ -168,7 +151,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::css::ORANGE;
@@ -180,8 +162,7 @@ where
     ///        .arc_3d(
     ///          270.0_f32.to_radians(),
     ///          0.25,
-    ///          Vec3::ONE,
-    ///          rotation,
+    ///          Isometry3d::new(Vec3::ONE, rotation),
     ///          ORANGE
     ///          )
     ///          .resolution(100);
@@ -193,15 +174,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            center: position,
-            rotation,
+            isometry,
             angle,
             radius,
             color: color.into(),
@@ -225,7 +204,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
@@ -272,7 +250,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
@@ -336,9 +313,130 @@ where
         Arc3dBuilder {
             gizmos: self,
             start_vertex,
-            center,
-            rotation,
+            isometry: Isometry3d::new(center, rotation),
             angle,
+            radius,
+            color: color.into(),
+            resolution: None,
+        }
+    }
+
+    /// Draws the shortest arc between two points (`from` and `to`) relative to a specified `center` point.
+    ///
+    /// # Arguments
+    ///
+    /// - `center`: The center point around which the arc is drawn.
+    /// - `from`: The starting point of the arc.
+    /// - `to`: The ending point of the arc.
+    /// - `color`: color of the arc
+    ///
+    /// # Builder methods
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::ORANGE;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.short_arc_2d_between(
+    ///        Vec2::ZERO,
+    ///        Vec2::X,
+    ///        Vec2::Y,
+    ///        ORANGE
+    ///        )
+    ///        .resolution(100);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    ///
+    /// # Notes
+    /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
+    ///     the points is coincident with `center`, nothing is rendered.
+    /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
+    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///     the results will behave as if this were the case
+    #[inline]
+    pub fn short_arc_2d_between(
+        &mut self,
+        center: Vec2,
+        from: Vec2,
+        to: Vec2,
+        color: impl Into<Color>,
+    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+        self.arc_2d_from_to(center, from, to, color, std::convert::identity)
+    }
+
+    /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.
+    ///
+    /// # Arguments
+    /// - `center`: The center point around which the arc is drawn.
+    /// - `from`: The starting point of the arc.
+    /// - `to`: The ending point of the arc.
+    /// - `color`: color of the arc
+    ///
+    /// # Builder methods
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::css::ORANGE;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.long_arc_2d_between(
+    ///        Vec2::ZERO,
+    ///        Vec2::X,
+    ///        Vec2::Y,
+    ///        ORANGE
+    ///        )
+    ///        .resolution(100);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    ///
+    /// # Notes
+    /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
+    ///     the points is coincident with `center`, nothing is rendered.
+    /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
+    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///     the results will behave as if this were the case.
+    #[inline]
+    pub fn long_arc_2d_between(
+        &mut self,
+        center: Vec2,
+        from: Vec2,
+        to: Vec2,
+        color: impl Into<Color>,
+    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+        self.arc_2d_from_to(center, from, to, color, |angle| angle - TAU)
+    }
+
+    #[inline]
+    fn arc_2d_from_to(
+        &mut self,
+        center: Vec2,
+        from: Vec2,
+        to: Vec2,
+        color: impl Into<Color>,
+        angle_fn: impl Fn(f32) -> f32,
+    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+        // `from` and `to` can be the same here since in either case nothing gets rendered and the
+        // orientation ambiguity of `up` doesn't matter
+        let from_axis = (from - center).normalize_or_zero();
+        let to_axis = (to - center).normalize_or_zero();
+        let rotation = Vec2::Y.angle_to(from_axis);
+        let arc_angle_raw = from_axis.angle_to(to_axis);
+
+        let arc_angle = angle_fn(arc_angle_raw);
+        let radius = center.distance(from);
+
+        Arc2dBuilder {
+            gizmos: self,
+            isometry: Isometry2d::new(center, Rot2::radians(rotation)),
+            arc_angle,
             radius,
             color: color.into(),
             resolution: None,
@@ -363,8 +461,7 @@ where
     //
     // DO NOT expose this field to users as it is easy to mess this up
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     color: Color,
@@ -399,8 +496,7 @@ where
 
         let positions = arc_3d_inner(
             self.start_vertex,
-            self.center,
-            self.rotation,
+            self.isometry,
             self.angle,
             self.radius,
             resolution,
@@ -411,8 +507,7 @@ where
 
 fn arc_3d_inner(
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     resolution: u32,
@@ -425,7 +520,8 @@ fn arc_3d_inner(
         .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
-        .map(move |p| rotation * (p * radius) + center)
+        .map(move |vec3| vec3 * radius)
+        .map(move |vec3| isometry * vec3)
 }
 
 // helper function for getting a default value for the resolution parameter

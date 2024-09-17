@@ -11,17 +11,18 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
+#[cfg(feature = "bevy_picking")]
+mod picking_backend;
 mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+/// The sprite prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::bundle::SpriteSheetBundle;
-
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
@@ -77,7 +78,7 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
 /// A convenient alias for `With<Mesh2dHandle>>`, for use with
@@ -132,6 +133,9 @@ impl Plugin for SpritePlugin {
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
+
+        #[cfg(feature = "bevy_picking")]
+        app.add_plugins(picking_backend::SpritePickingBackend);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

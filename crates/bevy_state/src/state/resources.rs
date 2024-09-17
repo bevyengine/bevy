@@ -11,6 +11,9 @@ use super::{freely_mutable_state::FreelyMutableState, states::States};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectResource;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::ReflectDefault;
+
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`](crate::state::OnEnter) and [`OnExit(state)`](crate::state::OnExit)).
 ///
@@ -49,7 +52,7 @@ use bevy_ecs::prelude::ReflectResource;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Debug, PartialEq)
 )]
 pub struct State<S: States>(pub(crate) S);
 
@@ -115,7 +118,7 @@ impl<S: States> Deref for State<S> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Default, Debug)
 )]
 pub enum NextState<S: FreelyMutableState> {
     /// No state transition is pending

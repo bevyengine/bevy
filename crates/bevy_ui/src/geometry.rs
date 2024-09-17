@@ -14,7 +14,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// such as logical pixels, percentages, or automatically determined values.
 
 #[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -249,7 +249,7 @@ impl Val {
 /// ```
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

@@ -35,7 +35,9 @@ use bevy_ecs::prelude::*;
 use bevy_math::Vec3;
 use bevy_reflect::Reflect;
 
-/// Common imports for implementing a picking backend.
+/// The picking backend prelude.
+///
+/// This includes the most common types in this module, re-exported for your convenience.
 pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
@@ -50,6 +52,10 @@ pub mod prelude {
 /// Some backends may only support providing the topmost entity; this is a valid limitation of some
 /// backends. For example, a picking shader might only have data on the topmost rendered output from
 /// its buffer.
+///
+/// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
+/// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
+/// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
@@ -227,6 +233,6 @@ pub mod ray {
             let viewport_logical = camera.to_logical(viewport.physical_position)?;
             viewport_pos -= viewport_logical;
         }
-        camera.viewport_to_world(camera_tfm, viewport_pos)
+        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
     }
 }
