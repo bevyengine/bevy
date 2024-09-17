@@ -3461,6 +3461,7 @@ doc-scrape-examples = true
 name = "Percentage-closer soft shadows"
 description = "Demonstrates percentage-closer soft shadows (PCSS)"
 category = "3D Rendering"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
