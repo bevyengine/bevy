@@ -580,6 +580,11 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
+    let view_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
     for (entity, transform, point_light, mut cubemap_frusta) in &mut views {
         // The frusta are used for culling meshes to the light for shadow mapping
         // so if shadow mapping is disabled for this light, then the frusta are
@@ -595,10 +600,6 @@ pub fn update_point_light_frusta(
             1.0,
             point_light.shadow_map_near_z,
         );
-        let view_rotations = CUBE_MAP_FACES
-            .iter()
-            .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
-            .collect::<Vec<_>>();
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects

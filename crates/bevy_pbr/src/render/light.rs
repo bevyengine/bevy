@@ -36,7 +36,7 @@ pub struct ExtractedPointLight {
     pub radius: f32,
     pub transform: GlobalTransform,
     pub shadows_enabled: bool,
-    pub soft_shadow_size: Option<f32>,
+    pub soft_shadows_enabled: bool,
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
@@ -262,7 +262,7 @@ pub fn extract_lights(
             radius: point_light.radius,
             transform: *transform,
             shadows_enabled: point_light.shadows_enabled,
-            soft_shadow_size: point_light.soft_shadow_size,
+            soft_shadows_enabled: point_light.soft_shadows_enabled,
             shadow_depth_bias: point_light.shadow_depth_bias,
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
@@ -313,7 +313,7 @@ pub fn extract_lights(
                         radius: spot_light.radius,
                         transform: *transform,
                         shadows_enabled: spot_light.shadows_enabled,
-                        soft_shadow_size: spot_light.soft_shadow_size,
+                        soft_shadows_enabled: spot_light.soft_shadows_enabled,
                         shadow_depth_bias: spot_light.shadow_depth_bias,
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
@@ -561,6 +561,12 @@ pub fn prepare_lights(
         return;
     };
 
+    // Pre-calculate for PointLights
+    let cube_face_rotations = CUBE_MAP_FACES
+        .iter()
+        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
+        .collect::<Vec<_>>();
+
     global_light_meta.entity_to_index.clear();
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
@@ -738,7 +744,11 @@ pub fn prepare_lights(
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits(),
-            soft_shadow_size: light.soft_shadow_size.unwrap_or_default(),
+            soft_shadow_size: if light.soft_shadows_enabled {
+                light.radius
+            } else {
+                0.0
+            },
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             shadow_map_near_z: light.shadow_map_near_z,
@@ -899,10 +909,6 @@ pub fn prepare_lights(
                 1.0,
                 light.shadow_map_near_z,
             );
-            let cube_face_rotations = CUBE_MAP_FACES
-                .iter()
-                .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
-                .collect::<Vec<_>>();
 
             for (face_index, (view_rotation, frustum)) in cube_face_rotations
                 .iter()

@@ -281,7 +281,7 @@ fn sample_shadow_map_pcss(
     let blur_size = max((z_blocker - depth) * light_size / depth, 0.5);
 
     // FIXME: We can't use Castano '13 here because that has a hard-wired fixed
-    // size.  So we instead use Jimenez '14 unconditionally. In the non-temporal
+    // size. So we instead use Jimenez '14 unconditionally. In the non-temporal
     // variant this is unfortunately rather noisy. This may be improvable in the
     // future by generating a mip chain of the shadow map and using that to
     // provide better blurs.

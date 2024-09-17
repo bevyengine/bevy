@@ -31,22 +31,25 @@ pub struct PointLight {
     /// lighting cut-offs.
     pub range: f32,
 
-    /// Simulates a light source coming from a spherical volume with the given radius. Only affects
-    /// the size of specular highlights created by this light. Because of this, large values may not
-    /// produce the intended result -- for example, light radius does not affect shadow softness or
-    /// diffuse lighting.
+    /// Simulates a light source coming from a spherical volume with the given
+    /// radius.
+    ///
+    /// This affects the size of specular highlights created by this light, as
+    /// well as the soft shadow penumbra size. Because of this, large values may
+    /// not produce the intended result -- for example, light radius does not
+    /// affect shadow softness or diffuse lighting.
     pub radius: f32,
 
     /// Whether this light casts shadows.
     pub shadows_enabled: bool,
 
-    /// Whether soft shadows are enabled, and if so, the size of the light.
+    /// Whether soft shadows are enabled.
     ///
     /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
     /// cause shadows to become blurrier (i.e. their penumbra increases in
     /// radius) as they extend away from objects. The blurriness of the shadow
-    /// depends on the size of the light; larger lights result in larger
-    /// penumbras and therefore blurrier shadows.
+    /// depends on the [`PointLight::radius`] of the light; larger lights result
+    /// in larger penumbras and therefore blurrier shadows.
     ///
     /// Currently, soft shadows are rather noisy if not using the temporal mode.
     /// If you enable soft shadows, consider choosing
@@ -55,7 +58,7 @@ pub struct PointLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
-    pub soft_shadow_size: Option<f32>,
+    pub soft_shadows_enabled: bool,
 
     /// A bias used when sampling shadow maps to avoid "shadow-acne", or false shadow occlusions
     /// that happen as a result of shadow-map fragments not mapping 1:1 to screen-space fragments.
@@ -89,7 +92,7 @@ impl Default for PointLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadow_size: None,
+            soft_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,

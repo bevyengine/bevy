@@ -22,8 +22,8 @@ use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClick
 #[path = "../helpers/widgets.rs"]
 mod widgets;
 
-/// The size of the soft shadow penumbras when PCSS is enabled.
-const SOFT_SHADOW_SIZE: f32 = 10.0;
+/// The size of the light, which affects the size of the penumbras.
+const LIGHT_RADIUS: f32 = 10.0;
 
 /// The intensity of the point and spot lights.
 const POINT_LIGHT_INTENSITY: f32 = 1_000_000_000.0;
@@ -379,7 +379,7 @@ fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
     DirectionalLight {
         shadows_enabled: true,
         soft_shadow_size: if app_status.soft_shadows {
-            Some(SOFT_SHADOW_SIZE)
+            Some(LIGHT_RADIUS)
         } else {
             None
         },
@@ -394,11 +394,8 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
         shadows_enabled: true,
-        soft_shadow_size: if app_status.soft_shadows {
-            Some(SOFT_SHADOW_SIZE)
-        } else {
-            None
-        },
+        radius: LIGHT_RADIUS,
+        soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()
@@ -410,13 +407,9 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
     SpotLight {
         intensity: POINT_LIGHT_INTENSITY,
         range: POINT_LIGHT_RANGE,
-        radius: 0.0,
+        radius: LIGHT_RADIUS,
         shadows_enabled: true,
-        soft_shadow_size: if app_status.soft_shadows {
-            Some(SOFT_SHADOW_SIZE)
-        } else {
-            None
-        },
+        soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
         ..default()

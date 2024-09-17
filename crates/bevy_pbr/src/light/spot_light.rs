@@ -22,6 +22,13 @@ pub struct SpotLight {
     /// Consequently, you should set this value to be only the size that you need.
     pub range: f32,
 
+    /// Simulates a light source coming from a spherical volume with the given
+    /// radius.
+    ///
+    /// This affects the size of specular highlights created by this light, as
+    /// well as the soft shadow penumbra size. Because of this, large values may
+    /// not produce the intended result -- for example, light radius does not
+    /// affect shadow softness or diffuse lighting.
     pub radius: f32,
 
     /// Whether this light casts shadows.
@@ -31,12 +38,12 @@ pub struct SpotLight {
     /// number of lights with shadows enabled to one or two at most.
     pub shadows_enabled: bool,
 
-    /// Whether soft shadows are enabled, and if so, the size of the light.
+    /// Whether soft shadows are enabled.
     ///
     /// Soft shadows, also known as *percentage-closer soft shadows* or PCSS,
     /// cause shadows to become blurrier (i.e. their penumbra increases in
     /// radius) as they extend away from objects. The blurriness of the shadow
-    /// depends on the size of the light; larger lights result in larger
+    /// depends on the [`SpotLight::radius`] of the light; larger lights result in larger
     /// penumbras and therefore blurrier shadows.
     ///
     /// Currently, soft shadows are rather noisy if not using the temporal mode.
@@ -46,7 +53,7 @@ pub struct SpotLight {
     ///
     /// Note that soft shadows are significantly more expensive to render than
     /// hard shadows.
-    pub soft_shadow_size: Option<f32>,
+    pub soft_shadows_enabled: bool,
 
     /// A value that adjusts the tradeoff between self-shadowing artifacts and
     /// proximity of shadows to their casters.
@@ -104,7 +111,7 @@ impl Default for SpotLight {
             range: 20.0,
             radius: 0.0,
             shadows_enabled: false,
-            soft_shadow_size: None,
+            soft_shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
