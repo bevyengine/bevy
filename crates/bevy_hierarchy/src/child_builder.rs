@@ -489,7 +489,7 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().queue(AddChild { child, parent });
         self
     }
 
@@ -516,7 +516,7 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().queue(AddChild { child, parent });
         self
     }
 
