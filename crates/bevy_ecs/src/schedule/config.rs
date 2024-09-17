@@ -33,21 +33,6 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
-where
-    F: IntoSystem<(), (), Marker>,
-{
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
-    }
-}
-
-impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(self)
-    }
-}
-
 /// Stores configuration for a single generic node (a system or a system set)
 ///
 /// The configuration includes the node itself, scheduling metadata
@@ -529,6 +514,21 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn chain_ignore_deferred(self) -> Self {
         self.chain_ignore_deferred_inner()
+    }
+}
+
+impl<Marker, F> IntoSystemConfigs<Marker> for F
+where
+    F: IntoSystem<(), (), Marker>,
+{
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
+    }
+}
+
+impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(self)
     }
 }
 
