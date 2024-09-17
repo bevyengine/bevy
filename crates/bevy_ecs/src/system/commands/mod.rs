@@ -1,12 +1,14 @@
 mod parallel_scope;
 
 use core::panic::Location;
+use std::marker::PhantomData;
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
-    component::{ComponentId, ComponentInfo},
+    change_detection::Mut,
+    component::{Component, ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
@@ -906,6 +908,36 @@ impl EntityCommands<'_> {
         }
     }
 
+    /// Get an [`EntityEntryCommands`] for the component `T`,
+    /// allowing you to modify it or insert it if it isn't already present.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Level(u32);
+    ///
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .entry::<Level>()
+    ///         // Modify the component if it exists
+    ///         .and_modify(|mut lvl| lvl.0 += 1)
+    ///         // Otherwise insert a default value
+    ///         .or_insert(Level(0));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(level_up_system);
+    /// ```
+    pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<T> {
+        EntityEntryCommands {
+            entity_commands: self.reborrow(),
+            marker: PhantomData,
+        }
+    }
+
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -1417,6 +1449,56 @@ impl EntityCommands<'_> {
     }
 }
 
+/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
+pub struct EntityEntryCommands<'a, T> {
+    entity_commands: EntityCommands<'a>,
+    marker: PhantomData<T>,
+}
+
+impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Modify the component `T` using the the predicate `f`.
+    pub fn and_modify(mut self, f: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> Self {
+        self.entity_commands = self
+            .entity_commands
+            .queue(move |mut entity: EntityWorldMut| {
+                if let Some(value) = entity.get_mut() {
+                    f(value);
+                }
+            });
+        self
+    }
+
+    /// Insert the `default` into this entity, if `T` is not already present.
+    ///
+    /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_insert_with), [`or_default`](Self::or_default)
+    #[track_caller]
+    pub fn or_insert(mut self, default: T) -> Self {
+        self.entity_commands = self
+            .entity_commands
+            .queue(insert(default, InsertMode::Keep));
+        self
+    }
+
+    /// Insert the value returned from `default` into this entity, if `T` is not already present.
+    ///
+    /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_default`](Self::or_default)
+    #[track_caller]
+    pub fn or_insert_with(self, default: impl Fn() -> T) -> Self {
+        self.or_insert(default())
+    }
+
+    /// Insert `T::default` into this entity, if it isn't already present.
+    ///
+    /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
+    #[track_caller]
+    pub fn or_default(self) -> Self
+    where
+        T: Default,
+    {
+        self.or_insert(T::default())
+    }
+}
+
 impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
@@ -1695,6 +1777,38 @@ mod tests {
 
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
+    }
+
+    #[test]
+    fn entity_commands_entry() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let entity = commands.spawn_empty().id();
+        commands
+            .entity(entity)
+            .entry::<W<u32>>()
+            .and_modify(|_| unreachable!());
+        queue.apply(&mut world);
+        assert!(!world.entity(entity).contains::<W<u32>>());
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u32>>()
+            .or_insert(W(0))
+            .and_modify(|mut val| {
+                val.0 = 21;
+            });
+        queue.apply(&mut world);
+        assert_eq!(21, world.get::<W<u32>>(entity).unwrap().0);
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u64>>()
+            .and_modify(|_| unreachable!())
+            .or_insert(W(42));
+        queue.apply(&mut world);
+        assert_eq!(42, world.get::<W<u64>>(entity).unwrap().0);
     }
 
     #[test]
