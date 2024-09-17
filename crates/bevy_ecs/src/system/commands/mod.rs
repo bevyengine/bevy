@@ -146,13 +146,18 @@ const _: () = {
         }
 
         #[inline]
-        fn validate_param<'w, 's>(
-            state: &'s Self::State,
+        fn validate_param(
+            state: &Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: &World,
             change_tick: bevy_ecs::component::Tick,
         ) -> bool {
-            <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::validate_param(&state.state, system_meta, world, change_tick)
+            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
+                &state.state,
+                system_meta,
+                world,
+                change_tick,
+            )
         }
 
         #[inline]

@@ -188,8 +188,8 @@ where
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        state: &'s Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,

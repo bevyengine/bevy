@@ -57,8 +57,8 @@ unsafe impl SystemParam for WorldId {
     fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        _state: &'state Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,

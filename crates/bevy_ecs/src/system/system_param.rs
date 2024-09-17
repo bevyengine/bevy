@@ -227,8 +227,8 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`World`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    fn validate_param<'world, 'state>(
-        state: &'state Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,
@@ -286,8 +286,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -614,8 +614,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        &component_id: &'s Self::State,
+    fn validate_param(
+        &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
         _change_tick: Tick,
@@ -667,8 +667,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -731,8 +731,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        &component_id: &'s Self::State,
+    fn validate_param(
+        &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
         _change_tick: Tick,
@@ -780,8 +780,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -845,8 +845,8 @@ unsafe impl SystemParam for &'_ World {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -878,8 +878,8 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     }
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        _state: &'state Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1000,8 +1000,8 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1200,8 +1200,8 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1325,8 +1325,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        &component_id: &'s Self::State,
+    fn validate_param(
+        &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
         _change_tick: Tick,
@@ -1376,8 +1376,8 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1439,8 +1439,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        &component_id: &'s Self::State,
+    fn validate_param(
+        &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
         _change_tick: Tick,
@@ -1484,8 +1484,8 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1522,8 +1522,8 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1553,8 +1553,8 @@ unsafe impl<'a> SystemParam for &'a Components {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1584,8 +1584,8 @@ unsafe impl<'a> SystemParam for &'a Entities {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1615,8 +1615,8 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1675,8 +1675,8 @@ unsafe impl SystemParam for SystemChangeTick {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'w, 's>(
-        _state: &'s Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -1711,8 +1711,8 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        state: &'state Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,
@@ -1775,8 +1775,8 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        state: &'state Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,
@@ -1894,8 +1894,8 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn validate_param<'w, 's>(
-                state: &'s Self::State,
+            fn validate_param(
+                state: &Self::State,
                 _system_meta: &SystemMeta,
                 _world: &World,
                 _change_tick: Tick,
@@ -2062,8 +2062,8 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        state: &'state Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,
@@ -2091,8 +2091,8 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        _state: &'state Self::State,
+    fn validate_param(
+        _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
         _change_tick: Tick,
@@ -2368,8 +2368,8 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     #[inline]
-    fn validate_param<'world, 'state>(
-        state: &'state Self::State,
+    fn validate_param(
+        state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
         change_tick: Tick,
