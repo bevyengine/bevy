@@ -145,6 +145,11 @@ where
     }
 
     #[inline]
+    fn validate_param(&self, _world: &mut World) -> bool {
+        true
+    }
+
+    #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));

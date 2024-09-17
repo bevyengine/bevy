@@ -1901,7 +1901,7 @@ macro_rules! impl_system_param_tuple {
                 _change_tick: Tick,
             ) -> bool {
                 let ($($param,)*) = state;
-                $($param::validate_param($param, _system_meta, _world, _change_tick)&)* true
+                $($param::validate_param($param, _system_meta, _world, _change_tick)&&)* true
             }
 
             #[inline]

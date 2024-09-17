@@ -132,6 +132,11 @@ where
         self.system.queue_deferred(world);
     }
 
+    #[inline]
+    fn validate_param(&self, world: &mut crate::world::World) -> bool {
+        self.system.validate_param(world)
+    }
+
     fn initialize(&mut self, world: &mut crate::prelude::World) {
         self.system.initialize(world);
     }

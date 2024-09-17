@@ -94,6 +94,12 @@ pub trait System: Send + Sync + 'static {
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
 
+    /// Validates that all systems parameters can be acquired.
+    /// If not, the system should not be ran.
+    ///
+    /// The world reference is mutable for faster change tick reading.
+    fn validate_param(&self, world: &mut World) -> bool;
+
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
 

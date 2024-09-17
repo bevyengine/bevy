@@ -637,6 +637,11 @@ where
     }
 
     #[inline]
+    fn validate_param(&self, _world: &mut World) -> bool {
+        true
+    }
+
+    #[inline]
     fn initialize(&mut self, world: &mut World) {
         if let Some(id) = self.world_id {
             assert_eq!(
