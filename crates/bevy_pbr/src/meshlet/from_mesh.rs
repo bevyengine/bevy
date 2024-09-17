@@ -129,17 +129,18 @@ impl MeshletMesh {
         let mut vertex_normals = Vec::new();
         let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
-        let global_quantization_factor = (1 << GLOBAL_VERTEX_QUANTIZATION_BITS) as f32;
+        let global_quantization_factor = ((1 << GLOBAL_VERTEX_QUANTIZATION_BITS) - 1) as f32;
         for (meshlet_id, meshlet) in meshlets.meshlets.into_iter().enumerate() {
             // Calculate quantization factor for the meshlet
             let culling_bounding_sphere = &mut bounding_spheres[meshlet_id].self_culling;
             let bounding_sphere_diameter = culling_bounding_sphere.radius * 2.0;
             let meshlet_quantization_bits = bounding_sphere_diameter.log2().ceil() as u8;
-            let meshlet_quantization_factor = (1 << meshlet_quantization_bits) as f32;
+            let meshlet_quantization_factor = ((1 << meshlet_quantization_bits) - 1) as f32;
 
             // Globally quantize meshlet culling bounding sphere center
             culling_bounding_sphere.center =
                 (culling_bounding_sphere.center * global_quantization_factor).round();
+            // TODO: Quantize radius too?
 
             bevy_meshlets.push(Meshlet {
                 start_vertex_position_bit: vertex_positions.len() as u32,
@@ -166,11 +167,17 @@ impl MeshletMesh {
                 // Compress normals
                 vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
 
-                // Globally quantize vertex position
+                // Globally quantize vertex position (prevents gaps between adjacent kitbashed entities?)
                 position = (position * global_quantization_factor).round();
 
-                // Make position relative to the culling bounding sphere center
+                // Shift position relative to the culling bounding sphere center
                 position -= culling_bounding_sphere.center;
+
+                // Remap from [-radius, radius] to [0, 1]
+                // TODO: Remap to [-1, 1] and  do snorm-style compression instead
+                position /= culling_bounding_sphere.radius;
+                position += 1.0;
+                position /= 2.0;
 
                 // Quantize position using the meshlet quantization factor
                 position = (position * meshlet_quantization_factor).round();
