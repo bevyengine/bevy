@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 18.,
+                font_size: 15.,
                 ..default()
             },
         )

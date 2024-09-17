@@ -33,21 +33,6 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
     }
 }
 
-impl<Marker, F> IntoSystemConfigs<Marker> for F
-where
-    F: IntoSystem<(), (), Marker>,
-{
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
-    }
-}
-
-impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
-    fn into_configs(self) -> SystemConfigs {
-        SystemConfigs::new_system(self)
-    }
-}
-
 /// Stores configuration for a single generic node (a system or a system set)
 ///
 /// The configuration includes the node itself, scheduling metadata
@@ -311,8 +296,8 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
-    /// Note: The given set is not implicitly added to the schedule when this system set is added.
-    /// It is safe, but no dependencies will be created.
+    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
+    /// Please check the [caveats section of `.after`](Self::after) for details.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
@@ -323,8 +308,23 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
-    /// Note: The given set is not implicitly added to the schedule when this system set is added.
-    /// It is safe, but no dependencies will be created.
+    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
+    ///
+    /// # Caveats
+    ///
+    /// If you configure two [`System`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
+    ///
+    /// This means that the system `GameSystem::A` and the system or systems in `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`configure_sets`]
+    /// If that is the case, `.after`/`.before` will not provide the desired behaviour
+    /// and the systems can run in parallel or in any order determined by the scheduler.
+    /// Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know that `B` has already been scheduled for you,
+    /// e.g. when it was provided by Bevy or a third-party dependency,
+    /// or you manually scheduled it somewhere else in your app.
+    ///
+    /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
+    /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
+    ///
+    /// [`configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
@@ -514,6 +514,21 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn chain_ignore_deferred(self) -> Self {
         self.chain_ignore_deferred_inner()
+    }
+}
+
+impl<Marker, F> IntoSystemConfigs<Marker> for F
+where
+    F: IntoSystem<(), (), Marker>,
+{
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(Box::new(IntoSystem::into_system(self)))
+    }
+}
+
+impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::new_system(self)
     }
 }
 

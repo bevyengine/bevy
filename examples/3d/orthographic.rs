@@ -21,7 +21,7 @@ fn setup(
         Projection::from(OrthographicProjection {
             // 6 world units per window height.
             scaling_mode: ScalingMode::FixedVertical(6.0),
-            ..default()
+            ..OrthographicProjection::default_3d()
         }),
         Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));

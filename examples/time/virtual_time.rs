@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     ));
 
     // info UI
-    let font_size = 40.;
+    let font_size = 33.;
 
     commands
         .spawn(NodeBundle {
@@ -169,7 +169,7 @@ fn move_virtual_time_sprites(
 }
 
 fn get_sprite_translation_x(elapsed: f32) -> f32 {
-    elapsed.sin() * 500.
+    ops::sin(elapsed) * 500.
 }
 
 /// Update the speed of `Time<Virtual>.` by `DELTA`

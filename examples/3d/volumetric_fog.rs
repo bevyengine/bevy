@@ -1,9 +1,9 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolumeBundle, VolumetricFogSettings, VolumetricLight},
+    pbr::{FogVolumeBundle, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -46,14 +46,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
-            BloomSettings::default(),
+            Bloom::default(),
         ))
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
             ..default()
         })
-        .insert(VolumetricFogSettings {
+        .insert(VolumetricFog {
             // This value is explicitly set to 0 since we have no environment map light
             ambient_intensity: 0.0,
             ..default()

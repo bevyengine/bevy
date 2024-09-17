@@ -13,12 +13,13 @@ fn main() {
                 config: FpsOverlayConfig {
                     text_config: TextStyle {
                         // Here we define size of our overlay
-                        font_size: 50.0,
+                        font_size: 42.0,
                         // We can also change color of the overlay
                         color: Color::srgb(0.0, 1.0, 0.0),
                         // If we want, we can use a custom font
                         font: default(),
                     },
+                    enabled: true,
                 },
             },
         ))
@@ -47,12 +48,10 @@ fn setup(mut commands: Commands) {
             c.spawn(TextBundle::from_section(
                 concat!(
                     "Press 1 to change color of the overlay.\n",
-                    "Press 2 to change size of the overlay."
+                    "Press 2 to change size of the overlay.\n",
+                    "Press 3 to toggle the overlay."
                 ),
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ));
         });
 }
@@ -64,5 +63,8 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
     }
     if input.just_pressed(KeyCode::Digit2) {
         overlay.text_config.font_size -= 2.0;
+    }
+    if input.just_pressed(KeyCode::Digit3) {
+        overlay.enabled = !overlay.enabled;
     }
 }

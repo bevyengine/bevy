@@ -55,7 +55,7 @@ fn setup(
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::square(24.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -106,7 +106,7 @@ fn setup(
                             "Button",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                             },
                         ));

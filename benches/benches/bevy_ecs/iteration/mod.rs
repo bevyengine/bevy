@@ -20,6 +20,7 @@ mod iter_simple_system;
 mod iter_simple_wide;
 mod iter_simple_wide_sparse_set;
 mod par_iter_simple;
+mod par_iter_simple_foreach_hybrid;
 
 use heavy_compute::*;
 
@@ -135,4 +136,8 @@ fn par_iter_simple(c: &mut Criterion) {
             b.iter(move || bench.run());
         });
     }
+    group.bench_function(format!("hybrid"), |b| {
+        let mut bench = par_iter_simple_foreach_hybrid::Benchmark::new();
+        b.iter(move || bench.run());
+    });
 }

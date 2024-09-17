@@ -479,20 +479,20 @@ mod test {
         fn add_index(index: usize) -> impl Command {
             move |world: &mut World| world.resource_mut::<Order>().0.push(index)
         }
-        world.commands().add(add_index(1));
-        world.commands().add(|world: &mut World| {
-            world.commands().add(add_index(2));
-            world.commands().add(PanicCommand("I panic!".to_owned()));
-            world.commands().add(add_index(3));
+        world.commands().queue(add_index(1));
+        world.commands().queue(|world: &mut World| {
+            world.commands().queue(add_index(2));
+            world.commands().queue(PanicCommand("I panic!".to_owned()));
+            world.commands().queue(add_index(3));
             world.flush_commands();
         });
-        world.commands().add(add_index(4));
+        world.commands().queue(add_index(4));
 
         let _ = panic::catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
 
-        world.commands().add(add_index(5));
+        world.commands().queue(add_index(5));
         world.flush_commands();
         assert_eq!(&world.resource::<Order>().0, &[1, 2, 3, 4, 5]);
     }

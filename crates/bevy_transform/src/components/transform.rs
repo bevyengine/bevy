@@ -3,7 +3,7 @@ use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 #[cfg(feature = "bevy-support")]
-use bevy_reflect::{prelude::*, Reflect};
+use bevy_reflect::prelude::*;
 use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
@@ -38,7 +38,11 @@ use std::ops::Mul;
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
-    reflect(Component, Default, PartialEq)
+    reflect(Component, Default, PartialEq, Debug)
+)]
+#[cfg_attr(
+    all(feature = "bevy-support", feature = "serialize"),
+    reflect(Serialize, Deserialize)
 )]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.

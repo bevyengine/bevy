@@ -95,9 +95,8 @@ fn setup(
         Some("orthographic") => commands.spawn((
             Camera3d::default(),
             Projection::from(OrthographicProjection {
-                scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
+                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                ..OrthographicProjection::default_3d()
             }),
         )),
         _ => commands.spawn(Camera3d::default()),
@@ -125,7 +124,8 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        ops::acos((1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)) as f32)
+            as f64,
     )
 }
 

@@ -4,15 +4,15 @@
 //! The density texture is a repeating 3d noise texture and the `density_texture_offset`
 //! is moved every frame to achieve this.
 //!
-//! The example also utilizes the jitter option of `VolumetricFogSettings` in tandem
+//! The example also utilizes the jitter option of `VolumetricFog` in tandem
 //! with temporal anti-aliasing to improve the visual quality of the effect.
 //!
 //! The camera is looking at a pillar with the sun peaking behind it. The light
 //! interactions change based on the density of the fog.
 
-use bevy::core_pipeline::bloom::BloomSettings;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
-use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFogSettings, VolumetricLight};
+use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight};
 use bevy::prelude::*;
 use bevy_render::texture::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
@@ -42,7 +42,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<AssetServer>,
 ) {
-    // Spawn camera with temporal anti-aliasing and a VolumetricFogSettings configuration.
+    // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
@@ -52,8 +52,8 @@ fn setup(
         },
         Msaa::Off,
         TemporalAntiAliasBundle::default(),
-        BloomSettings::default(),
-        VolumetricFogSettings {
+        Bloom::default(),
+        VolumetricFog {
             ambient_intensity: 0.0,
             jitter: 0.5,
             ..default()

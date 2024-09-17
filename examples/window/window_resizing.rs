@@ -48,7 +48,7 @@ fn setup_ui(mut commands: Commands) {
                 TextBundle::from_section(
                     "Resolution",
                     TextStyle {
-                        font_size: 50.0,
+                        font_size: 42.0,
                         ..default()
                     },
                 ),

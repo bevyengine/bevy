@@ -27,7 +27,9 @@ pub use sub_app::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use terminal_ctrl_c_handler::*;
 
-#[allow(missing_docs)]
+/// The app prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

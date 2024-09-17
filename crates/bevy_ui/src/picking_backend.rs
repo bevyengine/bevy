@@ -23,7 +23,7 @@
 #![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
-use crate::{prelude::*, UiStack};
+use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
@@ -163,6 +163,11 @@ pub fn ui_picking(
             if visible_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
+                && pick_rounded_rect(
+                    *cursor_position - node_rect.center(),
+                    node_rect.size(),
+                    node.node.border_radius,
+                )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))

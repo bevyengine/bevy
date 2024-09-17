@@ -73,7 +73,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // changing the bounds of the text will cause a recomputation
 fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut TextBounds>) {
-    let width = (1. + time.elapsed_seconds().sin()) * 600.0;
+    let width = (1. + ops::sin(time.elapsed_seconds())) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.width = Some(width);
     }

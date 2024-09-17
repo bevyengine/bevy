@@ -1,5 +1,4 @@
 pub use bench_check::*;
-pub use cfg_check::*;
 pub use clippy::*;
 pub use compile::*;
 pub use compile_check::*;
@@ -14,7 +13,6 @@ pub use test::*;
 pub use test_check::*;
 
 mod bench_check;
-mod cfg_check;
 mod clippy;
 mod compile;
 mod compile_check;

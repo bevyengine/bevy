@@ -7,7 +7,7 @@
 
 use bevy::{
     math::vec3,
-    pbr::{FogVolume, VolumetricFogSettings, VolumetricLight},
+    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             hdr: true,
             ..default()
         },
-        VolumetricFogSettings {
+        VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.

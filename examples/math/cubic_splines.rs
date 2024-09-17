@@ -73,8 +73,8 @@ fn setup(mut commands: Commands) {
         R: Remove the last control point\n\
         S: Cycle the spline construction being used\n\
         C: Toggle cyclic curve construction";
-    let spline_mode_text = format!("Spline: {}", spline_mode);
-    let cycling_mode_text = format!("{}", cycling_mode);
+    let spline_mode_text = format!("Spline: {spline_mode}");
+    let cycling_mode_text = format!("{cycling_mode}");
     let style = TextStyle::default();
 
     commands
@@ -357,11 +357,10 @@ fn handle_mouse_press(
                 };
 
                 // Convert the starting point and end point (current mouse pos) into world coords:
-                let Some(point) = camera.viewport_to_world_2d(camera_transform, start) else {
+                let Ok(point) = camera.viewport_to_world_2d(camera_transform, start) else {
                     continue;
                 };
-                let Some(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos)
-                else {
+                let Ok(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
                     continue;
                 };
                 let tangent = end_point - point;
@@ -396,10 +395,10 @@ fn draw_edit_move(
 
     // Resources store data in viewport coordinates, so we need to convert to world coordinates
     // to display them:
-    let Some(start) = camera.viewport_to_world_2d(camera_transform, start) else {
+    let Ok(start) = camera.viewport_to_world_2d(camera_transform, start) else {
         return;
     };
-    let Some(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
+    let Ok(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
         return;
     };
 

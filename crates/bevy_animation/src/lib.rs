@@ -22,7 +22,8 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
-use bevy_math::{FloatExt, Quat, Vec3};
+use bevy_math::{FloatExt, FloatPow, Quat, Vec3};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
@@ -39,7 +40,9 @@ use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+/// The animation prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -538,7 +541,7 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a `SceneBundle` when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct AnimationPlayer {
     /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
     /// ordering when applying the animations.
@@ -1208,10 +1211,10 @@ fn cubic_spline_interpolation<T>(
 where
     T: Mul<f32, Output = T> + Add<Output = T>,
 {
-    value_start * (2.0 * lerp.powi(3) - 3.0 * lerp.powi(2) + 1.0)
-        + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
-        + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
-        + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
+    value_start * (2.0 * lerp.cubed() - 3.0 * lerp.squared() + 1.0)
+        + tangent_out_start * (step_duration) * (lerp.cubed() - 2.0 * lerp.squared() + lerp)
+        + value_end * (-2.0 * lerp.cubed() + 3.0 * lerp.squared())
+        + tangent_in_end * step_duration * (lerp.cubed() - lerp.squared())
 }
 
 /// Adds animation support to an app
@@ -1234,7 +1237,7 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets,
+                    animate_targets.after(bevy_render::mesh::morph::inherit_weights),
                     expire_completed_transitions,
                 )
                     .chain()

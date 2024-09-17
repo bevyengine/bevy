@@ -1,4 +1,5 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
+
 use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
 use rand::{Rng, SeedableRng};
@@ -174,21 +175,21 @@ fn random_scale(rng: &mut impl Rng) -> Vec3 {
         + SCALING_BOUND_LOWER_LOG;
 
     Vec3::new(
-        x_factor_log.exp2(),
-        y_factor_log.exp2(),
-        z_factor_log.exp2(),
+        ops::exp2(x_factor_log),
+        ops::exp2(y_factor_log),
+        ops::exp2(z_factor_log),
     )
 }
 
 fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
-    let x_factor_log = (1. - t) * v1.x.log2() + t * v2.x.log2();
-    let y_factor_log = (1. - t) * v1.y.log2() + t * v2.y.log2();
-    let z_factor_log = (1. - t) * v1.z.log2() + t * v2.z.log2();
+    let x_factor_log = (1. - t) * ops::log2(v1.x) + t * ops::log2(v2.x);
+    let y_factor_log = (1. - t) * ops::log2(v1.y) + t * ops::log2(v2.y);
+    let z_factor_log = (1. - t) * ops::log2(v1.z) + t * ops::log2(v2.z);
 
     Vec3::new(
-        x_factor_log.exp2(),
-        y_factor_log.exp2(),
-        z_factor_log.exp2(),
+        ops::exp2(x_factor_log),
+        ops::exp2(y_factor_log),
+        ops::exp2(z_factor_log),
     )
 }
 
@@ -208,9 +209,9 @@ fn random_direction(rng: &mut impl Rng) -> Vec3 {
 
 fn build_direction(height: f32, theta: f32) -> Vec3 {
     let z = height;
-    let m = f32::acos(z).sin();
-    let x = theta.cos() * m;
-    let y = theta.sin() * m;
+    let m = ops::sin(ops::acos(z));
+    let x = ops::cos(theta) * m;
+    let y = ops::sin(theta) * m;
 
     Vec3::new(x, y, z)
 }

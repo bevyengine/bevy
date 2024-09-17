@@ -60,7 +60,7 @@ pub struct ScreenSpaceReflectionsPlugin;
 #[derive(Bundle, Default)]
 pub struct ScreenSpaceReflectionsBundle {
     /// The component that enables SSR.
-    pub settings: ScreenSpaceReflectionsSettings,
+    pub settings: ScreenSpaceReflections,
     /// The depth prepass, needed for SSR.
     pub depth_prepass: DepthPrepass,
     /// The deferred prepass, needed for SSR.
@@ -92,7 +92,8 @@ pub struct ScreenSpaceReflectionsBundle {
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Default)]
-pub struct ScreenSpaceReflectionsSettings {
+#[doc(alias = "Ssr")]
+pub struct ScreenSpaceReflections {
     /// The maximum PBR roughness level that will enable screen space
     /// reflections.
     pub perceptual_roughness_threshold: f32,
@@ -133,10 +134,13 @@ pub struct ScreenSpaceReflectionsSettings {
     pub use_secant: bool,
 }
 
-/// A version of [`ScreenSpaceReflectionsSettings`] for upload to the GPU.
+#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceReflections`")]
+pub type ScreenSpaceReflectionsSettings = ScreenSpaceReflections;
+
+/// A version of [`ScreenSpaceReflections`] for upload to the GPU.
 ///
 /// For more information on these fields, see the corresponding documentation in
-/// [`ScreenSpaceReflectionsSettings`].
+/// [`ScreenSpaceReflections`].
 #[derive(Clone, Copy, Component, ShaderType)]
 pub struct ScreenSpaceReflectionsUniform {
     perceptual_roughness_threshold: f32,
@@ -195,8 +199,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<ScreenSpaceReflectionsSettings>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflectionsSettings>::default());
+        app.register_type::<ScreenSpaceReflections>()
+            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -234,7 +238,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     }
 }
 
-impl Default for ScreenSpaceReflectionsSettings {
+impl Default for ScreenSpaceReflections {
     // Reasonable default values.
     //
     // These are from
@@ -485,8 +489,8 @@ pub fn prepare_ssr_settings(
     }
 }
 
-impl ExtractComponent for ScreenSpaceReflectionsSettings {
-    type QueryData = Read<ScreenSpaceReflectionsSettings>;
+impl ExtractComponent for ScreenSpaceReflections {
+    type QueryData = Read<ScreenSpaceReflections>;
 
     type QueryFilter = ();
 
@@ -553,8 +557,8 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     }
 }
 
-impl From<ScreenSpaceReflectionsSettings> for ScreenSpaceReflectionsUniform {
-    fn from(settings: ScreenSpaceReflectionsSettings) -> Self {
+impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
+    fn from(settings: ScreenSpaceReflections) -> Self {
         Self {
             perceptual_roughness_threshold: settings.perceptual_roughness_threshold,
             thickness: settings.thickness,

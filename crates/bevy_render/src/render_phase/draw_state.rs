@@ -24,6 +24,9 @@ struct DrawState {
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
     vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
+
+    /// Stores whether this state is populated or empty for quick state invalidation
+    stores_state: bool,
 }
 
 impl DrawState {
@@ -34,6 +37,7 @@ impl DrawState {
         // self.vertex_buffers.clear();
         // self.index_buffer = None;
         self.pipeline = Some(pipeline);
+        self.stores_state = true;
     }
 
     /// Checks, whether the `pipeline` is already bound.
@@ -47,6 +51,7 @@ impl DrawState {
         group.0 = Some(bind_group);
         group.1.clear();
         group.1.extend(dynamic_indices);
+        self.stores_state = true;
     }
 
     /// Checks, whether the `bind_group` is already bound to the `index`.
@@ -66,6 +71,7 @@ impl DrawState {
     /// Marks the vertex `buffer` as bound to the `index`.
     fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice) {
         self.vertex_buffers[index] = Some(self.buffer_slice_key(&buffer_slice));
+        self.stores_state = true;
     }
 
     /// Checks, whether the vertex `buffer` is already bound to the `index`.
@@ -89,6 +95,7 @@ impl DrawState {
     /// Marks the index `buffer` as bound.
     fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         self.index_buffer = Some((buffer, offset, index_format));
+        self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
@@ -99,6 +106,23 @@ impl DrawState {
         index_format: IndexFormat,
     ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
+    }
+
+    /// Resets tracking state
+    pub fn reset_tracking(&mut self) {
+        if !self.stores_state {
+            return;
+        }
+        self.pipeline = None;
+        self.bind_groups.iter_mut().for_each(|val| {
+            val.0 = None;
+            val.1.clear();
+        });
+        self.vertex_buffers.iter_mut().for_each(|val| {
+            *val = None;
+        });
+        self.index_buffer = None;
+        self.stores_state = false;
     }
 }
 
@@ -128,7 +152,11 @@ impl<'a> TrackedRenderPass<'a> {
     }
 
     /// Returns the wgpu [`RenderPass`].
+    ///
+    /// Function invalidates internal tracking state,
+    /// some redundant pipeline operations may not be skipped.
     pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
+        self.state.reset_tracking();
         &mut self.pass
     }
 

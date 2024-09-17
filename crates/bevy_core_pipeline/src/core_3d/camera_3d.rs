@@ -5,6 +5,7 @@ use crate::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::view::Msaa;
 use bevy_render::{
@@ -22,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 #[require(
     Camera,
     DebandDither(Camera3d::default_deband_dither),
@@ -133,7 +134,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 ///
 /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
-#[reflect(Resource)]
+#[reflect(Resource, Default, Debug, PartialEq)]
 pub enum ScreenSpaceTransmissionQuality {
     /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
     ///

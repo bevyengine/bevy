@@ -9,7 +9,7 @@
 //! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
-use bevy::core_pipeline::bloom::BloomSettings;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::math::vec3;
 use bevy::prelude::*;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
@@ -80,7 +80,7 @@ fn setup_camera(mut commands: Commands) {
             hdr: true, // HDR is required for the bloom effect
             ..default()
         },
-        BloomSettings::NATURAL,
+        Bloom::NATURAL,
     ));
 }
 

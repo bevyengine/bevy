@@ -100,7 +100,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 "a",
                 TextStyle {
                     font: font_handle,
-                    font_size: 60.0,
+                    font_size: 50.0,
                     color: YELLOW.into(),
                 },
             ));
