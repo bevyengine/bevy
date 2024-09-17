@@ -1,4 +1,4 @@
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use crate::{
     CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
@@ -96,7 +96,7 @@ pub struct CascadesVisibleEntities {
 #[derive(Debug, Bundle, Default, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `PointLight` directly instead. This bundle will be removed in favor of required components in a future release."
+    note = "Use `PointLight` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct PointLightBundle {
     pub point_light: PointLight,
@@ -116,7 +116,7 @@ pub struct PointLightBundle {
 #[derive(Debug, Bundle, Default, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `SpotLight` directly instead. This bundle will be removed in favor of required components in a future release."
+    note = "Use `SpotLight` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct SpotLightBundle {
     pub spot_light: SpotLight,
@@ -136,7 +136,7 @@ pub struct SpotLightBundle {
 #[derive(Debug, Bundle, Default, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `DirectionalLight` directly instead. This bundle will be removed in favor of required components in a future release."
+    note = "Use `DirectionalLight` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,

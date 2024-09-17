@@ -46,7 +46,7 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
@@ -153,7 +153,7 @@ pub struct EnvironmentMapIds {
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.5.0",
-    note = "Use `EnvironmentMapLight` directly instead. This bundle will be removed in favor of required components in a future release."
+    note = "Use `EnvironmentMapLight` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct ReflectionProbeBundle {
     /// Contains a transform that specifies the position of this reflection probe in space.
