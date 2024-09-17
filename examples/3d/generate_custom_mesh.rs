@@ -224,6 +224,14 @@ fn create_cube_mesh() -> Mesh {
     // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
+    //
+    // The first two defined triangles look like (marked with the vertex indices),
+    // when looking down at the top (+y) of the cube:
+    // 0---1
+    // |  /|
+    // | / |
+    // |/  |
+    // 3---2
     .with_inserted_indices(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
         4,5,7 , 5,6,7, // bottom (-y)
