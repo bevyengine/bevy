@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::default(),
         TransformBundle::default(),
-        VisibilityBundle::default(),
+        Visibility::default(),
     ));
 }
 
