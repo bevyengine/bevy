@@ -102,6 +102,17 @@
 //! You were probably too aggressive with the use of weak handles (which don't increment the reference count of the asset): think through the lifecycle of your assets carefully!
 //! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
 //!
+//! # Asset dependencies
+//!
+//! Some assets depend on other assets to be loaded before they can be loaded themselves.
+//! For example, a 3D model might require both textures and meshes to be loaded,
+//! or a 2D level might require a tileset to be loaded.
+//!
+//! The assets that are required to load another asset are called "dependencies".
+//! An asset is only considered fully loaded when it and all of its dependencies are loaded.
+//! Asset dependencies can be declared when implementing the [`Asset`] trait by implementing the [`VisitAssetDependencies`] trait,
+//! and the `#[dependency]` attribute can be used to automatically derive this implementation.
+//!
 //! # Custom asset types
 //!
 //! While Bevy comes with implementations for a large number of common game-oriented asset types (often behind off-by-default feature flags!),
