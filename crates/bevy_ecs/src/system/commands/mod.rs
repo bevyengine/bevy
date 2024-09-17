@@ -1470,7 +1470,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// Insert `default` into this entity, if `T` is not already present.
     ///
-    /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_insert_with), [`or_default`](Self::or_default)
+    /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_insert_with), [`or_default`](Self::or_default), [`or_insert_with`](Self::or_from_world)
     #[track_caller]
     pub fn or_insert(mut self, default: T) -> Self {
         self.entity_commands = self
@@ -1481,7 +1481,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// Insert the value returned from `default` into this entity, if `T` is not already present.
     ///
-    /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_default`](Self::or_default)
+    /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_default`](Self::or_default), [`or_insert_with`](Self::or_from_world)
     #[track_caller]
     pub fn or_insert_with(self, default: impl Fn() -> T) -> Self {
         self.or_insert(default())
@@ -1489,7 +1489,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// Insert `T::default` into this entity, if `T` is not already present.
     ///
-    /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
+    /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_from_world), [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
     #[track_caller]
     pub fn or_default(self) -> Self
     where
@@ -1497,6 +1497,20 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     {
         #[allow(clippy::unwrap_or_default)]
         self.or_insert(T::default())
+    }
+
+    /// Insert `T::from_world` into this entity, if `T` is not already present.
+    ///
+    /// See also [`EntityCommands::insert`], [`or_default`](Self::or_default), [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
+    #[track_caller]
+    pub fn or_from_world(mut self) -> Self
+    where
+        T: FromWorld,
+    {
+        self.entity_commands = self
+            .entity_commands
+            .queue(insert_from_world::<T>(InsertMode::Keep));
+        self
     }
 }
 
@@ -1598,6 +1612,25 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
+                mode,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
+        } else {
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds the component using it's `FromWorld` implementation.
+#[track_caller]
+fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity: Entity, world: &mut World| {
+        let value = T::from_world(world);
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert_with_caller(
+                value,
                 mode,
                 #[cfg(feature = "track_change_detection")]
                 caller,
@@ -1743,7 +1776,7 @@ mod tests {
         self as bevy_ecs,
         component::Component,
         system::{Commands, Resource},
-        world::{CommandQueue, World},
+        world::{CommandQueue, FromWorld, World},
     };
     use std::{
         any::TypeId,
@@ -1780,6 +1813,13 @@ mod tests {
         world.spawn((W(0u32), W(42u64)));
     }
 
+    impl FromWorld for W<String> {
+        fn from_world(world: &mut World) -> Self {
+            let v = world.resource::<W<usize>>();
+            Self("*".repeat(v.0))
+        }
+    }
+
     #[test]
     fn entity_commands_entry() {
         let mut world = World::default();
@@ -1810,6 +1850,11 @@ mod tests {
             .or_insert(W(42));
         queue.apply(&mut world);
         assert_eq!(42, world.get::<W<u64>>(entity).unwrap().0);
+        world.insert_resource(W(5_usize));
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.entity(entity).entry::<W<String>>().or_from_world();
+        queue.apply(&mut world);
+        assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
     }
 
     #[test]
