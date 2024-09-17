@@ -72,7 +72,7 @@ plugin_group! {
     /// [`DefaultPlugins`] contains all the plugins typically required to build
     /// a *Bevy* application which includes a *window* and presentation components.
     /// For *headless* cases – without a *window* or presentation, see [`HeadlessPlugins`].
-    /// For the absolute minimum number of plugins for running a *Bevy* application, see [`MinimalPlugins`].
+    /// For the absolute minimum number of plugins needed to run a Bevy application, see [`MinimalPlugins`].
 }
 
 plugin_group! {
@@ -121,7 +121,7 @@ plugin_group! {
     ///
     /// Windowed applications that wish to use a reduced set of plugins should consider the
     /// [`DefaultPlugins`] plugin group which can be controlled with *Cargo* *feature* flags.
-    /// For the absolute minimum number of plugins for running a *Bevy* application, see [`MinimalPlugins`].
+    /// For the absolute minimum number of plugins needed to run a Bevy application, see [`MinimalPlugins`].
 }
 
 #[derive(Default)]
