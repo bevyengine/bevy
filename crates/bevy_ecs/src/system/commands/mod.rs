@@ -1468,7 +1468,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// Insert the `default` into this entity, if `T` is not already present.
+    /// Insert `default` into this entity, if `T` is not already present.
     ///
     /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_insert_with), [`or_default`](Self::or_default)
     #[track_caller]
@@ -1487,7 +1487,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_insert(default())
     }
 
-    /// Insert `T::default` into this entity, if it isn't already present.
+    /// Insert `T::default` into this entity, if `T` is not already present.
     ///
     /// See also [`EntityCommands::insert`], [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
     #[track_caller]
