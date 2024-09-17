@@ -59,7 +59,7 @@
 //! mutating the asset data in the [`Assets`] collection and thus updating all entities that use the asset.
 //! While it has limited uses in published games, it is very useful when developing, as it allows you to iterate quickly.
 //!
-//! To enable asset hot reloading, enable `bevy`'s `file_watcher` cargo feature.
+//! To enable asset hot reloading on desktop platforms, enable `bevy`'s `file_watcher` cargo feature.
 //! To toggle it at runtime, you can use the `watch_for_changes_override` field in the [`AssetPlugin`] to enable or disable hot reloading.
 //!
 //! # Procedural asset creation
