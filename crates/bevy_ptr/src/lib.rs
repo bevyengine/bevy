@@ -11,8 +11,8 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Formatter, Pointer},
     marker::PhantomData,
-    mem::{align_of, ManuallyDrop},
-    num::NonZero,
+    mem::ManuallyDrop,
+    num::NonZeroUsize,
     ptr::NonNull,
 };
 
@@ -535,7 +535,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
-pub fn dangling_with_align(align: NonZero<usize>) -> NonNull<u8> {
+pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZero<usize>`.
@@ -603,6 +603,7 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
+        use core::mem::align_of;
         let align = align_of::<T>();
         // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
