@@ -13,7 +13,7 @@
 //! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
 //! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
 //! and providing a way to initialize objects (generally entities) before the required assets are loaded.
-//!
+//! In short: [`Handle`]s are not the assets themselves, they just tell how to look them up!
 //! ## Loading and using assets
 //!
 //! The [`AssetServer`] is the main entry point for loading assets.
