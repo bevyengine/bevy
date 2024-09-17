@@ -163,7 +163,7 @@ pub enum ScreenSpaceTransmissionQuality {
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Camera3d` directly instead. This bundle will be removed in favor of required components in a future release."
+    note = "Use `Camera3d` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct Camera3dBundle {
     pub camera: Camera,
