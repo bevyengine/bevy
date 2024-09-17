@@ -1496,6 +1496,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         T: Default,
     {
         #[allow(clippy::unwrap_or_default)]
+        // FIXME: use `expect` once stable
         self.or_insert(T::default())
     }
 
