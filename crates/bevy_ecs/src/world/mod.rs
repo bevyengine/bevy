@@ -61,7 +61,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
-/// Should be used with [`Commands::add`].
+/// Should be used with [`Commands::queue`].
 ///
 /// # Usage
 ///
@@ -83,7 +83,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// }
 ///
 /// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
+///     commands.queue(AddToCounter(42));
 /// }
 /// ```
 pub trait Command: Send + 'static {
