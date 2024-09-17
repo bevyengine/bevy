@@ -79,7 +79,7 @@
 //! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
 //! Debugging reveals that the *entities* are still there, but nothing is rendering!
 //! This is because the assets were removed from memory while they were still in use.
-//! You were probably too aggressive with the use of weak handles: think through the lifetime of your assets carefully!
+//! You were probably too aggressive with the use of weak handles (which don't increment the reference count of the asset): think through the lifecycle of your assets carefully!
 //! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
 //!
 //! # Custom asset types
