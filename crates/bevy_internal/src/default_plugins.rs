@@ -87,7 +87,6 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
-        bevy_input:::InputPlugin,
         bevy_a11y:::AccessibilityPlugin,
         bevy_app:::ScheduleRunnerPlugin,
         #[custom(cfg(not(target_arch = "wasm32")))]
@@ -96,16 +95,10 @@ plugin_group! {
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_scene")]
         bevy_scene:::ScenePlugin,
-        #[cfg(feature = "bevy_audio")]
-        bevy_audio:::AudioPlugin,
-        #[cfg(feature = "bevy_gilrs")]
-        bevy_gilrs:::GilrsPlugin,
         #[cfg(feature = "bevy_animation")]
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
-        bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]
         bevy_dev_tools::ci_testing:::CiTestingPlugin,
         #[doc(hidden)]
