@@ -92,6 +92,7 @@
 
 mod color;
 pub mod color_difference;
+mod color_gradient;
 mod color_ops;
 mod color_range;
 mod hsla;
@@ -110,7 +111,9 @@ mod test_colors;
 mod testing;
 mod xyza;
 
-/// Commonly used color types and traits.
+/// The color prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::color::*;
     pub use crate::color_ops::*;
@@ -127,6 +130,7 @@ pub mod prelude {
 }
 
 pub use color::*;
+pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
 pub use hsla::*;

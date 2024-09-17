@@ -2,7 +2,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{primitives::Capsule3d, Vec2, Vec3};
+use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// Manner in which UV coordinates are distributed vertically.
@@ -158,11 +158,8 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let s_texture_polar = 1.0 - ((jf + 0.5) * to_tex_horizontal);
             let theta = jf * to_theta;
 
-            let cos_theta = theta.cos();
-            let sin_theta = theta.sin();
-
-            theta_cartesian[j] = Vec2::new(cos_theta, sin_theta);
-            rho_theta_cartesian[j] = Vec2::new(radius * cos_theta, radius * sin_theta);
+            theta_cartesian[j] = Vec2::from_angle(theta);
+            rho_theta_cartesian[j] = radius * theta_cartesian[j];
 
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
@@ -205,8 +202,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let phi = ip1f * to_phi;
 
             // For coordinates.
-            let cos_phi_south = phi.cos();
-            let sin_phi_south = phi.sin();
+            let (sin_phi_south, cos_phi_south) = ops::sin_cos(phi);
 
             // Symmetrical hemispheres mean cosine and sine only needs
             // to be calculated once.

@@ -49,20 +49,22 @@ impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
 #[derive(Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
-    /// All accessed components.
+    /// All accessed components, or forbidden components if
+    /// `Self::component_read_and_writes_inverted` is set.
     component_read_and_writes: FixedBitSet,
-    /// The exclusively-accessed components.
+    /// All exclusively-accessed components, or components that may not be
+    /// exclusively accessed if `Self::component_writes_inverted` is set.
     component_writes: FixedBitSet,
     /// All accessed resources.
     resource_read_and_writes: FixedBitSet,
     /// The exclusively-accessed resources.
     resource_writes: FixedBitSet,
-    /// Is `true` if this has access to all components.
-    /// (Note that this does not include `Resources`)
-    reads_all_components: bool,
-    /// Is `true` if this has mutable access to all components.
-    /// (Note that this does not include `Resources`)
-    writes_all_components: bool,
+    /// Is `true` if this component can read all components *except* those
+    /// present in `Self::component_read_and_writes`.
+    component_read_and_writes_inverted: bool,
+    /// Is `true` if this component can write to all components *except* those
+    /// present in `Self::component_writes`.
+    component_writes_inverted: bool,
     /// Is `true` if this has access to all resources.
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all_resources: bool,
@@ -82,8 +84,8 @@ impl<T: SparseSetIndex> Clone for Access<T> {
             component_writes: self.component_writes.clone(),
             resource_read_and_writes: self.resource_read_and_writes.clone(),
             resource_writes: self.resource_writes.clone(),
-            reads_all_components: self.reads_all_components,
-            writes_all_components: self.writes_all_components,
+            component_read_and_writes_inverted: self.component_read_and_writes_inverted,
+            component_writes_inverted: self.component_writes_inverted,
             reads_all_resources: self.reads_all_resources,
             writes_all_resources: self.writes_all_resources,
             archetypal: self.archetypal.clone(),
@@ -98,8 +100,8 @@ impl<T: SparseSetIndex> Clone for Access<T> {
         self.resource_read_and_writes
             .clone_from(&source.resource_read_and_writes);
         self.resource_writes.clone_from(&source.resource_writes);
-        self.reads_all_components = source.reads_all_components;
-        self.writes_all_components = source.writes_all_components;
+        self.component_read_and_writes_inverted = source.component_read_and_writes_inverted;
+        self.component_writes_inverted = source.component_writes_inverted;
         self.reads_all_resources = source.reads_all_resources;
         self.writes_all_resources = source.writes_all_resources;
         self.archetypal.clone_from(&source.archetypal);
@@ -125,8 +127,11 @@ impl<T: SparseSetIndex + Debug> Debug for Access<T> {
                 "resource_writes",
                 &FormattedBitSet::<T>::new(&self.resource_writes),
             )
-            .field("reads_all_components", &self.reads_all_components)
-            .field("writes_all_components", &self.writes_all_components)
+            .field(
+                "component_read_and_writes_inverted",
+                &self.component_read_and_writes_inverted,
+            )
+            .field("component_writes_inverted", &self.component_writes_inverted)
             .field("reads_all_resources", &self.reads_all_resources)
             .field("writes_all_resources", &self.writes_all_resources)
             .field("archetypal", &FormattedBitSet::<T>::new(&self.archetypal))
@@ -146,8 +151,8 @@ impl<T: SparseSetIndex> Access<T> {
         Self {
             reads_all_resources: false,
             writes_all_resources: false,
-            reads_all_components: false,
-            writes_all_components: false,
+            component_read_and_writes_inverted: false,
+            component_writes_inverted: false,
             component_read_and_writes: FixedBitSet::new(),
             component_writes: FixedBitSet::new(),
             resource_read_and_writes: FixedBitSet::new(),
@@ -157,18 +162,33 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
+    fn add_component_sparse_set_index_read(&mut self, index: usize) {
+        if !self.component_read_and_writes_inverted {
+            self.component_read_and_writes.grow_and_insert(index);
+        } else if index < self.component_read_and_writes.len() {
+            self.component_read_and_writes.remove(index);
+        }
+    }
+
+    fn add_component_sparse_set_index_write(&mut self, index: usize) {
+        if !self.component_writes_inverted {
+            self.component_writes.grow_and_insert(index);
+        } else if index < self.component_writes.len() {
+            self.component_writes.remove(index);
+        }
+    }
+
     /// Adds access to the component given by `index`.
     pub fn add_component_read(&mut self, index: T) {
-        self.component_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
+        let sparse_set_index = index.sparse_set_index();
+        self.add_component_sparse_set_index_read(sparse_set_index);
     }
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_component_write(&mut self, index: T) {
-        self.component_read_and_writes
-            .grow_and_insert(index.sparse_set_index());
-        self.component_writes
-            .grow_and_insert(index.sparse_set_index());
+        let sparse_set_index = index.sparse_set_index();
+        self.add_component_sparse_set_index_read(sparse_set_index);
+        self.add_component_sparse_set_index_write(sparse_set_index);
     }
 
     /// Adds access to the resource given by `index`.
@@ -185,6 +205,49 @@ impl<T: SparseSetIndex> Access<T> {
             .grow_and_insert(index.sparse_set_index());
     }
 
+    fn remove_component_sparse_set_index_read(&mut self, index: usize) {
+        if self.component_read_and_writes_inverted {
+            self.component_read_and_writes.grow_and_insert(index);
+        } else if index < self.component_read_and_writes.len() {
+            self.component_read_and_writes.remove(index);
+        }
+    }
+
+    fn remove_component_sparse_set_index_write(&mut self, index: usize) {
+        if self.component_writes_inverted {
+            self.component_writes.grow_and_insert(index);
+        } else if index < self.component_writes.len() {
+            self.component_writes.remove(index);
+        }
+    }
+
+    /// Removes both read and write access to the component given by `index`.
+    ///
+    /// Because this method corresponds to the set difference operator ∖, it can
+    /// create complicated logical formulas that you should verify correctness
+    /// of. For example, A ∪ (B ∖ A) isn't equivalent to (A ∪ B) ∖ A, so you
+    /// can't replace a call to `remove_component_read` followed by a call to
+    /// `extend` with a call to `extend` followed by a call to
+    /// `remove_component_read`.
+    pub fn remove_component_read(&mut self, index: T) {
+        let sparse_set_index = index.sparse_set_index();
+        self.remove_component_sparse_set_index_write(sparse_set_index);
+        self.remove_component_sparse_set_index_read(sparse_set_index);
+    }
+
+    /// Removes write access to the component given by `index`.
+    ///
+    /// Because this method corresponds to the set difference operator ∖, it can
+    /// create complicated logical formulas that you should verify correctness
+    /// of. For example, A ∪ (B ∖ A) isn't equivalent to (A ∪ B) ∖ A, so you
+    /// can't replace a call to `remove_component_write` followed by a call to
+    /// `extend` with a call to `extend` followed by a call to
+    /// `remove_component_write`.
+    pub fn remove_component_write(&mut self, index: T) {
+        let sparse_set_index = index.sparse_set_index();
+        self.remove_component_sparse_set_index_write(sparse_set_index);
+    }
+
     /// Adds an archetypal (indirect) access to the component given by `index`.
     ///
     /// This is for components whose values are not accessed (and thus will never cause conflicts),
@@ -199,25 +262,25 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_component_read(&self, index: T) -> bool {
-        self.reads_all_components
-            || self
+        self.component_read_and_writes_inverted
+            ^ self
                 .component_read_and_writes
                 .contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this can access any component.
     pub fn has_any_component_read(&self) -> bool {
-        self.reads_all_components || !self.component_read_and_writes.is_clear()
+        self.component_read_and_writes_inverted || !self.component_read_and_writes.is_clear()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
     pub fn has_component_write(&self, index: T) -> bool {
-        self.writes_all_components || self.component_writes.contains(index.sparse_set_index())
+        self.component_writes_inverted ^ self.component_writes.contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_component_write(&self) -> bool {
-        self.writes_all_components || !self.component_writes.is_clear()
+        self.component_writes_inverted || !self.component_writes.is_clear()
     }
 
     /// Returns `true` if this can access the resource given by `index`.
@@ -258,14 +321,16 @@ impl<T: SparseSetIndex> Access<T> {
     /// Sets this as having access to all components (i.e. `EntityRef`).
     #[inline]
     pub fn read_all_components(&mut self) {
-        self.reads_all_components = true;
+        self.component_read_and_writes_inverted = true;
+        self.component_read_and_writes.clear();
     }
 
     /// Sets this as having mutable access to all components (i.e. `EntityMut`).
     #[inline]
     pub fn write_all_components(&mut self) {
-        self.reads_all_components = true;
-        self.writes_all_components = true;
+        self.read_all_components();
+        self.component_writes_inverted = true;
+        self.component_writes.clear();
     }
 
     /// Sets this as having access to all resources (i.e. `&World`).
@@ -298,13 +363,13 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if this has access to all components (i.e. `EntityRef`).
     #[inline]
     pub fn has_read_all_components(&self) -> bool {
-        self.reads_all_components
+        self.component_read_and_writes_inverted && self.component_read_and_writes.is_clear()
     }
 
     /// Returns `true` if this has write access to all components (i.e. `EntityMut`).
     #[inline]
     pub fn has_write_all_components(&self) -> bool {
-        self.writes_all_components
+        self.component_writes_inverted && self.component_writes.is_clear()
     }
 
     /// Returns `true` if this has access to all resources (i.e. `EntityRef`).
@@ -332,7 +397,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// Removes all writes.
     pub fn clear_writes(&mut self) {
         self.writes_all_resources = false;
-        self.writes_all_components = false;
+        self.component_writes_inverted = false;
         self.component_writes.clear();
         self.resource_writes.clear();
     }
@@ -341,8 +406,8 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn clear(&mut self) {
         self.reads_all_resources = false;
         self.writes_all_resources = false;
-        self.reads_all_components = false;
-        self.writes_all_components = false;
+        self.component_read_and_writes_inverted = false;
+        self.component_writes_inverted = false;
         self.component_read_and_writes.clear();
         self.component_writes.clear();
         self.resource_read_and_writes.clear();
@@ -351,13 +416,72 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Adds all access from `other`.
     pub fn extend(&mut self, other: &Access<T>) {
+        let component_read_and_writes_inverted =
+            self.component_read_and_writes_inverted || other.component_read_and_writes_inverted;
+        let component_writes_inverted =
+            self.component_writes_inverted || other.component_writes_inverted;
+
+        match (
+            self.component_read_and_writes_inverted,
+            other.component_read_and_writes_inverted,
+        ) {
+            (true, true) => {
+                self.component_read_and_writes
+                    .intersect_with(&other.component_read_and_writes);
+            }
+            (true, false) => {
+                self.component_read_and_writes
+                    .difference_with(&other.component_read_and_writes);
+            }
+            (false, true) => {
+                // We have to grow here because the new bits are going to get flipped to 1.
+                self.component_read_and_writes.grow(
+                    self.component_read_and_writes
+                        .len()
+                        .max(other.component_read_and_writes.len()),
+                );
+                self.component_read_and_writes.toggle_range(..);
+                self.component_read_and_writes
+                    .intersect_with(&other.component_read_and_writes);
+            }
+            (false, false) => {
+                self.component_read_and_writes
+                    .union_with(&other.component_read_and_writes);
+            }
+        }
+
+        match (
+            self.component_writes_inverted,
+            other.component_writes_inverted,
+        ) {
+            (true, true) => {
+                self.component_writes
+                    .intersect_with(&other.component_writes);
+            }
+            (true, false) => {
+                self.component_writes
+                    .difference_with(&other.component_writes);
+            }
+            (false, true) => {
+                // We have to grow here because the new bits are going to get flipped to 1.
+                self.component_writes.grow(
+                    self.component_writes
+                        .len()
+                        .max(other.component_writes.len()),
+                );
+                self.component_writes.toggle_range(..);
+                self.component_writes
+                    .intersect_with(&other.component_writes);
+            }
+            (false, false) => {
+                self.component_writes.union_with(&other.component_writes);
+            }
+        }
+
         self.reads_all_resources = self.reads_all_resources || other.reads_all_resources;
         self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
-        self.reads_all_components = self.reads_all_components || other.reads_all_components;
-        self.writes_all_components = self.writes_all_components || other.writes_all_components;
-        self.component_read_and_writes
-            .union_with(&other.component_read_and_writes);
-        self.component_writes.union_with(&other.component_writes);
+        self.component_read_and_writes_inverted = component_read_and_writes_inverted;
+        self.component_writes_inverted = component_writes_inverted;
         self.resource_read_and_writes
             .union_with(&other.resource_read_and_writes);
         self.resource_writes.union_with(&other.resource_writes);
@@ -369,27 +493,48 @@ impl<T: SparseSetIndex> Access<T> {
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
     pub fn is_components_compatible(&self, other: &Access<T>) -> bool {
-        if self.writes_all_components {
-            return !other.has_any_component_read();
+        // We have a conflict if we write and they read or write, or if they
+        // write and we read or write.
+        for (
+            lhs_writes,
+            rhs_reads_and_writes,
+            lhs_writes_inverted,
+            rhs_reads_and_writes_inverted,
+        ) in [
+            (
+                &self.component_writes,
+                &other.component_read_and_writes,
+                self.component_writes_inverted,
+                other.component_read_and_writes_inverted,
+            ),
+            (
+                &other.component_writes,
+                &self.component_read_and_writes,
+                other.component_writes_inverted,
+                self.component_read_and_writes_inverted,
+            ),
+        ] {
+            match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
+                (true, true) => return false,
+                (false, true) => {
+                    if !lhs_writes.is_subset(rhs_reads_and_writes) {
+                        return false;
+                    }
+                }
+                (true, false) => {
+                    if !rhs_reads_and_writes.is_subset(lhs_writes) {
+                        return false;
+                    }
+                }
+                (false, false) => {
+                    if !lhs_writes.is_disjoint(rhs_reads_and_writes) {
+                        return false;
+                    }
+                }
+            }
         }
 
-        if other.writes_all_components {
-            return !self.has_any_component_read();
-        }
-
-        if self.reads_all_components {
-            return !other.has_any_component_write();
-        }
-
-        if other.reads_all_components {
-            return !self.has_any_component_write();
-        }
-
-        self.component_writes
-            .is_disjoint(&other.component_read_and_writes)
-            && other
-                .component_writes
-                .is_disjoint(&self.component_read_and_writes)
+        true
     }
 
     /// Returns `true` if the access and `other` can be active at the same time,
@@ -432,25 +577,48 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
     /// contains at least all the values in `self`.
     pub fn is_subset_components(&self, other: &Access<T>) -> bool {
-        if self.writes_all_components {
-            return other.writes_all_components;
+        for (
+            our_components,
+            their_components,
+            our_components_inverted,
+            their_components_inverted,
+        ) in [
+            (
+                &self.component_read_and_writes,
+                &other.component_read_and_writes,
+                self.component_read_and_writes_inverted,
+                other.component_read_and_writes_inverted,
+            ),
+            (
+                &self.component_writes,
+                &other.component_writes,
+                self.component_writes_inverted,
+                other.component_writes_inverted,
+            ),
+        ] {
+            match (our_components_inverted, their_components_inverted) {
+                (true, true) => {
+                    if !their_components.is_subset(our_components) {
+                        return false;
+                    }
+                }
+                (true, false) => {
+                    return false;
+                }
+                (false, true) => {
+                    if !our_components.is_disjoint(their_components) {
+                        return false;
+                    }
+                }
+                (false, false) => {
+                    if !our_components.is_subset(their_components) {
+                        return false;
+                    }
+                }
+            }
         }
 
-        if other.writes_all_components {
-            return true;
-        }
-
-        if self.reads_all_components {
-            return other.reads_all_components;
-        }
-
-        if other.reads_all_components {
-            return self.component_writes.is_subset(&other.component_writes);
-        }
-
-        self.component_read_and_writes
-            .is_subset(&other.component_read_and_writes)
-            && self.component_writes.is_subset(&other.component_writes)
+        true
     }
 
     /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
@@ -483,30 +651,52 @@ impl<T: SparseSetIndex> Access<T> {
         self.is_subset_components(other) && self.is_subset_resources(other)
     }
 
+    fn get_component_conflicts(&self, other: &Access<T>) -> AccessConflicts {
+        let mut conflicts = FixedBitSet::new();
+
+        // We have a conflict if we write and they read or write, or if they
+        // write and we read or write.
+        for (
+            lhs_writes,
+            rhs_reads_and_writes,
+            lhs_writes_inverted,
+            rhs_reads_and_writes_inverted,
+        ) in [
+            (
+                &self.component_writes,
+                &other.component_read_and_writes,
+                self.component_writes_inverted,
+                other.component_read_and_writes_inverted,
+            ),
+            (
+                &other.component_writes,
+                &self.component_read_and_writes,
+                other.component_writes_inverted,
+                self.component_read_and_writes_inverted,
+            ),
+        ] {
+            // There's no way that I can see to do this without a temporary.
+            // Neither CNF nor DNF allows us to avoid one.
+            let temp_conflicts: FixedBitSet =
+                match (lhs_writes_inverted, rhs_reads_and_writes_inverted) {
+                    (true, true) => return AccessConflicts::All,
+                    (false, true) => lhs_writes.difference(rhs_reads_and_writes).collect(),
+                    (true, false) => rhs_reads_and_writes.difference(lhs_writes).collect(),
+                    (false, false) => lhs_writes.intersection(rhs_reads_and_writes).collect(),
+                };
+            conflicts.union_with(&temp_conflicts);
+        }
+
+        AccessConflicts::Individual(conflicts)
+    }
+
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = FixedBitSet::new();
-        if self.reads_all_components {
-            if other.writes_all_components {
-                return AccessConflicts::All;
-            }
-            conflicts.extend(other.component_writes.ones());
-        }
+        let mut conflicts = match self.get_component_conflicts(other) {
+            AccessConflicts::All => return AccessConflicts::All,
+            AccessConflicts::Individual(conflicts) => conflicts,
+        };
 
-        if other.reads_all_components {
-            if self.writes_all_components {
-                return AccessConflicts::All;
-            }
-            conflicts.extend(self.component_writes.ones());
-        }
-
-        if self.writes_all_components {
-            conflicts.extend(other.component_read_and_writes.ones());
-        }
-
-        if other.writes_all_components {
-            conflicts.extend(self.component_read_and_writes.ones());
-        }
         if self.reads_all_resources {
             if other.writes_all_resources {
                 return AccessConflicts::All;
@@ -529,14 +719,6 @@ impl<T: SparseSetIndex> Access<T> {
         }
 
         conflicts.extend(
-            self.component_writes
-                .intersection(&other.component_read_and_writes),
-        );
-        conflicts.extend(
-            self.component_read_and_writes
-                .intersection(&other.component_writes),
-        );
-        conflicts.extend(
             self.resource_writes
                 .intersection(&other.resource_read_and_writes),
         );
@@ -545,25 +727,6 @@ impl<T: SparseSetIndex> Access<T> {
                 .intersection(&other.resource_writes),
         );
         AccessConflicts::Individual(conflicts)
-    }
-
-    /// Returns the indices of the components this has access to.
-    pub fn component_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
-        self.component_read_and_writes
-            .ones()
-            .map(T::get_sparse_set_index)
-    }
-
-    /// Returns the indices of the components this has non-exclusive access to.
-    pub fn component_reads(&self) -> impl Iterator<Item = T> + '_ {
-        self.component_read_and_writes
-            .difference(&self.component_writes)
-            .map(T::get_sparse_set_index)
-    }
-
-    /// Returns the indices of the components this has exclusive access to.
-    pub fn component_writes(&self) -> impl Iterator<Item = T> + '_ {
-        self.component_writes.ones().map(T::get_sparse_set_index)
     }
 
     /// Returns the indices of the components that this has an archetypal access to.
@@ -576,6 +739,40 @@ impl<T: SparseSetIndex> Access<T> {
     /// [`Has<T>`]: crate::query::Has
     pub fn archetypal(&self) -> impl Iterator<Item = T> + '_ {
         self.archetypal.ones().map(T::get_sparse_set_index)
+    }
+
+    /// Returns an iterator over the component IDs that this `Access` either
+    /// reads and writes or can't read or write.
+    ///
+    /// The returned flag specifies whether the list consists of the components
+    /// that the access *can* read or write (false) or whether the list consists
+    /// of the components that the access *can't* read or write (true).
+    ///
+    /// Because this method depends on internal implementation details of
+    /// `Access`, it's not recommended. Prefer to manage your own lists of
+    /// accessible components if your application needs to do that.
+    #[doc(hidden)]
+    #[deprecated]
+    pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
+        (
+            self.component_read_and_writes
+                .ones()
+                .map(T::get_sparse_set_index),
+            self.component_read_and_writes_inverted,
+        )
+    }
+
+    /// Returns an iterator over the component IDs that this `Access` either
+    /// writes or can't write.
+    ///
+    /// The returned flag specifies whether the list consists of the components
+    /// that the access *can* write (false) or whether the list consists of the
+    /// components that the access *can't* write (true).
+    pub(crate) fn component_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
+        (
+            self.component_writes.ones().map(T::get_sparse_set_index),
+            self.component_writes_inverted,
+        )
     }
 }
 

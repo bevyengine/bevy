@@ -5,5 +5,5 @@ use bevy_reflect::Reflect;
 
 /// Marker struct for labels
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Label;

@@ -28,7 +28,7 @@
     position_view_to_world
 }
 
-// The GPU version of [`VolumetricFogSettings`]. See the comments in
+// The GPU version of [`VolumetricFog`]. See the comments in
 // `volumetric_fog/mod.rs` for descriptions of the fields here.
 struct VolumetricFog {
     clip_from_local: mat4x4<f32>,

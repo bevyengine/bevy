@@ -12,6 +12,7 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
     window::WindowResized,
 };
+use bevy_render::camera::ScalingMode;
 
 /// In-game resolution width.
 const RES_WIDTH: u32 = 160;
@@ -176,6 +177,6 @@ fn fit_canvas(
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
         let mut projection = projections.single_mut();
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scaling_mode = ScalingMode::WindowSize(h_scale.min(v_scale).round());
     }
 }

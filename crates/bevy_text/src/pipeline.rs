@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    reflect::ReflectComponent,
+    system::{ResMut, Resource},
+};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -307,7 +312,7 @@ impl TextPipeline {
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
@@ -406,4 +411,14 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let height = buffer.layout_runs().count() as f32 * line_height;
 
     Vec2::new(width.ceil(), height).ceil()
+}
+
+/// Discards stale data cached in `FontSystem`.
+pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
+    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
+    // See https://github.com/bevyengine/bevy/pull/15037
+    //
+    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
+    // text that is dynamically measured for UI).
+    pipeline.font_system_mut().shape_run_cache.trim(2);
 }

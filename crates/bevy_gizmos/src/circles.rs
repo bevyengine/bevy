@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Isometry2d, Isometry3d};
+use bevy_math::{ops, Isometry2d, Isometry3d};
 use bevy_math::{Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
@@ -14,7 +14,7 @@ pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
 fn ellipse_inner(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
         let angle = i as f32 * TAU / resolution as f32;
-        let (x, y) = angle.sin_cos();
+        let (x, y) = ops::sin_cos(angle);
         Vec2::new(x, y) * half_size
     })
 }

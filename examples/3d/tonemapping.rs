@@ -66,7 +66,7 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -434,8 +434,8 @@ fn update_ui(
         return;
     }
 
-    let (method, color_grading) = settings.single();
-    let method = *method;
+    let (tonemapping, color_grading) = settings.single();
+    let tonemapping = *tonemapping;
 
     let mut text = String::with_capacity(old_text.len());
 
@@ -458,11 +458,15 @@ fn update_ui(
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
         "(1) {} Disabled\n",
-        if method == Tonemapping::None { ">" } else { "" }
+        if tonemapping == Tonemapping::None {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(2) {} Reinhard\n",
-        if method == Tonemapping::Reinhard {
+        if tonemapping == Tonemapping::Reinhard {
             "> "
         } else {
             ""
@@ -470,7 +474,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(3) {} Reinhard Luminance\n",
-        if method == Tonemapping::ReinhardLuminance {
+        if tonemapping == Tonemapping::ReinhardLuminance {
             ">"
         } else {
             ""
@@ -478,7 +482,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(4) {} ACES Fitted\n",
-        if method == Tonemapping::AcesFitted {
+        if tonemapping == Tonemapping::AcesFitted {
             ">"
         } else {
             ""
@@ -486,11 +490,15 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(5) {} AgX\n",
-        if method == Tonemapping::AgX { ">" } else { "" }
+        if tonemapping == Tonemapping::AgX {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(6) {} SomewhatBoringDisplayTransform\n",
-        if method == Tonemapping::SomewhatBoringDisplayTransform {
+        if tonemapping == Tonemapping::SomewhatBoringDisplayTransform {
             ">"
         } else {
             ""
@@ -498,7 +506,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(7) {} TonyMcMapface\n",
-        if method == Tonemapping::TonyMcMapface {
+        if tonemapping == Tonemapping::TonyMcMapface {
             ">"
         } else {
             ""
@@ -506,7 +514,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
-        if method == Tonemapping::BlenderFilmic {
+        if tonemapping == Tonemapping::BlenderFilmic {
             ">"
         } else {
             ""

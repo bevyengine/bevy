@@ -635,9 +635,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -655,9 +655,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),

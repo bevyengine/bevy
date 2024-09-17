@@ -15,6 +15,7 @@
 //! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
 use bevy::{
+    math::ops,
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
@@ -34,7 +35,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
-        FogSettings {
+        DistanceFog {
             color: Color::srgb(0.25, 0.25, 0.25),
             falloff: FogFalloff::Linear {
                 start: 5.0,
@@ -134,7 +135,7 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn update_system(
-    mut camera: Query<(&mut FogSettings, &mut Transform)>,
+    mut camera: Query<(&mut DistanceFog, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -146,11 +147,11 @@ fn update_system(
     let mut text = text.single_mut();
 
     // Orbit camera around pyramid
-    let orbit_scale = 8.0 + (now / 10.0).sin() * 7.0;
+    let orbit_scale = 8.0 + ops::sin(now / 10.0) * 7.0;
     *transform = Transform::from_xyz(
-        (now / 5.0).cos() * orbit_scale,
+        ops::cos(now / 5.0) * orbit_scale,
         12.0 - orbit_scale / 2.0,
-        (now / 5.0).sin() * orbit_scale,
+        ops::sin(now / 5.0) * orbit_scale,
     )
     .looking_at(Vec3::ZERO, Vec3::Y);
 

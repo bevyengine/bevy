@@ -5,12 +5,14 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     query::With,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
+use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
@@ -47,7 +49,7 @@ impl Plugin for FpsOverlayPlugin {
             .add_systems(
                 Update,
                 (
-                    customize_text.run_if(resource_changed::<FpsOverlayConfig>),
+                    (customize_text, toggle_display).run_if(resource_changed::<FpsOverlayConfig>),
                     update_text,
                 ),
             );
@@ -59,6 +61,8 @@ impl Plugin for FpsOverlayPlugin {
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
     pub text_config: TextStyle,
+    /// Displays the FPS overlay if true.
+    pub enabled: bool,
 }
 
 impl Default for FpsOverlayConfig {
@@ -69,6 +73,7 @@ impl Default for FpsOverlayConfig {
                 font_size: 32.0,
                 color: Color::WHITE,
             },
+            enabled: true,
         }
     }
 }
@@ -117,5 +122,17 @@ fn customize_text(
         for section in text.sections.iter_mut() {
             section.style = overlay_config.text_config.clone();
         }
+    }
+}
+
+fn toggle_display(
+    overlay_config: Res<FpsOverlayConfig>,
+    mut query: Query<&mut Visibility, With<FpsText>>,
+) {
+    for mut visibility in &mut query {
+        visibility.set_if_neq(match overlay_config.enabled {
+            true => Visibility::Visible,
+            false => Visibility::Hidden,
+        });
     }
 }
