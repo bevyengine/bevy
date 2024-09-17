@@ -1495,7 +1495,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     where
         T: Default,
     {
-        #[expect(clippy::unwrap_or_default)]
+        #[allow(clippy::unwrap_or_default)]
         self.or_insert(T::default())
     }
 
