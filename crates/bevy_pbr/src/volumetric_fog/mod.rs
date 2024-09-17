@@ -29,7 +29,7 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle};
@@ -126,7 +126,7 @@ pub type VolumetricFogSettings = VolumetricFog;
 #[derive(Bundle, Clone, Debug, Default)]
 #[deprecated(
     since = "0.5.0",
-    note = "Use `FogVolume` directly instead. This bundle will be removed in favor or required components in a future release."
+    note = "Use `FogVolume` directly instead. Inserting it will now automatically add the other components required by it."
 )]
 pub struct FogVolumeBundle {
     /// The actual fog volume.
