@@ -1,4 +1,4 @@
-//! In the context of game development, an "asset" is a piece of multimedia content which must be loaded from disk and displayed in the game.
+//! In the context of game development, an "asset" is a piece of content that is loaded from disk and displayed in the game.
 //! Typically, these are authored by artists and designers (in contrast to code),
 //! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
 //!
@@ -45,6 +45,16 @@
 //!
 //! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
 //! While this might be what you want, it generally isn't!
+//!
+//! # Procedural asset creation
+//!
+//! Not all assets are loaded from disk: some are generated at runtime, such as procedural materials, sounds or even levels.
+//! After creating an item of a type that implements [`Asset`], you can add it to the [`Assets`] collection using [`Assets::add`].
+//! Once in the asset collection, this data can be operated on like any other asset.
+//!
+//! Note that, unlike assets loaded from a file path, no general mechanism currently exists to deduplicate procedural assets:
+//! calling [`Assets::add`] for every entity that needs the asset will create a new copy of the asset for each entity,
+//! quickly consuming memory.
 //!
 //! ## Handles and reference counting
 //!
