@@ -14,7 +14,8 @@
 //! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
 //! and providing a way to initialize objects (generally entities) before the required assets are loaded.
 //! In short: [`Handle`]s are not the assets themselves, they just tell how to look them up!
-//! ## Loading and using assets
+//!
+//! ## Loading assets
 //!
 //! The [`AssetServer`] is the main entry point for loading assets.
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
@@ -30,6 +31,8 @@
 //! Keep track of what you're waiting on by using a [`HashSet`] or similar data structure,
 //! which you poll in your update loop, and transition to the new scene when all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
+//!
+//! # Modifying entities that use assets
 //!
 //! If we later want to change the asset data a given component uses (such as changing an entity's material), we have three options:
 //!
