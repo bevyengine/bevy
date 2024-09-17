@@ -225,7 +225,7 @@ fn create_cube_mesh() -> Mesh {
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
     //
-    // The first two defined triangles look like (marked with the vertex indices),
+    // The first two defined triangles look like this (marked with the vertex indices),
     // when looking down at the top (+y) of the cube:
     // 0---1
     // |  /|
