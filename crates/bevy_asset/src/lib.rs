@@ -27,12 +27,6 @@
 //! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
 //! which will be `true` when the asset is ready to use.
 //!
-//! ```
-//! if asset_server.is_loaded_with_dependencies(&my_asset) {
-//!     // Start the Game!
-//! }
-//! ```
-//!
 //! Keep track of what you're waiting on by using a [`HashSet`] or similar data structure,
 //! which you poll in your update loop, and transition to the new scene when all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
