@@ -91,7 +91,9 @@ const _: () = {
     // SAFETY: Only reads Entities
     unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
         type State = FetchState;
+
         type Item<'w, 's> = Commands<'w, 's>;
+
         fn init_state(
             world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
@@ -103,6 +105,7 @@ const _: () = {
                 ),
             }
         }
+
         unsafe fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
@@ -117,6 +120,7 @@ const _: () = {
                 );
             };
         }
+
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -128,6 +132,7 @@ const _: () = {
                 world,
             );
         }
+
         fn queue(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -139,13 +144,25 @@ const _: () = {
                 world,
             );
         }
+
+        #[inline]
+        fn validate_param<'w, 's>(
+            state: &'s Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: &World,
+            change_tick: bevy_ecs::component::Tick,
+        ) -> bool {
+            <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::validate_param(&state.state, system_meta, world, change_tick)
+        }
+
+        #[inline]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
-            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,

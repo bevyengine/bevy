@@ -187,6 +187,17 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    fn validate_param<'w, 's>(
+        state: &'s Self::State,
+        system_meta: &SystemMeta,
+        world: &World,
+        change_tick: Tick,
+    ) -> bool {
+        GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world, change_tick)
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,

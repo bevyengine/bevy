@@ -74,6 +74,17 @@ where
         }
     }
 
+    #[inline]
+    fn validate_param<'w, 's>(
+        state: &'s Self::State,
+        system_meta: &SystemMeta,
+        world: &World,
+        change_tick: Tick,
+    ) -> bool {
+        Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world, change_tick)
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
