@@ -52,6 +52,16 @@
 //! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
 //! While this might be what you want, it generally isn't!
 //!
+//! # Hot reloading assets
+//!
+//! Bevy supports asset hot reloading, allowing you to change assets on disk and see the changes reflected in your game without restarting.
+//! When enabled, any changes to the underlying asset file will be detected by the [`AssetServer`], which will then reload the asset,
+//! mutating the asset data in the [`Assets`] collection and thus updating all entities that use the asset.
+//! While it has limited uses in published games, it is very useful when developing, as it allows you to iterate quickly.
+//!
+//! To enable asset hot reloading, enable `bevy`'s `file_watcher` cargo feature.
+//! To toggle it at runtime, you can use the `watch_for_changes_override` field in the [`AssetPlugin`] to enable or disable hot reloading.
+//!
 //! # Procedural asset creation
 //!
 //! Not all assets are loaded from disk: some are generated at runtime, such as procedural materials, sounds or even levels.
