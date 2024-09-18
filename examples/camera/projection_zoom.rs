@@ -1,6 +1,6 @@
 //! Shows how to zoom orthographic and perspective projection cameras.
 
-use std::{f32::consts::PI, ops::Range};
+use core::{f32::consts::PI, ops::Range};
 
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 

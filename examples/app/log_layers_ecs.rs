@@ -13,12 +13,15 @@
 
 use std::sync::mpsc;
 
-use bevy::log::BoxedLayer;
 use bevy::{
-    log::tracing_subscriber::{self, Layer},
+    log::{
+        tracing_subscriber::{
+            Layer, {self},
+        },
+        BoxedLayer,
+    },
     prelude::*,
-    utils::tracing,
-    utils::tracing::Subscriber,
+    utils::{tracing, tracing::Subscriber},
 };
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
@@ -70,7 +73,7 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
 /// A [`Visit`](tracing::field::Visit)or that records log messages that are transferred to [`CaptureLayer`].
 struct CaptureLayerVisitor<'a>(&'a mut Option<String>);
 impl tracing::field::Visit for CaptureLayerVisitor<'_> {
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn core::fmt::Debug) {
         // This if statement filters out unneeded events sometimes show up
         if field.name() == "message" {
             *self.0 = Some(format!("{value:?}"));

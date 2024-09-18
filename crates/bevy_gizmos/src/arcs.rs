@@ -3,11 +3,13 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::DEFAULT_CIRCLE_RESOLUTION,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
-use std::f32::consts::{FRAC_PI_2, TAU};
+use core::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -32,7 +34,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::FRAC_PI_4;
+    /// # use core::f32::consts::FRAC_PI_4;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 1., GREEN);
@@ -152,7 +154,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
+    /// # use core::f32::consts::PI;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`
@@ -365,7 +367,7 @@ where
         to: Vec2,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
-        self.arc_2d_from_to(center, from, to, color, std::convert::identity)
+        self.arc_2d_from_to(center, from, to, color, core::convert::identity)
     }
 
     /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.

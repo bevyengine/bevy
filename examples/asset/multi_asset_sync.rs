@@ -1,12 +1,12 @@
 //! This example illustrates how to wait for multiple assets to be loaded.
 
-use std::{
+extern crate alloc;
+
+use alloc::sync::Arc;
+use core::{
     f32::consts::PI,
     ops::Drop,
-    sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, AtomicU32, Ordering},
 };
 
 use bevy::{gltf::Gltf, prelude::*, tasks::AsyncComputeTaskPool};
@@ -142,7 +142,7 @@ impl Drop for AssetBarrierGuard {
 
 fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
+    commands.insert_resource(OneHundredThings(core::array::from_fn(|i| match i % 5 {
         0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
         1 => asset_server.load_acquire("models/AlienCake/alien.glb", guard.clone()),
         2 => asset_server.load_acquire("models/AlienCake/cakeBirthday.glb", guard.clone()),

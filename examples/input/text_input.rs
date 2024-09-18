@@ -4,7 +4,7 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
-use std::mem;
+use core::mem;
 
 use bevy::{
     input::keyboard::{Key, KeyboardInput},

@@ -35,7 +35,7 @@ use bevy::{
         SetMesh2dViewBindGroup, WithMesh2d,
     },
 };
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 fn main() {
     App::new()

@@ -1,6 +1,6 @@
 //! Demonstrates visibility ranges, also known as HLODs.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     input::mouse::MouseWheel,

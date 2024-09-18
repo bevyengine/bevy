@@ -1,7 +1,7 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
 
 use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
-use std::ops::Mul;
+use core::ops::Mul;
 
 #[cfg(feature = "approx")]
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
@@ -558,7 +558,7 @@ mod tests {
     use super::*;
     use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
     #[test]
     fn mul_2d() {

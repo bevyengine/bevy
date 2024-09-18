@@ -1,4 +1,5 @@
-use std::{array, num::NonZero, sync::Arc};
+use alloc::sync::Arc;
+use core::{array, num::NonZero};
 
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
@@ -36,10 +37,12 @@ use environment_map::EnvironmentMapLight;
 #[cfg(debug_assertions)]
 use crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES;
 use crate::{
-    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
+    environment_map::{
+        RenderViewEnvironmentMapBindGroupEntries, {self},
+    },
     irradiance_volume::{
-        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
-        IRRADIANCE_VOLUMES_ARE_USABLE,
+        IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
+        IRRADIANCE_VOLUMES_ARE_USABLE, {self},
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,

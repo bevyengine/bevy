@@ -6,12 +6,14 @@ use crate::io::{
     Reader, Writer,
 };
 
-use std::{
+use core::{
     fs::{read_dir, File},
-    io::{Read, Seek, Write},
-    path::{Path, PathBuf},
     pin::Pin,
     task::Poll,
+};
+use std::{
+    io::{Read, Seek, Write},
+    path::{Path, PathBuf},
 };
 
 use super::{FileAssetReader, FileAssetWriter};

@@ -116,7 +116,8 @@ mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::{any::TypeId, borrow::Cow};
+use alloc::borrow::Cow;
+use core::any::TypeId;
 
 pub use adapter_system::*;
 pub use builder::*;
@@ -324,7 +325,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     system.run((), &mut world);
 }
 
-impl<T> std::ops::Deref for In<T> {
+impl<T> core::ops::Deref for In<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -332,7 +333,7 @@ impl<T> std::ops::Deref for In<T> {
     }
 }
 
-impl<T> std::ops::DerefMut for In<T> {
+impl<T> core::ops::DerefMut for In<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -341,18 +342,15 @@ impl<T> std::ops::DerefMut for In<T> {
 #[cfg(test)]
 mod tests {
     use bevy_utils::default;
-    use std::any::TypeId;
+    use core::any::TypeId;
 
-    use crate::prelude::EntityRef;
-    use crate::world::EntityMut;
     use crate::{
-        self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -363,7 +361,8 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
-        world::{FromWorld, World},
+        world::{EntityMut, FromWorld, World},
+        {self as bevy_ecs},
     };
 
     #[derive(Resource, PartialEq, Debug)]
@@ -923,10 +922,10 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
+        struct NotSend2(alloc::rc::Rc<i32>);
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -948,12 +947,12 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
+        struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1636,7 +1635,7 @@ mod tests {
 
     #[test]
     fn assert_systems() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         use crate::{prelude::*, system::assert_is_system};
 

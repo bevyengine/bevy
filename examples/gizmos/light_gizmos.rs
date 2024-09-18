@@ -1,6 +1,6 @@
 //! This example demonstrates how to visualize lights properties through the gizmo API.
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use core::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, PURPLE},

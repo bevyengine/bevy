@@ -61,7 +61,7 @@ impl Parse for AllTuples {
 /// ## Single parameter
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// # use bevy_utils_proc_macros::all_tuples;
 /// #
 /// struct Foo<T> {
@@ -201,7 +201,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 /// ## Single parameter
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// # use bevy_utils_proc_macros::all_tuples_with_size;
 /// #
 /// struct Foo<T> {

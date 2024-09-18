@@ -8,8 +8,7 @@ use bevy::{
     scene::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
+use core::{f32::consts::*, fmt};
 
 use super::camera_controller::*;
 

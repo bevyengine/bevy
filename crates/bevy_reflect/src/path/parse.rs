@@ -1,5 +1,7 @@
-use std::{
-    fmt::{self, Write},
+use core::{
+    fmt::{
+        Write, {self},
+    },
     num::ParseIntError,
     str::from_utf8_unchecked,
 };

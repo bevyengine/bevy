@@ -2,10 +2,12 @@
 //! passing the output of the first into the input of the next.
 
 use bevy::prelude::*;
-use std::num::ParseIntError;
+use core::num::ParseIntError;
 
-use bevy::log::LogPlugin;
-use bevy::utils::{dbg, error, info, tracing::Level, warn};
+use bevy::{
+    log::LogPlugin,
+    utils::{dbg, error, info, tracing::Level, warn},
+};
 
 fn main() {
     App::new()

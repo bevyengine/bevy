@@ -1,10 +1,11 @@
 use super::GlobalTransform;
-#[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use core::ops::Mul;
 #[cfg(feature = "bevy-support")]
-use bevy_reflect::prelude::*;
-use std::ops::Mul;
+use {
+    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_reflect::prelude::*,
+};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.

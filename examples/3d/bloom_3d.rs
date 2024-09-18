@@ -9,10 +9,8 @@ use bevy::{
     math::ops,
     prelude::*,
 };
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+use core::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 
 fn main() {
     App::new()

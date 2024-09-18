@@ -1,7 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    self as bevy_ecs,
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
@@ -9,23 +8,24 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
+    {self as bevy_ecs},
 };
+use alloc::{borrow::Cow, sync::Arc};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{
+use core::panic::Location;
+use core::{
     alloc::Layout,
     any::{Any, TypeId},
-    borrow::Cow,
+    cell::UnsafeCell,
+    fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
-    sync::Arc,
 };
-use std::{cell::UnsafeCell, fmt::Debug};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -282,7 +282,7 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// use bevy_ecs::component::Component;
 ///
 /// // `Duration` is defined in the `std` crate.
-/// use std::time::Duration;
+/// use core::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
 /// // both foreign items, defined in an external crate. However, nothing prevents to define a new
@@ -303,7 +303,7 @@ use std::{cell::UnsafeCell, fmt::Debug};
 ///
 /// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail
-/// # use std::cell::RefCell;
+/// # use core::cell::RefCell;
 /// # use bevy_ecs::component::Component;
 /// #[derive(Component)]
 /// struct NotSync {
@@ -313,7 +313,7 @@ use std::{cell::UnsafeCell, fmt::Debug};
 ///
 /// This will compile since the `RefCell` is wrapped with `SyncCell`.
 /// ```
-/// # use std::cell::RefCell;
+/// # use core::cell::RefCell;
 /// # use bevy_ecs::component::Component;
 /// use bevy_utils::synccell::SyncCell;
 ///
@@ -726,7 +726,7 @@ pub struct ComponentDescriptor {
 
 // We need to ignore the `drop` field in our `Debug` impl
 impl Debug for ComponentDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
@@ -751,7 +751,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -786,7 +786,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -799,7 +799,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -1270,7 +1270,7 @@ impl<T: Component> ComponentIdFor<'_, T> {
     }
 }
 
-impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
+impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
         &self.0.component_id
@@ -1351,7 +1351,7 @@ impl RequiredComponentConstructor {
 pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponentConstructor>);
 
 impl Debug for RequiredComponents {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("RequiredComponents")
             .field(&self.0.keys())
             .finish()

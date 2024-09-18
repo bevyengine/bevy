@@ -9,24 +9,22 @@ mod schedule;
 mod set;
 mod stepping;
 
-pub use self::condition::*;
-pub use self::config::*;
-pub use self::executor::*;
 use self::graph_utils::*;
-pub use self::schedule::*;
-pub use self::set::*;
+pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
 
 pub use self::graph_utils::NodeId;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
-    pub use crate::schedule::{Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
+    pub use crate::{
+        prelude::World,
+        schedule::{Schedule, SystemSet},
+        system::{Res, ResMut, Resource},
+    };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSet {
@@ -98,8 +96,9 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use alloc::sync::Arc;
             use bevy_tasks::{ComputeTaskPool, TaskPool};
-            use std::sync::{Arc, Barrier};
+            use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -717,7 +716,7 @@ mod tests {
     }
 
     mod system_ambiguity {
-        use std::collections::BTreeSet;
+        use alloc::collections::BTreeSet;
 
         use super::*;
         // Required to make the derive macro behave

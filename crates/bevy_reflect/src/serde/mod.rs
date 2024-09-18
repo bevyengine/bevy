@@ -8,11 +8,11 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct, PartialReflect, Struct};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         type_registry::TypeRegistry,
-        DynamicStruct, FromReflect, Reflect,
+        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, Struct,
+        {self as bevy_reflect},
     };
     use serde::de::DeserializeSeed;
 

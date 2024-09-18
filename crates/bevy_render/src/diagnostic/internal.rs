@@ -1,11 +1,10 @@
-use std::{
-    borrow::Cow,
+use alloc::{borrow::Cow, sync::Arc};
+use core::{
     ops::{DerefMut, Range},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::{self, ThreadId},
+    sync::atomic::{AtomicBool, Ordering},
+};
+use std::thread::{
+    ThreadId, {self},
 };
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
@@ -117,7 +116,7 @@ impl DiagnosticsRecorder {
             None => FrameData::new(device, internal.features),
         };
 
-        let old_frame = std::mem::replace(
+        let old_frame = core::mem::replace(
             internal.current_frame.get_mut().expect("lock poisoned"),
             new_frame,
         );
@@ -421,9 +420,9 @@ impl FrameData {
 
     fn diagnostic_path(&self, range: &Range<usize>, field: &str) -> DiagnosticPath {
         DiagnosticPath::from_components(
-            std::iter::once("render")
+            core::iter::once("render")
                 .chain(self.path_components[range.clone()].iter().map(|v| &**v))
-                .chain(std::iter::once(field)),
+                .chain(core::iter::once(field)),
         )
     }
 

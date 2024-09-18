@@ -39,10 +39,13 @@ pub use rangefinder::*;
 
 use crate::{
     batching::{
-        self,
-        gpu_preprocessing::{self, BatchedInstanceBuffers},
-        no_gpu_preprocessing::{self, BatchedInstanceBuffer},
-        GetFullBatchData,
+        gpu_preprocessing::{
+            BatchedInstanceBuffers, {self},
+        },
+        no_gpu_preprocessing::{
+            BatchedInstanceBuffer, {self},
+        },
+        GetFullBatchData, {self},
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
@@ -52,15 +55,17 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use smallvec::SmallVec;
-use std::{
-    fmt::{self, Debug, Formatter},
+use core::{
+    fmt::{
+        Debug, Formatter, {self},
+    },
     hash::Hash,
     iter,
     marker::PhantomData,
     ops::Range,
     slice::SliceIndex,
 };
+use smallvec::SmallVec;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.

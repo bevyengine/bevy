@@ -4,7 +4,6 @@ use core::panic::Location;
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
-    self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
@@ -15,6 +14,7 @@ use crate::{
         command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
         SpawnBatchIter, World,
     },
+    {self as bevy_ecs},
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::tracing::{error, info};
@@ -1067,7 +1067,7 @@ impl EntityCommands<'_> {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
         })})
     }
 
@@ -1485,7 +1485,7 @@ where
         ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                std::any::type_name::<B>(),
+                core::any::type_name::<B>(),
                 invalid_entities
             );
         }
@@ -1520,7 +1520,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1657,17 +1657,15 @@ fn observe<E: Event, B: Bundle, M>(
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         component::Component,
         system::{Commands, Resource},
         world::{CommandQueue, World},
+        {self as bevy_ecs},
     };
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         any::TypeId,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
 
     #[allow(dead_code)]

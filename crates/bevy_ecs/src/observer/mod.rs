@@ -7,13 +7,18 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
-use crate::entity::EntityHashMap;
-use crate::observer::entity_observer::ObservedBy;
-use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
-use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+use crate::{
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    entity::EntityHashMap,
+    observer::entity_observer::ObservedBy,
+    prelude::*,
+    system::IntoObserverSystem,
+    world::{DeferredWorld, *},
+};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
-use std::{fmt::Debug, marker::PhantomData};
+use core::{fmt::Debug, marker::PhantomData};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -112,7 +117,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 }
 
 impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
             .field("propagate", &self.propagate)
@@ -480,16 +485,16 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use alloc::vec;
 
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+    use crate::{
+        observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
+        prelude::*,
+        traversal::Traversal,
     };
-    use crate::prelude::*;
-    use crate::traversal::Traversal;
 
     #[derive(Component)]
     struct A;

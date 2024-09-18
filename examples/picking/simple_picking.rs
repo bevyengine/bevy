@@ -63,7 +63,7 @@ fn setup(
                 mesh: meshes.add(Circle::new(4.0)),
                 material: materials.add(Color::WHITE),
                 transform: Transform::from_rotation(Quat::from_rotation_x(
-                    -std::f32::consts::FRAC_PI_2,
+                    -core::f32::consts::FRAC_PI_2,
                 )),
                 ..default()
             },

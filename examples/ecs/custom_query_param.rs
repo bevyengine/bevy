@@ -16,7 +16,7 @@ use bevy::{
     ecs::query::{QueryData, QueryFilter},
     prelude::*,
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 fn main() {
     App::new()

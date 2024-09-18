@@ -4,10 +4,13 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_ecs::{
+    bundle::Bundle,
+    component::Component,
+    entity::{Entity, EntityHashMap},
+    reflect::ReflectComponent,
+};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},

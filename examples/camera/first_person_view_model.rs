@@ -42,13 +42,12 @@
 //! | arrow up             | Decrease FOV  |
 //! | arrow down           | Increase FOV  |
 
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
-use bevy::color::palettes::tailwind;
-use bevy::input::mouse::AccumulatedMouseMotion;
-use bevy::pbr::NotShadowCaster;
-use bevy::prelude::*;
-use bevy::render::view::RenderLayers;
+use bevy::{
+    color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster,
+    prelude::*, render::view::RenderLayers,
+};
 
 fn main() {
     App::new()

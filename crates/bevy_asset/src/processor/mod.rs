@@ -56,23 +56,22 @@ use crate::{
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
+use alloc::{collections::VecDeque, sync::Arc};
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{debug, error, trace, warn};
+use bevy_utils::{
+    tracing::{debug, error, trace, warn},
+    HashMap, HashSet,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
-use std::{
-    collections::VecDeque,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 // Needed for doc strings
@@ -509,7 +508,7 @@ impl AssetProcessor {
     async fn try_reprocessing_queued(&self) {
         loop {
             let mut check_reprocess_queue =
-                std::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
+                core::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
             IoTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
@@ -531,13 +530,13 @@ impl AssetProcessor {
         let mut process_plans = self.data.processors.write();
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
-        process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
+        process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
     }
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.into(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -942,7 +941,7 @@ impl AssetProcessor {
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
                                 debug!("Asset {path:?} did not finish processing. Clearing state for that asset");
-                                let mut unrecoverable_err = |message: &dyn std::fmt::Display| {
+                                let mut unrecoverable_err = |message: &dyn core::fmt::Display| {
                                     error!("Failed to remove asset {path:?}: {message}");
                                     state_is_valid = false;
                                 };
@@ -1108,7 +1107,7 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
         };
         let span = info_span!(
             "asset processing",
-            processor = std::any::type_name::<T>(),
+            processor = core::any::type_name::<T>(),
             asset = context.path().to_string(),
         );
         self.0.process(context, meta, writer).instrument(span)
@@ -1346,7 +1345,7 @@ impl ProcessorAssetInfos {
                     info.dependants
                 );
                 self.non_existent_dependants
-                    .insert(old.clone(), std::mem::take(&mut info.dependants));
+                    .insert(old.clone(), core::mem::take(&mut info.dependants));
             }
             if let Some(processed_info) = &info.processed_info {
                 // Update "dependant" lists for this asset's "process dependencies" to use new path.

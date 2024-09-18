@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use core::f32::consts::TAU;
 
 use glam::FloatExt;
 
@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ```
 /// # use approx::assert_relative_eq;
 /// # use bevy_math::{Rot2, Vec2};
-/// use std::f32::consts::PI;
+/// use core::f32::consts::PI;
 ///
 /// // Create rotations from radians or degrees
 /// let rotation1 = Rot2::radians(PI / 2.0);
@@ -112,7 +112,7 @@ impl Rot2 {
     /// ```
     /// # use bevy_math::Rot2;
     /// # use approx::assert_relative_eq;
-    /// # use std::f32::consts::{FRAC_PI_2, PI};
+    /// # use core::f32::consts::{FRAC_PI_2, PI};
     ///
     /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
     /// let rot2 = Rot2::radians(-FRAC_PI_2);
@@ -445,7 +445,7 @@ impl From<Rot2> for Mat2 {
     }
 }
 
-impl std::ops::Mul for Rot2 {
+impl core::ops::Mul for Rot2 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -456,13 +456,13 @@ impl std::ops::Mul for Rot2 {
     }
 }
 
-impl std::ops::MulAssign for Rot2 {
+impl core::ops::MulAssign for Rot2 {
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl std::ops::Mul<Vec2> for Rot2 {
+impl core::ops::Mul<Vec2> for Rot2 {
     type Output = Vec2;
 
     /// Rotates a [`Vec2`] by a [`Rot2`].
@@ -509,7 +509,7 @@ impl approx::UlpsEq for Rot2 {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::FRAC_PI_2;
+    use core::f32::consts::FRAC_PI_2;
 
     use approx::assert_relative_eq;
 
@@ -572,7 +572,7 @@ mod tests {
         // This should be equivalent to the above
         assert_relative_eq!(
             rotation2.angle_between(rotation1),
-            std::f32::consts::FRAC_PI_4
+            core::f32::consts::FRAC_PI_4
         );
     }
 

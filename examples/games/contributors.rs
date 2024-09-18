@@ -1,11 +1,14 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
 use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
+use core::hash::{Hash, Hasher};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
-    hash::{DefaultHasher, Hash, Hasher},
-    io::{self, BufRead, BufReader},
+    hash::DefaultHasher,
+    io::{
+        BufRead, BufReader, {self},
+    },
     process::Stdio,
 };
 

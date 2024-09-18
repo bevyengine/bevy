@@ -1,8 +1,11 @@
 //! A module adding debug visualization of [`PointLight`]s, [`SpotLight`]s and [`DirectionalLight`]s.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
-use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
+use crate::{
+    primitives::dim3::GizmoPrimitive3d,
+    {self as bevy_gizmos},
+};
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{

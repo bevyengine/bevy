@@ -1,7 +1,7 @@
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
-use std::any::Any;
+use core::any::Any;
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -82,7 +82,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures a name for the [`Plugin`] which is primarily used for checking plugin
     /// uniqueness and debugging.
     fn name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     /// If the plugin can be meaningfully instantiated several times in an [`App`],

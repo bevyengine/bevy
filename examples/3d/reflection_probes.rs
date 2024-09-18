@@ -6,10 +6,9 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-use bevy::core_pipeline::Skybox;
-use bevy::prelude::*;
+use bevy::{core_pipeline::Skybox, prelude::*};
 
-use std::{
+use core::{
     f32::consts::PI,
     fmt::{Display, Formatter, Result as FmtResult},
 };

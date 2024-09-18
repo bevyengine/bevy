@@ -171,7 +171,7 @@ fn spawn_cars(
                         material: wheel_matl.clone(),
                         transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
-                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+                            .with_rotation(Quat::from_rotation_z(core::f32::consts::FRAC_PI_2)),
                         ..default()
                     },
                     Rotates,
@@ -201,7 +201,7 @@ fn spawn_barriers(
         for i in 0..N_CONES {
             let pos = race_track_pos(
                 offset,
-                (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
+                (i as f32) / (N_CONES as f32) * core::f32::consts::PI * 2.0,
             );
             commands.spawn(PbrBundle {
                 mesh: capsule.clone(),
@@ -230,7 +230,7 @@ fn spawn_trees(
         for i in 0..N_TREES {
             let pos = race_track_pos(
                 offset,
-                (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
+                (i as f32) / (N_TREES as f32) * core::f32::consts::PI * 2.0,
             );
             let [x, z] = pos.into();
             commands.spawn(PbrBundle {
@@ -338,8 +338,8 @@ fn move_cars(
                 continue;
             };
             let radius = wheel.scale.x;
-            let circumference = 2.0 * std::f32::consts::PI * radius;
-            let angle = delta.length() / circumference * std::f32::consts::PI * 2.0;
+            let circumference = 2.0 * core::f32::consts::PI * radius;
+            let angle = delta.length() / circumference * core::f32::consts::PI * 2.0;
             wheel.rotate_local_y(angle);
         }
     }

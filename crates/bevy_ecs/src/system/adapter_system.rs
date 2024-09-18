@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
 use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};

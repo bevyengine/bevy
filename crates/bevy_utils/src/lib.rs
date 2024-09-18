@@ -37,8 +37,7 @@ pub use parallel_queue::*;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
-use hashbrown::hash_map::RawEntryMut;
-use std::{
+use core::{
     any::TypeId,
     fmt::Debug,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
@@ -46,6 +45,7 @@ use std::{
     mem::ManuallyDrop,
     ops::Deref,
 };
+use hashbrown::hash_map::RawEntryMut;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
@@ -66,11 +66,11 @@ pub use conditional_send::*;
 
 /// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
-pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
-impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
+impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
+pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 pub type Entry<'a, K, V, S = BuildHasherDefault<AHasher>> = hashbrown::hash_map::Entry<'a, K, V, S>;
@@ -192,7 +192,7 @@ impl<V: PartialEq, H> PartialEq for Hashed<V, H> {
 }
 
 impl<V: Debug, H> Debug for Hashed<V, H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Hashed")
             .field("hash", &self.hash)
             .field("value", &self.value)
@@ -417,7 +417,7 @@ mod tests {
     fn fast_typeid_hash() {
         struct Hasher;
 
-        impl std::hash::Hasher for Hasher {
+        impl core::hash::Hasher for Hasher {
             fn finish(&self) -> u64 {
                 0
             }

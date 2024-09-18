@@ -3,10 +3,11 @@ use crate::{
     DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
     StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
-use core::fmt::Formatter;
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
-use std::hash::Hash;
+use core::{
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
+    hash::Hash,
+};
 use thiserror::Error;
 
 /// A static accessor to compile-time type information.
@@ -31,7 +32,7 @@ use thiserror::Error;
 /// # Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
@@ -458,7 +459,7 @@ impl PartialEq for Type {
 /// [type path]: TypePath
 impl Hash for Type {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.type_id.hash(state);
     }
 }
@@ -475,7 +476,7 @@ macro_rules! impl_type_methods {
         /// The [`TypeId`] of this type.
         ///
         /// [`TypeId`]: std::any::TypeId
-        pub fn type_id(&self) -> ::std::any::TypeId {
+        pub fn type_id(&self) -> ::core::any::TypeId {
             self.$field.id()
         }
 
@@ -506,7 +507,7 @@ macro_rules! impl_type_methods {
         ///
         /// [`TypeId`]: std::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
-        pub fn is<T: ::std::any::Any>(&self) -> bool {
+        pub fn is<T: ::core::any::Any>(&self) -> bool {
             self.$field.is::<T>()
         }
     };

@@ -2,7 +2,8 @@ use super::{
     asset::{Meshlet, MeshletBoundingSpheres},
     persistent_buffer::PersistentGpuBufferable,
 };
-use std::{mem::size_of, sync::Arc};
+use alloc::sync::Arc;
+use core::mem::size_of;
 
 const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 48;
 

@@ -1,6 +1,6 @@
 //! Test rendering of many gizmos.
 
-use std::f32::consts::TAU;
+use core::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},

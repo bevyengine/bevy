@@ -7,8 +7,7 @@ use bevy_render::{
 };
 use bitflags::bitflags;
 
-use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
-use crate::*;
+use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
 /// An enum to define which UV attribute to use for a texture.
 /// It is used for every texture in the [`StandardMaterial`].

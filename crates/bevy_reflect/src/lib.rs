@@ -584,6 +584,7 @@ pub mod utility;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::std_traits::*;
+
     #[doc(hidden)]
     pub use crate::{
         reflect_trait, FromReflect, GetField, GetPath, GetTupleStructField, PartialReflect,
@@ -670,25 +671,26 @@ pub mod __macro_exports {
 #[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
+    use alloc::borrow::Cow;
     use bevy_utils::HashMap;
+    use core::{
+        any::TypeId,
+        fmt::{Debug, Formatter},
+        hash::Hash,
+        marker::PhantomData,
+    };
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
     use static_assertions::{assert_impl_all, assert_not_impl_all};
-    use std::{
-        any::TypeId,
-        borrow::Cow,
-        fmt::{Debug, Formatter},
-        hash::Hash,
-        marker::PhantomData,
-    };
 
-    use super::prelude::*;
-    use super::*;
+    use super::{prelude::*, *};
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
-    use crate::utility::GenericTypePathCell;
+    use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer},
+        utility::GenericTypePathCell,
+    };
 
     #[test]
     fn try_apply_should_detect_kinds() {
@@ -1790,7 +1792,7 @@ mod tests {
         let info = MyCowStr::type_info().as_value().unwrap();
 
         assert!(info.is::<MyCowStr>());
-        assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
+        assert_eq!(core::any::type_name::<MyCowStr>(), info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
         let info = value.reflect_type_info();
@@ -1804,8 +1806,8 @@ mod tests {
         assert!(info.is::<MyCowSlice>());
         assert!(info.item_ty().is::<u8>());
         assert!(info.item_info().unwrap().is::<u8>());
-        assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
-        assert_eq!(std::any::type_name::<u8>(), info.item_ty().path());
+        assert_eq!(core::any::type_name::<MyCowSlice>(), info.type_path());
+        assert_eq!(core::any::type_name::<u8>(), info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
         let info = value.reflect_type_info();
@@ -2086,7 +2088,7 @@ mod tests {
         #[reflect(Debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 f.write_str("Cool debug!")
             }
         }
@@ -2154,7 +2156,7 @@ bevy_reflect::tests::Test {
         struct Foo(i32);
 
         impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(f, "Foo")
             }
         }
@@ -2175,7 +2177,7 @@ bevy_reflect::tests::Test {
         struct Foo(i32);
 
         impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(f, "Foo")
             }
         }
@@ -2196,7 +2198,7 @@ bevy_reflect::tests::Test {
             a: u32,
         }
 
-        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fn custom_debug(_x: &Foo, f: &mut Formatter<'_>) -> core::fmt::Result {
             write!(f, "123")
         }
 
@@ -2238,7 +2240,7 @@ bevy_reflect::tests::Test {
     fn should_allow_multiple_custom_where() {
         #[derive(Reflect)]
         #[reflect(where T: Default)]
-        #[reflect(where U: std::ops::Add<T>)]
+        #[reflect(where U: core::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
         #[derive(Reflect)]
@@ -2361,13 +2363,13 @@ bevy_reflect::tests::Test {
 
         impl<T: 'static> TypePath for Foo<T> {
             fn type_path() -> &'static str {
-                std::any::type_name::<Self>()
+                core::any::type_name::<Self>()
             }
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
-                    bevy_utils::get_short_name(std::any::type_name::<Self>())
+                    bevy_utils::get_short_name(core::any::type_name::<Self>())
                 })
             }
 
@@ -2788,7 +2790,7 @@ bevy_reflect::tests::Test {
     #[test]
     fn should_reflect_nested_remote_enum() {
         mod external_crate {
-            use std::fmt::Debug;
+            use core::fmt::Debug;
 
             #[derive(Debug)]
             pub enum TheirOuter<T: Debug> {

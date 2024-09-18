@@ -1,13 +1,13 @@
 use crate::io::AssetSourceId;
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{de::Visitor, Deserialize, Serialize};
-use std::{
+use core::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
-    path::{Path, PathBuf},
 };
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
@@ -56,13 +56,13 @@ pub struct AssetPath<'a> {
 }
 
 impl<'a> Debug for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
 impl<'a> Display for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
         }
@@ -587,7 +587,7 @@ struct AssetPathVisitor;
 impl<'de> Visitor<'de> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("string AssetPath")
     }
 

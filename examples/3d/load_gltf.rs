@@ -4,7 +4,7 @@ use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 fn main() {
     App::new()

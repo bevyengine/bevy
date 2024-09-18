@@ -45,7 +45,9 @@
     unsafe_code
 )]
 
-use std::ptr::{self, null_mut};
+use core::ptr::{
+    null_mut, {self},
+};
 
 use glam::Vec3;
 

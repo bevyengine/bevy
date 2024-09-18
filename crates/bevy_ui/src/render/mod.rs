@@ -4,15 +4,20 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_core_pipeline::{
+    core_2d::{
+        graph::{Core2d, Node2d},
+        Camera2d,
+    },
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d,
+    },
+};
 use bevy_hierarchy::Parent;
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    texture::GpuImage,
+    render_phase::{PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
@@ -22,16 +27,18 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
+    graph::{NodeUi, SubGraphUi},
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
     TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -46,11 +53,15 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
+use bevy_text::PositionedGlyph;
+#[cfg(feature = "bevy_text")]
+use bevy_text::Text;
+#[cfg(feature = "bevy_text")]
+use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-use std::ops::Range;
+use core::ops::Range;
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
@@ -1076,14 +1087,14 @@ pub fn prepare_uinodes(
                             .map(|scaling| image.size.as_vec2() * scaling)
                             .unwrap_or(uinode_rect.max);
                         if extracted_uinode.flip_x {
-                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                            core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;
                             positions_diff[1].x *= -1.;
                             positions_diff[2].x *= -1.;
                             positions_diff[3].x *= -1.;
                         }
                         if extracted_uinode.flip_y {
-                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                            core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
                             positions_diff[0].y *= -1.;
                             positions_diff[1].y *= -1.;
                             positions_diff[2].y *= -1.;

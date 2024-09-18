@@ -1,6 +1,6 @@
 //! Demonstrates how to rotate the skybox and the environment map simultaneously.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::{GOLD, WHITE},

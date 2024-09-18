@@ -2,10 +2,11 @@
 
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
+use core::time::Duration;
 use crossbeam_channel::{bounded, Receiver};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 fn main() {
     App::new()

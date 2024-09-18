@@ -1,10 +1,7 @@
-use std::{
-    future::Future,
-    marker::PhantomData,
-    mem,
-    panic::AssertUnwindSafe,
-    sync::Arc,
-    thread::{self, JoinHandle},
+use alloc::sync::Arc;
+use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
+use std::thread::{
+    JoinHandle, {self},
 };
 
 use async_executor::FallibleTask;
@@ -357,12 +354,12 @@ impl TaskPool {
             unsafe { mem::transmute(external_executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let scope_executor: &'env ThreadExecutor<'env> = unsafe { mem::transmute(scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>> =
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
             ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let spawned: &'env ConcurrentQueue<
-            FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>,
+            FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>,
         > = unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -601,7 +598,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn std::any::Any + Send)>>>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -677,10 +674,8 @@ where
 #[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
-    use std::sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
-        Barrier,
-    };
+    use core::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+    use std::sync::Barrier;
 
     #[test]
     fn test_spawn() {

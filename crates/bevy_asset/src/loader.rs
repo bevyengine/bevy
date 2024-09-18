@@ -9,13 +9,11 @@ use crate::{
 use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
+use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::{
-    any::{Any, TypeId},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
@@ -119,7 +117,7 @@ where
     }
 
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<L>()
+        core::any::type_name::<L>()
     }
 
     fn type_id(&self) -> TypeId {
@@ -127,7 +125,7 @@ where
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<L::Asset>()
+        core::any::type_name::<L::Asset>()
     }
 
     fn asset_type_id(&self) -> TypeId {
@@ -288,7 +286,7 @@ impl<A: Asset> AssetContainer for A {
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<A>()
+        core::any::type_name::<A>()
     }
 }
 

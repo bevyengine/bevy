@@ -1,4 +1,4 @@
-use std::{
+use core::{
     env,
     path::{Path, PathBuf},
 };

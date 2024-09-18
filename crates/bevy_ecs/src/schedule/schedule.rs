@@ -1,13 +1,11 @@
-use std::{
-    collections::BTreeSet,
-    fmt::{Debug, Write},
-};
+use alloc::collections::BTreeSet;
+use core::fmt::{Debug, Write};
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, tracing::info};
 use bevy_utils::{
-    tracing::{error, warn},
+    default,
+    tracing::{error, info, warn},
     HashMap, HashSet,
 };
 use fixedbitset::FixedBitSet;
@@ -15,16 +13,15 @@ use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
 
 use crate::{
-    self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
     system::{BoxedSystem, IntoSystem, Resource, System},
     world::World,
+    {self as bevy_ecs},
 };
 
-use crate::query::AccessConflicts;
-use crate::storage::SparseSetIndex;
+use crate::{query::AccessConflicts, storage::SparseSetIndex};
 pub use stepping::Stepping;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
@@ -1525,13 +1522,13 @@ impl ScheduleGraph {
         // move systems into new schedule
         for &id in &schedule.system_ids {
             let system = self.systems[id.index()].inner.take().unwrap();
-            let conditions = std::mem::take(&mut self.system_conditions[id.index()]);
+            let conditions = core::mem::take(&mut self.system_conditions[id.index()]);
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
         }
 
         for &id in &schedule.set_ids {
-            let conditions = std::mem::take(&mut self.system_set_conditions[id.index()]);
+            let conditions = core::mem::take(&mut self.system_set_conditions[id.index()]);
             schedule.set_conditions.push(conditions);
         }
 
@@ -1742,7 +1739,7 @@ impl ScheduleGraph {
             )
             .unwrap();
             writeln!(message, "set `{first_name}`").unwrap();
-            for name in names.chain(std::iter::once(first_name)) {
+            for name in names.chain(core::iter::once(first_name)) {
                 writeln!(message, " ... which contains set `{name}`").unwrap();
             }
             writeln!(message).unwrap();
@@ -1766,7 +1763,7 @@ impl ScheduleGraph {
             )
             .unwrap();
             writeln!(message, "{first_kind} `{first_name}`").unwrap();
-            for (kind, name) in names.chain(std::iter::once((first_kind, first_name))) {
+            for (kind, name) in names.chain(core::iter::once((first_kind, first_name))) {
                 writeln!(message, " ... which must run before {kind} `{name}`").unwrap();
             }
             writeln!(message).unwrap();
@@ -1880,7 +1877,7 @@ impl ScheduleGraph {
                 writeln!(message, "    conflict on: {conflicts:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
-                let world = std::any::type_name::<World>();
+                let world = core::any::type_name::<World>();
                 writeln!(message, "    conflict on: {world}").unwrap();
             }
         }
@@ -2050,7 +2047,6 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
-        self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
             tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
@@ -2058,6 +2054,7 @@ mod tests {
         },
         system::Commands,
         world::World,
+        {self as bevy_ecs},
     };
 
     use super::Schedules;

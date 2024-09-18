@@ -1,9 +1,8 @@
 //! Creates a hierarchy of parents and children entities.
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()

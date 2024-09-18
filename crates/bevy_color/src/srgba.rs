@@ -1,7 +1,6 @@
-use crate::color_difference::EuclideanDistance;
 use crate::{
-    impl_componentwise_vector_space, Alpha, ColorToComponents, ColorToPacked, Gray, LinearRgba,
-    Luminance, Mix, StandardColor, Xyza,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
 use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
@@ -428,7 +427,7 @@ impl From<Srgba> for Xyza {
 pub enum HexColorError {
     /// Parsing error.
     #[error("Invalid hex string")]
-    Parse(#[from] std::num::ParseIntError),
+    Parse(#[from] core::num::ParseIntError),
     /// Invalid length.
     #[error("Unexpected length of hex string")]
     Length,

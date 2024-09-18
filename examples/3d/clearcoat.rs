@@ -17,7 +17,7 @@
 //!
 //! [3]: https://threejs.org/examples/webgl_materials_physical_clearcoat.html
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},

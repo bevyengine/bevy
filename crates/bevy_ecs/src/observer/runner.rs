@@ -1,4 +1,4 @@
-use std::any::Any;
+use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
@@ -70,7 +70,7 @@ impl Component for ObserverState {
             });
         });
         hooks.on_remove(|mut world, entity, _| {
-            let descriptor = std::mem::take(
+            let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
                     .get_mut::<ObserverState>()
@@ -363,7 +363,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // allowing the Trigger<'static> to be moved outside of the context of the system.
     // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
     // static constraint from ObserverSystem, but so far we have not found a way.
-    let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
+    let trigger: Trigger<'static, E, B> = unsafe { core::mem::transmute(trigger) };
     // SAFETY:
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.

@@ -8,9 +8,9 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
+use core::marker::PhantomData;
 use flate2::read::GzDecoder;
 use std::io::prelude::*;
-use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]

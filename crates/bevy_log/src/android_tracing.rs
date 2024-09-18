@@ -3,7 +3,7 @@ use bevy_utils::tracing::{
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
 };
-use std::{
+use core::{
     ffi::CString,
     fmt::{Debug, Write},
 };

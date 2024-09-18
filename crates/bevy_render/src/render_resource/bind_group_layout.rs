@@ -1,5 +1,5 @@
 use crate::{define_atomic_id, render_resource::resource_macros::*};
-use std::ops::Deref;
+use core::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
 render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);

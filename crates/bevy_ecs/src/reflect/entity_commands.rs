@@ -1,15 +1,13 @@
-use crate::prelude::Mut;
-use crate::reflect::AppTypeRegistry;
-use crate::system::{EntityCommands, Resource};
-use crate::world::Command;
 use crate::{
     entity::Entity,
-    reflect::{ReflectBundle, ReflectComponent},
-    world::World,
+    prelude::Mut,
+    reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
+    system::{EntityCommands, Resource},
+    world::{Command, World},
 };
+use alloc::borrow::Cow;
 use bevy_reflect::{PartialReflect, TypeRegistry};
-use std::borrow::Cow;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
@@ -351,10 +349,15 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{AppTypeRegistry, ReflectComponent};
-    use crate::reflect::{ReflectBundle, ReflectCommandExt};
-    use crate::system::{Commands, SystemState};
-    use crate::{self as bevy_ecs, bundle::Bundle, component::Component, world::World};
+    use crate::{
+        bundle::Bundle,
+        component::Component,
+        prelude::{AppTypeRegistry, ReflectComponent},
+        reflect::{ReflectBundle, ReflectCommandExt},
+        system::{Commands, SystemState},
+        world::World,
+        {self as bevy_ecs},
+    };
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 

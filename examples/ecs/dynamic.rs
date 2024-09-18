@@ -3,15 +3,16 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
+use core::{alloc::Layout, mem::size_of, ptr::NonNull};
+use std::io::Write;
 
-use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         query::QueryData,
         world::FilteredEntityMut,
     },
+    prelude::*,
     ptr::{Aligned, OwningPtr},
     utils::HashMap,
 };
@@ -164,7 +165,7 @@ fn main() {
                             // - All components are created with layout [u64]
                             // - len is calculated from the component descriptor
                             let data = unsafe {
-                                std::slice::from_raw_parts_mut(
+                                core::slice::from_raw_parts_mut(
                                     ptr.assert_unique().as_ptr().cast::<u64>(),
                                     len,
                                 )

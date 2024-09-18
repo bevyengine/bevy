@@ -1,7 +1,9 @@
 use crate::Reflect;
 use bevy_utils::TypeIdMap;
-use core::fmt::{Debug, Formatter};
-use std::any::TypeId;
+use core::{
+    any::TypeId,
+    fmt::{Debug, Formatter},
+};
 
 /// A collection of custom attributes for a type, field, or variant.
 ///
@@ -154,7 +156,7 @@ macro_rules! impl_custom_attribute_methods {
         /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
-        pub fn get_attribute_by_id(&$self, id: ::std::any::TypeId) -> Option<&dyn $crate::Reflect> {
+        pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
             $self.custom_attributes().get_by_id(id)
         }
 
@@ -166,7 +168,7 @@ macro_rules! impl_custom_attribute_methods {
 
         #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::std::any::TypeId).")]
         #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
-        pub fn has_attribute_by_id(&$self, id: ::std::any::TypeId) -> bool {
+        pub fn has_attribute_by_id(&$self, id: ::core::any::TypeId) -> bool {
             $self.custom_attributes().contains_by_id(id)
         }
     };
@@ -178,9 +180,8 @@ pub(crate) use impl_custom_attribute_methods;
 mod tests {
     use super::*;
     use crate as bevy_reflect;
-    use crate::type_info::Typed;
-    use crate::{TypeInfo, VariantInfo};
-    use std::ops::RangeInclusive;
+    use crate::{type_info::Typed, TypeInfo, VariantInfo};
+    use core::ops::RangeInclusive;
 
     #[derive(Reflect, PartialEq, Debug)]
     struct Tooltip(String);

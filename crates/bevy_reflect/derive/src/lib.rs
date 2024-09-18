@@ -479,7 +479,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// # use std::any::TypeId;
+/// # use core::any::TypeId;
 /// # use bevy_reflect_derive::{Reflect, reflect_trait};
 /// #[reflect_trait] // Generates `ReflectMyTrait`
 /// trait MyTrait {

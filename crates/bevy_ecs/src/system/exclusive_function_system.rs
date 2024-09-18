@@ -10,8 +10,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
+use alloc::borrow::Cow;
 use bevy_utils::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use core::marker::PhantomData;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -279,7 +280,7 @@ mod tests {
         {
             fn reference_system(_world: &mut World) {}
 
-            use std::any::TypeId;
+            use core::any::TypeId;
 
             let system = IntoSystem::into_system(function);
 

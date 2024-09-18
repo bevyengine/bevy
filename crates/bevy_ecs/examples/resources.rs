@@ -2,8 +2,8 @@
 //! while a different system prints the current count to the console.
 
 use bevy_ecs::prelude::*;
+use core::ops::Deref;
 use rand::Rng;
-use std::ops::Deref;
 
 fn main() {
     // Create a world

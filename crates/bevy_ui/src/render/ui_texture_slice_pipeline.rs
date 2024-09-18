@@ -1,4 +1,4 @@
-use std::{hash::Hash, ops::Range};
+use core::{hash::Hash, ops::Range};
 
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};

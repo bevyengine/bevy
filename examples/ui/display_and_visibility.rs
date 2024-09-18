@@ -1,9 +1,9 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-use bevy::winit::WinitSettings;
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,
+    winit::WinitSettings,
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
@@ -29,14 +29,14 @@ fn main() {
 #[derive(Component)]
 struct Target<T> {
     id: Entity,
-    phantom: std::marker::PhantomData<T>,
+    phantom: core::marker::PhantomData<T>,
 }
 
 impl<T> Target<T> {
     fn new(id: Entity) -> Self {
         Self {
             id,
-            phantom: std::marker::PhantomData,
+            phantom: core::marker::PhantomData,
         }
     }
 }
@@ -404,7 +404,7 @@ fn spawn_right_panel(
 
 fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextStyle, target: Entity)
 where
-    T: Default + std::fmt::Debug + Send + Sync + 'static,
+    T: Default + core::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
 {
     parent

@@ -1,10 +1,11 @@
-use crate::transformer::TransformedAsset;
-use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
-use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
+use crate::{
+    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
+    ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
+};
 use atomicow::CowArc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap};
+use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
@@ -68,7 +69,7 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
         })
     }
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<S>()
+        core::any::type_name::<S>()
     }
 }
 

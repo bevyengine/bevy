@@ -1,10 +1,9 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
-use bevy::prelude::*;
-use bevy::render::primitives::Aabb;
+use bevy::{prelude::*, render::primitives::Aabb};
+use core::f32::consts::PI;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::f32::consts::PI;
 
 const TRANSITION_DURATION: f32 = 2.0;
 

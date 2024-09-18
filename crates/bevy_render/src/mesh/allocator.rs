@@ -1,11 +1,12 @@
 //! Manages mesh vertex and index buffers.
 
-use std::{
-    borrow::Cow,
-    fmt::{self, Display, Formatter},
+use alloc::{borrow::Cow, vec::Vec};
+use core::{
+    fmt::{
+        Display, Formatter, {self},
+    },
     iter,
     ops::Range,
-    vec::Vec,
 };
 
 use bevy_app::{App, Plugin};

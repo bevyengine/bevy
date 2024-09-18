@@ -1,28 +1,26 @@
 // Temporary workaround for impl_reflect!(Option/Result false-positive
 #![allow(unused_qualifications)]
 
-use crate::std_traits::ReflectDefault;
-use crate::utility::{
-    reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
-};
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
-    reflect::impl_full_reflect, set_apply, set_partial_eq, set_try_apply, ApplyError, Array,
-    ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
+    impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    reflect::impl_full_reflect,
+    set_apply, set_partial_eq, set_try_apply,
+    std_traits::ReflectDefault,
+    utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
+    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
+    FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
     PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, ValueInfo,
+    TypeRegistration, TypeRegistry, Typed, ValueInfo, {self as bevy_reflect},
 };
+use alloc::{borrow::Cow, collections::VecDeque};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
-use std::fmt;
-use std::{
+use core::{
     any::Any,
-    borrow::Cow,
-    collections::VecDeque,
+    fmt,
     hash::{BuildHasher, Hash, Hasher},
-    path::Path,
 };
+use std::path::Path;
 
 impl_reflect_value!(bool(
     Debug,
@@ -99,15 +97,15 @@ impl_reflect_value!(::std::path::PathBuf(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
-impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
+impl_reflect_value!(::core::any::TypeId(Debug, Hash, PartialEq,));
+impl_reflect_value!(::alloc::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFull());
-impl_reflect_value!(::std::ops::Bound<T: Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::Bound<T: Clone + Send + Sync>());
 impl_reflect_value!(::bevy_utils::Duration(
     Debug,
     Hash,
@@ -203,7 +201,7 @@ impl_reflect_value!(::core::num::NonZeroI8(
 ));
 impl_reflect_value!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::num::Saturating<T: Clone + Send + Sync>());
-impl_reflect_value!(::std::sync::Arc<T: Send + Sync>);
+impl_reflect_value!(::alloc::sync::Arc<T: Send + Sync>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
@@ -346,48 +344,48 @@ macro_rules! impl_reflect_for_atomic {
 }
 
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicIsize,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicIsize,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicUsize,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicUsize,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicI64,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicI64,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicU64,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicU64,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicI32,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicI32,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicU32,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicU32,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicI16,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicI16,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicU16,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicU16,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicI8,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicI8,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicU8,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicU8,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 impl_reflect_for_atomic!(
-    ::std::sync::atomic::AtomicBool,
-    ::std::sync::atomic::Ordering::SeqCst
+    ::core::sync::atomic::AtomicBool,
+    ::core::sync::atomic::Ordering::SeqCst
 );
 
 macro_rules! impl_reflect_for_veclike {
@@ -1051,7 +1049,7 @@ crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S
     >
 );
 
-impl<K, V> Map for ::std::collections::BTreeMap<K, V>
+impl<K, V> Map for ::alloc::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1150,7 +1148,7 @@ where
     }
 }
 
-impl<K, V> PartialReflect for ::std::collections::BTreeMap<K, V>
+impl<K, V> PartialReflect for ::alloc::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1216,13 +1214,13 @@ where
 }
 
 impl_full_reflect!(
-    <K, V> for ::std::collections::BTreeMap<K, V>
+    <K, V> for ::alloc::collections::BTreeMap<K, V>
     where
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 );
 
-impl<K, V> Typed for ::std::collections::BTreeMap<K, V>
+impl<K, V> Typed for ::alloc::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1233,7 +1231,7 @@ where
     }
 }
 
-impl<K, V> GetTypeRegistration for ::std::collections::BTreeMap<K, V>
+impl<K, V> GetTypeRegistration for ::alloc::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1245,7 +1243,7 @@ where
     }
 }
 
-impl<K, V> FromReflect for ::std::collections::BTreeMap<K, V>
+impl<K, V> FromReflect for ::alloc::collections::BTreeMap<K, V>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1265,9 +1263,9 @@ where
     }
 }
 
-impl_type_path!(::std::collections::BTreeMap<K, V>);
+impl_type_path!(::alloc::collections::BTreeMap<K, V>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::std::collections::BTreeMap<K, V>;
+crate::func::macros::impl_function_traits!(::alloc::collections::BTreeMap<K, V>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration
@@ -2222,16 +2220,14 @@ crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, PartialReflect};
     use crate::{
-        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
-        VariantType,
+        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
+        Typed, VariantInfo, VariantType, {self as bevy_reflect},
     };
-    use bevy_utils::HashMap;
-    use bevy_utils::{Duration, Instant};
+    use alloc::collections::BTreeMap;
+    use bevy_utils::{Duration, HashMap, Instant};
+    use core::f32::consts::{PI, TAU};
     use static_assertions::assert_impl_all;
-    use std::collections::BTreeMap;
-    use std::f32::consts::{PI, TAU};
     use std::path::Path;
 
     #[test]
@@ -2240,7 +2236,7 @@ mod tests {
         type_registry.register::<Duration>();
 
         let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
+            .get_type_data::<ReflectSerialize>(core::any::TypeId::of::<Duration>())
             .unwrap();
         let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
     }
@@ -2443,11 +2439,11 @@ mod tests {
 
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
-        let a: &dyn PartialReflect = &std::num::NonZero::<usize>::new(42).unwrap();
-        let b: &dyn PartialReflect = &std::num::NonZero::<usize>::new(42).unwrap();
+        let a: &dyn PartialReflect = &core::num::NonZero::<usize>::new(42).unwrap();
+        let b: &dyn PartialReflect = &core::num::NonZero::<usize>::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        let forty_two: std::num::NonZero<usize> = FromReflect::from_reflect(a).unwrap();
-        assert_eq!(forty_two, std::num::NonZero::<usize>::new(42).unwrap());
+        let forty_two: core::num::NonZero<usize> = FromReflect::from_reflect(a).unwrap();
+        assert_eq!(forty_two, core::num::NonZero::<usize>::new(42).unwrap());
     }
 
     #[test]
@@ -2466,8 +2462,8 @@ mod tests {
 
     #[test]
     fn type_id_should_from_reflect() {
-        let type_id = std::any::TypeId::of::<usize>();
-        let output = <std::any::TypeId as FromReflect>::from_reflect(&type_id).unwrap();
+        let type_id = core::any::TypeId::of::<usize>();
+        let output = <core::any::TypeId as FromReflect>::from_reflect(&type_id).unwrap();
         assert_eq!(type_id, output);
     }
 

@@ -1,6 +1,6 @@
 //! Demonstrates how to propagate events through the hierarchy with observers.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use rand::{seq::IteratorRandom, thread_rng, Rng};

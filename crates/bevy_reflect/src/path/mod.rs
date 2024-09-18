@@ -9,7 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
-use std::fmt;
+use core::fmt;
 use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
@@ -343,7 +343,7 @@ impl From<Access<'static>> for OffsetAccess {
 /// ```
 /// Manually constructing a [`ParsedPath`]:
 /// ```
-/// # use std::borrow::Cow;
+/// # use alloc::borrow::Cow;
 /// # use bevy_reflect::access::Access;
 /// # use bevy_reflect::ParsedPath;
 /// let path_elements = [
@@ -493,13 +493,13 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-impl std::ops::Index<usize> for ParsedPath {
+impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
-impl std::ops::IndexMut<usize> for ParsedPath {
+impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }

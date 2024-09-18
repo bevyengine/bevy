@@ -1,7 +1,9 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use crate::component::StorageType;
-use crate::{component::ComponentId, prelude::*};
+use crate::{
+    component::{ComponentId, StorageType},
+    prelude::*,
+};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
 
@@ -260,7 +262,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         // SAFETY:
         // - We have included all required accesses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 
     /// Create a [`QueryState`] with the accesses of the builder.
@@ -275,8 +277,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::*;
-    use crate::world::FilteredEntityRef;
+    use crate::{prelude::*, world::FilteredEntityRef};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);

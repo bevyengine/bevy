@@ -17,19 +17,25 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
+use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, info};
-use bevy_utils::HashSet;
+use bevy_utils::{
+    tracing::{error, info},
+    HashSet,
+};
+use core::{
+    any::{Any, TypeId},
+    future::Future,
+    panic::AssertUnwindSafe,
+};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::{any::Any, path::PathBuf};
-use std::{any::TypeId, path::Path, sync::Arc};
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 // Needed for doc string
@@ -738,7 +744,7 @@ impl AssetServer {
     ) -> Handle<A> {
         let mut infos = self.data.infos.write();
         let handle =
-            infos.create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
+            infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
@@ -1529,8 +1535,8 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
     }
 }
 
-impl std::fmt::Debug for AssetServer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for AssetServer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AssetServer")
             .field("info", &self.data.infos.read())
             .finish()

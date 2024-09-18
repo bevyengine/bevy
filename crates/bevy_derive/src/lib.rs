@@ -44,7 +44,7 @@ use quote::format_ident;
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// use bevy_derive::Deref;
 ///
 /// #[derive(Deref)]
@@ -75,7 +75,7 @@ use quote::format_ident;
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]
@@ -129,7 +129,7 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]
@@ -162,7 +162,7 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]

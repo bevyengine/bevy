@@ -1,12 +1,14 @@
-use std::{hash::Hash, marker::PhantomData, ops::Range};
+use core::{hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
     query::ROQueryItem,
     storage::SparseSet,
-    system::lifetimeless::{Read, SRes},
-    system::*,
+    system::{
+        lifetimeless::{Read, SRes},
+        *,
+    },
 };
 use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};

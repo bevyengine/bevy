@@ -18,7 +18,7 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,

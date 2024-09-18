@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 /// A static accessor to type paths and names.
 ///

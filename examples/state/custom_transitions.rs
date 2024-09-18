@@ -11,7 +11,7 @@
 //! identity transitions are propagated through the entire state graph,
 //! meaning any change to parent state will be propagated to [`ComputedStates`] and [`SubStates`].
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy::{dev_tools::states::*, ecs::schedule::ScheduleLabel, prelude::*};
 

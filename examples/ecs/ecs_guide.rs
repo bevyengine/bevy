@@ -29,8 +29,8 @@ use bevy::{
     prelude::*,
     utils::Duration,
 };
+use core::fmt;
 use rand::random;
-use std::fmt;
 
 // COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
 //

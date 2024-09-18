@@ -1,7 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::render::camera::ScalingMode;
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()
@@ -93,7 +92,7 @@ fn setup(
             ..default()
         },
         transform: Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+            rotation: Quat::from_rotation_z(core::f32::consts::PI / 2.0),
             ..default()
         },
         ..default()

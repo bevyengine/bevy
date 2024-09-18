@@ -3,14 +3,18 @@
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+use bevy_math::{
+    primitives::{
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+    },
+    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
-use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
 
-use crate::circles::SphereBuilder;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::SphereBuilder,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 
 const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines

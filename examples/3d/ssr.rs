@@ -1,6 +1,6 @@
 //! Demonstrates screen space reflections in deferred rendering.
 
-use std::ops::Range;
+use core::ops::Range;
 
 use bevy::{
     color::palettes::css::{BLACK, WHITE},

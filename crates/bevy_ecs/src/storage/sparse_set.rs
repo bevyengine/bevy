@@ -5,10 +5,10 @@ use crate::{
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use nonmax::NonMaxUsize;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use core::panic::Location;
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
 
@@ -663,10 +663,10 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
         entity::Entity,
         storage::SparseSet,
+        {self as bevy_ecs},
     };
 
     #[derive(Debug, Eq, PartialEq)]

@@ -1,6 +1,9 @@
 //! Shows various text layout options.
 
-use std::{collections::VecDeque, time::Duration};
+extern crate alloc;
+
+use alloc::collections::VecDeque;
+use core::time::Duration;
 
 use bevy::{
     color::palettes::css::*,

@@ -1,9 +1,10 @@
-use crate::func::args::{ArgInfo, ArgList};
-use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunctionMut, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo};
-use alloc::borrow::Cow;
+use crate::func::{
+    args::{ArgInfo, ArgList},
+    info::FunctionInfo,
+    DynamicFunctionMut, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
+};
+use alloc::{borrow::Cow, sync::Arc};
 use core::fmt::{Debug, Formatter};
-use std::sync::Arc;
 
 /// A dynamic representation of a function.
 ///

@@ -31,12 +31,14 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault as _,
-        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
+        view::{
+            ExtractedView, VisibilitySystems, VisibleEntities, {self},
+        },
         Render, RenderApp, RenderSet,
     },
 };
 use bytemuck::{Pod, Zeroable};
-use std::mem::size_of;
+use core::mem::size_of;
 
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.

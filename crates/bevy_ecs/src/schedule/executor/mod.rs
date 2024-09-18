@@ -2,9 +2,11 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
-pub use self::simple::SimpleExecutor;
-pub use self::single_threaded::SingleThreadedExecutor;
+pub use self::{
+    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
+    simple::SimpleExecutor,
+    single_threaded::SingleThreadedExecutor,
+};
 
 use fixedbitset::FixedBitSet;
 
@@ -134,7 +136,7 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
 /// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call stack for symbols
 /// containing the string `__rust_begin_short_backtrace` in their mangled name.
 mod __rust_begin_short_backtrace {
-    use std::hint::black_box;
+    use core::hint::black_box;
 
     use crate::{
         system::{ReadOnlySystem, System},

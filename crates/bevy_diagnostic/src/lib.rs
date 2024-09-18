@@ -11,6 +11,8 @@
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
 //! their ability to monitor and optimize their game's.
 
+extern crate alloc;
+
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;

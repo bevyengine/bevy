@@ -12,8 +12,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
+use core::convert::Infallible;
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
 use thiserror::Error;
 
 fn main() {

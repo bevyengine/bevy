@@ -10,14 +10,16 @@
 use bevy::{
     prelude::*,
     render::{
-        render_graph::{self, RenderGraph, RenderLabel},
+        render_graph::{
+            RenderGraph, RenderLabel, {self},
+        },
         render_resource::{binding_types::storage_buffer, *},
         renderer::{RenderContext, RenderDevice, RenderQueue},
         Render, RenderApp, RenderSet,
     },
 };
+use core::mem::size_of;
 use crossbeam_channel::{Receiver, Sender};
-use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";

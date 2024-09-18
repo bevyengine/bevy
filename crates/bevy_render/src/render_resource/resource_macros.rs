@@ -20,8 +20,8 @@ macro_rules! render_resource_wrapper {
 
         impl $wrapper_type {
             pub fn new(value: $wgpu_type) -> Self {
-                let arc = std::sync::Arc::new(value);
-                let value_ptr = std::sync::Arc::into_raw(arc);
+                let arc = alloc::sync::Arc::new(value);
+                let value_ptr = alloc::sync::Arc::into_raw(arc);
                 let unit_ptr = value_ptr.cast::<()>();
 
                 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
@@ -33,16 +33,16 @@ macro_rules! render_resource_wrapper {
             pub fn try_unwrap(self) -> Option<$wgpu_type> {
                 let value_ptr = self.0.cast::<$wgpu_type>();
                 // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
-                let arc = unsafe { std::sync::Arc::from_raw(value_ptr) };
+                let arc = unsafe { alloc::sync::Arc::from_raw(value_ptr) };
 
                 // we forget ourselves here since the reconstructed arc will be dropped/decremented within this scope
-                std::mem::forget(self);
+                core::mem::forget(self);
 
-                std::sync::Arc::try_unwrap(arc).ok()
+                alloc::sync::Arc::try_unwrap(arc).ok()
             }
         }
 
-        impl std::ops::Deref for $wrapper_type {
+        impl core::ops::Deref for $wrapper_type {
             type Target = $wgpu_type;
 
             fn deref(&self) -> &Self::Target {
@@ -58,7 +58,7 @@ macro_rules! render_resource_wrapper {
                 let value_ptr = self.0.cast::<$wgpu_type>();
                 // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                 // this reconstructed arc is dropped/decremented within this scope.
-                unsafe { std::sync::Arc::from_raw(value_ptr) };
+                unsafe { alloc::sync::Arc::from_raw(value_ptr) };
             }
         }
 
@@ -81,11 +81,11 @@ macro_rules! render_resource_wrapper {
             fn clone(&self) -> Self {
                 let value_ptr = self.0.cast::<$wgpu_type>();
                 // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
-                let arc = unsafe { std::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
-                let cloned = std::sync::Arc::clone(&arc);
+                let arc = unsafe { alloc::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
+                let cloned = alloc::sync::Arc::clone(&arc);
                 // we forget the reconstructed Arc to avoid decrementing the ref counter, as self is still live.
-                std::mem::forget(arc);
-                let cloned_value_ptr = std::sync::Arc::into_raw(cloned);
+                core::mem::forget(arc);
+                let cloned_value_ptr = alloc::sync::Arc::into_raw(cloned);
                 let cloned_unit_ptr = cloned_value_ptr.cast::<()>();
 
                 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
@@ -155,7 +155,7 @@ macro_rules! define_atomic_id {
         #[allow(clippy::new_without_default)]
         impl $atomic_id_type {
             pub fn new() -> Self {
-                use std::sync::atomic::{AtomicU32, Ordering};
+                use core::sync::atomic::{AtomicU32, Ordering};
 
                 static COUNTER: AtomicU32 = AtomicU32::new(1);
 

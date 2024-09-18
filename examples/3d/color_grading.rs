@@ -1,8 +1,10 @@
 //! Demonstrates color grading with an interactive adjustment UI.
 
-use std::{
+use core::{
     f32::consts::PI,
-    fmt::{self, Formatter},
+    fmt::{
+        Formatter, {self},
+    },
 };
 
 use bevy::{
@@ -11,7 +13,7 @@ use bevy::{
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
-use std::fmt::Display;
+use core::fmt::Display;
 
 static FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
 

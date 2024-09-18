@@ -2,7 +2,7 @@
 //!
 //! Currently, this simply consists of chromatic aberration.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,

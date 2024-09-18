@@ -3,7 +3,7 @@
 //! See also: `first_person_view_model` example, which does something similar but as a first-person
 //! camera view.
 
-use std::{f32::consts::FRAC_PI_2, ops::Range};
+use core::{f32::consts::FRAC_PI_2, ops::Range};
 
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 

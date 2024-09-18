@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
-use std::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -478,7 +478,7 @@ macro_rules! impl_or_query_filter {
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = std::mem::take(&mut access.required);
+                _new_access.required = core::mem::take(&mut access.required);
 
                 *access = _new_access;
             }
@@ -724,7 +724,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }
@@ -942,7 +942,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }

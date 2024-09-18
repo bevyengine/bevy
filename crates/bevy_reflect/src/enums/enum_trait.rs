@@ -1,9 +1,11 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::type_info::impl_type_methods;
-use crate::{DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType};
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+};
+use alloc::sync::Arc;
 use bevy_utils::HashMap;
-use std::slice::Iter;
-use std::sync::Arc;
+use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///

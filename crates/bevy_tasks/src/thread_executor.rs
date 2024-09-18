@@ -1,6 +1,6 @@
-use std::{
-    marker::PhantomData,
-    thread::{self, ThreadId},
+use core::marker::PhantomData;
+use std::thread::{
+    ThreadId, {self},
 };
 
 use async_executor::{Executor, Task};
@@ -86,7 +86,7 @@ impl<'task> ThreadExecutor<'task> {
 
     /// Returns true if `self` and `other`'s executor is same
     pub fn is_same(&self, other: &Self) -> bool {
-        std::ptr::eq(self, other)
+        core::ptr::eq(self, other)
     }
 }
 
@@ -115,7 +115,7 @@ impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     #[test]
     fn test_ticker() {

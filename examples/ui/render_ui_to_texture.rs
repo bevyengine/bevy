@@ -1,6 +1,6 @@
 //! Shows how to render UI to a texture. Useful for displaying UI in 3D space.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::GOLD,

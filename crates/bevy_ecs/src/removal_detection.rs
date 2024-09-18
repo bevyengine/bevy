@@ -1,7 +1,6 @@
 //! Alerting events when a component is removed from an entity.
 
 use crate::{
-    self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
@@ -9,9 +8,10 @@ use crate::{
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
+    {self as bevy_ecs},
 };
 
-use std::{
+use core::{
     fmt::Debug,
     iter,
     marker::PhantomData,

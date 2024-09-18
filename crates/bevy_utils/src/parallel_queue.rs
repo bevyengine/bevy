@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::DerefMut};
+use core::{cell::RefCell, ops::DerefMut};
 use thread_local::ThreadLocal;
 
 /// A cohesive set of thread-local values of a given type.

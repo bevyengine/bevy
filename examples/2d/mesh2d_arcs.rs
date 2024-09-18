@@ -1,7 +1,7 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},

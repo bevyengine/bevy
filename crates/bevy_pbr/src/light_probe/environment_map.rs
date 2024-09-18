@@ -52,14 +52,15 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::Quat;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstance,
     prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{self, uniform_buffer},
+        binding_types::{
+            uniform_buffer, {self},
+        },
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },
@@ -67,8 +68,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage, Image},
 };
 
-use std::num::NonZero;
-use std::ops::Deref;
+use core::{num::NonZero, ops::Deref};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,

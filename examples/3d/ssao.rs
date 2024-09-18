@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     render::camera::TemporalJitter,
 };
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 fn main() {
     App::new()

@@ -29,7 +29,9 @@ use bevy::{
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         texture::BevyDefault as _,
-        view::{self, ExtractedView, ViewTarget, VisibilitySystems, VisibleEntities},
+        view::{
+            ExtractedView, ViewTarget, VisibilitySystems, VisibleEntities, {self},
+        },
         Render, RenderApp, RenderSet,
     },
 };

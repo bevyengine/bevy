@@ -89,11 +89,11 @@ all_tuples!(impl_system_function, 0, 16, F);
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         event::Event,
         observer::Trigger,
         system::{In, IntoSystem},
         world::World,
+        {self as bevy_ecs},
     };
 
     #[derive(Event)]

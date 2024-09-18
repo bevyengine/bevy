@@ -1,6 +1,6 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::{fmt::Debug, iter::once};
+use core::{fmt::Debug, iter::once};
 
 use crate::{ops::FloatPow, Vec2, VectorSpace};
 
@@ -701,10 +701,10 @@ impl<P: VectorSpace> CubicNurbs<P> {
         }
         let last_knots_value = control_points - 3;
         Some(
-            std::iter::repeat(0.0)
+            core::iter::repeat(0.0)
                 .take(4)
                 .chain((1..last_knots_value).map(|v| v as f32))
-                .chain(std::iter::repeat(last_knots_value as f32).take(4))
+                .chain(core::iter::repeat(last_knots_value as f32).take(4))
                 .collect(),
         )
     }
@@ -1517,7 +1517,9 @@ mod tests {
             CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
             RationalGenerator,
         },
-        ops::{self, FloatPow},
+        ops::{
+            FloatPow, {self},
+        },
     };
 
     /// How close two floats can be and still be considered equal
@@ -1667,7 +1669,7 @@ mod tests {
     /// Test that a nurbs curve can approximate a portion of a circle.
     #[test]
     fn nurbs_circular_arc() {
-        use std::f32::consts::FRAC_PI_2;
+        use core::f32::consts::FRAC_PI_2;
         const EPSILON: f32 = 0.0000001;
 
         // The following NURBS parameters were determined by constraining the first two

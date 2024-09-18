@@ -2,13 +2,12 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
-    ecs::system::SystemState,
-    ecs::world::CommandQueue,
+    ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
+use core::time::Duration;
 use rand::Rng;
-use std::time::Duration;
 
 fn main() {
     App::new()

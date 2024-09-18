@@ -10,10 +10,14 @@
 //! The camera is looking at a pillar with the sun peaking behind it. The light
 //! interactions change based on the density of the fog.
 
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
-use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight};
-use bevy::prelude::*;
+use bevy::{
+    core_pipeline::{
+        bloom::Bloom,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    },
+    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    prelude::*,
+};
 use bevy_render::texture::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
 };

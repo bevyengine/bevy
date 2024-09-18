@@ -129,7 +129,7 @@ fn setup_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Circle::new(7.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-core::f32::consts::FRAC_PI_2)),
         ..default()
     });
 }

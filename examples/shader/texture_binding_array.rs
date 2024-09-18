@@ -1,9 +1,8 @@
 //! A shader that binds several textures onto one
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
-use bevy::ecs::system::lifetimeless::SRes;
-use bevy::ecs::system::SystemParamItem;
 use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -17,7 +16,8 @@ use bevy::{
         RenderApp,
     },
 };
-use std::{num::NonZero, process::exit};
+use core::num::NonZero;
+use std::process::exit;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";

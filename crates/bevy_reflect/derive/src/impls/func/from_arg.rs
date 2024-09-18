@@ -1,5 +1,4 @@
-use crate::derive_data::ReflectMeta;
-use crate::utility::WhereClauseOptions;
+use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
 use bevy_macro_utils::fq_std::FQResult;
 use quote::quote;
 

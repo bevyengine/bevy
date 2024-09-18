@@ -2,7 +2,7 @@
 //! sprite bounds, so the sprite atlas can be picked by clicking on its trnasparent areas.
 
 use bevy::{prelude::*, sprite::Anchor};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 fn main() {
     App::new()

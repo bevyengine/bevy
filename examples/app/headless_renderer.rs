@@ -7,6 +7,9 @@
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
 
+extern crate alloc;
+
+use alloc::sync::Arc;
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
@@ -14,7 +17,9 @@ use bevy::{
     render::{
         camera::RenderTarget,
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
+        render_graph::{
+            NodeRunError, RenderGraph, RenderGraphContext, RenderLabel, {self},
+        },
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
             ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDimension, TextureFormat,
@@ -25,16 +30,13 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
-use crossbeam_channel::{Receiver, Sender};
-use std::{
+use core::{
     ops::{Deref, DerefMut},
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
+use crossbeam_channel::{Receiver, Sender};
+use std::path::PathBuf;
 
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
@@ -163,7 +165,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Circle::new(4.0)),
         material: materials.add(Color::WHITE),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-core::f32::consts::FRAC_PI_2)),
         ..default()
     });
     // cube
@@ -381,7 +383,7 @@ impl render_graph::Node for ImageCopyDriver {
                     layout: ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
+                            core::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
                                 .unwrap()
                                 .into(),
                         ),
@@ -392,7 +394,7 @@ impl render_graph::Node for ImageCopyDriver {
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();
-            render_queue.submit(std::iter::once(encoder.finish()));
+            render_queue.submit(core::iter::once(encoder.finish()));
         }
 
         Ok(())

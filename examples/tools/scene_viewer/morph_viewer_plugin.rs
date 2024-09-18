@@ -10,7 +10,7 @@
 
 use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
-use std::fmt;
+use core::fmt;
 
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];

@@ -1,7 +1,9 @@
-use crate::entity::Entity;
-use crate::system::{BoxedSystem, IntoSystem};
-use crate::world::{Command, World};
-use crate::{self as bevy_ecs};
+use crate::{
+    entity::Entity,
+    system::{BoxedSystem, IntoSystem},
+    world::{Command, World},
+    {self as bevy_ecs},
+};
 use bevy_ecs_macros::Component;
 use thiserror::Error;
 
@@ -44,7 +46,7 @@ impl<I, O> RemovedSystem<I, O> {
 /// and are created via [`World::register_system`].
 pub struct SystemId<I = (), O = ()> {
     pub(crate) entity: Entity,
-    pub(crate) marker: std::marker::PhantomData<fn(I) -> O>,
+    pub(crate) marker: core::marker::PhantomData<fn(I) -> O>,
 }
 
 impl<I, O> SystemId<I, O> {
@@ -65,7 +67,7 @@ impl<I, O> SystemId<I, O> {
     pub fn from_entity(entity: Entity) -> Self {
         Self {
             entity,
-            marker: std::marker::PhantomData,
+            marker: core::marker::PhantomData,
         }
     }
 }
@@ -90,14 +92,14 @@ impl<I, O> PartialEq for SystemId<I, O> {
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I, O> std::hash::Hash for SystemId<I, O> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<I, O> core::hash::Hash for SystemId<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity.hash(state);
     }
 }
 
-impl<I, O> std::fmt::Debug for SystemId<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I, O> core::fmt::Debug for SystemId<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
 }
@@ -137,7 +139,7 @@ impl World {
                     SystemIdMarker,
                 ))
                 .id(),
-            marker: std::marker::PhantomData,
+            marker: core::marker::PhantomData,
         }
     }
 
@@ -419,8 +421,8 @@ pub enum RegisteredSystemError<I = (), O = ()> {
     SelfRemove(SystemId<I, O>),
 }
 
-impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I, O> core::fmt::Debug for RegisteredSystemError<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()

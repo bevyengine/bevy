@@ -10,8 +10,7 @@ use wgpu::{
 
 use super::RenderQueue;
 
-use crate::render_resource::resource_macros::*;
-use crate::WgpuWrapper;
+use crate::{render_resource::resource_macros::*, WgpuWrapper};
 
 render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
 

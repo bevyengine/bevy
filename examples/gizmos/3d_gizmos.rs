@@ -5,7 +5,7 @@ mod camera_controller;
 
 use bevy::{color::palettes::css::*, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 fn main() {
     App::new()

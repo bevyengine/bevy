@@ -14,7 +14,7 @@ use bevy::{
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
     (

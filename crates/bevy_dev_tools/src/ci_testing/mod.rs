@@ -9,7 +9,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
-use std::time::Duration;
+use core::time::Duration;
 
 /// A plugin that instruments continuous integration testing by automatically executing user-defined actions.
 ///

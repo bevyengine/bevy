@@ -2,16 +2,19 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
+use alloc::sync::Arc;
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap, TypeIdMap,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, TypeIdMap};
-use std::{any::TypeId, sync::Arc};
+use core::any::TypeId;
 use thiserror::Error;
 
 #[derive(Default)]
@@ -31,9 +34,9 @@ impl AssetLoaders {
 
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
-        let type_name = std::any::type_name::<L>();
+        let type_name = core::any::type_name::<L>();
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
 
         #[cfg(feature = "trace")]
         let loader = InstrumentedAssetLoader(loader);
@@ -78,7 +81,7 @@ impl AssetLoaders {
 
             self.loaders.push(MaybeAssetLoader::Ready(loader));
         } else {
-            let maybe_loader = std::mem::replace(
+            let maybe_loader = core::mem::replace(
                 self.loaders.get_mut(loader_index).unwrap(),
                 MaybeAssetLoader::Ready(loader.clone()),
             );
@@ -101,8 +104,8 @@ impl AssetLoaders {
     /// real loader is added.
     pub(crate) fn reserve<L: AssetLoader>(&mut self, extensions: &[&str]) {
         let loader_asset_type = TypeId::of::<L::Asset>();
-        let loader_asset_type_name = std::any::type_name::<L::Asset>();
-        let type_name = std::any::type_name::<L>();
+        let loader_asset_type_name = core::any::type_name::<L::Asset>();
+        let type_name = core::any::type_name::<L>();
 
         let loader_index = self.loaders.len();
 
@@ -266,7 +269,7 @@ impl AssetLoaders {
     pub(crate) fn get_by_path(&self, path: &AssetPath<'_>) -> Option<MaybeAssetLoader> {
         let extension = path.get_full_extension()?;
 
-        let result = std::iter::once(extension.as_str())
+        let result = core::iter::once(extension.as_str())
             .chain(AssetPath::iter_secondary_extensions(&extension))
             .filter_map(|extension| self.extension_to_loaders.get(extension)?.last().copied())
             .find_map(|index| self.get_by_index(index))?;
@@ -316,7 +319,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         let span = info_span!(
             "asset loading",
-            loader = std::any::type_name::<T>(),
+            loader = core::any::type_name::<T>(),
             asset = load_context.asset_path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
@@ -329,8 +332,8 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
     use std::{
-        marker::PhantomData,
         path::Path,
         sync::mpsc::{channel, Receiver, Sender},
     };
@@ -338,7 +341,9 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{self as bevy_asset, Asset};
+    use crate::{
+        Asset, {self as bevy_asset},
+    };
 
     use super::*;
 
@@ -390,7 +395,7 @@ mod tests {
 
             Err(format!(
                 "Loaded {}:{}",
-                std::any::type_name::<Self::Asset>(),
+                core::any::type_name::<Self::Asset>(),
                 N
             ))
         }
@@ -424,7 +429,7 @@ mod tests {
 
         let loader = block_on(
             loaders
-                .get_by_name(std::any::type_name::<Loader<A, 1, 0>>())
+                .get_by_name(core::any::type_name::<Loader<A, 1, 0>>())
                 .unwrap()
                 .get(),
         )

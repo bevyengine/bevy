@@ -12,10 +12,10 @@ use bevy_ecs::component::Component;
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
-use core::panic;
-use std::{
+use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
+    panic,
 };
 
 /// An enum configuring how line joints will be drawn.

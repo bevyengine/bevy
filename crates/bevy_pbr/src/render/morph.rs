@@ -1,7 +1,6 @@
-use std::{iter, mem, mem::size_of};
+use core::{iter, mem, mem::size_of};
 
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
@@ -89,7 +88,7 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
         panic!(
             "RawBufferVec should contain only types with a size multiple or divisible by {n}, \
             {} has a size of {t_size}, which is neither multiple or divisible by {n}",
-            std::any::type_name::<T>()
+            core::any::type_name::<T>()
         );
     }
 

@@ -8,7 +8,7 @@
 //! - How to play morph target animations in `setup_animations`.
 
 use bevy::prelude::*;
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 fn main() {
     App::new()

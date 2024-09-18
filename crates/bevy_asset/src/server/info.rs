@@ -4,15 +4,12 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
+use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
-use bevy_utils::tracing::warn;
-use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
+use core::any::TypeId;
 use crossbeam_channel::Sender;
-use std::{
-    any::TypeId,
-    sync::{Arc, Weak},
-};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -80,8 +77,8 @@ pub(crate) struct AssetInfos {
     pub(crate) pending_tasks: HashMap<UntypedAssetId, Task<()>>,
 }
 
-impl std::fmt::Debug for AssetInfos {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for AssetInfos {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AssetInfos")
             .field("path_to_id", &self.path_to_id)
             .field("infos", &self.infos)
@@ -162,7 +159,7 @@ impl AssetInfos {
         );
         // it is ok to unwrap because TypeId was specified above
         let (handle, should_load) =
-            unwrap_with_context(result, std::any::type_name::<A>()).unwrap();
+            unwrap_with_context(result, core::any::type_name::<A>()).unwrap();
         (handle.typed_unchecked(), should_load)
     }
 
@@ -489,7 +486,7 @@ impl AssetInfos {
                 rec_dep_load_state,
                 RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed
             ) {
-                Some(std::mem::take(
+                Some(core::mem::take(
                     &mut info.dependants_waiting_on_recursive_dep_load,
                 ))
             } else {
@@ -497,7 +494,7 @@ impl AssetInfos {
             };
 
             (
-                std::mem::take(&mut info.dependants_waiting_on_load),
+                core::mem::take(&mut info.dependants_waiting_on_load),
                 dependants_waiting_on_rec_load,
             )
         };
@@ -548,7 +545,7 @@ impl AssetInfos {
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
                 }
-                Some(std::mem::take(
+                Some(core::mem::take(
                     &mut info.dependants_waiting_on_recursive_dep_load,
                 ))
             } else {
@@ -575,7 +572,7 @@ impl AssetInfos {
             info.loading_rec_dependencies.remove(&failed_id);
             info.failed_rec_dependencies.insert(failed_id);
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
-            Some(std::mem::take(
+            Some(core::mem::take(
                 &mut info.dependants_waiting_on_recursive_dep_load,
             ))
         } else {
@@ -604,8 +601,8 @@ impl AssetInfos {
             info.dep_load_state = DependencyLoadState::Failed;
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
             (
-                std::mem::take(&mut info.dependants_waiting_on_load),
-                std::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
+                core::mem::take(&mut info.dependants_waiting_on_load),
+                core::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
             )
         };
 

@@ -8,7 +8,7 @@
 //!
 //! See `cargo run --example many_cubes --release -- --help` for more options.
 
-use std::{f64::consts::PI, str::FromStr};
+use core::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
 use bevy::{
@@ -317,7 +317,7 @@ fn init_materials(
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
-        std::iter::repeat_with(|| {
+        core::iter::repeat_with(|| {
             assets.add(StandardMaterial {
                 base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
@@ -337,7 +337,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut radius_rng = ChaCha8Rng::seed_from_u64(42);
     let mut variant = 0;
-    std::iter::repeat_with(|| {
+    core::iter::repeat_with(|| {
         let radius = radius_rng.gen_range(0.25f32..=0.75f32);
         let (handle, transform) = match variant % 15 {
             0 => (
@@ -359,7 +359,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
             ),
             3 => {
                 let mut vertices = [Vec2::ZERO; 3];
-                let dtheta = std::f32::consts::TAU / 3.0;
+                let dtheta = core::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
                     let (s, c) = ops::sin_cos(i as f32 * dtheta);
                     *vertex = Vec2::new(c, s) * radius;

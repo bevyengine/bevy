@@ -1,9 +1,9 @@
 use crate::system::{SystemBuffer, SystemMeta};
 
-use std::{
+use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
-    panic::{self, AssertUnwindSafe},
+    panic::AssertUnwindSafe,
     ptr::{addr_of_mut, NonNull},
 };
 
@@ -59,7 +59,7 @@ pub(crate) struct RawCommandQueue {
 // It is not possible to soundly print the values of the contained bytes, as some of them may be padding or uninitialized (#4863)
 // So instead, the manual impl just prints the length of vec.
 impl Debug for CommandQueue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CommandQueue")
             .field("len_bytes", &self.bytes.len())
             .finish_non_exhaustive()
@@ -262,7 +262,7 @@ impl RawCommandQueue {
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
-            let result = panic::catch_unwind(AssertUnwindSafe(|| {
+            let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
                 // since they were stored next to each other by `.push()`.
                 // For ZSTs, the type doesn't matter as long as the pointer is non-null.
@@ -295,7 +295,7 @@ impl RawCommandQueue {
                 if start == 0 {
                     bytes.append(panic_recovery);
                 }
-                panic::resume_unwind(payload);
+                std::panic::resume_unwind(payload);
             }
         }
 
@@ -338,12 +338,10 @@ mod test {
     use super::*;
     use crate as bevy_ecs;
     use crate::system::Resource;
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         panic::AssertUnwindSafe,
-        sync::{
-            atomic::{AtomicU32, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicU32, Ordering},
     };
 
     struct DropCheck(Arc<AtomicU32>);
@@ -445,7 +443,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_panic_safe() {
-        panic::set_hook(Box::new(|_| {}));
+        std::panic::set_hook(Box::new(|_| {}));
 
         let mut queue = CommandQueue::default();
 
@@ -454,7 +452,7 @@ mod test {
 
         let mut world = World::new();
 
-        let _ = panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             queue.apply(&mut world);
         }));
 
@@ -468,7 +466,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_nested_panic_safe() {
-        panic::set_hook(Box::new(|_| {}));
+        std::panic::set_hook(Box::new(|_| {}));
 
         #[derive(Resource, Default)]
         struct Order(Vec<usize>);
@@ -488,7 +486,7 @@ mod test {
         });
         world.commands().queue(add_index(4));
 
-        let _ = panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
 

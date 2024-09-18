@@ -13,7 +13,7 @@ use crate::{
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use std::{any::TypeId, marker::PhantomData};
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
@@ -925,7 +925,7 @@ impl<'w> EntityWorldMut<'w> {
             .bundles
             .init_dynamic_info(&self.world.components, component_ids);
         let mut storage_types =
-            std::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
+            core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
         let bundle_inserter = BundleInserter::new_with_id(
             self.world,
             self.location.archetype_id,
@@ -940,7 +940,7 @@ impl<'w> EntityWorldMut<'w> {
             iter_components,
             (*storage_types).iter().cloned(),
         );
-        *self.world.bundles.get_storages_unchecked(bundle_id) = std::mem::take(&mut storage_types);
+        *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self
     }
 
@@ -2758,11 +2758,15 @@ pub(crate) unsafe fn take_component<'a>(
 #[cfg(test)]
 mod tests {
     use bevy_ptr::OwningPtr;
-    use std::panic::AssertUnwindSafe;
+    use core::panic::AssertUnwindSafe;
 
-    use crate::system::RunSystemOnce as _;
-    use crate::world::{FilteredEntityMut, FilteredEntityRef};
-    use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
+    use crate::{
+        component::ComponentId,
+        prelude::*,
+        system::{assert_is_system, RunSystemOnce as _},
+        world::{FilteredEntityMut, FilteredEntityRef},
+        {self as bevy_ecs},
+    };
 
     use super::{EntityMutExcept, EntityRefExcept};
 
@@ -2800,7 +2804,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(std::any::TypeId::of::<TestComponent>())
+            .get_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let entity = world.entity(entity);
@@ -2817,7 +2821,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(std::any::TypeId::of::<TestComponent>())
+            .get_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let mut entity_mut = world.entity_mut(entity);

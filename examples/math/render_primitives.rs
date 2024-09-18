@@ -90,8 +90,8 @@ enum PrimitiveSelected {
     CircularSegment,
 }
 
-impl std::fmt::Display for PrimitiveSelected {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for PrimitiveSelected {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let name = match self {
             PrimitiveSelected::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
             PrimitiveSelected::CircleAndSphere => String::from("Circle/Sphere"),
@@ -277,20 +277,20 @@ const TETRAHEDRON: Tetrahedron = Tetrahedron {
 
 const ARC: Arc2d = Arc2d {
     radius: BIG_2D,
-    half_angle: std::f32::consts::FRAC_PI_4,
+    half_angle: core::f32::consts::FRAC_PI_4,
 };
 
 const CIRCULAR_SECTOR: CircularSector = CircularSector {
     arc: Arc2d {
         radius: BIG_2D,
-        half_angle: std::f32::consts::FRAC_PI_4,
+        half_angle: core::f32::consts::FRAC_PI_4,
     },
 };
 
 const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     arc: Arc2d {
         radius: BIG_2D,
-        half_angle: std::f32::consts::FRAC_PI_4,
+        half_angle: core::f32::consts::FRAC_PI_4,
     },
 };
 

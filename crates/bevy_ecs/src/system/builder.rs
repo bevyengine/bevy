@@ -9,7 +9,7 @@ use crate::{
     },
     world::{FromWorld, World},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::{init_query_param, Res, ResMut, Resource, SystemState};
 
@@ -348,9 +348,11 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::entity::Entities;
-    use crate::prelude::{Component, Query};
-    use crate::system::{Local, RunSystemOnce};
+    use crate::{
+        entity::Entities,
+        prelude::{Component, Query},
+        system::{Local, RunSystemOnce},
+    };
 
     use super::*;
 

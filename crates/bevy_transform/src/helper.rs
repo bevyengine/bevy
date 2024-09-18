@@ -80,7 +80,7 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::TAU;
+    use core::f32::consts::TAU;
 
     use bevy_app::App;
     use bevy_ecs::system::SystemState;

@@ -1,7 +1,7 @@
 //! Error types for [`super::Identifier`] conversions. An ID can be converted
 //! to various kinds, but these can fail if they are not valid forms of those
 //! kinds. The error type in this module encapsulates the various failure modes.
-use std::fmt;
+use core::fmt;
 
 /// An  Error type for [`super::Identifier`], mostly for providing error
 /// handling for conversions of an ID to a type abstracting over the ID bits.

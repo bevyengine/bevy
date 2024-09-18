@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 /// A helper for accessing [`MainWorld`] content using a system parameter.
 ///

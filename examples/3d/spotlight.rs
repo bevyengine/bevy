@@ -1,6 +1,6 @@
 //! Illustrates spot lights.
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
@@ -58,7 +58,7 @@ fn setup(
     let blue = materials.add(Color::srgb_u8(124, 144, 255));
 
     commands.spawn_batch(
-        std::iter::repeat_with(move || {
+        core::iter::repeat_with(move || {
             let x = rng.gen_range(-5.0..5.0);
             let y = rng.gen_range(0.0..3.0);
             let z = rng.gen_range(-5.0..5.0);

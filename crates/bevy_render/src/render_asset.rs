@@ -15,8 +15,8 @@ use bevy_utils::{
     tracing::{debug, error},
     HashMap, HashSet,
 };
+use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -336,7 +336,7 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut wrote_asset_count = 0;
 
     let mut param = param.into_inner();
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    let queued_assets = core::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
         if extracted_assets.removed.contains(&id) || extracted_assets.added.contains(&id) {
             // skip previous frame's assets that have been removed or updated
@@ -369,7 +369,7 @@ pub fn prepare_assets<A: RenderAsset>(
             Err(PrepareAssetError::AsBindGroupError(e)) => {
                 error!(
                     "{} Bind group construction failed: {e}",
-                    std::any::type_name::<A>()
+                    core::any::type_name::<A>()
                 );
             }
         }
@@ -407,7 +407,7 @@ pub fn prepare_assets<A: RenderAsset>(
             Err(PrepareAssetError::AsBindGroupError(e)) => {
                 error!(
                     "{} Bind group construction failed: {e}",
-                    std::any::type_name::<A>()
+                    core::any::type_name::<A>()
                 );
             }
         }
@@ -416,7 +416,7 @@ pub fn prepare_assets<A: RenderAsset>(
     if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
         debug!(
             "{} write budget exhausted with {} assets remaining (wrote {})",
-            std::any::type_name::<A>(),
+            core::any::type_name::<A>(),
             prepare_next_frame.assets.len(),
             wrote_asset_count
         );

@@ -1,7 +1,7 @@
 mod range;
 mod render_layers;
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 pub use range::*;
 pub use render_layers::*;
@@ -537,7 +537,7 @@ mod test {
     use super::*;
     use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
-    use std::mem::size_of;
+    use core::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {

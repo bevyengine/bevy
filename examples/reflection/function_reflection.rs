@@ -6,11 +6,13 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-use bevy::reflect::func::{
-    ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,
-    IntoFunctionMut, Return,
+use bevy::reflect::{
+    func::{
+        ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,
+        IntoFunctionMut, Return,
+    },
+    PartialReflect, Reflect,
 };
-use bevy::reflect::{PartialReflect, Reflect};
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.
@@ -154,7 +156,7 @@ fn main() {
         // This makes it easier to debug and is also required for function registration.
         // We can either give it a custom name or use the function's type name as
         // derived from `std::any::type_name_of_val`.
-        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
+        FunctionInfo::named(core::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
             // It's a good idea to also ensure that the name is unique,
             // such as by using its type name or by prefixing it with your crate name.

@@ -2,7 +2,7 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
-use std::str::FromStr;
+use core::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
@@ -618,7 +618,7 @@ fn init_materials(
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
     materials.extend(
-        std::iter::repeat_with(|| {
+        core::iter::repeat_with(|| {
             assets.add(ColorMaterial {
                 color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),

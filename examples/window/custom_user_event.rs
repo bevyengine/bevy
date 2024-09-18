@@ -1,8 +1,10 @@
 //! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
-use bevy::prelude::*;
-use bevy::winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin};
-use std::fmt::Formatter;
+use bevy::{
+    prelude::*,
+    winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin},
+};
+use core::fmt::Formatter;
 
 #[derive(Default, Debug, Event)]
 enum CustomEvent {
@@ -11,8 +13,8 @@ enum CustomEvent {
     Key(char),
 }
 
-impl std::fmt::Display for CustomEvent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CustomEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::WakeUp => write!(f, "Wake up"),
             Self::Key(ch) => write!(f, "Key: {ch}"),
@@ -81,8 +83,7 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
 pub(crate) mod wasm {
     use super::*;
     use bevy::winit::EventLoopProxy;
-    use wasm_bindgen::prelude::*;
-    use wasm_bindgen::JsCast;
+    use wasm_bindgen::{prelude::*, JsCast};
     use web_sys::KeyboardEvent;
 
     pub(crate) fn setup_js_closure(event_loop: Res<EventLoopProxyWrapper<CustomEvent>>) {

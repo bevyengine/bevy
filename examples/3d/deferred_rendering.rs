@@ -1,6 +1,6 @@
 //! This example compares Forward, Forward + Prepass, and Deferred rendering.
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::{
     core_pipeline::{

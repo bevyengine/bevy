@@ -12,7 +12,9 @@
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
-        dof::{self, DepthOfField, DepthOfFieldMode},
+        dof::{
+            DepthOfField, DepthOfFieldMode, {self},
+        },
         tonemapping::Tonemapping,
     },
     pbr::Lightmap,

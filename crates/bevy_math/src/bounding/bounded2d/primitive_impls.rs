@@ -9,7 +9,7 @@ use crate::{
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use smallvec::SmallVec;
 
@@ -397,14 +397,16 @@ impl Bounded2d for Capsule2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
 
     use crate::{
         bounding::Bounded2d,
-        ops::{self, FloatPow},
+        ops::{
+            FloatPow, {self},
+        },
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
@@ -866,7 +868,7 @@ mod tests {
 
         let bounding_circle = polyline.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]
@@ -939,7 +941,7 @@ mod tests {
 
         let bounding_circle = polygon.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]

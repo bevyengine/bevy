@@ -9,10 +9,11 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{alloc::Layout, num::NonZeroUsize};
-use std::{
+use core::panic::Location;
+use core::{
+    alloc::Layout,
     cell::UnsafeCell,
+    num::NonZeroUsize,
     ops::{Index, IndexMut},
 };
 mod column;
@@ -763,7 +764,7 @@ impl Tables {
     }
 
     /// Iterates through all of the tables stored within in [`TableId`] order.
-    pub fn iter(&self) -> std::slice::Iter<'_, Table> {
+    pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
     }
 
@@ -814,16 +815,14 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::ptr::OwningPtr;
-    use crate::storage::Storages;
     use crate::{
-        component::{Components, Tick},
+        component::{Component, Components, Tick},
         entity::Entity,
-        storage::{TableBuilder, TableRow},
+        ptr::OwningPtr,
+        storage::{Storages, TableBuilder, TableRow},
     };
     #[cfg(feature = "track_change_detection")]
-    use std::panic::Location;
+    use core::panic::Location;
 
     #[derive(Component)]
     struct W<T>(T);

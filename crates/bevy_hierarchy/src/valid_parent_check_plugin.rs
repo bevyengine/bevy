@@ -1,10 +1,11 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-#[cfg(feature = "bevy_app")]
-use crate::Parent;
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_app")]
-use bevy_utils::{get_short_name, HashSet};
+use {
+    crate::Parent,
+    bevy_utils::{get_short_name, HashSet},
+};
 
 /// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
 ///
@@ -67,7 +68,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
             bevy_utils::tracing::warn!(
                 "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
                 This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
-                ty_name = get_short_name(std::any::type_name::<T>()),
+                ty_name = get_short_name(core::any::type_name::<T>()),
                 name = name.map_or_else(|| format!("Entity {}", entity), |s| format!("The {s} entity")),
             );
         }

@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use std::f32::consts::TAU;
+use core::f32::consts::TAU;
 
 // Define a component to designate a rotation speed to an entity.
 #[derive(Component)]

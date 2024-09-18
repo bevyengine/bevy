@@ -1,6 +1,6 @@
 //! This example shows how to sample random points from primitive shapes.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -8,8 +8,7 @@ use bevy::{
     math::prelude::*,
     prelude::*,
 };
-use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {

@@ -1,10 +1,11 @@
 //! An example that illustrates how Time is handled in ECS.
 
-use bevy::app::AppExit;
-use bevy::prelude::*;
+use bevy::{app::AppExit, prelude::*};
 
-use std::io::{self, BufRead};
-use std::time::Duration;
+use core::time::Duration;
+use std::io::{
+    BufRead, {self},
+};
 
 fn banner() {
     println!("This example is meant to intuitively demonstrate how Time works in Bevy.");
