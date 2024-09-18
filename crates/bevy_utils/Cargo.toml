@@ -15,7 +15,9 @@ alloc = []
 detailed_trace = []
 
 [dependencies]
-ahash = { version = "0.8.7", default-features = false, features = ["runtime-rng"] }
+ahash = { version = "0.8.7", default-features = false, features = [
+    "runtime-rng",
+] }
 tracing = { version = "0.1", default-features = false }
 web-time = { version = "1.1" }
 hashbrown = { version = "0.14.2", features = ["serde"] }
