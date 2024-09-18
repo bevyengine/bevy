@@ -280,11 +280,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -659,11 +655,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -770,11 +762,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -834,11 +822,7 @@ unsafe impl SystemParam for &'_ World {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -866,11 +850,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -987,11 +967,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1186,11 +1162,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1360,11 +1332,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1466,11 +1434,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1503,11 +1467,7 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1533,11 +1493,7 @@ unsafe impl<'a> SystemParam for &'a Components {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1563,11 +1519,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1593,11 +1545,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1652,11 +1600,7 @@ unsafe impl SystemParam for SystemChangeTick {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -1687,11 +1631,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 
     #[inline]
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-    ) -> bool {
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
         state
             .iter()
             .all(|state| T::validate_param(state, system_meta, world))
@@ -1750,11 +1690,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 
     #[inline]
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-    ) -> bool {
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
         state
             .iter()
             .all(|state| T::validate_param(state, system_meta, world))
@@ -2035,11 +1971,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 
     #[inline]
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-    ) -> bool {
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
         P::validate_param(state, system_meta, world)
     }
 
@@ -2063,11 +1995,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: &World,
-    ) -> bool {
+    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
         true
     }
 
@@ -2339,11 +2267,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     #[inline]
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-    ) -> bool {
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
         state.0.validate_param(system_meta, world)
     }
 

@@ -188,11 +188,7 @@ where
     }
 
     #[inline]
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-    ) -> bool {
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
         GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world)
     }
 
