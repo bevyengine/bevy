@@ -343,7 +343,7 @@ impl From<Access<'static>> for OffsetAccess {
 /// ```
 /// Manually constructing a [`ParsedPath`]:
 /// ```
-/// # use alloc::borrow::Cow;
+/// # use std::borrow::Cow;
 /// # use bevy_reflect::access::Access;
 /// # use bevy_reflect::ParsedPath;
 /// let path_elements = [

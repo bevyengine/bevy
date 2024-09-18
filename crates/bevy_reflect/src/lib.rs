@@ -537,6 +537,8 @@
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
 
+extern crate alloc;
+
 mod array;
 mod fields;
 mod from_reflect;
@@ -616,8 +618,6 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
-
-extern crate alloc;
 
 /// Exports used by the reflection macros.
 ///
