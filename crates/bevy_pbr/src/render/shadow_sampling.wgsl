@@ -34,6 +34,12 @@ fn search_for_blockers_in_shadow_map_hardware(
     depth: f32,
     array_index: i32,
 ) -> vec2<f32> {
+#ifdef WEBGL2
+    // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
+    // with different samplers, or it'll blow up.
+    return vec2(0.0);
+#else   // WEBGL2
+
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
@@ -41,7 +47,7 @@ fn search_for_blockers_in_shadow_map_hardware(
         light_local,
         0.0,
     );
-#else
+#else   // NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
@@ -49,9 +55,10 @@ fn search_for_blockers_in_shadow_map_hardware(
         array_index,
         0.0,
     );
-#endif
-
+#endif  // NO_ARRAY_TEXTURES_SUPPORT
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+
+#endif  // WEBGL2
 }
 
 // Numbers determined by trial and error that gave nice results.
@@ -327,6 +334,12 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     depth: f32,
     light_id: u32,
 ) -> vec2<f32> {
+#ifdef WEBGL2
+    // Make sure that the WebGL 2 compiler doesn't see `sampled_depth` sampled
+    // with different samplers, or it'll blow up.
+    return vec2(0.0);
+#else   // WEBGL2
+
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
@@ -343,6 +356,8 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
 #endif
 
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+
+#endif  // WEBGL2
 }
 
 fn sample_shadow_cubemap_at_offset(
