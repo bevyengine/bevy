@@ -276,9 +276,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     state: &'s Self::State,
                     system_meta: &SystemMeta,
                     world: &World,
-                    change_tick: Tick,
                 ) -> bool {
-                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world, change_tick)
+                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
                 }
 
                 #[inline]
@@ -527,9 +526,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: &#path::world::World,
-                    change_tick: #path::component::Tick,
                 ) -> bool {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world, change_tick)
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
                 }
 
                 #[inline]

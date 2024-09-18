@@ -150,13 +150,11 @@ const _: () = {
             state: &Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: &World,
-            change_tick: bevy_ecs::component::Tick,
         ) -> bool {
             <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
                 &state.state,
                 system_meta,
                 world,
-                change_tick,
             )
         }
 

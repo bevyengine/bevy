@@ -60,6 +60,13 @@ impl SystemExecutor for SingleThreadedExecutor {
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
+            let system = &mut schedule.systems[system_index];
+            if !system.validate_param(world) {
+                // TODO: Warn about system skipping.
+                self.completed_systems.insert(system_index);
+                continue;
+            }
+
             let mut should_run = !self.completed_systems.contains(system_index);
             for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
                 if self.evaluated_sets.contains(set_idx) {
@@ -79,6 +86,8 @@ impl SystemExecutor for SingleThreadedExecutor {
                 self.evaluated_sets.insert(set_idx);
             }
 
+            // TODO: short circuit if system is skipped after system set conditions.
+
             // evaluate system's conditions
             let system_conditions_met =
                 evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
@@ -95,7 +104,6 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
                 continue;
@@ -156,6 +164,15 @@ impl SingleThreadedExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
+    // TODO: move validation before checking system access
+    if !conditions
+        .iter()
+        .all(|condition| condition.validate_param(world))
+    {
+        // TODO: Warn about system skipping.
+        return false;
+    }
+
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions

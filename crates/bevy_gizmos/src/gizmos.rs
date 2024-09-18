@@ -192,9 +192,8 @@ where
         state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
-        change_tick: Tick,
     ) -> bool {
-        GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world, change_tick)
+        GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world)
     }
 
     #[inline]

@@ -227,12 +227,7 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`World`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: &World,
-        change_tick: Tick,
-    ) -> bool;
+    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool;
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
@@ -241,7 +236,6 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - Only called directly after [`SystemParam::validate_param`] returned `true`.
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -290,7 +284,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -618,7 +611,6 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
-        _change_tick: Tick,
     ) -> bool {
         world.get_resource_by_id(component_id).is_some()
     }
@@ -671,7 +663,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -735,7 +726,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
-        _change_tick: Tick,
     ) -> bool {
         world.get_resource_by_id(component_id).is_some()
     }
@@ -784,7 +774,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -849,7 +838,6 @@ unsafe impl SystemParam for &'_ World {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -882,7 +870,6 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1004,7 +991,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1204,7 +1190,6 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1329,7 +1314,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
-        _change_tick: Tick,
     ) -> bool {
         world.get_non_send_by_id(component_id).is_some()
     }
@@ -1380,7 +1364,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1443,7 +1426,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
         world: &World,
-        _change_tick: Tick,
     ) -> bool {
         world.get_non_send_by_id(component_id).is_some()
     }
@@ -1488,7 +1470,6 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1526,7 +1507,6 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1557,7 +1537,6 @@ unsafe impl<'a> SystemParam for &'a Components {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1588,7 +1567,6 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1619,7 +1597,6 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1679,7 +1656,6 @@ unsafe impl SystemParam for SystemChangeTick {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -1715,11 +1691,10 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
-        change_tick: Tick,
     ) -> bool {
         state
             .iter()
-            .all(|state| T::validate_param(state, system_meta, world, change_tick))
+            .all(|state| T::validate_param(state, system_meta, world))
     }
 
     #[inline]
@@ -1779,11 +1754,10 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
-        change_tick: Tick,
     ) -> bool {
         state
             .iter()
-            .all(|state| T::validate_param(state, system_meta, world, change_tick))
+            .all(|state| T::validate_param(state, system_meta, world))
     }
 
     #[inline]
@@ -1898,10 +1872,9 @@ macro_rules! impl_system_param_tuple {
                 state: &Self::State,
                 _system_meta: &SystemMeta,
                 _world: &World,
-                _change_tick: Tick,
             ) -> bool {
                 let ($($param,)*) = state;
-                $($param::validate_param($param, _system_meta, _world, _change_tick)&&)* true
+                $($param::validate_param($param, _system_meta, _world)&&)* true
             }
 
             #[inline]
@@ -2066,9 +2039,8 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
-        change_tick: Tick,
     ) -> bool {
-        P::validate_param(state, system_meta, world, change_tick)
+        P::validate_param(state, system_meta, world)
     }
 
     #[inline]
@@ -2095,7 +2067,6 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }
@@ -2328,7 +2299,7 @@ trait DynParamState: Sync + Send {
     /// - The passed [`World`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    fn validate_param(&self, system_meta: &SystemMeta, world: &World, change_tick: Tick) -> bool;
+    fn validate_param(&self, system_meta: &SystemMeta, world: &World) -> bool;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2352,8 +2323,8 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::queue(&mut self.0, system_meta, world);
     }
 
-    fn validate_param(&self, system_meta: &SystemMeta, world: &World, change_tick: Tick) -> bool {
-        T::validate_param(&self.0, system_meta, world, change_tick)
+    fn validate_param(&self, system_meta: &SystemMeta, world: &World) -> bool {
+        T::validate_param(&self.0, system_meta, world)
     }
 }
 
@@ -2372,9 +2343,8 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state: &Self::State,
         system_meta: &SystemMeta,
         world: &World,
-        change_tick: Tick,
     ) -> bool {
-        state.0.validate_param(system_meta, world, change_tick)
+        state.0.validate_param(system_meta, world)
     }
 
     #[inline]

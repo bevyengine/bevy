@@ -81,7 +81,6 @@ unsafe impl SystemParam for SystemName<'_> {
         _state: &Self::State,
         _system_meta: &SystemMeta,
         _world: &World,
-        _change_tick: Tick,
     ) -> bool {
         true
     }

@@ -206,7 +206,7 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, world: &mut World) -> bool {
+    fn validate_param(&self, world: &World) -> bool {
         self.a.validate_param(world) && self.b.validate_param(world)
     }
 

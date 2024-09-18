@@ -133,7 +133,7 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, world: &mut crate::world::World) -> bool {
+    fn validate_param(&self, world: &crate::world::World) -> bool {
         self.system.validate_param(world)
     }
 

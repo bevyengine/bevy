@@ -145,7 +145,7 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, _world: &mut World) -> bool {
+    fn validate_param(&self, _world: &World) -> bool {
         true
     }
 

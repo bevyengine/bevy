@@ -97,8 +97,10 @@ pub trait System: Send + Sync + 'static {
     /// Validates that all systems parameters can be acquired.
     /// If not, the system should not be ran.
     ///
-    /// The world reference is mutable for faster change tick reading.
-    fn validate_param(&self, world: &mut World) -> bool;
+    /// NOTE: `tick` value isn't the exact same as the one
+    /// that will be passed to `run_unsafe`, none the less
+    /// it should be enough to check monothicity.
+    fn validate_param(&self, world: &World) -> bool;
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);

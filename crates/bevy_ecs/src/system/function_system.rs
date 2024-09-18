@@ -637,8 +637,9 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, _world: &mut World) -> bool {
-        true
+    fn validate_param(&self, world: &World) -> bool {
+        let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
+        F::Param::validate_param(param_state, &self.system_meta, world)
     }
 
     #[inline]
