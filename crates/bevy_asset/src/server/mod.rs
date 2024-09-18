@@ -266,6 +266,9 @@ impl AssetServer {
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
     ///
+    /// Note that if the asset at this path is already loaded, this function will return the existing handle,
+    /// and will not waste work spawning a new load task.
+    ///
     /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
     /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
     /// the file path and the label. For example:
