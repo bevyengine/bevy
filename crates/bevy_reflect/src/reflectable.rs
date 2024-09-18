@@ -1,7 +1,7 @@
 use crate::{GetTypeRegistration, Reflect, TypePath, Typed};
 
 /// A catch-all trait that is bound by the core reflection traits,
-/// useful for simpler reflection-based generic type bounds.
+/// useful to simplify reflection-based generic type bounds.
 ///
 /// You do _not_ need to implement this trait manually.
 /// It is automatically implemented for all types that implement its supertraits.
