@@ -117,7 +117,7 @@ macro_rules! define_label {
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
-            fn dyn_clone(&self) -> ::alloc::boxed::Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
             fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
@@ -136,7 +136,7 @@ macro_rules! define_label {
 
             $($interned_extra_methods_impl)*
 
-            fn dyn_clone(&self) -> ::alloc::boxed::Box<dyn $label_trait_name> {
+            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
