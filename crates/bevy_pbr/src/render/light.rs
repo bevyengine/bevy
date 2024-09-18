@@ -700,7 +700,7 @@ pub fn prepare_lights(
         }
 
         let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-            std::f32::consts::FRAC_PI_2,
+            core::f32::consts::FRAC_PI_2,
             1.0,
             light.shadow_map_near_z,
         );
@@ -908,7 +908,7 @@ pub fn prepare_lights(
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-                std::f32::consts::FRAC_PI_2,
+                core::f32::consts::FRAC_PI_2,
                 1.0,
                 light.shadow_map_near_z,
             );
