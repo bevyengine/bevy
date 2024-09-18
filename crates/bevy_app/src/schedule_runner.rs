@@ -7,7 +7,8 @@ use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
 use {
-    core::{cell::RefCell, rc::Rc},
+    alloc::rc::Rc,
+    core::cell::RefCell,
     wasm_bindgen::{prelude::*, JsCast},
 };
 
