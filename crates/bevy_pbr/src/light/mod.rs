@@ -595,7 +595,7 @@ pub fn update_point_light_frusta(
         }
 
         let clip_from_view = Mat4::perspective_infinite_reverse_rh(
-            std::f32::consts::FRAC_PI_2,
+            core::f32::consts::FRAC_PI_2,
             1.0,
             point_light.shadow_map_near_z,
         );
