@@ -28,7 +28,7 @@ use bevy_utils::tracing::warn;
 /// |      |         |          Main world loop                          |
 /// | sync | extract |---------------------------------------------------|
 /// |      |         |         Render world loop                         |
-//are/ |--------------------------------------------------------------------|
+/// |--------------------------------------------------------------------|
 /// ```
 ///
 /// An example for synchronized main entities 1v1 and 18v1
@@ -50,16 +50,16 @@ use bevy_utils::tracing::warn;
 ///
 /// ```
 ///
-/// Note that not this effectively establishes a link between the main world entity and the render world entity.
+/// Note that this effectively establishes a link between the main world entity and the render world entity.
 /// Not every entity needs to be synchronized, however, only entities with [`SyncRenderWorld`] are synced.
 /// Adding [`SyncRenderWorld`] to a main world component will establish such a link.
-/// Once a synchronized main entity is despawned, it's corresponding render entity will be automatically
+/// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
 /// despawned in the next `sync`.
 ///
 /// The sync step does not handle the transfer of component data between worlds,
-/// since it's often not necessary to transfer over all the components of a main world entity.
+/// since its often not necessary to transfer over all the components of a main world entity.
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
-/// The extraction happens in it's own step, independently from synchronization.
+/// The extraction happens in its own step, independently from synchronization.
 ///
 /// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*, stuff like mesh and texture data is handled
 /// differently, as those assets are extracted to render world resources and not entities.
