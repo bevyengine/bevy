@@ -163,7 +163,7 @@ mod tests {
         system::{Local, Res, ResMut, Resource},
     };
     use bevy_utils::Duration;
-    use std::error::Error;
+    use core::error::Error;
 
     #[derive(Event)]
     struct TestEvent<T: Default> {

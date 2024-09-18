@@ -162,9 +162,9 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    AssetSaveError(#[from] Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Encountered an error while transforming the asset: {0}")]
-    AssetTransformError(Box<dyn std::error::Error + Send + Sync + 'static>),
+    AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }

@@ -16,7 +16,7 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
-use std::error::Error;
+use core::error::Error;
 
 #[cfg(target_os = "android")]
 mod android_tracing;

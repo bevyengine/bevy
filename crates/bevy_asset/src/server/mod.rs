@@ -738,7 +738,7 @@ impl AssetServer {
     ///
     /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn add_async<A: Asset, E: std::error::Error + Send + Sync + 'static>(
+    pub fn add_async<A: Asset, E: core::error::Error + Send + Sync + 'static>(
         &self,
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
@@ -1465,7 +1465,7 @@ pub enum AssetLoadError {
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
-    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
 impl PartialEq for AssetLoaderError {
@@ -1489,7 +1489,7 @@ impl AssetLoaderError {
 #[derive(Error, Debug, Clone)]
 #[error("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
-    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
 impl PartialEq for AddAsyncError {

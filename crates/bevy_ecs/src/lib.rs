@@ -68,10 +68,14 @@ pub mod prelude {
     };
 
     #[doc(hidden)]
-    #[cfg(feature = "reflect_functions")]
+    #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppFunctionRegistry, AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
 }
 
 #[cfg(test)]
