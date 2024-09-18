@@ -133,7 +133,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     // TODO: move validation before checking system access
     if !conditions
         .iter()
-        .all(|condition| condition.validate_param(&world))
+        .all(|condition| condition.validate_param(world))
     {
         // TODO: Warn about system skipping.
         return false;
