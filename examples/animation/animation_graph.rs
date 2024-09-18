@@ -31,7 +31,8 @@ static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
 
 /// The help text in the upper left corner.
-static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight";
+static HELP_TEXT: &str = "Click and drag an animation clip node to change its weight
+Click the checkbox to toggle between additive and shared mode";
 
 /// The node widgets in the UI.
 static NODE_TYPES: [NodeType; 5] = [
@@ -88,7 +89,14 @@ fn main() {
         .add_systems(Update, init_animations.before(animate_targets))
         .add_systems(
             Update,
-            (handle_weight_drag, update_ui, sync_weights).chain(),
+            (
+                handle_weight_drag,
+                handle_additive_toggle,
+                update_ui,
+                sync_weights,
+                sync_additive_mode,
+            )
+                .chain(),
         )
         .insert_resource(args)
         .insert_resource(AmbientLight {
@@ -114,11 +122,17 @@ struct Args {
 #[derive(Clone, Resource)]
 struct ExampleAnimationGraph(Handle<AnimationGraph>);
 
-/// The current weights of the three playing animations.
+/// The current states of the three playing animations.
 #[derive(Component)]
-struct ExampleAnimationWeights {
-    /// The weights of the three playing animations.
-    weights: [f32; 3],
+struct ExampleAnimationStates([ExampleAnimationState; 3]);
+
+/// The current state of a single animation clip node.
+#[derive(Clone, Copy)]
+struct ExampleAnimationState {
+    /// Weight of the clip node.
+    weight: f32,
+    /// Whether this node is additive or not.
+    additive: bool,
 }
 
 /// Initializes the scene.
@@ -320,8 +334,8 @@ fn setup_node_rects(commands: &mut Commands) {
             container.id()
         };
 
-        // Create the background color.
-        if let NodeType::Clip(_) = node_type {
+        if let NodeType::Clip(ref clip) = node_type {
+            // Create the background color.
             let background = commands
                 .spawn(NodeBundle {
                     style: Style {
@@ -338,6 +352,29 @@ fn setup_node_rects(commands: &mut Commands) {
                 .id();
 
             commands.entity(container).add_child(background);
+
+            // Create the additive toggle checkbox.
+            let additive_toggle = commands
+                .spawn((
+                    NodeBundle {
+                        style: Style {
+                            position_type: PositionType::Absolute,
+                            bottom: Val::Px(5.),
+                            left: Val::Px(5.),
+                            height: Val::Px(20.),
+                            width: Val::Px(20.),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
+                    Interaction::None,
+                    clip.clone(),
+                    AdditiveModeCheckbox,
+                ))
+                .id();
+
+            commands.entity(container).add_child(additive_toggle);
         }
 
         commands.entity(container).add_child(text);
@@ -394,10 +431,9 @@ fn init_animations(
     }
 
     for (entity, mut player) in query.iter_mut() {
-        commands.entity(entity).insert((
-            animation_graph.0.clone(),
-            ExampleAnimationWeights::default(),
-        ));
+        commands
+            .entity(entity)
+            .insert((animation_graph.0.clone(), ExampleAnimationStates::default()));
         for &node_index in &CLIP_NODE_INDICES {
             player.play(node_index.into()).repeat();
         }
@@ -409,10 +445,13 @@ fn init_animations(
 /// Read cursor position relative to clip nodes, allowing the user to change weights
 /// when dragging the node UI widgets.
 fn handle_weight_drag(
-    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
-    mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
+    interaction_query: Query<
+        (&Interaction, &RelativeCursorPosition, &ClipNode),
+        Without<AdditiveModeCheckbox>,
+    >,
+    mut animation_states_query: Query<&mut ExampleAnimationStates>,
 ) {
-    for (interaction, relative_cursor, clip_node) in &mut interaction_query {
+    for (interaction, relative_cursor, clip_node) in &interaction_query {
         if !matches!(*interaction, Interaction::Pressed) {
             continue;
         }
@@ -421,8 +460,29 @@ fn handle_weight_drag(
             continue;
         };
 
-        for mut animation_weights in animation_weights_query.iter_mut() {
-            animation_weights.weights[clip_node.index] = pos.x.clamp(0., 1.);
+        for mut animation_states in animation_states_query.iter_mut() {
+            animation_states.0[clip_node.index].weight = pos.x.clamp(0., 1.);
+        }
+    }
+}
+
+/// Reads interactions with the additive mode check boxes, allowing the user to
+/// change whether a specific node is additive or not.
+fn handle_additive_toggle(
+    interaction_query: Query<
+        (&Interaction, &ClipNode),
+        (Changed<Interaction>, With<AdditiveModeCheckbox>),
+    >,
+    mut animation_states_query: Query<&mut ExampleAnimationStates>,
+) {
+    for (interaction, clip_node) in &interaction_query {
+        if !matches!(*interaction, Interaction::Pressed) {
+            continue;
+        }
+
+        for mut animation_states in animation_states_query.iter_mut() {
+            let state = &mut animation_states.0[clip_node.index];
+            state.additive = !state.additive;
         }
     }
 }
@@ -431,8 +491,9 @@ fn handle_weight_drag(
 fn update_ui(
     mut text_query: Query<&mut Text>,
     mut background_query: Query<&mut Style, Without<Text>>,
+    mut additive_toggle_query: Query<&mut BackgroundColor, (Without<Text>, With<ClipNode>)>,
     container_query: Query<(&Children, &ClipNode)>,
-    animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
+    animation_weights_query: Query<&ExampleAnimationStates, Changed<ExampleAnimationStates>>,
 ) {
     for animation_weights in animation_weights_query.iter() {
         for (children, clip_node) in &container_query {
@@ -441,7 +502,17 @@ fn update_ui(
             if let Some(mut style) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
                 style.width =
-                    Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+                    Val::Px(NODE_RECTS[0].width * animation_weights.0[clip_node.index].weight);
+            }
+
+            // Update the background of the additive checkbox.
+            let mut additive_toggle_iter = additive_toggle_query.iter_many_mut(children);
+            if let Some(mut bg_color) = additive_toggle_iter.fetch_next() {
+                *bg_color = if animation_weights.0[clip_node.index].additive {
+                    WHITE.into()
+                } else {
+                    Color::NONE.into()
+                };
             }
 
             // Update the node labels with the current weights.
@@ -449,7 +520,7 @@ fn update_ui(
             if let Some(mut text) = text_iter.fetch_next() {
                 text.sections[0].value = format!(
                     "{}\n{:.2}",
-                    clip_node.text, animation_weights.weights[clip_node.index]
+                    clip_node.text, animation_weights.0[clip_node.index].weight
                 );
             }
         }
@@ -458,11 +529,11 @@ fn update_ui(
 
 /// Takes the weights that were set in the UI and assigns them to the actual
 /// playing animation.
-fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
-    for (mut animation_player, animation_weights) in query.iter_mut() {
-        for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
+fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationStates)>) {
+    for (mut animation_player, animation_states) in query.iter_mut() {
+        for (&animation_node_index, animation_weight) in CLIP_NODE_INDICES
             .iter()
-            .zip(animation_weights.weights.iter())
+            .zip(animation_states.0.iter().map(|state| state.weight))
         {
             // If the animation happens to be no longer active, restart it.
             if !animation_player.animation_is_playing(animation_node_index.into()) {
@@ -475,6 +546,30 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             {
                 active_animation.set_weight(animation_weight);
             }
+        }
+    }
+}
+
+/// Takes the state of the additive checkboxes in the UI and assigns them to the
+/// actual nodes in the animation graph.
+fn sync_additive_mode(
+    query: Query<(&Handle<AnimationGraph>, &ExampleAnimationStates)>,
+    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+) {
+    for (animation_graph_handle, animation_states) in query.iter() {
+        let Some(animation_graph) = animation_graphs.get_mut(animation_graph_handle) else {
+            continue;
+        };
+
+        for (&animation_node_index, additive) in CLIP_NODE_INDICES
+            .iter()
+            .zip(animation_states.0.iter().map(|state| state.additive))
+        {
+            let animation_node_index = AnimationNodeIndex::from(animation_node_index);
+            let animation_node = animation_graph.get_mut(animation_node_index).unwrap();
+
+            // Set the additive mode of this node.
+            animation_node.additive = additive;
         }
     }
 }
@@ -526,9 +621,18 @@ struct ClipNode {
     index: usize,
 }
 
-impl Default for ExampleAnimationWeights {
+/// Marker component for UI nodes which represent the additive toggle check box.
+#[derive(Component)]
+struct AdditiveModeCheckbox;
+
+impl Default for ExampleAnimationStates {
     fn default() -> Self {
-        Self { weights: [1.0; 3] }
+        Self(
+            [ExampleAnimationState {
+                weight: 1.0,
+                additive: false,
+            }; 3],
+        )
     }
 }
 
