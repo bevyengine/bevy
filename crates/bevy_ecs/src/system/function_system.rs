@@ -637,7 +637,7 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, world: &World) -> bool {
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
         let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
         F::Param::validate_param(param_state, &self.system_meta, world)
     }

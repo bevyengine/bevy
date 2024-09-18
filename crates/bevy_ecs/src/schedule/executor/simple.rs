@@ -7,6 +7,7 @@ use crate::{
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
+    warn_system_skipped,
     world::World,
 };
 
@@ -54,13 +55,6 @@ impl SystemExecutor for SimpleExecutor {
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
-            let system = &mut schedule.systems[system_index];
-            if !system.validate_param(world) {
-                // TODO: Warn about system skipping.
-                self.completed_systems.insert(system_index);
-                continue;
-            }
-
             let mut should_run = !self.completed_systems.contains(system_index);
             for set_idx in schedule.sets_with_conditions_of_systems[system_index].ones() {
                 if self.evaluated_sets.contains(set_idx) {
@@ -85,6 +79,21 @@ impl SystemExecutor for SimpleExecutor {
                 evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
 
             should_run &= system_conditions_met;
+
+            let system = &mut schedule.systems[system_index];
+
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the system.
+            // - `update_archetype_component_access` has been called for system.
+            let valid_params =
+                unsafe { system.validate_param_unsafe(world.as_unsafe_world_cell_readonly()) };
+
+            if !valid_params {
+                warn_system_skipped!("System", system.name());
+            }
+
+            should_run &= valid_params;
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
@@ -130,20 +139,21 @@ impl SimpleExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // TODO: move validation before checking system access
-    if !conditions
-        .iter()
-        .all(|condition| condition.validate_param(world))
-    {
-        // TODO: Warn about system skipping.
-        return false;
-    }
-
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| __rust_begin_short_backtrace::readonly_run(&mut **condition, world))
+        .map(|condition| {
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the condition.
+            // - `update_archetype_component_access` has been called for condition.
+            if !unsafe { condition.validate_param_unsafe(world.as_unsafe_world_cell_readonly()) } {
+                warn_system_skipped!("Condition", condition.name());
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+        })
         .fold(true, |acc, res| acc && res)
 }
 

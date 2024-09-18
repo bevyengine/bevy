@@ -12,8 +12,8 @@ use crate::{
     observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
-        SpawnBatchIter, World,
+        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
+        EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -146,10 +146,10 @@ const _: () = {
         }
 
         #[inline]
-        fn validate_param(
+        unsafe fn validate_param(
             state: &Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: &World,
+            world: UnsafeWorldCell,
         ) -> bool {
             <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
                 &state.state,
@@ -162,7 +162,7 @@ const _: () = {
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
             let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);

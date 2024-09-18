@@ -77,7 +77,11 @@ unsafe impl SystemParam for SystemName<'_> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 

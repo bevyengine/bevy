@@ -206,8 +206,8 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, world: &World) -> bool {
-        self.a.validate_param(world) && self.b.validate_param(world)
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut World) {

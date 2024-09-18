@@ -1,5 +1,4 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
-use crate::query::AccessConflicts;
 use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
@@ -14,6 +13,7 @@ use crate::{
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
+use crate::{query::AccessConflicts, storage::ResourceData};
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
@@ -219,7 +219,17 @@ pub unsafe trait SystemParam: Sized {
 
     /// Validates that the data can be acquired by [`get_param`](SystemParam::get_param).
     /// For systems this means they won't be executed.
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool;
+    ///
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have read access to any world data
+    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool;
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
@@ -272,7 +282,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -595,12 +609,17 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 
     #[inline]
-    fn validate_param(
+    unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
-        world.contains_resource_by_id(component_id)
+        world
+            .storages()
+            .resources
+            .get(component_id)
+            .map(ResourceData::is_present)
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -647,7 +666,11 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -706,12 +729,17 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 
     #[inline]
-    fn validate_param(
+    unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
-        world.contains_resource_by_id(component_id)
+        world
+            .storages()
+            .resources
+            .get(component_id)
+            .map(ResourceData::is_present)
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -754,7 +782,11 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -814,7 +846,11 @@ unsafe impl SystemParam for &'_ World {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -842,7 +878,11 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -959,7 +999,11 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1154,7 +1198,11 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1274,12 +1322,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 
     #[inline]
-    fn validate_param(
+    unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
-        world.contains_non_send_by_id(component_id)
+        world
+            .storages()
+            .non_send_resources
+            .get(component_id)
+            .map(ResourceData::is_present)
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -1324,7 +1377,11 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1382,12 +1439,17 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 
     #[inline]
-    fn validate_param(
+    unsafe fn validate_param(
         &component_id: &Self::State,
         _system_meta: &SystemMeta,
-        world: &World,
+        world: UnsafeWorldCell,
     ) -> bool {
-        world.contains_non_send_by_id(component_id)
+        world
+            .storages()
+            .non_send_resources
+            .get(component_id)
+            .map(ResourceData::is_present)
+            .unwrap_or(false)
     }
 
     #[inline]
@@ -1426,7 +1488,11 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1459,7 +1525,11 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1485,7 +1555,11 @@ unsafe impl<'a> SystemParam for &'a Components {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1511,7 +1585,11 @@ unsafe impl<'a> SystemParam for &'a Entities {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1537,7 +1615,11 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1592,7 +1674,11 @@ unsafe impl SystemParam for SystemChangeTick {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -1623,7 +1709,11 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 
     #[inline]
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
         state
             .iter()
             .all(|state| T::validate_param(state, system_meta, world))
@@ -1682,7 +1772,11 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 
     #[inline]
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
         state
             .iter()
             .all(|state| T::validate_param(state, system_meta, world))
@@ -1796,10 +1890,10 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn validate_param(
+            unsafe fn validate_param(
                 state: &Self::State,
                 _system_meta: &SystemMeta,
-                _world: &World,
+                _world: UnsafeWorldCell,
             ) -> bool {
                 let ($($param,)*) = state;
                 $($param::validate_param($param, _system_meta, _world)&&)* true
@@ -1963,7 +2057,11 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 
     #[inline]
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
         P::validate_param(state, system_meta, world)
     }
 
@@ -1987,7 +2085,11 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    fn validate_param(_state: &Self::State, _system_meta: &SystemMeta, _world: &World) -> bool {
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         true
     }
 
@@ -2219,7 +2321,7 @@ trait DynParamState: Sync + Send {
     /// - The passed [`World`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    fn validate_param(&self, system_meta: &SystemMeta, world: &World) -> bool;
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2243,7 +2345,7 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::queue(&mut self.0, system_meta, world);
     }
 
-    fn validate_param(&self, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
         T::validate_param(&self.0, system_meta, world)
     }
 }
@@ -2259,7 +2361,11 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     #[inline]
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
         state.0.validate_param(system_meta, world)
     }
 

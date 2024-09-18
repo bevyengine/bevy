@@ -97,10 +97,15 @@ pub trait System: Send + Sync + 'static {
     /// Validates that all systems parameters can be acquired.
     /// If not, the system should not be ran.
     ///
-    /// NOTE: `tick` value isn't the exact same as the one
-    /// that will be passed to `run_unsafe`, none the less
-    /// it should be enough to check monothicity.
-    fn validate_param(&self, world: &World) -> bool;
+    /// # Safety
+    ///
+    /// - The caller must ensure that `world` has permission to read any world data
+    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - The method [`Self::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);

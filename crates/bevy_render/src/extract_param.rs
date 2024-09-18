@@ -75,7 +75,11 @@ where
     }
 
     #[inline]
-    fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool {
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
         Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world)
     }
 

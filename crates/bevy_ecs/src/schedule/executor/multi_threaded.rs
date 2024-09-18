@@ -19,6 +19,7 @@ use crate::{
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::BoxedSystem,
+    warn_system_skipped,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -527,13 +528,6 @@ impl ExecutorState {
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
-        // Short circuit when system cannot be executed
-        // TODO: move validation before checking system access
-        if !system.validate_param(world.world()) {
-            // TODO: Warn about system skipping.
-            return false;
-        }
-
         let mut should_run = !self.skipped_systems.contains(system_index);
 
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
@@ -559,8 +553,6 @@ impl ExecutorState {
             self.evaluated_sets.insert(set_idx);
         }
 
-        // TODO: short circuit if system is skipped after system set conditions.
-
         // Evaluate the system's conditions.
         // SAFETY:
         // - The caller ensures that `world` has permission to read any data
@@ -575,6 +567,19 @@ impl ExecutorState {
         }
 
         should_run &= system_conditions_met;
+
+        // SAFETY:
+        // - The caller ensures that `world` has permission to read any data
+        //   required by the system.
+        // - `update_archetype_component_access` has been called for system.
+        let valid_params = unsafe { system.validate_param_unsafe(world) };
+
+        if !valid_params {
+            warn_system_skipped!("System", system.name());
+            self.skipped_systems.insert(system_index);
+        }
+
+        should_run &= valid_params;
 
         should_run
     }
@@ -733,22 +738,23 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
-    // TODO: move validation before checking system access
-    if !conditions
-        .iter()
-        .all(|condition| condition.validate_param(world.world()))
-    {
-        // TODO: Warn about system skipping.
-        return false;
-    }
-
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
         .map(|condition| {
-            // SAFETY: The caller ensures that `world` has permission to
-            // access any data required by the condition.
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the condition.
+            // - `update_archetype_component_access` has been called for condition.
+            if !unsafe { condition.validate_param_unsafe(world) } {
+                warn_system_skipped!("Condition", condition.name());
+                return false;
+            }
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the condition.
+            // - `update_archetype_component_access` has been called for condition.
             unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
         })
         .fold(true, |acc, res| acc && res)

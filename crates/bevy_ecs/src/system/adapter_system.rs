@@ -133,8 +133,8 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, world: &crate::world::World) -> bool {
-        self.system.validate_param(world)
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        self.system.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {

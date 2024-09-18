@@ -145,7 +145,7 @@ where
     }
 
     #[inline]
-    fn validate_param(&self, _world: &World) -> bool {
+    unsafe fn validate_param_unsafe(&self, _world: UnsafeWorldCell) -> bool {
         true
     }
 

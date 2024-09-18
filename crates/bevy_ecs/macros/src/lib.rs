@@ -272,10 +272,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                fn validate_param<'w, 's>(
+                unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
                     system_meta: &SystemMeta,
-                    world: &World,
+                    world: UnsafeWorldCell,
                 ) -> bool {
                     <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
                 }
@@ -522,10 +522,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                fn validate_param<'w, 's>(
+                unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &#path::world::World,
+                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> bool {
                     <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
                 }
