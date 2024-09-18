@@ -25,6 +25,9 @@ enum FilterKind {
 /// As a result, this resource should generally only be modified before the app starts (typically
 /// during plugin construction)
 ///
+/// Because these filters are applied to all queries, the storage type of the component has
+/// implications for the entire app. See [`Query` performance] for more info.
+///
 /// See `World::set_default_with_filter`, `World::set_default_without_filter`, and
 /// `World::unset_default_filter` for easier access.
 ///
@@ -76,6 +79,8 @@ enum FilterKind {
 /// let mut query = world.query::<(Entity, Has<Enabled>, Has<TopSecret>)>();
 /// assert_eq!(4, query.iter(&world).count());
 /// ```
+///
+/// [`Query` performance]: crate::prelude::Query#performance
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters(HashMap<ComponentId, FilterKind>);
