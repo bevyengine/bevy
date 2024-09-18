@@ -3453,6 +3453,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "pcss"
+path = "examples/3d/pcss.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pcss]
+name = "Percentage-closer soft shadows"
+description = "Demonstrates percentage-closer soft shadows (PCSS)"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "animated_ui"
 path = "examples/animation/animated_ui.rs"
 doc-scrape-examples = true
