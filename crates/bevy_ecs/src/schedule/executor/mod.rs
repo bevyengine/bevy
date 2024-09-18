@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn invalid_system_param_skips() {
         for executor in EXECUTORS {
-            invalid_system_param_skips_core(executor)
+            invalid_system_param_skips_core(executor);
         }
     }
 
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn invalid_condition_param_skips_system() {
         for executor in EXECUTORS {
-            invalid_condition_param_skips_system_core(executor)
+            invalid_condition_param_skips_system_core(executor);
         }
     }
 

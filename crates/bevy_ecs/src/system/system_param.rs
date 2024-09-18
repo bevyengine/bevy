@@ -600,7 +600,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: &World,
     ) -> bool {
-        world.get_resource_by_id(component_id).is_some()
+        world.contains_resource_by_id(component_id)
     }
 
     #[inline]
@@ -711,7 +711,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: &World,
     ) -> bool {
-        world.get_resource_by_id(component_id).is_some()
+        world.contains_resource_by_id(component_id)
     }
 
     #[inline]
@@ -1279,7 +1279,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         _system_meta: &SystemMeta,
         world: &World,
     ) -> bool {
-        world.get_non_send_by_id(component_id).is_some()
+        world.contains_non_send_by_id(component_id)
     }
 
     #[inline]
@@ -1387,7 +1387,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         _system_meta: &SystemMeta,
         world: &World,
     ) -> bool {
-        world.get_non_send_by_id(component_id).is_some()
+        world.contains_non_send_by_id(component_id)
     }
 
     #[inline]
