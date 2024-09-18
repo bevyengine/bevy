@@ -204,7 +204,7 @@ pub(crate) trait GetKeyframe {
 /// Interpolates between keyframes and stores the result in `dest`.
 ///
 /// This is factored out so that it can be shared between implementations of
-/// [`Keyframes`].
+/// [`crate::keyframes::Keyframes`].
 pub(crate) fn interpolate_keyframes<T>(
     dest: &mut T,
     keyframes: &(impl GetKeyframe<Output = T> + ?Sized),

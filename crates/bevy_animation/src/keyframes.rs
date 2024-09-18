@@ -36,7 +36,7 @@ use crate::{animatable, AnimationEvaluationError, AnimationPlayer, Interpolation
 ///         }
 ///     }
 ///
-/// You can then create an [`AnimationClip`] to animate this property like so:
+/// You can then create a [`crate::AnimationClip`] to animate this property like so:
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, Interpolation, VariableCurve};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatablePropertyKeyframes};
@@ -83,7 +83,8 @@ pub trait AnimatableProperty: Reflect + TypePath + 'static {
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property>;
 }
 
-/// Keyframes in a [`VariableCurve`] that animate an [`AnimatableProperty`].
+/// Keyframes in a [`crate::VariableCurve`] that animate an
+/// [`AnimatableProperty`].
 ///
 /// This is the a generic type of [`Keyframes`] that can animate any
 /// [`AnimatableProperty`]. See the documentation for [`AnimatableProperty`] for
@@ -117,8 +118,8 @@ where
     }
 }
 
-/// A low-level trait for use in [`VariableCurve`] that provides fine control
-/// over how animations are evaluated.
+/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// control over how animations are evaluated.
 ///
 /// You can implement this trait when the generic
 /// [`AnimatablePropertyKeyframes`] isn't sufficiently-expressive for your
@@ -187,7 +188,7 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
 
 /// Keyframes for animating [`Transform::translation`].
 ///
-/// An example of a [`AnimationClip`] that animates translation:
+/// An example of a [`crate::AnimationClip`] that animates translation:
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, Interpolation};
 ///     # use bevy_animation::{VariableCurve, prelude::TranslationKeyframes};
@@ -207,7 +208,7 @@ pub struct TranslationKeyframes(pub Vec<Vec3>);
 
 /// Keyframes for animating [`Transform::scale`].
 ///
-/// An example of a [`AnimationClip`] that animates translation:
+/// An example of a [`crate::AnimationClip`] that animates translation:
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, Interpolation};
 ///     # use bevy_animation::{VariableCurve, prelude::ScaleKeyframes};
@@ -227,7 +228,7 @@ pub struct ScaleKeyframes(pub Vec<Vec3>);
 
 /// Keyframes for animating [`Transform::rotation`].
 ///
-/// An example of a [`AnimationClip`] that animates translation:
+/// An example of a [`crate::AnimationClip`] that animates translation:
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, Interpolation};
 ///     # use bevy_animation::{VariableCurve, prelude::RotationKeyframes};

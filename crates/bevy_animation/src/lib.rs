@@ -73,7 +73,8 @@ use crate::{
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
-/// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
+/// Describes how an attribute of a [`Transform`] or
+/// [`bevy_render::mesh::morph::MorphWeights`] should be animated.
 ///
 /// `keyframe_timestamps` and `keyframes` should have the same length.
 #[derive(Debug, TypePath)]
