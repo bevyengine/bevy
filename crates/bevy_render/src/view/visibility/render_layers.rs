@@ -20,6 +20,36 @@ pub type Layer = usize;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
+///
+/// ## Mesh-Light interactions
+///
+/// Layers from `0` to [`RenderLayers::MESH_LIGHT_INTERACTION_MAX`] (inclusive) are special in that besides
+/// mediating light-camera and mesh-camera interactions, they also mediate mesh-light
+/// interaction for forward rendered meshes.
+///
+/// For example, if you have the following setup with two layers:
+///
+/// - On layer 0:
+///   - Light I
+///   - Mesh A
+/// - On layer 1:
+///   - Light II
+///   - Mesh B
+/// - On both layers:
+///   - Mesh C
+///   - Camera
+///
+/// Light I will illuminate Mesh A and C, while Light II will illuminate mesh B and C,
+/// and both meshes will be visible by the camera.
+///
+/// This behavior is useful, for example, when manually crafting a scene where you want
+/// to prevent interior lights from leaking to the exterior without relying on shadows,
+/// or for artistic lighting effects that only affect specific meshes.
+///
+/// Meshes and lights on render layers >= 15 will all interact with each other,
+/// regardless of the specific layer values, and so will deferred rendered meshes.
+/// This is a compromise to limit shader complexity and the amount data sent to the GPU,
+/// while still allowing for some flexibility.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
@@ -57,6 +87,18 @@ impl Default for RenderLayers {
 }
 
 impl RenderLayers {
+    /// The index of the highest layer that still mediates mesh-light interactions.
+    ///
+    /// Meshes and lights on layers `MESH_LIGHT_INTERACTION_MAX + 1` and onwards will all
+    /// interact with each other as if they were on the same layer, as long as they're on
+    /// the same layer as the camera.
+    ///
+    /// Meshes rendered via deferred rendering will always interact with all lights.
+    /// as long as both are on the same layer as the camera.
+    ///
+    /// Shadow casting is not affected by this limit.
+    pub const MESH_LIGHT_INTERACTION_MAX: usize = 14;
+
     /// Create a new `RenderLayers` belonging to the given layer.
     ///
     /// This `const` constructor is limited to `size_of::<usize>()` layers.
@@ -142,6 +184,21 @@ impl RenderLayers {
     /// Get the bitmask representation of the contained layers.
     pub fn bits(&self) -> &[u64] {
         self.0.as_slice()
+    }
+
+    /// Get a compact bitmask representation of the contained layers,
+    /// able to fit in a u16. The first 15 layers are represented normally in the
+    /// lower 15 bits, while the last bit is used as a special flag to indicate
+    /// the presence of any other higher layer. This is so that bitwise operations
+    /// can produce false positives but not false negatives for higher layers
+    pub fn bits_compact_lossy(&self) -> u16 {
+        let has_higher_bits_set =
+            (self.0[0] & (!0b0111_1111_1111_1111) != 0) || self.0[1..].iter().any(|&x| x != 0);
+        if has_higher_bits_set {
+            self.0[0] as u16 | 0b1000_0000_0000_0000
+        } else {
+            self.0[0] as u16
+        }
     }
 
     const fn layer_info(layer: usize) -> (usize, u64) {
@@ -252,6 +309,7 @@ impl std::ops::BitXor for RenderLayers {
 mod rendering_mask_tests {
     use super::{Layer, RenderLayers};
     use smallvec::SmallVec;
+    use std::mem::size_of_val;
 
     #[test]
     fn rendering_mask_sanity() {
@@ -368,5 +426,16 @@ mod rendering_mask_tests {
     fn render_layer_iter_no_overflow() {
         let layers = RenderLayers::from_layers(&[63]);
         layers.iter().count();
+    }
+
+    #[test]
+    fn mesh_light_interaction_max() {
+        let layers = RenderLayers::default();
+        let bits = layers.bits_compact_lossy();
+
+        assert_eq!(
+            RenderLayers::MESH_LIGHT_INTERACTION_MAX + 1, // Extra bit for all higher layers
+            size_of_val(&bits) * 8 - 1
+        );
     }
 }

@@ -410,6 +410,11 @@ fn apply_pbr_lighting(
     // Point lights (direct)
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        if (view_bindings::clusterable_objects.data[light_id].flags >> mesh_view_types::POINT_LIGHT_FLAGS_RENDER_LAYERS_SHIFT_BITS & in.render_layers_bits) == 0u {
+            continue;
+        }
+
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
@@ -444,6 +449,10 @@ fn apply_pbr_lighting(
     // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
+
+        if (view_bindings::clusterable_objects.data[light_id].flags >> mesh_view_types::POINT_LIGHT_FLAGS_RENDER_LAYERS_SHIFT_BITS & in.render_layers_bits) == 0u {
+            continue;
+        }
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
@@ -483,6 +492,10 @@ fn apply_pbr_lighting(
         // note point and spot lights aren't skippable, as the relevant lights are filtered in `assign_lights_to_clusters`
         let light = &view_bindings::lights.directional_lights[i];
         if (*light).skip != 0u {
+            continue;
+        }
+
+        if ((*light).flags >> mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_RENDER_LAYERS_SHIFT_BITS & in.render_layers_bits) == 0u {
             continue;
         }
 

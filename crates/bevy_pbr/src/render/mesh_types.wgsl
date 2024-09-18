@@ -17,9 +17,11 @@ struct Mesh {
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
+    // Only the first 16 bits are actually used, since we want to match
+    // the light render layers bits, and those are packed along with flags
+    render_layers_bits: u32,
     pad_a: u32,
     pad_b: u32,
-    pad_c: u32,
 };
 
 #ifdef SKINNED
