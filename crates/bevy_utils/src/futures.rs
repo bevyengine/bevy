@@ -36,10 +36,10 @@ pub fn check_ready<F: Future + Unpin>(future: &mut F) -> Option<F::Output> {
     }
 }
 
-unsafe fn noop_clone(_data: *const ()) -> RawWaker {
+fn noop_clone(_data: *const ()) -> RawWaker {
     noop_raw_waker()
 }
-unsafe fn noop(_data: *const ()) {}
+fn noop(_data: *const ()) {}
 
 const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
 

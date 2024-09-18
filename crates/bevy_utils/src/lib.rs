@@ -4,11 +4,15 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 /// The utilities prelude.
 ///
@@ -18,7 +22,9 @@ pub mod prelude {
 }
 
 pub mod futures;
+#[cfg(feature = "alloc")]
 mod short_names;
+#[cfg(feature = "alloc")]
 pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
@@ -36,6 +42,9 @@ pub use hashbrown;
 pub use parallel_queue::*;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
+
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 use core::{
     any::TypeId,
@@ -70,6 +79,7 @@ pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
 impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+#[cfg(feature = "alloc")]
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
@@ -430,8 +440,11 @@ mod tests {
         Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn stable_hash_within_same_program_execution() {
+        use alloc::vec::Vec;
+
         let mut map_1 = HashMap::new();
         let mut map_2 = HashMap::new();
         for i in 1..10 {

@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 /// Shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by
@@ -88,43 +90,37 @@ mod name_formatting_tests {
     fn path_separated() {
         assert_eq!(
             get_short_name("bevy_prelude::make_fun_game"),
-            "make_fun_game".to_string()
+            "make_fun_game"
         );
     }
 
     #[test]
     fn tuple_type() {
-        assert_eq!(
-            get_short_name("(String, String)"),
-            "(String, String)".to_string()
-        );
+        assert_eq!(get_short_name("(String, String)"), "(String, String)");
     }
 
     #[test]
     fn array_type() {
-        assert_eq!(get_short_name("[i32; 3]"), "[i32; 3]".to_string());
+        assert_eq!(get_short_name("[i32; 3]"), "[i32; 3]");
     }
 
     #[test]
     fn trivial_generics() {
-        assert_eq!(get_short_name("a<B>"), "a<B>".to_string());
+        assert_eq!(get_short_name("a<B>"), "a<B>");
     }
 
     #[test]
     fn multiple_type_parameters() {
-        assert_eq!(get_short_name("a<B, C>"), "a<B, C>".to_string());
+        assert_eq!(get_short_name("a<B, C>"), "a<B, C>");
     }
 
     #[test]
     fn enums() {
-        assert_eq!(get_short_name("Option::None"), "Option::None".to_string());
-        assert_eq!(
-            get_short_name("Option::Some(2)"),
-            "Option::Some(2)".to_string()
-        );
+        assert_eq!(get_short_name("Option::None"), "Option::None");
+        assert_eq!(get_short_name("Option::Some(2)"), "Option::Some(2)");
         assert_eq!(
             get_short_name("bevy_render::RenderSet::Prepare"),
-            "RenderSet::Prepare".to_string()
+            "RenderSet::Prepare"
         );
     }
 
@@ -132,7 +128,7 @@ mod name_formatting_tests {
     fn generics() {
         assert_eq!(
             get_short_name("bevy_render::camera::camera::extract_cameras<bevy_render::camera::bundle::Camera3d>"),
-            "extract_cameras<Camera3d>".to_string()
+            "extract_cameras<Camera3d>"
         );
     }
 
@@ -140,7 +136,7 @@ mod name_formatting_tests {
     fn nested_generics() {
         assert_eq!(
             get_short_name("bevy::mad_science::do_mad_science<mad_science::Test<mad_science::Tube>, bavy::TypeSystemAbuse>"),
-            "do_mad_science<Test<Tube>, TypeSystemAbuse>".to_string()
+            "do_mad_science<Test<Tube>, TypeSystemAbuse>"
         );
     }
 
@@ -148,15 +144,12 @@ mod name_formatting_tests {
     fn sub_path_after_closing_bracket() {
         assert_eq!(
             get_short_name("bevy_asset::assets::Assets<bevy_scene::dynamic_scene::DynamicScene>::asset_event_system"),
-            "Assets<DynamicScene>::asset_event_system".to_string()
+            "Assets<DynamicScene>::asset_event_system"
         );
         assert_eq!(
             get_short_name("(String, String)::default"),
-            "(String, String)::default".to_string()
+            "(String, String)::default"
         );
-        assert_eq!(
-            get_short_name("[i32; 16]::default"),
-            "[i32; 16]::default".to_string()
-        );
+        assert_eq!(get_short_name("[i32; 16]::default"), "[i32; 16]::default");
     }
 }
