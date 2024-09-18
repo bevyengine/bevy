@@ -80,6 +80,10 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    /// After this label, scroll positions will have been updated for UI entities.
+    ///
+    /// Runs in [`PreUpdate`].
+    Scroll,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// After this label, the ui layout state has been updated.
@@ -158,7 +162,7 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),),
             );
 
         app.add_systems(

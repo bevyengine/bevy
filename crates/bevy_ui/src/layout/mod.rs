@@ -1,5 +1,6 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
+    TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -7,7 +8,7 @@ use bevy_ecs::{
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Local, Query, Res, ResMut, SystemParam},
+    system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -91,10 +92,10 @@ struct CameraLayoutInfo {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
+    mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    cameras: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
+    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -115,8 +116,10 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(
         &mut Node,
         &mut Transform,
+        &Style,
         Option<&BorderRadius>,
         Option<&Outline>,
+        Option<&ScrollPosition>,
     )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
@@ -126,6 +129,8 @@ pub fn ui_layout_system(
         resized_windows,
         camera_layout_info,
     } = &mut *buffers;
+
+    let (cameras, default_ui_camera) = camera_data;
 
     let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
@@ -266,14 +271,17 @@ pub fn ui_layout_system(
             #[cfg(feature = "bevy_text")]
             font_system,
         );
+
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
+                &mut commands,
                 *root,
                 &ui_surface,
                 None,
                 &mut node_transform_query,
                 &just_children_query,
                 inverse_target_scale_factor,
+                Vec2::ZERO,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -283,26 +291,39 @@ pub fn ui_layout_system(
         interned_root_nodes.push(camera.root_nodes);
     }
 
+    // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
+        commands: &mut Commands,
         entity: Entity,
         ui_surface: &UiSurface,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut Node,
             &mut Transform,
+            &Style,
             Option<&BorderRadius>,
             Option<&Outline>,
+            Option<&ScrollPosition>,
         )>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
+        parent_scroll_position: Vec2,
         mut absolute_location: Vec2,
-    ) {
-        if let Ok((mut node, mut transform, maybe_border_radius, maybe_outline)) =
-            node_transform_query.get_mut(entity)
+    ) -> Vec2 {
+        if let Ok((
+            mut node,
+            mut transform,
+            style,
+            maybe_border_radius,
+            maybe_outline,
+            maybe_scroll_position,
+        )) = node_transform_query.get_mut(entity)
         {
+            let overflow = style.overflow;
+
             let Ok(layout) = ui_surface.get_layout(entity) else {
-                return;
+                return Vec2::ZERO;
             };
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
@@ -315,7 +336,8 @@ pub fn ui_layout_system(
                 - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location - parent_scroll_position)
+                    + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -351,20 +373,101 @@ pub fn ui_layout_system(
                 transform.translation = rounded_location.extend(0.);
             }
 
+            let scroll_position: Vec2 = maybe_scroll_position
+                .map(|scroll_pos| {
+                    Vec2::new(
+                        if overflow.x == OverflowAxis::Scroll {
+                            scroll_pos.offset_x
+                        } else {
+                            0.0
+                        },
+                        if overflow.y == OverflowAxis::Scroll {
+                            scroll_pos.offset_y
+                        } else {
+                            0.0
+                        },
+                    )
+                })
+                .unwrap_or_default();
+
+            let mut node_scrollable_bounds =
+                rounded_size + approx_round_layout_coords(layout_location);
+
             if let Ok(children) = children_query.get(entity) {
-                for &child_uinode in children {
-                    update_uinode_geometry_recursive(
-                        child_uinode,
-                        ui_surface,
-                        Some(viewport_size),
-                        node_transform_query,
-                        children_query,
-                        inverse_target_scale_factor,
-                        rounded_size,
-                        absolute_location,
-                    );
+                let mut children_bounding_box = children
+                    .iter()
+                    .map(|child_uinode| {
+                        update_uinode_geometry_recursive(
+                            commands,
+                            *child_uinode,
+                            ui_surface,
+                            Some(viewport_size),
+                            node_transform_query,
+                            children_query,
+                            inverse_target_scale_factor,
+                            rounded_size,
+                            scroll_position,
+                            absolute_location,
+                        )
+                    })
+                    .fold(scroll_position, |acc, size| {
+                        Vec2::new(acc.x.max(size.x), acc.y.max(size.y))
+                    });
+
+                if children_bounding_box != Vec2::ZERO && scroll_position != Vec2::ZERO {
+                    // Cannot scroll further than the edge of the furthest child
+                    let max_possible_offset =
+                        (children_bounding_box - rounded_size).max(Vec2::ZERO);
+                    let clamped_scroll_position =
+                        scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+
+                    // If the size of the bounding box containing all children changed in a way that impacts the scroll position of the parent
+                    // Re-run the layout for all children
+                    if clamped_scroll_position != scroll_position {
+                        commands
+                            .entity(entity)
+                            .insert(ScrollPosition::from(&clamped_scroll_position));
+
+                        children_bounding_box = children
+                            .iter()
+                            .map(|child_uinode| {
+                                update_uinode_geometry_recursive(
+                                    commands,
+                                    *child_uinode,
+                                    ui_surface,
+                                    Some(viewport_size),
+                                    node_transform_query,
+                                    children_query,
+                                    inverse_target_scale_factor,
+                                    rounded_size,
+                                    clamped_scroll_position,
+                                    absolute_location,
+                                )
+                            })
+                            .fold(scroll_position, |acc, size| {
+                                Vec2::new(acc.x.max(size.x), acc.y.max(size.y))
+                            });
+                    }
                 }
+
+                // If overflow is visible, the bounds of the children must be considered.
+                // A parent of this node could scroll the overflowing children.
+                if overflow.x.is_visible() {
+                    node_scrollable_bounds.x =
+                        node_scrollable_bounds.x.max(children_bounding_box.x);
+                }
+
+                if overflow.y.is_visible() {
+                    node_scrollable_bounds.y =
+                        node_scrollable_bounds.y.max(children_bounding_box.y);
+                }
+
+                node_scrollable_bounds
+            } else {
+                node_scrollable_bounds
             }
+        } else {
+            Vec2::ZERO
         }
     }
 }
