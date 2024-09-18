@@ -123,7 +123,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Consider using `as_readonly` or `as_nop` instead which are safe functions.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
