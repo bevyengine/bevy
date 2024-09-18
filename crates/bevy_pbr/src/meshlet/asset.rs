@@ -51,7 +51,7 @@ pub struct MeshletMesh {
     /// The list of meshlets making up this mesh.
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
@@ -127,7 +127,7 @@ impl AssetSaver for MeshletMeshSaver {
         write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
-        write_slice(&asset.bounding_spheres, &mut writer)?;
+        write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
         writer.finish()?;
 
         Ok(())
@@ -167,7 +167,7 @@ impl AssetLoader for MeshletMeshLoader {
         let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
-        let bounding_spheres = read_slice(reader)?;
+        let meshlet_bounding_spheres = read_slice(reader)?;
 
         Ok(MeshletMesh {
             vertex_positions,
@@ -175,7 +175,7 @@ impl AssetLoader for MeshletMeshLoader {
             vertex_uvs,
             indices,
             meshlets,
-            bounding_spheres,
+            meshlet_bounding_spheres,
         })
     }
 

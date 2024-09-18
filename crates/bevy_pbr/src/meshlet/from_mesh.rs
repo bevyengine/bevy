@@ -16,6 +16,7 @@ use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Range};
 
 const GLOBAL_VERTEX_QUANTIZATION_BITS: u32 = 14;
+const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -155,8 +156,9 @@ impl MeshletMesh {
             // Compress each vertex
             for vertex_id in meshlet.vertex_offset..(meshlet.vertex_offset + meshlet.vertex_count) {
                 // Load source vertex data
-                let vertex_id_byte = (vertex_id * 32) as usize;
-                let vertex_data = &vertex_buffer[vertex_id_byte..(vertex_id_byte + 32)];
+                let vertex_id_byte = vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
+                let vertex_data =
+                    &vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
                 let mut position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
                 let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
                 let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
@@ -199,7 +201,7 @@ impl MeshletMesh {
             vertex_uvs: vertex_uvs.into(),
             indices: meshlets.triangles.into(),
             meshlets: bevy_meshlets.into(),
-            bounding_spheres: bounding_spheres.into(),
+            meshlet_bounding_spheres: bounding_spheres.into(),
         })
     }
 }
