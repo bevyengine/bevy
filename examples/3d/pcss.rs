@@ -1,6 +1,6 @@
 //! Demonstrates percentage-closer soft shadows (PCSS).
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
