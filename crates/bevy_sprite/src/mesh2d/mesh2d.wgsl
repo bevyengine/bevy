@@ -10,7 +10,9 @@
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
-#ifdef VERTEX_POSITIONS
+#ifdef VERTEX_POSITIONS_2D
+    @location(0) position: vec2<f32>,
+#else ifdef VERTEX_POSITIONS
     @location(0) position: vec3<f32>,
 #endif
 #ifdef VERTEX_NORMALS
@@ -35,10 +37,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
+#ifdef VERTEX_POSITIONS_2D
+    let vertex_position = vec4<f32>(vertex.position, 0.0, 1.0);
+#else
+    let vertex_position = vec4<f32>(vertex.position, 1.0);
+#endif
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
         world_from_local,
-        vec4<f32>(vertex.position, 1.0)
+        vertex_position
     );
     out.position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
 #endif

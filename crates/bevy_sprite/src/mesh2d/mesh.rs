@@ -556,6 +556,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         if layout.0.contains(Mesh::ATTRIBUTE_POSITION) {
             shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        } else if layout.0.contains(Mesh::ATTRIBUTE_POSITION_2D) {
+            shader_defs.push("VERTEX_POSITIONS".into());
+            shader_defs.push("VERTEX_POSITIONS_2D".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION_2D.at_shader_location(0));
         }
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
