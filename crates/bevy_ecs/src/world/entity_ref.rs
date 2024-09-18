@@ -2388,6 +2388,8 @@ impl<'w, B> EntityRefExcept<'w, B>
 where
     B: Bundle,
 {
+    /// # Safety
+    /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
         Self {
             entity,
@@ -2467,6 +2469,8 @@ impl<'w, B> EntityMutExcept<'w, B>
 where
     B: Bundle,
 {
+    /// # Safety
+    /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
         Self {
             entity,
