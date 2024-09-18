@@ -1,7 +1,5 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

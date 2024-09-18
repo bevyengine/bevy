@@ -1,7 +1,5 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 

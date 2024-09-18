@@ -1,7 +1,5 @@
 //! Demonstrates how to register and access custom attributes on reflected types.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::reflect::{Reflect, TypeInfo, Typed};
 use std::{any::TypeId, ops::RangeInclusive};
 

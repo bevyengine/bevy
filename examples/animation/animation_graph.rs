@@ -3,8 +3,6 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     animation::animate_targets,
     color::palettes::{

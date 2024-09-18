@@ -7,8 +7,6 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{

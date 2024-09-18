@@ -1,7 +1,5 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,

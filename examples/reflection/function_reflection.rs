@@ -6,8 +6,6 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::reflect::{
     func::{
         ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,

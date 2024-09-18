@@ -1,8 +1,5 @@
 //! This example illustrates how to wait for multiple assets to be loaded.
 
-#![expect(clippy::std_instead_of_core)]
-#![expect(clippy::std_instead_of_alloc)]
-
 use std::sync::Arc;
 use std::{
     f32::consts::PI,

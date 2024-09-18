@@ -1,7 +1,5 @@
 //! A simple scene to demonstrate picking events
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {

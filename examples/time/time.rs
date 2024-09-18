@@ -1,7 +1,5 @@
 //! An example that illustrates how Time is handled in ECS.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{app::AppExit, prelude::*};
 
 use std::io::{

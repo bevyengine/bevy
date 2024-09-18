@@ -12,8 +12,6 @@
 //!
 //! For more details on the [`QueryData`] derive macro, see the trait documentation.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     ecs::query::{QueryData, QueryFilter},
     prelude::*,

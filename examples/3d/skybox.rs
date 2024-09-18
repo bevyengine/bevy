@@ -1,7 +1,5 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#![expect(clippy::std_instead_of_core)]
-
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 

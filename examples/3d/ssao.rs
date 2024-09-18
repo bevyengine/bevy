@@ -1,7 +1,5 @@
 //! A scene showcasing screen space ambient occlusion.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     math::ops,

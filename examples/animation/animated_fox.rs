@@ -1,7 +1,5 @@
 //! Plays animations from a skinned glTF.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{

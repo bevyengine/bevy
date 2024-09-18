@@ -1,7 +1,5 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     color::palettes::basic::GRAY,
     core_pipeline::{

@@ -1,7 +1,5 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {

@@ -2,8 +2,6 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::str::FromStr;
 
 use argh::FromArgs;

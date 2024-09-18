@@ -1,8 +1,6 @@
 //! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax mapping.
 //! Press left mouse button to cycle through different views.
 
-#![expect(clippy::std_instead_of_alloc)]
-
 use std::fmt;
 
 use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};

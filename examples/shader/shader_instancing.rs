@@ -1,7 +1,5 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{

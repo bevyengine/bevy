@@ -17,8 +17,6 @@
 //!
 //! [3]: https://threejs.org/examples/webgl_materials_physical_clearcoat.html
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

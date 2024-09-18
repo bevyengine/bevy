@@ -1,7 +1,5 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::prelude::*;
 
 fn main() {

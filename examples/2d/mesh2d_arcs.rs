@@ -2,8 +2,6 @@
 //!
 //! Also draws the bounding boxes and circles of the primitives.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{

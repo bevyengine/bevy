@@ -1,8 +1,5 @@
 //! Demonstrates color grading with an interactive adjustment UI.
 
-#![expect(clippy::std_instead_of_core)]
-#![expect(clippy::std_instead_of_alloc)]
-
 use std::{
     f32::consts::PI,
     fmt::{

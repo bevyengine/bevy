@@ -1,7 +1,5 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::reflect::{
     reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
     DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,

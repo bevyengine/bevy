@@ -1,8 +1,6 @@
 //! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     ecs::{system::SystemState, world::CommandQueue},
     prelude::*,

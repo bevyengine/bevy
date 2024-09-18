@@ -1,7 +1,5 @@
 //! Demonstrates how to propagate events through the hierarchy with observers.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};

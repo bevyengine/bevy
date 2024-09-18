@@ -2,8 +2,6 @@
 //!
 //! Currently, this simply consists of chromatic aberration.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

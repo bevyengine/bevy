@@ -7,9 +7,6 @@
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
 
-#![expect(clippy::std_instead_of_core)]
-#![expect(clippy::std_instead_of_alloc)]
-
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,

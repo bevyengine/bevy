@@ -1,7 +1,5 @@
 //! This example shows how to sample random points from primitive shapes.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

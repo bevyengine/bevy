@@ -11,8 +11,6 @@
 //! Finally, after all that we can access the `LogEvent` event from our systems and use it.
 //! In this example we build a simple log viewer.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::sync::mpsc;
 
 use bevy::{

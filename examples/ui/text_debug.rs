@@ -1,8 +1,5 @@
 //! Shows various text layout options.
 
-#![expect(clippy::std_instead_of_core)]
-#![expect(clippy::std_instead_of_alloc)]
-
 use std::collections::VecDeque;
 use std::time::Duration;
 

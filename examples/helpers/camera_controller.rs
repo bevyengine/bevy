@@ -3,9 +3,6 @@
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
 
-#![expect(clippy::std_instead_of_core)]
-#![expect(clippy::std_instead_of_alloc)]
-
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
     prelude::*,

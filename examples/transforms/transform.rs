@@ -1,7 +1,5 @@
 //! Shows multiple transformations of objects.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{color::palettes::basic::YELLOW, prelude::*};

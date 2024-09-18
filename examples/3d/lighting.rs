@@ -1,8 +1,6 @@
 //! Illustrates different lights of various types and colors, some static, some moving over
 //! a simple scene.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

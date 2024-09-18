@@ -8,8 +8,6 @@
 //!
 //! Also illustrates how to read morph target names in [`detect_morphs`].
 
-#![expect(clippy::std_instead_of_alloc)]
-
 use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
 use std::fmt;

@@ -42,8 +42,6 @@
 //! | arrow up             | Decrease FOV  |
 //! | arrow down           | Increase FOV  |
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{

@@ -3,8 +3,6 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::io::Write;
 use std::{alloc::Layout, mem::size_of, ptr::NonNull};
 

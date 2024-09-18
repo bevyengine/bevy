@@ -1,7 +1,5 @@
 //! Test rendering of many gizmos.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::TAU;
 
 use bevy::{

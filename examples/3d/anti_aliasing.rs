@@ -1,7 +1,5 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{

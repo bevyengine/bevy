@@ -4,8 +4,6 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::mem;
 
 use bevy::{

@@ -1,7 +1,5 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{animation::AnimationTargetId, color::palettes::css::WHITE, prelude::*};
 
 // IDs of the mask groups we define for the running fox model.

@@ -1,7 +1,5 @@
 //! Demonstrates screen space reflections in deferred rendering.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::ops::Range;
 
 use bevy::{

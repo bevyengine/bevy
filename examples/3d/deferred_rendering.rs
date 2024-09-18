@@ -1,7 +1,5 @@
 //! This example compares Forward, Forward + Prepass, and Deferred rendering.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::*;
 
 use bevy::{

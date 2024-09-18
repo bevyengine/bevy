@@ -8,8 +8,6 @@
 //!
 //! See `cargo run --example many_cubes --release -- --help` for more options.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;

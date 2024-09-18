@@ -1,8 +1,6 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;

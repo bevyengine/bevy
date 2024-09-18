@@ -1,7 +1,5 @@
 //! How to use an external thread to run an infinite task and communicate with a channel.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
 use crossbeam_channel::{bounded, Receiver};

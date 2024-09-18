@@ -3,8 +3,6 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
-#![expect(clippy::std_instead_of_alloc)]
-
 use bevy::{
     prelude::*,
     render::{

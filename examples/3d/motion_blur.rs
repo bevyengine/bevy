@@ -1,8 +1,6 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
     math::ops,

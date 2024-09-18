@@ -1,7 +1,5 @@
 //! Implements loader for a Gzip compressed asset.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     asset::{
         io::{Reader, VecReader},

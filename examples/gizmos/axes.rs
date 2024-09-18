@@ -1,7 +1,5 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{prelude::*, render::primitives::Aabb};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

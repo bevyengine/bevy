@@ -1,7 +1,5 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-#![expect(clippy::std_instead_of_core)]
-
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 

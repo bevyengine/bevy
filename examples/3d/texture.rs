@@ -1,7 +1,5 @@
 //! This example shows various ways to configure texture materials in 3D.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::prelude::*;

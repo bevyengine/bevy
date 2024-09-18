@@ -1,7 +1,5 @@
 //! Shows a visualization of gamepad buttons, sticks, and triggers
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::PI;
 
 use bevy::{

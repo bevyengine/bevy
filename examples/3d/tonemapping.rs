@@ -1,7 +1,5 @@
 //! This examples compares Tonemapping options
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     pbr::CascadeShadowConfigBuilder,

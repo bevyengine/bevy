@@ -1,7 +1,5 @@
 //! This example illustrates how to play a single-frequency sound (aka a pitch)
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::prelude::*;
 use std::time::Duration;
 

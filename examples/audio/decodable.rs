@@ -1,7 +1,5 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     audio::{AddAudioSource, AudioPlugin, Source},
     math::ops,

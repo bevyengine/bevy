@@ -5,8 +5,6 @@
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},

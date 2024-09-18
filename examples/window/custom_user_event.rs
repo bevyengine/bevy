@@ -1,7 +1,5 @@
 //! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     prelude::*,
     winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin},

@@ -1,7 +1,5 @@
 //! This example exhibits different available modes of constructing cubic Bezier curves.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     app::{App, Startup, Update},
     color::*,

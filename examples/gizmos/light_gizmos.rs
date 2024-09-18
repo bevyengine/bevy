@@ -1,7 +1,5 @@
 //! This example demonstrates how to visualize lights properties through the gizmo API.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{

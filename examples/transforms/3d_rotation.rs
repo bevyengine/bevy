@@ -1,7 +1,5 @@
 //! Illustrates how to rotate an object around an axis.
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::prelude::*;
 
 use std::f32::consts::TAU;

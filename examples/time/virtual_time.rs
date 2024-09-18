@@ -1,8 +1,6 @@
 //! Shows how `Time<Virtual>` can be used to pause, resume, slow down
 //! and speed up a game.
 
-#![expect(clippy::std_instead_of_core)]
-
 use std::time::Duration;
 
 use bevy::{

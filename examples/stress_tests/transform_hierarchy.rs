@@ -18,8 +18,6 @@
 //! | `humanoids_inactive` | 4000 humanoid rigs. Only 10 are active.                           |
 //! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
-#![expect(clippy::std_instead_of_core)]
-
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,

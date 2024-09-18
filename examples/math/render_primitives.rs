@@ -1,7 +1,6 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
-#![expect(clippy::std_instead_of_core)]
 
 use bevy::{
     input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
