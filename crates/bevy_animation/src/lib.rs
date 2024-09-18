@@ -103,6 +103,55 @@ impl Clone for VariableCurve {
 }
 
 impl VariableCurve {
+    /// Creates a new curve from timestamps, keyframes, and interpolation type.
+    ///
+    /// The two arrays must have the same length.
+    pub fn new<K>(
+        keyframe_timestamps: Vec<f32>,
+        keyframes: impl Into<K>,
+        interpolation: Interpolation,
+    ) -> VariableCurve
+    where
+        K: Keyframes,
+    {
+        VariableCurve {
+            keyframe_timestamps,
+            keyframes: Box::new(keyframes.into()),
+            interpolation,
+        }
+    }
+
+    /// Creates a new curve from timestamps and keyframes with no interpolation.
+    ///
+    /// The two arrays must have the same length.
+    pub fn step<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    where
+        K: Keyframes,
+    {
+        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::Step)
+    }
+
+    /// Creates a new curve from timestamps and keyframes with linear
+    /// interpolation.
+    ///
+    /// The two arrays must have the same length.
+    pub fn linear<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    where
+        K: Keyframes,
+    {
+        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::Linear)
+    }
+
+    /// Creates a new curve from timestamps and keyframes with no interpolation.
+    ///
+    /// The two arrays must have the same length.
+    pub fn cubic_spline<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    where
+        K: Keyframes,
+    {
+        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::CubicSpline)
+    }
+
     /// Find the index of the keyframe at or before the current time.
     ///
     /// Returns [`None`] if the curve is finished or not yet started.
@@ -1266,11 +1315,11 @@ mod tests {
         assert_eq!(keyframe_timestamps.len(), keyframes.len());
         let keyframe_count = keyframes.len();
 
-        let variable_curve = VariableCurve {
+        let variable_curve = VariableCurve::new::<TranslationKeyframes>(
             keyframe_timestamps,
-            keyframes: Box::new(TranslationKeyframes(keyframes)),
+            keyframes,
             interpolation,
-        };
+        );
 
         // f32 doesn't impl Ord so we can't easily sort it
         let mut maybe_last_timestamp = None;

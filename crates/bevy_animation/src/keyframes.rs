@@ -56,13 +56,10 @@ use crate::{animatable, AnimationEvaluationError, AnimationPlayer, Interpolation
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         VariableCurve {
-///             keyframe_timestamps: vec![0.0, 1.0],
-///             keyframes: Box::new(AnimatablePropertyKeyframes::<FontSizeProperty>(vec![
-///                 24.0, 80.0,
-///             ])),
-///             interpolation: Interpolation::Linear,
-///         }
+///         VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
+///             vec![0.0, 1.0],
+///             vec![24.0, 80.0],
+///         ),
 ///     );
 pub trait AnimatableProperty: Reflect + TypePath + 'static {
     /// The type of the component that the property lives on.
@@ -200,11 +197,10 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         VariableCurve {
-///             keyframe_timestamps: vec![0.0, 1.0],
-///             keyframes: Box::new(TranslationKeyframes(vec![Vec3::ZERO, Vec3::ONE])),
-///             interpolation: Interpolation::Linear,
-///         },
+///         VariableCurve::linear::<TranslationKeyframes>(
+///             vec![0.0, 1.0],
+///             vec![Vec3::ZERO, Vec3::ONE],
+///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct TranslationKeyframes(pub Vec<Vec3>);
@@ -221,11 +217,10 @@ pub struct TranslationKeyframes(pub Vec<Vec3>);
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         VariableCurve {
-///             keyframe_timestamps: vec![0.0, 1.0],
-///             keyframes: Box::new(ScaleKeyframes(vec![Vec3::ONE, Vec3::splat(2.0)])),
-///             interpolation: Interpolation::Linear,
-///         },
+///         VariableCurve::linear::<ScaleKeyframes>(
+///             vec![0.0, 1.0],
+///             vec![Vec3::ONE, Vec3::splat(2.0)],
+///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct ScaleKeyframes(pub Vec<Vec3>);
@@ -243,14 +238,13 @@ pub struct ScaleKeyframes(pub Vec<Vec3>);
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         VariableCurve {
-///             keyframe_timestamps: vec![0.0, 1.0],
-///             keyframes: Box::new(RotationKeyframes(vec![
+///         VariableCurve::linear::<RotationKeyframes>(
+///             vec![0.0, 1.0],
+///             vec![
 ///                 Quat::from_rotation_x(FRAC_PI_2),
 ///                 Quat::from_rotation_y(FRAC_PI_2),
-///             ])),
-///             interpolation: Interpolation::Linear,
-///         },
+///             ],
+///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct RotationKeyframes(pub Vec<Quat>);
@@ -268,9 +262,15 @@ pub struct MorphWeightsKeyframes {
     pub weights: Vec<f32>,
 }
 
+impl From<Vec<Vec3>> for TranslationKeyframes {
+    fn from(value: Vec<Vec3>) -> Self {
+        Self(value)
+    }
+}
+
 impl Keyframes for TranslationKeyframes {
     fn clone_value(&self) -> Box<dyn Keyframes> {
-        Box::new((*self).clone())
+        Box::new(self.clone())
     }
 
     fn apply_single_keyframe<'a>(
@@ -310,9 +310,15 @@ impl Keyframes for TranslationKeyframes {
     }
 }
 
+impl From<Vec<Vec3>> for ScaleKeyframes {
+    fn from(value: Vec<Vec3>) -> Self {
+        Self(value)
+    }
+}
+
 impl Keyframes for ScaleKeyframes {
     fn clone_value(&self) -> Box<dyn Keyframes> {
-        Box::new((*self).clone())
+        Box::new(self.clone())
     }
 
     fn apply_single_keyframe<'a>(
@@ -352,9 +358,15 @@ impl Keyframes for ScaleKeyframes {
     }
 }
 
+impl From<Vec<Quat>> for RotationKeyframes {
+    fn from(value: Vec<Quat>) -> Self {
+        Self(value)
+    }
+}
+
 impl Keyframes for RotationKeyframes {
     fn clone_value(&self) -> Box<dyn Keyframes> {
-        Box::new((*self).clone())
+        Box::new(self.clone())
     }
 
     fn apply_single_keyframe<'a>(
@@ -391,6 +403,15 @@ impl Keyframes for RotationKeyframes {
             weight,
             duration,
         )
+    }
+}
+
+impl<P> From<Vec<P::Property>> for AnimatablePropertyKeyframes<P>
+where
+    P: AnimatableProperty,
+{
+    fn from(value: Vec<P::Property>) -> Self {
+        Self(value)
     }
 }
 
@@ -481,7 +502,7 @@ struct GetMorphWeightKeyframe<'k> {
 
 impl Keyframes for MorphWeightsKeyframes {
     fn clone_value(&self) -> Box<dyn Keyframes> {
-        Box::new((*self).clone())
+        Box::new(self.clone())
     }
 
     fn apply_single_keyframe<'a>(

@@ -78,13 +78,10 @@ impl AnimationInfo {
         // Create a curve that animates font size.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve {
-                keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
-                keyframes: Box::new(AnimatablePropertyKeyframes::<FontSizeProperty>(vec![
-                    24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0,
-                ])),
-                interpolation: Interpolation::Linear,
-            },
+            VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
+                vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+                vec![24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0],
+            ),
         );
 
         // Create a curve that animates font color.
