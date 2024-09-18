@@ -155,7 +155,7 @@ fn main() {
         // It's good practice, though, to try and name your functions whenever possible.
         // This makes it easier to debug and is also required for function registration.
         // We can either give it a custom name or use the function's type name as
-        // derived from `std::any::type_name_of_val`.
+        // derived from `core::any::type_name_of_val`.
         FunctionInfo::named(core::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
             // It's a good idea to also ensure that the name is unique,

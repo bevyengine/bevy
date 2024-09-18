@@ -17,8 +17,8 @@ fn flip_coin() -> bool {
 }
 fn iter_frag_empty(c: &mut Criterion) {
     let mut group = c.benchmark_group("iter_fragmented(4096)_empty");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("foreach_table", |b| {
         let mut world = World::new();

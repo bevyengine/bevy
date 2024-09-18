@@ -134,7 +134,7 @@ impl TypePathAttrs {
 /// * Traits must have a valid `Reflect{}` struct in scope. For example, `Default`
 ///   needs `bevy_reflect::prelude::ReflectDefault` in scope.
 /// * Traits must be single path identifiers. This means you _must_ use `Default`
-///   instead of `std::default::Default` (otherwise it will try to register `Reflectstd`!)
+///   instead of `core::default::Default` (otherwise it will try to register `Reflectstd`!)
 /// * A custom function may be supplied in place of an actual implementation
 ///   for the special traits (but still follows the same single-path identifier
 ///   rules as normal).

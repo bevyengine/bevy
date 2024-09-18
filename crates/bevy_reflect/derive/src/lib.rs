@@ -427,7 +427,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
+/// Derives the `TypePath` trait, providing a stable alternative to [`core::any::type_name`].
 ///
 /// # Container Attributes
 ///
@@ -597,7 +597,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
 /// This also means keeping your wrapper definitions up-to-date with the remote types.
 ///
-/// [transmuted]: std::mem::transmute
+/// [transmuted]: core::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

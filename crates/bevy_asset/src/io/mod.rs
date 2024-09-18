@@ -698,7 +698,7 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }

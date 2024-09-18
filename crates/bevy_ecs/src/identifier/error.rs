@@ -26,4 +26,4 @@ impl fmt::Display for IdentifierError {
     }
 }
 
-impl std::error::Error for IdentifierError {}
+impl core::error::Error for IdentifierError {}

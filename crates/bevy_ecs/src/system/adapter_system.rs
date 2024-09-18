@@ -21,10 +21,10 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
 /// impl<S> Adapt<S> for NotMarker
 /// where
 ///     S: System,
-///     S::Out: std::ops::Not,
+///     S::Out: core::ops::Not,
 /// {
 ///     type In = S::In;
-///     type Out = <S::Out as std::ops::Not>::Output;
+///     type Out = <S::Out as core::ops::Not>::Output;
 ///
 ///     fn adapt(
 ///         &mut self,

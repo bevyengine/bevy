@@ -329,7 +329,7 @@
 //! registry.register::<MyStruct>();
 //! registry.register_type_data::<MyStruct, ReflectDefault>();
 //!
-//! let registration = registry.get(std::any::TypeId::of::<MyStruct>()).unwrap();
+//! let registration = registry.get(core::any::TypeId::of::<MyStruct>()).unwrap();
 //! let reflect_default = registration.data::<ReflectDefault>().unwrap();
 //!
 //! let new_value: Box<dyn Reflect> = reflect_default.default();

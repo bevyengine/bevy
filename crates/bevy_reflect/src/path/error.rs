@@ -126,4 +126,4 @@ impl fmt::Display for AccessError<'_> {
         }
     }
 }
-impl std::error::Error for AccessError<'_> {}
+impl core::error::Error for AccessError<'_> {}

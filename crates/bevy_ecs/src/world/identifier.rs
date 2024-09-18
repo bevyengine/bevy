@@ -137,7 +137,7 @@ mod tests {
     // #[should_panic]
     // fn panic_on_overflow() {
     //     MAX_WORLD_ID.store(usize::MAX - 50, Ordering::Relaxed);
-    //     std::iter::repeat_with(WorldId::new)
+    //     core::iter::repeat_with(WorldId::new)
     //         .take(500)
     //         .for_each(|_| ());
     // }

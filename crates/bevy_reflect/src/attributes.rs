@@ -153,7 +153,7 @@ macro_rules! impl_custom_attribute_methods {
         }
 
         #[allow(rustdoc::redundant_explicit_links)]
-        /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
+        /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
         pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {
@@ -166,7 +166,7 @@ macro_rules! impl_custom_attribute_methods {
             $self.custom_attributes().contains::<T>()
         }
 
-        #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::std::any::TypeId).")]
+        #[doc = concat!("Returns `true` if this ", $term, " has a custom attribute with the specified [`TypeId`](::core::any::TypeId).")]
         #[doc = "\n\nThis is the dynamic equivalent of [`has_attribute`](Self::has_attribute)"]
         pub fn has_attribute_by_id(&$self, id: ::core::any::TypeId) -> bool {
             $self.custom_attributes().contains_by_id(id)

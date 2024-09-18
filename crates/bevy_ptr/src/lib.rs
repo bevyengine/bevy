@@ -55,7 +55,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// let x = 0u32;
     /// let ptr = ConstNonNull::<u32>::new(&x as *const _).expect("ptr is null!");
     ///
-    /// if let Some(ptr) = ConstNonNull::<u32>::new(std::ptr::null()) {
+    /// if let Some(ptr) = ConstNonNull::<u32>::new(core::ptr::null()) {
     ///     unreachable!();
     /// }
     /// ```
@@ -84,7 +84,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// use bevy_ptr::ConstNonNull;
     ///
     /// // NEVER DO THAT!!! This is undefined behavior. ⚠️
-    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(std::ptr::null()) };
+    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(core::ptr::null()) };
     /// ```
     pub const unsafe fn new_unchecked(ptr: *const T) -> Self {
         // SAFETY: This function's safety invariants are identical to `NonNull::new_unchecked`

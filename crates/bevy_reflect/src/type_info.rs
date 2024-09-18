@@ -475,7 +475,7 @@ macro_rules! impl_type_methods {
 
         /// The [`TypeId`] of this type.
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
             self.$field.id()
         }
@@ -505,7 +505,7 @@ macro_rules! impl_type_methods {
         /// and does not verify they share the same [`TypePath`]
         /// (though it implies they do).
         ///
-        /// [`TypeId`]: std::any::TypeId
+        /// [`TypeId`]: core::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn is<T: ::core::any::Any>(&self) -> bool {
             self.$field.is::<T>()

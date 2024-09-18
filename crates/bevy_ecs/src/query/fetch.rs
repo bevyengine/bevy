@@ -210,7 +210,7 @@ use smallvec::SmallVec;
 /// }
 ///
 /// // This function statically checks that `T` implements `Debug`.
-/// fn assert_debug<T: std::fmt::Debug>() {}
+/// fn assert_debug<T: core::fmt::Debug>() {}
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();

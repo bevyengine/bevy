@@ -39,7 +39,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// # Example
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use std::sync::atomic::{AtomicUsize, Ordering};
+    /// # use core::sync::atomic::{AtomicUsize, Ordering};
     ///
     /// #[derive(Event)]
     /// struct MyEvent {

@@ -92,9 +92,9 @@ use quote::format_ident;
 /// assert_eq!("Hello", *foo);
 /// ```
 ///
-/// [`Deref`]: std::ops::Deref
+/// [`Deref`]: core::ops::Deref
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
-/// [`DerefMut`]: std::ops::DerefMut
+/// [`DerefMut`]: core::ops::DerefMut
 /// [derive]: crate::derive_deref_mut
 #[proc_macro_derive(Deref, attributes(deref))]
 pub fn derive_deref(input: TokenStream) -> TokenStream {
@@ -180,9 +180,9 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// assert_eq!("Hello World!", *foo);
 /// ```
 ///
-/// [`DerefMut`]: std::ops::DerefMut
+/// [`DerefMut`]: core::ops::DerefMut
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
-/// [`Deref`]: std::ops::Deref
+/// [`Deref`]: core::ops::Deref
 /// [derive]: crate::derive_deref
 #[proc_macro_derive(DerefMut, attributes(deref))]
 pub fn derive_deref_mut(input: TokenStream) -> TokenStream {

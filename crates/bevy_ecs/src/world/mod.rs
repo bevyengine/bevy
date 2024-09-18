@@ -2266,7 +2266,7 @@ impl World {
     /// // to react to changes made in the previous loop iteration.
     /// fn update_loop(
     ///     world: &mut World,
-    ///     mut update_fn: impl FnMut(&mut World) -> std::ops::ControlFlow<()>,
+    ///     mut update_fn: impl FnMut(&mut World) -> core::ops::ControlFlow<()>,
     /// ) {
     ///     let mut last_change_tick = world.last_change_tick();
     ///
@@ -2325,12 +2325,12 @@ impl World {
     /// #             assert_eq!(num_updates, 5);
     /// #             assert!(!c.is_added());
     /// #             c.0 = 4;
-    /// #             return std::ops::ControlFlow::Break(());
+    /// #             return core::ops::ControlFlow::Break(());
     /// #         }
     /// #         _ => unreachable!(),
     /// #     }
     /// #     num_updates += 1;
-    /// #     std::ops::ControlFlow::Continue(())
+    /// #     core::ops::ControlFlow::Continue(())
     /// # });
     /// # assert_eq!(num_updates, 5);
     /// # assert_eq!(world.resource::<Count>().0, 4);
@@ -2500,7 +2500,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, core::mem::::<A>() + core::mem::::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s

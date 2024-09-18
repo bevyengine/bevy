@@ -413,17 +413,17 @@ where
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait Reflect: PartialReflect + DynamicTyped + Any {
-    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    /// Returns the value as a [`&dyn Any`][std::any::Any].
+    /// Returns the value as a [`&dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any(&self) -> &dyn Any;
 
-    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    /// Returns the value as a [`&mut dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;

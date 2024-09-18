@@ -129,7 +129,7 @@ macro_rules! render_resource_wrapper {
             }
         }
 
-        impl std::ops::Deref for $wrapper_type {
+        impl core::ops::Deref for $wrapper_type {
             type Target = $wgpu_type;
 
             fn deref(&self) -> &Self::Target {

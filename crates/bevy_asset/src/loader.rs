@@ -27,7 +27,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
-    /// The type of [error](`std::error::Error`) which could be encountered by this loader.
+    /// The type of [error](`core::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(

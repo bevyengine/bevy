@@ -22,8 +22,8 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 pub fn event_propagation(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("event_propagation");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("single_event_type", |bencher| {
         let mut world = World::new();
