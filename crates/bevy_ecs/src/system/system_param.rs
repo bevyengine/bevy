@@ -1923,7 +1923,7 @@ pub struct DynSystemParam<'w, 's> {
 }
 
 impl<'w, 's> DynSystemParam<'w, 's> {
-    /// # SAFETY
+    /// # Safety
     /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam`.
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_state`](SystemParam::init_state) for the inner system param.
@@ -1998,7 +1998,7 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     }
 }
 
-/// # SAFETY
+/// # Safety
 /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam`.
 /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
 ///   in [`init_state`](SystemParam::init_state) for the inner system param.
