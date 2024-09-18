@@ -80,7 +80,8 @@ where
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world)
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world) }
     }
 
     #[inline]

@@ -193,7 +193,8 @@ where
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world)
+        // SAFETY: Delegated to existing `SystemParam` implementations
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
     }
 
     #[inline]

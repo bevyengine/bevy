@@ -614,8 +614,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        world
-            .storages()
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
             .resources
             .get(component_id)
             .map(ResourceData::is_present)
@@ -734,8 +734,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        world
-            .storages()
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
             .resources
             .get(component_id)
             .map(ResourceData::is_present)
@@ -1327,8 +1327,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        world
-            .storages()
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
             .map(ResourceData::is_present)
@@ -1444,8 +1444,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        world
-            .storages()
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
             .map(ResourceData::is_present)
