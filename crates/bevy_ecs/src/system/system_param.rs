@@ -218,15 +218,7 @@ pub unsafe trait SystemParam: Sized {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the data can be acquired by [`get_param`](SystemParam::get_param).
-    /// If validation fails, resource acquisition will fail
-    /// and [`SystemParam::get_param`] won't be called.
     /// For systems this means they won't be executed.
-    ///
-    /// # Safety
-    ///
-    /// - The passed [`World`] must have access to any world data
-    ///   registered in [`init_state`](SystemParam::init_state).
-    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     fn validate_param(state: &Self::State, system_meta: &SystemMeta, world: &World) -> bool;
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
