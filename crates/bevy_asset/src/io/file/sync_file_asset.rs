@@ -6,10 +6,7 @@ use crate::io::{
     Reader, Writer,
 };
 
-use core::{
-    pin::Pin,
-    task::Poll,
-};
+use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
     io::{Read, Seek, Write},
