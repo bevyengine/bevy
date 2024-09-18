@@ -1,6 +1,7 @@
 //! This example demonstrates how each of Bevy's math primitives look like in 2D and 3D with meshes
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
+#![expect(clippy::std_instead_of_core)]
 
 use bevy::{
     input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
@@ -90,8 +91,8 @@ enum PrimitiveSelected {
     CircularSegment,
 }
 
-impl core::fmt::Display for PrimitiveSelected {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl std::fmt::Display for PrimitiveSelected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             PrimitiveSelected::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
             PrimitiveSelected::CircleAndSphere => String::from("Circle/Sphere"),
@@ -277,20 +278,20 @@ const TETRAHEDRON: Tetrahedron = Tetrahedron {
 
 const ARC: Arc2d = Arc2d {
     radius: BIG_2D,
-    half_angle: core::f32::consts::FRAC_PI_4,
+    half_angle: std::f32::consts::FRAC_PI_4,
 };
 
 const CIRCULAR_SECTOR: CircularSector = CircularSector {
     arc: Arc2d {
         radius: BIG_2D,
-        half_angle: core::f32::consts::FRAC_PI_4,
+        half_angle: std::f32::consts::FRAC_PI_4,
     },
 };
 
 const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     arc: Arc2d {
         radius: BIG_2D,
-        half_angle: core::f32::consts::FRAC_PI_4,
+        half_angle: std::f32::consts::FRAC_PI_4,
     },
 };
 

@@ -1,6 +1,8 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},

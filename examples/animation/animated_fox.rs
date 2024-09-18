@@ -1,6 +1,8 @@
 //! Plays animations from a skinned glTF.
 
-use core::{f32::consts::PI, time::Duration};
+#![expect(clippy::std_instead_of_core)]
+
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     animation::{animate_targets, RepeatAnimation},

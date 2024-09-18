@@ -8,9 +8,11 @@
 //!
 //! Also illustrates how to read morph target names in [`detect_morphs`].
 
+#![expect(clippy::std_instead_of_alloc)]
+
 use crate::scene_viewer_plugin::SceneHandle;
 use bevy::prelude::*;
-use core::fmt;
+use std::fmt;
 
 const WEIGHT_PER_SECOND: f32 = 0.8;
 const ALL_MODIFIERS: &[KeyCode] = &[KeyCode::ShiftLeft, KeyCode::ControlLeft, KeyCode::AltLeft];

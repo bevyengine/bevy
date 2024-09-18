@@ -1,6 +1,8 @@
 //! Shows how to render UI to a texture. Useful for displaying UI in 3D space.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::GOLD,

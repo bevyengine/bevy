@@ -11,6 +11,8 @@
 //! Finally, after all that we can access the `LogEvent` event from our systems and use it.
 //! In this example we build a simple log viewer.
 
+#![expect(clippy::std_instead_of_core)]
+
 use std::sync::mpsc;
 
 use bevy::{
@@ -73,7 +75,7 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
 /// A [`Visit`](tracing::field::Visit)or that records log messages that are transferred to [`CaptureLayer`].
 struct CaptureLayerVisitor<'a>(&'a mut Option<String>);
 impl tracing::field::Visit for CaptureLayerVisitor<'_> {
-    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn core::fmt::Debug) {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         // This if statement filters out unneeded events sometimes show up
         if field.name() == "message" {
             *self.0 = Some(format!("{value:?}"));

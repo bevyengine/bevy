@@ -1,5 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{animation::AnimationTargetId, color::palettes::css::WHITE, prelude::*};
 
 // IDs of the mask groups we define for the running fox model.
@@ -129,7 +131,7 @@ fn setup_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Circle::new(7.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-core::f32::consts::FRAC_PI_2)),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
 }

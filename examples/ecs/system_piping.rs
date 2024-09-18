@@ -1,8 +1,10 @@
 //! Illustrates how to make a single system from multiple functions running in sequence,
 //! passing the output of the first into the input of the next.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::prelude::*;
-use core::num::ParseIntError;
+use std::num::ParseIntError;
 
 use bevy::{
     log::LogPlugin,

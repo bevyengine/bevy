@@ -1,5 +1,7 @@
 //! Meshlet rendering for dense high-poly scenes (experimental).
 
+#![expect(clippy::std_instead_of_core)]
+
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
 #[path = "../helpers/camera_controller.rs"]
@@ -14,7 +16,7 @@ use bevy::{
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use core::f32::consts::PI;
+use std::f32::consts::PI;
 use std::{path::Path, process::ExitCode};
 
 const ASSET_URL: &str =

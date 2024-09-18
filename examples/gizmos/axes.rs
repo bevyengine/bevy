@@ -1,9 +1,11 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{prelude::*, render::primitives::Aabb};
-use core::f32::consts::PI;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
+use std::f32::consts::PI;
 
 const TRANSITION_DURATION: f32 = 2.0;
 

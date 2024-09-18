@@ -1,5 +1,7 @@
 //! This example illustrates how to define custom `AssetLoader`s, `AssetTransformer`s, and `AssetSaver`s, how to configure them, and how to register asset processors.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     asset::{
         embedded_asset,
@@ -12,8 +14,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
-use core::convert::Infallible;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use thiserror::Error;
 
 fn main() {

@@ -17,7 +17,9 @@
 //!
 //! [3]: https://threejs.org/examples/webgl_materials_physical_clearcoat.html
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},

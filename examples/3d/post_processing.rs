@@ -2,7 +2,9 @@
 //!
 //! Currently, this simply consists of chromatic aberration.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::post_process::ChromaticAberration, pbr::CascadeShadowConfigBuilder, prelude::*,

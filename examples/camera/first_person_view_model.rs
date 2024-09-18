@@ -42,7 +42,9 @@
 //! | arrow up             | Decrease FOV  |
 //! | arrow down           | Increase FOV  |
 
-use core::f32::consts::FRAC_PI_2;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster,

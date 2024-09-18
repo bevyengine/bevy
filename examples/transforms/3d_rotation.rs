@@ -1,8 +1,10 @@
 //! Illustrates how to rotate an object around an axis.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::prelude::*;
 
-use core::f32::consts::TAU;
+use std::f32::consts::TAU;
 
 // Define a component to designate a rotation speed to an entity.
 #[derive(Component)]

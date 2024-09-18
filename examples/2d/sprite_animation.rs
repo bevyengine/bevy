@@ -2,7 +2,9 @@
 //!
 //! See `sprite_sheet.rs` for an example where the sprite animation loops indefinitely.
 
-use core::time::Duration;
+#![expect(clippy::std_instead_of_core)]
+
+use std::time::Duration;
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 

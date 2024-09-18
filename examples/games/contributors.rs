@@ -1,8 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
-use core::hash::{Hash, Hasher};
 use rand::{prelude::SliceRandom, Rng};
+use std::hash::{Hash, Hasher};
 use std::{
     env::VarError,
     hash::DefaultHasher,

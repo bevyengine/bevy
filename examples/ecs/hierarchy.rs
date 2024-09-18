@@ -1,6 +1,8 @@
 //! Creates a hierarchy of parents and children entities.
 
-use core::f32::consts::*;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::*;
 
 use bevy::{color::palettes::css::*, prelude::*};
 

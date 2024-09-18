@@ -1,5 +1,7 @@
 //! This example exhibits different available modes of constructing cubic Bezier curves.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     app::{App, Startup, Update},
     color::*,
@@ -116,8 +118,8 @@ enum SplineMode {
     B,
 }
 
-impl core::fmt::Display for SplineMode {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl std::fmt::Display for SplineMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SplineMode::Hermite => f.write_str("Hermite"),
             SplineMode::Cardinal => f.write_str("Cardinal"),
@@ -135,8 +137,8 @@ enum CyclingMode {
     Cyclic,
 }
 
-impl core::fmt::Display for CyclingMode {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl std::fmt::Display for CyclingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CyclingMode::NotCyclic => f.write_str("Not Cyclic"),
             CyclingMode::Cyclic => f.write_str("Cyclic"),

@@ -3,7 +3,9 @@
 //! This example sets up many animated sprites in different sizes, rotations, and scales in the world.
 //! It also moves the camera over them to see how well frustum culling works.
 
-use core::time::Duration;
+#![expect(clippy::std_instead_of_core)]
+
+use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

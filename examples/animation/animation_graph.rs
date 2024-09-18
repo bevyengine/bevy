@@ -3,6 +3,8 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     animation::animate_targets,
     color::palettes::{
@@ -244,7 +246,7 @@ fn setup_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Circle::new(7.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-core::f32::consts::FRAC_PI_2)),
+        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
 }

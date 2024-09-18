@@ -24,13 +24,15 @@
 //! Now that you know a little bit about ECS, lets look at some Bevy code!
 //! We will now make a simple "game" to illustrate what Bevy's ECS looks like in practice.
 
+#![expect(clippy::std_instead_of_alloc)]
+
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
     utils::Duration,
 };
-use core::fmt;
 use rand::random;
+use std::fmt;
 
 // COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
 //

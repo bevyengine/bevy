@@ -6,6 +6,8 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::reflect::{
     func::{
         ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,
@@ -155,8 +157,8 @@ fn main() {
         // It's good practice, though, to try and name your functions whenever possible.
         // This makes it easier to debug and is also required for function registration.
         // We can either give it a custom name or use the function's type name as
-        // derived from `core::any::type_name_of_val`.
-        FunctionInfo::named(core::any::type_name_of_val(&get_or_insert))
+        // derived from `std::any::type_name_of_val`.
+        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
             // It's a good idea to also ensure that the name is unique,
             // such as by using its type name or by prefixing it with your crate name.

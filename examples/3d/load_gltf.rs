@@ -1,10 +1,12 @@
 //! Loads and renders a glTF file as a scene.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
-use core::f32::consts::*;
+use std::f32::consts::*;
 
 fn main() {
     App::new()

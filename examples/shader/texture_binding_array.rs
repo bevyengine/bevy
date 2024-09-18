@@ -1,6 +1,8 @@
 //! A shader that binds several textures onto one
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
@@ -16,7 +18,7 @@ use bevy::{
         RenderApp,
     },
 };
-use core::num::NonZero;
+use std::num::NonZero;
 use std::process::exit;
 
 /// This example uses a shader source file from the assets subdirectory

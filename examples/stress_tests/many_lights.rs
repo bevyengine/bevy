@@ -1,7 +1,9 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
-use core::f64::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f64::consts::PI;
 
 use bevy::{
     color::palettes::css::DEEP_PINK,

@@ -6,9 +6,11 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{core_pipeline::Skybox, prelude::*};
 
-use core::{
+use std::{
     f32::consts::PI,
     fmt::{Display, Formatter, Result as FmtResult},
 };

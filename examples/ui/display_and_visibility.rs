@@ -1,5 +1,7 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,
@@ -29,14 +31,14 @@ fn main() {
 #[derive(Component)]
 struct Target<T> {
     id: Entity,
-    phantom: core::marker::PhantomData<T>,
+    phantom: std::marker::PhantomData<T>,
 }
 
 impl<T> Target<T> {
     fn new(id: Entity) -> Self {
         Self {
             id,
-            phantom: core::marker::PhantomData,
+            phantom: std::marker::PhantomData,
         }
     }
 }
@@ -404,7 +406,7 @@ fn spawn_right_panel(
 
 fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextStyle, target: Entity)
 where
-    T: Default + core::fmt::Debug + Send + Sync + 'static,
+    T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
 {
     parent

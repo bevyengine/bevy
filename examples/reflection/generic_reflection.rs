@@ -1,7 +1,9 @@
 //! Demonstrates how reflection is used with generic Rust types.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::prelude::*;
-use core::any::TypeId;
+use std::any::TypeId;
 
 fn main() {
     App::new()

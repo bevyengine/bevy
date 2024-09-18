@@ -1,6 +1,8 @@
 //! Illustrates how to scale an object in each direction.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::prelude::*;
 

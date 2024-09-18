@@ -1,6 +1,8 @@
 //! Demonstrates percentage-closer soft shadows (PCSS).
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{

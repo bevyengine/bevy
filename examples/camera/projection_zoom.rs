@@ -1,6 +1,8 @@
 //! Shows how to zoom orthographic and perspective projection cameras.
 
-use core::{f32::consts::PI, ops::Range};
+#![expect(clippy::std_instead_of_core)]
+
+use std::{f32::consts::PI, ops::Range};
 
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 

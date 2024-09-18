@@ -1,9 +1,10 @@
 //! Shows various text layout options.
 
-extern crate alloc;
+#![expect(clippy::std_instead_of_core)]
+#![expect(clippy::std_instead_of_alloc)]
 
-use alloc::collections::VecDeque;
-use core::time::Duration;
+use std::collections::VecDeque;
+use std::time::Duration;
 
 use bevy::{
     color::palettes::css::*,

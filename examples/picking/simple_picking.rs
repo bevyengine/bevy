@@ -1,5 +1,7 @@
 //! A simple scene to demonstrate picking events
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
@@ -63,7 +65,7 @@ fn setup(
                 mesh: meshes.add(Circle::new(4.0)),
                 material: materials.add(Color::WHITE),
                 transform: Transform::from_rotation(Quat::from_rotation_x(
-                    -core::f32::consts::FRAC_PI_2,
+                    -std::f32::consts::FRAC_PI_2,
                 )),
                 ..default()
             },

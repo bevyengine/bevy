@@ -1,4 +1,7 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
+
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     audio::{AddAudioSource, AudioPlugin, Source},
     math::ops,
@@ -33,7 +36,7 @@ impl SineDecoder {
         SineDecoder {
             current_progress: 0.,
             progress_per_frame: frequency / sample_rate as f32,
-            period: core::f32::consts::PI * 2.,
+            period: std::f32::consts::PI * 2.,
             sample_rate,
         }
     }

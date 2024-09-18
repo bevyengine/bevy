@@ -1,5 +1,7 @@
 //! Implements loader for a Gzip compressed asset.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     asset::{
         io::{Reader, VecReader},
@@ -8,9 +10,9 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
 };
-use core::marker::PhantomData;
 use flate2::read::GzDecoder;
 use std::io::prelude::*;
+use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]

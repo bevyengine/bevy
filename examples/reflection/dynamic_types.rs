@@ -1,5 +1,7 @@
 //! This example demonstrates the use of dynamic types in Bevy's reflection system.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::reflect::{
     reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
     DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
@@ -69,7 +71,7 @@ fn main() {
     let input = "(id: 123)";
     let mut registry = TypeRegistry::default();
     registry.register::<Player>();
-    let registration = registry.get(core::any::TypeId::of::<Player>()).unwrap();
+    let registration = registry.get(std::any::TypeId::of::<Player>()).unwrap();
     let deserialized = TypedReflectDeserializer::new(registration, &registry)
         .deserialize(&mut ron::Deserializer::from_str(input).unwrap())
         .unwrap();

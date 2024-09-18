@@ -18,7 +18,9 @@
 //! | `D`                | Toggle Depth Prepass                                 |
 //! | `T`                | Toggle TAA                                           |
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::css::*,

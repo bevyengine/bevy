@@ -1,11 +1,13 @@
 //! An example that illustrates how Time is handled in ECS.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{app::AppExit, prelude::*};
 
-use core::time::Duration;
 use std::io::{
     BufRead, {self},
 };
+use std::time::Duration;
 
 fn banner() {
     println!("This example is meant to intuitively demonstrate how Time works in Bevy.");

@@ -1,5 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {
@@ -92,7 +94,7 @@ fn setup(
             ..default()
         },
         transform: Transform {
-            rotation: Quat::from_rotation_z(core::f32::consts::PI / 2.0),
+            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
         ..default()

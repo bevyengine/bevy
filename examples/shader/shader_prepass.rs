@@ -2,6 +2,8 @@
 //! It will optionally generate various view textures. Currently it supports depth, normal, and motion vector textures.
 //! The textures are not generated for any material using alpha blending.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
     pbr::{NotShadowCaster, PbrPlugin},
@@ -189,7 +191,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * core::f32::consts::PI * 2.0;
+        let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }

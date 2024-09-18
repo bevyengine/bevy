@@ -1,6 +1,8 @@
 //! Shows how to disable/re-enable a Diagnostic during runtime
 
-use core::time::Duration;
+#![expect(clippy::std_instead_of_core)]
+
+use std::time::Duration;
 
 use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

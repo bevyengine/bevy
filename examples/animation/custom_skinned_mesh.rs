@@ -1,7 +1,9 @@
 //! Skinned mesh example with mesh and joints data defined in code.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
-use core::f32::consts::*;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::*;
 
 use bevy::{
     math::ops,

@@ -1,9 +1,10 @@
 //! This example illustrates how to wait for multiple assets to be loaded.
 
-extern crate alloc;
+#![expect(clippy::std_instead_of_core)]
+#![expect(clippy::std_instead_of_alloc)]
 
-use alloc::sync::Arc;
-use core::{
+use std::sync::Arc;
+use std::{
     f32::consts::PI,
     ops::Drop,
     sync::atomic::{AtomicBool, AtomicU32, Ordering},
@@ -142,7 +143,7 @@ impl Drop for AssetBarrierGuard {
 
 fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
-    commands.insert_resource(OneHundredThings(core::array::from_fn(|i| match i % 5 {
+    commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
         0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
         1 => asset_server.load_acquire("models/AlienCake/alien.glb", guard.clone()),
         2 => asset_server.load_acquire("models/AlienCake/cakeBirthday.glb", guard.clone()),

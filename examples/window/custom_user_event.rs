@@ -1,10 +1,12 @@
 //! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     prelude::*,
     winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin},
 };
-use core::fmt::Formatter;
+use std::fmt::Formatter;
 
 #[derive(Default, Debug, Event)]
 enum CustomEvent {
@@ -13,8 +15,8 @@ enum CustomEvent {
     Key(char),
 }
 
-impl core::fmt::Display for CustomEvent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+impl std::fmt::Display for CustomEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::WakeUp => write!(f, "Wake up"),
             Self::Key(ch) => write!(f, "Key: {ch}"),

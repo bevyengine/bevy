@@ -1,6 +1,8 @@
 //! Demonstrates how to propagate events through the hierarchy with observers.
 
-use core::time::Duration;
+#![expect(clippy::std_instead_of_core)]
+
+use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use rand::{seq::IteratorRandom, thread_rng, Rng};

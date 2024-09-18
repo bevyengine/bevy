@@ -1,6 +1,8 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use core::f32::consts::{FRAC_PI_2, PI, TAU};
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 

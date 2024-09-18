@@ -1,7 +1,9 @@
 //! This example demonstrates how you can add your own custom primitives to bevy highlighting
 //! traits you may want to implement for your primitives to achieve different functionalities.
 
-use core::f32::consts::{PI, SQRT_2};
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::{PI, SQRT_2};
 
 use bevy::{
     color::palettes::css::{RED, WHITE},

@@ -3,8 +3,10 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use core::{alloc::Layout, mem::size_of, ptr::NonNull};
+#![expect(clippy::std_instead_of_core)]
+
 use std::io::Write;
+use std::{alloc::Layout, mem::size_of, ptr::NonNull};
 
 use bevy::{
     ecs::{
@@ -165,7 +167,7 @@ fn main() {
                             // - All components are created with layout [u64]
                             // - len is calculated from the component descriptor
                             let data = unsafe {
-                                core::slice::from_raw_parts_mut(
+                                std::slice::from_raw_parts_mut(
                                     ptr.assert_unique().as_ptr().cast::<u64>(),
                                     len,
                                 )

@@ -1,6 +1,8 @@
 //! Test rendering of many gizmos.
 
-use core::f32::consts::TAU;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::TAU;
 
 use bevy::{
     diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},

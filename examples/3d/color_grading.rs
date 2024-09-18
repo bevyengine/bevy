@@ -1,6 +1,9 @@
 //! Demonstrates color grading with an interactive adjustment UI.
 
-use core::{
+#![expect(clippy::std_instead_of_core)]
+#![expect(clippy::std_instead_of_alloc)]
+
+use std::{
     f32::consts::PI,
     fmt::{
         Formatter, {self},
@@ -13,7 +16,7 @@ use bevy::{
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
 };
-use core::fmt::Display;
+use std::fmt::Display;
 
 static FONT_PATH: &str = "fonts/FiraMono-Medium.ttf";
 

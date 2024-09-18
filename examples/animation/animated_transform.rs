@@ -1,6 +1,8 @@
 //! Create and play an animation defined by code that operates on the [`Transform`] component.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},

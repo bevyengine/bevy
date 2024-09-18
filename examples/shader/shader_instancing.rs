@@ -1,5 +1,7 @@
 //! A shader that renders a mesh multiple times in one draw call.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
     ecs::{
@@ -27,7 +29,7 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
-use core::mem::size_of;
+use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";

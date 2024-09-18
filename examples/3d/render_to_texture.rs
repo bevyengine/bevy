@@ -1,6 +1,8 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
-use core::f32::consts::PI;
+#![expect(clippy::std_instead_of_core)]
+
+use std::f32::consts::PI;
 
 use bevy::{
     prelude::*,

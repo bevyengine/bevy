@@ -7,6 +7,8 @@
 //! The code is based on this wgpu example:
 //! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::{
     prelude::*,
     render::{
@@ -18,8 +20,8 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use core::mem::size_of;
 use crossbeam_channel::{Receiver, Sender};
+use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";

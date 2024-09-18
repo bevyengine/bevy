@@ -1,6 +1,8 @@
 //! Demonstrates screen space reflections in deferred rendering.
 
-use core::ops::Range;
+#![expect(clippy::std_instead_of_core)]
+
+use std::ops::Range;
 
 use bevy::{
     color::palettes::css::{BLACK, WHITE},

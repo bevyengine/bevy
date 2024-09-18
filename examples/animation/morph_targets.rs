@@ -7,8 +7,10 @@
 //! - How to read morph target names in `name_morphs`.
 //! - How to play morph target animations in `setup_animations`.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy::prelude::*;
-use core::f32::consts::PI;
+use std::f32::consts::PI;
 
 fn main() {
     App::new()

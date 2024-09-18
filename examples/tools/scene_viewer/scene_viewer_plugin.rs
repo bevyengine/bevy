@@ -3,12 +3,15 @@
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
+#![expect(clippy::std_instead_of_core)]
+#![expect(clippy::std_instead_of_alloc)]
+
 use bevy::{
     asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
     scene::InstanceId,
 };
 
-use core::{f32::consts::*, fmt};
+use std::{f32::consts::*, fmt};
 
 use super::camera_controller::*;
 
