@@ -2,13 +2,13 @@
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
-use std::cmp::Ordering;
+use std::cmp::Reverse;
 
 use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, FloatExt};
+use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
@@ -43,12 +43,11 @@ pub fn sprite_picking(
     >,
     mut output: EventWriter<PointerHits>,
 ) {
-    let mut sorted_sprites: Vec<_> = sprite_query.iter().collect();
-    sorted_sprites.sort_by(|a, b| {
-        (b.4.translation().z)
-            .partial_cmp(&a.4.translation().z)
-            .unwrap_or(Ordering::Equal)
-    });
+    let mut sorted_sprites: Vec<_> = sprite_query
+        .iter()
+        .filter(|x| !x.4.affine().is_nan())
+        .collect();
+    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.4.translation().z)));
 
     let primary_window = primary_window.get_single().ok();
 

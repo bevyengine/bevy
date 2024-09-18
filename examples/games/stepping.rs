@@ -193,7 +193,7 @@ fn build_stepping_hint(mut commands: Commands) {
     commands.spawn((TextBundle::from_sections([TextSection::new(
         hint_text,
         TextStyle {
-            font_size: 18.0,
+            font_size: 15.0,
             color: FONT_COLOR,
             ..default()
         },

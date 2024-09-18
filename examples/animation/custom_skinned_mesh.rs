@@ -4,6 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
+    math::ops,
     prelude::*,
     render::{
         mesh::{
@@ -140,7 +141,7 @@ fn setup(
             .id();
 
         // Set joint_1 as a child of joint_0.
-        commands.entity(joint_0).push_children(&[joint_1]);
+        commands.entity(joint_0).add_children(&[joint_1]);
 
         // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];
@@ -167,6 +168,6 @@ fn setup(
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

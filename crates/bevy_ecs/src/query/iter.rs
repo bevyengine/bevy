@@ -146,7 +146,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             let range = range.unwrap_or(0..table.entity_count());
             accum =
-                // SAFETY: 
+                // SAFETY:
                 // - The fetched table matches both D and F
                 // - caller ensures `range` is within `[0, table.entity_count)`
                 // - The if block ensures that the query iteration is dense
@@ -2102,7 +2102,7 @@ mod tests {
             let mut query = world.query::<&Sparse>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2110,7 +2110,7 @@ mod tests {
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2127,7 +2127,7 @@ mod tests {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2135,7 +2135,7 @@ mod tests {
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2155,7 +2155,7 @@ mod tests {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2164,7 +2164,7 @@ mod tests {
             assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,

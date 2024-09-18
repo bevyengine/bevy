@@ -21,7 +21,7 @@ pub mod curve;
 mod direction;
 mod float_ord;
 mod isometry;
-mod ops;
+pub mod ops;
 pub mod primitives;
 mod ray;
 mod rects;
@@ -36,7 +36,7 @@ pub use common_traits::*;
 pub use direction::*;
 pub use float_ord::*;
 pub use isometry::{Isometry2d, Isometry3d};
-pub use ops::*;
+pub use ops::FloatPow;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;
@@ -59,6 +59,7 @@ pub mod prelude {
         },
         curve::*,
         direction::{Dir2, Dir3, Dir3A},
+        ops,
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,
         Isometry3d, Mat2, Mat3, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect,

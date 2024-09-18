@@ -22,7 +22,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component)]
+#[reflect(Component, Debug)]
 pub struct Monitor {
     /// The name of the monitor
     pub name: Option<String>,
@@ -42,7 +42,7 @@ pub struct Monitor {
 
 /// A marker component for the primary monitor
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug)]
 pub struct PrimaryMonitor;
 
 impl Monitor {

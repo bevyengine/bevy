@@ -740,7 +740,7 @@ impl Debug for ComponentDescriptor {
 impl ComponentDescriptor {
     /// # Safety
     ///
-    /// `x` must points to a valid value of type `T`.
+    /// `x` must point to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         // SAFETY: Contract is required to be upheld by the caller.
         unsafe {

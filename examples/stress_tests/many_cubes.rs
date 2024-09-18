@@ -361,7 +361,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 let mut vertices = [Vec2::ZERO; 3];
                 let dtheta = std::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
-                    let (s, c) = (i as f32 * dtheta).sin_cos();
+                    let (s, c) = ops::sin_cos(i as f32 * dtheta);
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
@@ -439,7 +439,7 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        f64::acos(1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)),
     )
 }
 
