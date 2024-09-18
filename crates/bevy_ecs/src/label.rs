@@ -5,6 +5,10 @@ use core::{
     hash::{Hash, Hasher},
 };
 
+// Re-exported for use within `define_label!`
+#[doc(hidden)]
+pub use alloc::boxed::Box;
+
 /// An object safe version of [`Eq`]. This trait is automatically implemented
 /// for any `'static` type that implements `Eq`.
 pub trait DynEq: Any {
@@ -117,7 +121,7 @@ macro_rules! define_label {
             /// Clones this `
             #[doc = stringify!($label_trait_name)]
             ///`.
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name>;
+            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name>;
 
             /// Casts this value to a form where it can be compared with other type-erased values.
             fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq;
@@ -136,7 +140,7 @@ macro_rules! define_label {
 
             $($interned_extra_methods_impl)*
 
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn $label_trait_name> {
+            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
                 (**self).dyn_clone()
             }
 
