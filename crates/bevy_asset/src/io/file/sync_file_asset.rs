@@ -7,11 +7,11 @@ use crate::io::{
 };
 
 use core::{
-    fs::{read_dir, File},
     pin::Pin,
     task::Poll,
 };
 use std::{
+    fs::{read_dir, File},
     io::{Read, Seek, Write},
     path::{Path, PathBuf},
 };
