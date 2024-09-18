@@ -1,3 +1,42 @@
+//! Asset processing in Bevy is a framework for automatically transforming artist-authored assets into the format that best suits the needs of your particular game.
+//!
+//! You can think of the asset processing system as a "build system" for assets.
+//! When an artist adds a new asset to the project or an asset is changed (assuming asset hot reloading is enabled), the asset processing system will automatically perform the specified processing steps on the asset.
+//! This can include things like creating lightmaps for baked lighting, compressing a `.wav` file to an `.ogg`, or generating mipmaps for a texture.
+//!
+//! Its core values are:
+//!
+//! 1. Automatic: new and changed assets should be ready to use in-game without requiring any manual conversion or cleanup steps.
+//! 2. Configurable: every game has its own needs, and a high level of transparency and control is required.
+//! 3. Lossless: the original asset should always be preserved, ensuring artists can make changes later.
+//! 4. Deterministic: performing the same processing steps on the same asset should (generally) produce the exact same result. In cases where this doesn't make sense (steps that involve a degree of randomness or uncertainty), the results across runs should be "acceptably similar", as they will be generated once for a given set of inputs and cached.
+//!
+//! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
+//! While it may be possible to manually edit the final asset, this should be discouraged.
+//! Final post-processed assets should generally not be version-controlled, except to save developer time when recomputing heavy asset processing steps.
+//!
+//! # Usage
+//!
+//! Asset processing can be enabled or disabled in [`AssetPlugin`](crate::AssetPlugin) by setting the [`AssetMode`](crate::AssetMode).\
+//! Enable Bevy's `file_watcher` feature to automatically watch for changes to assets and reprocess them.
+//!
+//! To register a new asset processor, use [`AssetProcessor::register_processor`].
+//! To set the default asset processor for a given extension, use [`AssetProcessor::set_default_processor`].
+//! In most cases, these methods will be called directly on [`App`](bevy_app::App) using the [`AssetApp`](crate::AssetApp) extension trait.
+//!
+//! If a default asset processor is set, assets with a matching extension will be processed using that processor before loading.
+//!
+//! For an end-to-end example, check out the examples in the [`examples/asset/processing`](https://github.com/bevyengine/bevy/tree/latest/examples/asset/processing) directory of the Bevy repository.
+//!
+//!  # Defining asset processors
+//!
+//! Bevy provides two different ways to define new asset processors:
+//!
+//! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
+//! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
+//!
+//! In most cases, [`LoadTransformAndSave`] should be sufficient.
+
 mod log;
 mod process;
 
@@ -61,6 +100,7 @@ pub struct AssetProcessor {
     pub(crate) data: Arc<AssetProcessorData>,
 }
 
+/// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
@@ -91,6 +131,7 @@ impl AssetProcessor {
         Self { server, data }
     }
 
+    /// Gets a reference to the [`Arc`] containing the [`AssetProcessorData`].
     pub fn data(&self) -> &Arc<AssetProcessorData> {
         &self.data
     }
@@ -965,6 +1006,7 @@ impl AssetProcessor {
 }
 
 impl AssetProcessorData {
+    /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
     pub fn new(source: AssetSources) -> Self {
         let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
         let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
