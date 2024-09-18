@@ -35,17 +35,19 @@ fn search_for_blockers_in_shadow_map_hardware(
     array_index: i32,
 ) -> vec2<f32> {
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    let sampled_depth = textureSample(
+    let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
         light_local,
+        0.0,
     );
 #else
-    let sampled_depth = textureSample(
+    let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
         view_bindings::directional_shadow_textures_linear_sampler,
         light_local,
         array_index,
+        0.0,
     );
 #endif
 
