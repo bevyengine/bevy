@@ -14,6 +14,7 @@ mod tests {
         type_registry::TypeRegistry,
         DynamicStruct, FromReflect, Reflect,
     };
+    use bevy_reflect_derive::TypePath;
     use serde::de::DeserializeSeed;
 
     #[test]
@@ -170,6 +171,44 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
 
         let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:456)}"#;
+        let result = ron::ser::to_string(&serializer).unwrap();
+        assert_eq!(expected, result);
+
+        let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+
+        let expected = value.clone_value();
+        let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+        assert!(expected
+            .reflect_partial_eq(result.as_partial_reflect())
+            .unwrap());
+    }
+    #[test]
+    fn should_roundtrip_phantom_data() {
+        use core::marker::PhantomData;
+
+        #[derive(Reflect)]
+        struct TestStruct<'a, T> {
+            a: i32,
+            _marker: PhantomData<&'a T>,
+        }
+
+        #[derive(TypePath)]
+        struct MarkerType;
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<TestStruct<MarkerType>>();
+
+        let value: DynamicStruct = TestStruct::<'static, MarkerType> {
+            a: 123,
+            _marker: PhantomData,
+        }
+        .clone_dynamic();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+
+        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123)}"#;
         let result = ron::ser::to_string(&serializer).unwrap();
         assert_eq!(expected, result);
 
