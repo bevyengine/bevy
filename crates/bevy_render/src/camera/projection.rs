@@ -75,7 +75,7 @@ pub struct CameraUpdateSystem;
 ///
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
-    fn get_projection_matrix(&self) -> Mat4;
+    fn get_clip_from_view(&self) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -85,10 +85,10 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::view::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let view_projection =
-            self.get_projection_matrix() * camera_transform.compute_matrix().inverse();
-        Frustum::from_view_projection_custom_far(
-            &view_projection,
+        let clip_from_world =
+            self.get_clip_from_view() * camera_transform.compute_matrix().inverse();
+        Frustum::from_clip_from_world_custom_far(
+            &clip_from_world,
             &camera_transform.translation(),
             &camera_transform.back(),
             self.far(),
@@ -117,10 +117,10 @@ impl From<OrthographicProjection> for Projection {
 }
 
 impl CameraProjection for Projection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         match self {
-            Projection::Perspective(projection) => projection.get_projection_matrix(),
-            Projection::Orthographic(projection) => projection.get_projection_matrix(),
+            Projection::Perspective(projection) => projection.get_clip_from_view(),
+            Projection::Orthographic(projection) => projection.get_clip_from_view(),
         }
     }
 
@@ -185,12 +185,14 @@ pub struct PerspectiveProjection {
 }
 
 impl CameraProjection for PerspectiveProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = AspectRatio::new(width, height).into();
+        self.aspect_ratio = AspectRatio::try_new(width, height)
+            .expect("Failed to update PerspectiveProjection: width and height must be positive, non-zero values")
+            .ratio();
     }
 
     fn far(&self) -> f32 {
@@ -237,7 +239,7 @@ impl Default for PerspectiveProjection {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///    scaling_mode: ScalingMode::FixedVertical(2.0),
-///    ..OrthographicProjection::default()
+///    ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -334,11 +336,11 @@ impl DivAssign<f32> for ScalingMode {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///     scaling_mode: ScalingMode::WindowSize(100.0),
-///     ..OrthographicProjection::default()
+///     ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
@@ -369,17 +371,6 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `ScalingMode::WindowSize(1.0)`
     pub scaling_mode: ScalingMode,
-    /// Scales the projection.
-    ///
-    /// As scale increases, the apparent size of objects decreases, and vice versa.
-    ///
-    /// Note: scaling can be set by [`scaling_mode`](Self::scaling_mode) as well.
-    /// This parameter scales on top of that.
-    ///
-    /// This property is particularly useful in implementing zoom functionality.
-    ///
-    /// Defaults to `1.0`.
-    pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
     /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
@@ -391,7 +382,7 @@ pub struct OrthographicProjection {
 }
 
 impl CameraProjection for OrthographicProjection {
-    fn get_projection_matrix(&self) -> Mat4 {
+    fn get_clip_from_view(&self) -> Mat4 {
         Mat4::orthographic_rh(
             self.area.min.x,
             self.area.max.x,
@@ -440,14 +431,22 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = projection_width * self.viewport_origin.x;
-        let origin_y = projection_height * self.viewport_origin.y;
+        let mut origin_x = projection_width * self.viewport_origin.x;
+        let mut origin_y = projection_height * self.viewport_origin.y;
+
+        // If projection is based on window pixels,
+        // ensure we don't end up with fractional pixels!
+        if let ScalingMode::WindowSize(pixel_scale) = self.scaling_mode {
+            // round to nearest multiple of `pixel_scale`
+            origin_x = (origin_x * pixel_scale).round() / pixel_scale;
+            origin_y = (origin_y * pixel_scale).round() / pixel_scale;
+        }
 
         self.area = Rect::new(
-            self.scale * -origin_x,
-            self.scale * -origin_y,
-            self.scale * (projection_width - origin_x),
-            self.scale * (projection_height - origin_y),
+            -origin_x,
+            -origin_y,
+            projection_width - origin_x,
+            projection_height - origin_y,
         );
     }
 
@@ -471,10 +470,30 @@ impl CameraProjection for OrthographicProjection {
     }
 }
 
-impl Default for OrthographicProjection {
-    fn default() -> Self {
+impl FromWorld for OrthographicProjection {
+    fn from_world(_world: &mut World) -> Self {
+        OrthographicProjection::default_3d()
+    }
+}
+
+impl OrthographicProjection {
+    /// Returns the default orthographic projection for a 2D context.
+    ///
+    /// The near plane is set to a negative value so that the camera can still
+    /// render the scene when using positive z coordinates to order foreground elements.
+    pub fn default_2d() -> Self {
         OrthographicProjection {
-            scale: 1.0,
+            near: -1000.0,
+            ..OrthographicProjection::default_3d()
+        }
+    }
+
+    /// Returns the default orthographic projection for a 3D context.
+    ///
+    /// The near plane is set to 0.0 so that the camera doesn't render
+    /// objects that are behind it.
+    pub fn default_3d() -> Self {
+        OrthographicProjection {
             near: 0.0,
             far: 1000.0,
             viewport_origin: Vec2::new(0.5, 0.5),

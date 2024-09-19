@@ -47,6 +47,39 @@ pub enum Visibility {
     Visible,
 }
 
+impl Visibility {
+    /// Toggles between `Visibility::Inherited` and `Visibility::Visible`.
+    /// If the value is `Visibility::Hidden`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_visible(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Visible,
+            Visibility::Visible => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Inherited` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Visible`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Visible` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Inherited`, it remains unaffected.
+    #[inline]
+    pub fn toggle_visible_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Visible,
+            _ => *self,
+        };
+    }
+}
+
 // Allows `&Visibility == Visibility`
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
@@ -155,8 +188,8 @@ pub struct VisibilityBundle {
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-/// to appear in the reflection of a [`Mesh`] within.
-#[derive(Component, Default, Reflect)]
+///     to appear in the reflection of a [`Mesh`] within.
+#[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
@@ -245,7 +278,11 @@ pub enum VisibilitySystems {
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.
+    /// of each entity and the [`VisibleEntities`] of each view.\
+    ///
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as [`check_visibility`]
+    /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
 }
 
@@ -261,6 +298,7 @@ impl Plugin for VisibilityPlugin {
                 .before(CheckVisibility)
                 .after(TransformSystem::TransformPropagate),
         )
+        .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
         .add_systems(
             PostUpdate,
             (
@@ -429,7 +467,7 @@ pub fn check_visibility<QF>(
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         visible_aabb_query.par_iter_mut().for_each_init(
             || thread_queues.borrow_local_mut(),
@@ -451,8 +489,8 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
+                let entity_mask = maybe_entity_mask.unwrap_or_default();
+                if !view_mask.intersects(entity_mask) {
                     return;
                 }
 
@@ -468,9 +506,9 @@ pub fn check_visibility<QF>(
                 // If we have an aabb, do frustum culling
                 if !no_frustum_culling && !no_cpu_culling {
                     if let Some(model_aabb) = maybe_model_aabb {
-                        let model = transform.affine();
+                        let world_from_local = transform.affine();
                         let model_sphere = Sphere {
-                            center: model.transform_point3a(model_aabb.center),
+                            center: world_from_local.transform_point3a(model_aabb.center),
                             radius: transform.radius_vec3a(model_aabb.half_extents),
                         };
                         // Do quick sphere-based frustum culling
@@ -478,7 +516,7 @@ pub fn check_visibility<QF>(
                             return;
                         }
                         // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
                             return;
                         }
                     }
@@ -496,12 +534,10 @@ pub fn check_visibility<QF>(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-
     use super::*;
-
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_app::prelude::*;
+    use bevy_hierarchy::BuildChildren;
+    use std::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {
@@ -763,8 +799,7 @@ mod test {
 
     #[test]
     fn ensure_visibility_enum_size() {
-        use std::mem;
-        assert_eq!(1, mem::size_of::<Visibility>());
-        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, size_of::<Visibility>());
+        assert_eq!(1, size_of::<Option<Visibility>>());
     }
 }

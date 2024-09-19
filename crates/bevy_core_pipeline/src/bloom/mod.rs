@@ -2,8 +2,11 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use bevy_color::LinearRgba;
-pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
+use bevy_color::{Gray, LinearRgba};
+#[allow(deprecated)]
+pub use settings::{
+    Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
+};
 
 use crate::{
     core_2d::graph::{Core2d, Node2d},
@@ -38,21 +41,17 @@ const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9295994769239
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
-// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-// 512 behaves well with the UV offset of 0.004 used in bloom.wgsl
-const MAX_MIP_DIMENSION: u32 = 512;
-
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
-        app.register_type::<BloomSettings>();
-        app.register_type::<BloomPrefilterSettings>();
+        app.register_type::<Bloom>();
+        app.register_type::<BloomPrefilter>();
         app.register_type::<BloomCompositeMode>();
         app.add_plugins((
-            ExtractComponentPlugin::<BloomSettings>::default(),
+            ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
         ));
 
@@ -81,7 +80,7 @@ impl Plugin for BloomPlugin {
             .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
                 Core2d,
-                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
+                (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 
@@ -104,7 +103,7 @@ impl ViewNode for BloomNode {
         &'static BloomTexture,
         &'static BloomBindGroups,
         &'static DynamicUniformIndex<BloomUniforms>,
-        &'static BloomSettings,
+        &'static Bloom,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
@@ -328,17 +327,21 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
-    for (entity, camera) in &views {
+    for (entity, camera, bloom) in &views {
         if let Some(UVec2 {
             x: width,
             y: height,
         }) = camera.physical_viewport_size
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
-            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
+            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
+            let mip_height_ratio = if height != 0 {
+                bloom.max_mip_dimension as f32 / height as f32
+            } else {
+                0.
+            };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
@@ -457,19 +460,18 @@ fn prepare_bloom_bind_groups(
 /// * `max_mip` - the index of the lowest frequency pyramid level.
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
-/// [`BloomSettings`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-fn compute_blend_factor(bloom_settings: &BloomSettings, mip: f32, max_mip: f32) -> f32 {
+/// [`Bloom`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
     let mut lf_boost = (1.0
-        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))
-        * bloom_settings.low_frequency_boost;
+        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom.low_frequency_boost_curvature)))
+        * bloom.low_frequency_boost;
     let high_pass_lq = 1.0
-        - (((mip / max_mip) - bloom_settings.high_pass_frequency)
-            / bloom_settings.high_pass_frequency)
+        - (((mip / max_mip) - bloom.high_pass_frequency) / bloom.high_pass_frequency)
             .clamp(0.0, 1.0);
-    lf_boost *= match bloom_settings.composite_mode {
-        BloomCompositeMode::EnergyConserving => 1.0 - bloom_settings.intensity,
+    lf_boost *= match bloom.composite_mode {
+        BloomCompositeMode::EnergyConserving => 1.0 - bloom.intensity,
         BloomCompositeMode::Additive => 1.0,
     };
 
-    (bloom_settings.intensity + lf_boost) * high_pass_lq
+    (bloom.intensity + lf_boost) * high_pass_lq
 }

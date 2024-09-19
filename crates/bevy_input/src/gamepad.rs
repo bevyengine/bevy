@@ -10,8 +10,9 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut, Resource},
 };
 use bevy_math::Vec2;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{
     tracing::{info, warn},
@@ -322,6 +323,8 @@ pub enum ButtonSettingsError {
     },
 }
 
+
+
 /// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
 #[derive(Bundle, Debug)]
 pub struct MinimalGamepad {
@@ -358,11 +361,15 @@ impl MinimalGamepad {
 ///
 /// The `ID` of a gamepad is fixed until the app is restarted.
 /// Reconnected gamepads will try to preserve their `ID` but it's not guaranteed.
-#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadId(pub usize);
@@ -434,11 +441,11 @@ impl Gamepad {
 }
 
 /// Metadata associated with a [`GamepadId`].
-#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
@@ -483,11 +490,15 @@ impl Gamepads {
 ///
 /// This is used to determine which button has changed its value when receiving gamepad button events
 /// It is also used in the [`GamepadButtons`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadButtonType {
@@ -686,11 +697,11 @@ impl GamepadButtons {
 ///
 /// This is used to determine which axis has changed its value when receiving a
 /// gamepad axis event. It is also used in the [`GamepadAxes`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadAxisType {
@@ -791,11 +802,11 @@ impl GamepadAxes {
 ///
 /// ## Note
 ///
-/// The [`GamepadSettings`] are used inside `bevy_input` to determine when raw gamepad events
+/// The [`GamepadSettings`] are used to determine when raw gamepad events
 /// should register. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding component.
-#[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Component, Clone, Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -874,8 +885,8 @@ impl GamepadSettings {
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
-#[derive(Debug, PartialEq, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -1034,8 +1045,8 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug, Default)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -1362,8 +1373,8 @@ impl AxisSettings {
 /// - Otherwise, values will not be rounded.
 ///
 /// The valid range is from 0.0 to 1.0, inclusive.
-#[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -1491,11 +1502,11 @@ pub fn gamepad_connection_system(
 }
 
 /// The connection status of a gamepad.
-#[derive(Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {

@@ -21,13 +21,13 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Press P to panic",
-            TextStyle {
-                font_size: 60.0,
-                ..default()
-            },
-        ),
+        text: Text::from_section("Press P to panic", TextStyle::default()),
+        style: Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
         ..default()
     });
 }

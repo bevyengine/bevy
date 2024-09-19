@@ -19,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_math::{
     primitives::{Cone, Sphere},
-    Quat, Vec3,
+    Isometry3d, Quat, Vec3,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -41,17 +41,20 @@ fn point_light_gizmo(
     let position = transform.translation();
     gizmos
         .primitive_3d(
-            Sphere {
+            &Sphere {
                 radius: point_light.radius,
             },
-            position,
-            Quat::IDENTITY,
+            Isometry3d::from_translation(position),
             color,
         )
-        .segments(16);
+        .resolution(16);
     gizmos
-        .sphere(position, Quat::IDENTITY, point_light.range, color)
-        .circle_segments(32);
+        .sphere(
+            Isometry3d::from_translation(position),
+            point_light.range,
+            color,
+        )
+        .resolution(32);
 }
 
 /// Draws a sphere for the radius, two cones for the inner and outer angles, plus two 3d arcs crossing the
@@ -65,14 +68,13 @@ fn spot_light_gizmo(
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
     gizmos
         .primitive_3d(
-            Sphere {
+            &Sphere {
                 radius: spot_light.radius,
             },
-            translation,
-            Quat::IDENTITY,
+            Isometry3d::from_translation(translation),
             color,
         )
-        .segments(16);
+        .resolution(16);
 
     // Offset the tip of the cone to the light position.
     for angle in [spot_light.inner_angle, spot_light.outer_angle] {
@@ -80,16 +82,15 @@ fn spot_light_gizmo(
         let position = translation + rotation * Vec3::NEG_Z * height / 2.0;
         gizmos
             .primitive_3d(
-                Cone {
+                &Cone {
                     radius: spot_light.range * angle.sin(),
                     height,
                 },
-                position,
-                rotation * Quat::from_rotation_x(PI / 2.0),
+                Isometry3d::new(position, rotation * Quat::from_rotation_x(PI / 2.0)),
                 color,
             )
-            .height_segments(4)
-            .base_segments(32);
+            .height_resolution(4)
+            .base_resolution(32);
     }
 
     for arc_rotation in [
@@ -105,11 +106,10 @@ fn spot_light_gizmo(
             .arc_3d(
                 2.0 * spot_light.outer_angle,
                 spot_light.range,
-                translation,
-                rotation * arc_rotation,
+                Isometry3d::new(translation, rotation * arc_rotation),
                 color,
             )
-            .segments(16);
+            .resolution(16);
     }
 }
 

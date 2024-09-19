@@ -5,9 +5,10 @@
 
 use bevy_ecs::{
     component::Component,
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use bevy_utils::Duration;
 
@@ -28,13 +29,29 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,
 }
 
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationTransitions {
+    fn clone(&self) -> Self {
+        Self {
+            main_animation: self.main_animation,
+            transitions: self.transitions.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.main_animation = source.main_animation;
+        self.transitions.clone_from(&source.transitions);
+    }
+}
+
 /// An animation that is being faded out as part of a transition
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct AnimationTransition {
     /// The current weight. Starts at 1.0 and goes to 0.0 during the fade-out.
     current_weight: f32,
@@ -75,8 +92,17 @@ impl AnimationTransitions {
             }
         }
 
-        self.main_animation = Some(new_animation);
+        // If already transitioning away from this animation, cancel the transition.
+        // Otherwise the transition ending would incorrectly stop the new animation.
+        self.transitions
+            .retain(|transition| transition.animation != new_animation);
+
         player.start(new_animation)
+    }
+
+    /// Obtain the currently playing main animation.
+    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
+        self.main_animation
     }
 }
 

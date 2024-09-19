@@ -320,8 +320,7 @@ where
                     // unblock this node's ancestors
                     while let Some(n) = unblock_stack.pop() {
                         if blocked.remove(&n) {
-                            let unblock_predecessors =
-                                unblock_together.entry(n).or_insert_with(HashSet::new);
+                            let unblock_predecessors = unblock_together.entry(n).or_default();
                             unblock_stack.extend(unblock_predecessors.iter());
                             unblock_predecessors.clear();
                         }
@@ -329,10 +328,7 @@ where
                 } else {
                     // if its descendants can be unblocked later, this node will be too
                     for successor in subgraph.neighbors(*node) {
-                        unblock_together
-                            .entry(successor)
-                            .or_insert_with(HashSet::new)
-                            .insert(*node);
+                        unblock_together.entry(successor).or_default().insert(*node);
                     }
                 }
 

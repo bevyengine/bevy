@@ -6,7 +6,7 @@ use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// For a camera, specifies the color used to clear the viewport before rendering.
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Reflect, Serialize, Deserialize, Copy, Clone, Debug, Default)]
 #[reflect(Serialize, Deserialize, Default)]
 pub enum ClearColorConfig {
     /// The clear color is taken from the world's [`ClearColor`] resource.

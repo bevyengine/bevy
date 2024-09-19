@@ -5,7 +5,12 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
-use std::{any::Any, marker::PhantomData, ops::Deref, sync::Arc};
+use std::{
+    any::Any,
+    marker::PhantomData,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 /// A wrapper over a window.
 ///
@@ -116,3 +121,7 @@ impl HasDisplayHandle for ThreadLockedRawWindowHandleWrapper {
         Ok(unsafe { DisplayHandle::borrow_raw(self.0.display_handle) })
     }
 }
+
+/// Holder of the [`RawHandleWrapper`] with wrappers, to allow use in asynchronous context
+#[derive(Debug, Clone, Component)]
+pub struct RawHandleWrapperHolder(pub Arc<Mutex<Option<RawHandleWrapper>>>);

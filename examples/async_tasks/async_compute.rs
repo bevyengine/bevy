@@ -8,7 +8,7 @@ use bevy::{
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 use rand::Rng;
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 fn main() {
     App::new()
@@ -60,18 +60,16 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
-                    let mut rng = rand::thread_rng();
-
-                    let duration = Duration::from_secs_f32(rng.gen_range(0.05..0.2));
+                    let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
-                    thread::sleep(duration);
+                    async_std::task::sleep(duration).await;
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
                     let mut command_queue = CommandQueue::default();
 
-                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // we use a raw command queue to pass a FnOnce(&mut World) back to be
                     // applied in a deferred manner.
                     command_queue.push(move |world: &mut World| {
                         let (box_mesh_handle, box_material_handle) = {

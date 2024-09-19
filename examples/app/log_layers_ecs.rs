@@ -3,7 +3,7 @@
 //! The way we will do this is via a [`mpsc`] channel. [`mpsc`] channels allow 2 unrelated
 //! parts of the program to communicate (in this case, [`Layer`]s and Bevy's ECS).
 //!
-//! Inside the `update_subscriber` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
+//! Inside the `custom_layer` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
 //! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
 //! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
 //! From there we will use `transfer_log_events` to transfer log events from `LogEvents` to an ECS event called `LogEvent`.
@@ -13,9 +13,9 @@
 
 use std::sync::mpsc;
 
+use bevy::log::BoxedLayer;
 use bevy::{
-    log::tracing_subscriber::{self, layer::SubscriberExt, Layer},
-    log::BoxedSubscriber,
+    log::tracing_subscriber::{self, Layer},
     prelude::*,
     utils::tracing,
     utils::tracing::Subscriber,
@@ -77,7 +77,7 @@ impl tracing::field::Visit for CaptureLayerVisitor<'_> {
         }
     }
 }
-fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscriber {
+fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
     let (sender, receiver) = mpsc::channel();
 
     let layer = CaptureLayer { sender };
@@ -87,13 +87,13 @@ fn update_subscriber(app: &mut App, subscriber: BoxedSubscriber) -> BoxedSubscri
     app.add_event::<LogEvent>();
     app.add_systems(Update, transfer_log_events);
 
-    Box::new(subscriber.with(layer))
+    Some(layer.boxed())
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
-            update_subscriber: Some(update_subscriber),
+            custom_layer,
             ..default()
         }))
         .add_systems(Startup, (log_system, setup))

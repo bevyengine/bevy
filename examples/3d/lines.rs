@@ -14,6 +14,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<LineMaterial>::default()))
@@ -72,7 +75,7 @@ struct LineMaterial {
 
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/line_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(

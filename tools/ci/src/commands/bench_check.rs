@@ -10,7 +10,10 @@ pub struct BenchCheckCommand {}
 impl Prepare for BenchCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --benches --target-dir ../target"),
+            cmd!(
+                sh,
+                "cargo check --benches --target-dir ../target --manifest-path ./benches/Cargo.toml"
+            ),
             "Failed to check the benches.",
         )]
     }

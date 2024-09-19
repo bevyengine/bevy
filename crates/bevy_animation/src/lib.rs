@@ -7,9 +7,9 @@
 
 //! Animation for the game engine Bevy
 
-mod animatable;
-mod graph;
-mod transition;
+pub mod animatable;
+pub mod graph;
+pub mod transition;
 mod util;
 
 use std::cell::RefCell;
@@ -21,28 +21,27 @@ use std::ops::{Add, Mul};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
+use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
+    hashbrown::HashMap,
     tracing::{error, trace},
     NoOpHash,
 };
 use fixedbitset::FixedBitSet;
-use graph::{AnimationGraph, AnimationNodeIndex};
-use petgraph::graph::NodeIndex;
-use petgraph::Direction;
-use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
+use graph::AnimationMask;
+use petgraph::{graph::NodeIndex, Direction};
+use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+/// The animation prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -51,7 +50,10 @@ pub mod prelude {
     };
 }
 
-use crate::transition::{advance_transitions, expire_completed_transitions};
+use crate::{
+    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+};
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -107,7 +109,7 @@ pub struct VariableCurve {
     ///
     /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
     /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    /// `keyframe_value` and `tangent_out`
+    ///     `keyframe_value` and `tangent_out`
     pub keyframes: Keyframes,
     /// Interpolation method to use between keyframes.
     pub interpolation: Interpolation,
@@ -154,6 +156,29 @@ impl VariableCurve {
         assert!(step_start < self.keyframe_timestamps.len());
 
         Some(step_start)
+    }
+
+    /// Find the index of the keyframe at or before the current time.
+    ///
+    /// Returns the first keyframe if the `seek_time` is before the first keyframe, and
+    /// the second-to-last keyframe if the `seek_time` is after the last keyframe.
+    /// Panics if there are less than 2 keyframes.
+    pub fn find_interpolation_start_keyframe(&self, seek_time: f32) -> usize {
+        // An Ok(keyframe_index) result means an exact result was found by binary search
+        // An Err result means the keyframe was not found, and the index is the keyframe
+        // PERF: finding the current keyframe can be optimised
+        let search_result = self
+            .keyframe_timestamps
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
+
+        // We want to find the index of the keyframe before the current time
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        match search_result {
+            // An exact match was found
+            Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
+            // No exact match was found, so return the previous keyframe to interpolate from.
+            Err(i) => (i.saturating_sub(1)).clamp(0, self.keyframe_timestamps.len() - 2),
+        }
     }
 }
 
@@ -205,7 +230,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -236,7 +261,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
@@ -326,13 +351,16 @@ pub enum RepeatAnimation {
 /// playing, but is presently paused.
 ///
 /// An stopped animation is considered no longer active.
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
     /// The actual weight of this animation this frame, taking the
     /// [`AnimationGraph`] into account.
     computed_weight: f32,
+    /// The mask groups that are masked out (i.e. won't be animated) this frame,
+    /// taking the `AnimationGraph` into account.
+    computed_mask: AnimationMask,
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -354,6 +382,7 @@ impl Default for ActiveAnimation {
         Self {
             weight: 1.0,
             computed_weight: 1.0,
+            computed_mask: 0,
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
@@ -419,8 +448,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
-    pub fn set_weight(&mut self, weight: f32) {
+    pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
+        self
     }
 
     /// Pause the animation.
@@ -505,7 +535,10 @@ impl ActiveAnimation {
     }
 }
 
-/// Animation controls
+/// Animation controls.
+///
+/// Automatically added to any root animations of a `SceneBundle` when it is
+/// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
@@ -513,6 +546,21 @@ pub struct AnimationPlayer {
     /// ordering when applying the animations.
     active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationPlayer {
+    fn clone(&self) -> Self {
+        Self {
+            active_animations: self.active_animations.clone(),
+            blend_weights: self.blend_weights.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.active_animations.clone_from(&source.active_animations);
+        self.blend_weights.clone_from(&source.blend_weights);
+    }
 }
 
 /// The components that we might need to read or write during animation of each
@@ -533,8 +581,19 @@ pub struct AnimationGraphEvaluator {
     dfs_stack: Vec<NodeIndex>,
     /// The list of visited nodes during the depth-first traversal.
     dfs_visited: FixedBitSet,
-    /// Accumulated weights for each node.
-    weights: Vec<f32>,
+    /// Accumulated weights and masks for each node.
+    nodes: Vec<EvaluatedAnimationGraphNode>,
+}
+
+/// The accumulated weight and computed mask for a single node.
+#[derive(Clone, Copy, Default, Debug)]
+struct EvaluatedAnimationGraphNode {
+    /// The weight that has been accumulated for this node, taking its
+    /// ancestors' weights into account.
+    weight: f32,
+    /// The mask that has been computed for this node, taking its ancestors'
+    /// masks into account.
+    mask: AnimationMask,
 }
 
 thread_local! {
@@ -549,14 +608,14 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+        let playing_animation = self.active_animations.entry(animation).or_default();
+        playing_animation.replay();
+        playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.weight = 1.0;
-        playing_animation
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
@@ -588,6 +647,7 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
+    #[deprecated = "Use `animation_is_playing` instead"]
     /// Check if the given animation node is being played.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
@@ -597,7 +657,7 @@ impl AnimationPlayer {
     pub fn all_finished(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_finished())
+            .all(ActiveAnimation::is_finished)
     }
 
     /// Check if all playing animations are paused.
@@ -605,7 +665,7 @@ impl AnimationPlayer {
     pub fn all_paused(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_paused())
+            .all(ActiveAnimation::is_paused)
     }
 
     /// Resume all playing animations.
@@ -721,15 +781,17 @@ pub fn advance_animations(
 
                 let node = &animation_graph[node_index];
 
-                // Calculate weight from the graph.
-                let mut weight = node.weight;
+                // Calculate weight and mask from the graph.
+                let (mut weight, mut mask) = (node.weight, node.mask);
                 for parent_index in animation_graph
                     .graph
                     .neighbors_directed(node_index, Direction::Incoming)
                 {
-                    weight *= animation_graph[parent_index].weight;
+                    let evaluated_parent = &evaluator.nodes[parent_index.index()];
+                    weight *= evaluated_parent.weight;
+                    mask |= evaluated_parent.mask;
                 }
-                evaluator.weights[node_index.index()] = weight;
+                evaluator.nodes[node_index.index()] = EvaluatedAnimationGraphNode { weight, mask };
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
@@ -746,9 +808,10 @@ pub fn advance_animations(
                     weight *= blend_weight;
                 }
 
-                // Write in the computed weight.
+                // Write in the computed weight and mask for this node.
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     active_animation.computed_weight = weight;
+                    active_animation.computed_mask = mask;
                 }
 
                 // Push children.
@@ -807,6 +870,13 @@ pub fn animate_targets(
                 morph_weights,
             };
 
+            // Determine which mask groups this animation target belongs to.
+            let target_mask = animation_graph
+                .mask_groups
+                .get(&target.id)
+                .cloned()
+                .unwrap_or_default();
+
             // Apply the animations one after another. The way we accumulate
             // weights ensures that the order we apply them in doesn't matter.
             //
@@ -827,7 +897,11 @@ pub fn animate_targets(
             for (&animation_graph_node_index, active_animation) in
                 animation_player.active_animations.iter()
             {
-                if active_animation.weight == 0.0 {
+                // If the weight is zero or the current animation target is
+                // masked out, stop here.
+                if active_animation.weight == 0.0
+                    || (target_mask & active_animation.computed_mask) != 0
+                {
                     continue;
                 }
 
@@ -859,18 +933,16 @@ impl AnimationTargetContext<'_> {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
                 self.apply_single_keyframe(curve, weight);
-                return;
+                continue;
             }
 
-            // Find the current keyframe
-            let Some(step_start) = curve.find_current_keyframe(seek_time) else {
-                return;
-            };
+            // Find the best keyframe to interpolate from
+            let step_start = curve.find_interpolation_start_keyframe(seek_time);
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
             // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time);
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time).clamp(0.0, 1.0);
 
             self.apply_tweened_keyframe(
                 curve,
@@ -942,13 +1014,10 @@ impl AnimationTargetContext<'_> {
                 };
 
                 let rot_start = keyframes[step_start];
-                let mut rot_end = keyframes[step_start + 1];
-                // Choose the smallest angle for the rotation
-                if rot_end.dot(rot_start) < 0.0 {
-                    rot_end = -rot_end;
-                }
+                let rot_end = keyframes[step_start + 1];
+
                 // Rotations are using a spherical linear interpolation
-                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                let rot = rot_start.slerp(rot_end, lerp);
                 transform.rotation = transform.rotation.slerp(rot, weight);
             }
 
@@ -1167,7 +1236,7 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets,
+                    animate_targets.after(bevy_render::mesh::morph::inherit_weights),
                     expire_completed_transitions,
                 )
                     .chain()
@@ -1218,8 +1287,9 @@ impl AnimationGraphEvaluator {
         self.dfs_visited.grow(node_count);
         self.dfs_visited.clear();
 
-        self.weights.clear();
-        self.weights.extend(iter::repeat(0.0).take(node_count));
+        self.nodes.clear();
+        self.nodes
+            .extend(iter::repeat(EvaluatedAnimationGraphNode::default()).take(node_count));
     }
 }
 

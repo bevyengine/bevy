@@ -78,7 +78,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 24.0,
         ..default()
     };
 
@@ -153,7 +152,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_children(|builder| {
                 let text_style = TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 20.0,
                     ..default()
                 };
 
@@ -417,7 +415,7 @@ where
                     padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                     ..Default::default()
                 },
-                image: UiImage::default().with_color(Color::BLACK.with_alpha(0.5)),
+                background_color: Color::BLACK.with_alpha(0.5).into(),
                 ..Default::default()
             },
             Target::<T>::new(target),
@@ -461,13 +459,13 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut UiImage, &Children), Changed<Interaction>>,
+    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut image, children) in button_query.iter_mut() {
+    for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
-                image.color = Color::BLACK.with_alpha(0.6);
+                *color = Color::BLACK.with_alpha(0.6).into();
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
@@ -476,7 +474,7 @@ fn text_hover(
                 }
             }
             _ => {
-                image.color = Color::BLACK.with_alpha(0.5);
+                *color = Color::BLACK.with_alpha(0.5).into();
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =

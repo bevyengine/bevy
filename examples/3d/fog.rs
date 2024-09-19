@@ -34,7 +34,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
-        FogSettings {
+        DistanceFog {
             color: Color::srgb(0.25, 0.25, 0.25),
             falloff: FogFalloff::Linear {
                 start: 5.0,
@@ -124,14 +124,7 @@ fn setup_pyramid_scene(
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -141,7 +134,7 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn update_system(
-    mut camera: Query<(&mut FogSettings, &mut Transform)>,
+    mut camera: Query<(&mut DistanceFog, &mut Transform)>,
     mut text: Query<&mut Text>,
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,

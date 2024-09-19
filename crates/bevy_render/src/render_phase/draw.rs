@@ -2,7 +2,7 @@ use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
-    query::{QueryState, ROQueryItem, ReadOnlyQueryData},
+    query::{QueryEntityError, QueryState, ROQueryItem, ReadOnlyQueryData},
     system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
@@ -13,6 +13,7 @@ use std::{
     hash::Hash,
     sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
+use thiserror::Error;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -34,7 +35,17 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
-    );
+    ) -> Result<(), DrawError>;
+}
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum DrawError {
+    #[error("Failed to execute render command {0:?}")]
+    RenderCommandFailure(&'static str),
+    #[error("Failed to get execute view query")]
+    InvalidViewQuery,
+    #[error("View entity not found")]
+    ViewEntityNotFound,
 }
 
 // TODO: make this generic?
@@ -212,11 +223,13 @@ pub trait RenderCommand<P: PhaseItem> {
 #[derive(Debug)]
 pub enum RenderCommandResult {
     Success,
-    Failure,
+    Skip,
+    Failure(&'static str),
 }
 
 macro_rules! render_command_tuple_impl {
-    ($(($name: ident, $view: ident, $entity: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $view: ident, $entity: ident)),*) => {
+        $(#[$meta])*
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
             type ViewQuery = ($($name::ViewQuery,)*);
@@ -232,14 +245,22 @@ macro_rules! render_command_tuple_impl {
             ) -> RenderCommandResult {
                 match maybe_entities {
                     None => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, None, $name, _pass) {
-                            return RenderCommandResult::Failure;
-                        })*
+                        $(
+                            match $name::render(_item, $view, None, $name, _pass) {
+                                RenderCommandResult::Skip => return RenderCommandResult::Skip,
+                                RenderCommandResult::Failure(reason) => return RenderCommandResult::Failure(reason),
+                                _ => {},
+                            }
+                        )*
                     }
                     Some(($($entity,)*)) => {
-                        $(if let RenderCommandResult::Failure = $name::render(_item, $view, Some($entity), $name, _pass) {
-                            return RenderCommandResult::Failure;
-                        })*
+                        $(
+                            match $name::render(_item, $view, Some($entity), $name, _pass) {
+                                RenderCommandResult::Skip => return RenderCommandResult::Skip,
+                                RenderCommandResult::Failure(reason) => return RenderCommandResult::Failure(reason),
+                                _ => {},
+                            }
+                        )*
                     }
                 }
                 RenderCommandResult::Success
@@ -248,7 +269,15 @@ macro_rules! render_command_tuple_impl {
     };
 }
 
-all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
+all_tuples!(
+    #[doc(fake_variadic)]
+    render_command_tuple_impl,
+    0,
+    15,
+    C,
+    V,
+    E
+);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 ///
@@ -290,12 +319,23 @@ where
         pass: &mut TrackedRenderPass<'w>,
         view: Entity,
         item: &P,
-    ) {
+    ) -> Result<(), DrawError> {
         let param = self.state.get_manual(world);
-        let view = self.view.get_manual(world, view).unwrap();
+        let view = match self.view.get_manual(world, view) {
+            Ok(view) => view,
+            Err(err) => match err {
+                QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::QueryDoesNotMatch(_) | QueryEntityError::AliasedMutability(_) => {
+                    return Err(DrawError::InvalidViewQuery)
+                }
+            },
+        };
+
         let entity = self.entity.get_manual(world, item.entity()).ok();
-        // TODO: handle/log `RenderCommand` failure
-        C::render(item, view, entity, param, pass);
+        match C::render(item, view, entity, param, pass) {
+            RenderCommandResult::Success | RenderCommandResult::Skip => Ok(()),
+            RenderCommandResult::Failure(reason) => Err(DrawError::RenderCommandFailure(reason)),
+        }
     }
 }
 

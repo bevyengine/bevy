@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::view::Msaa;
 use bevy_render::{
     camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
@@ -65,7 +66,7 @@ impl Default for Camera3d {
 
 #[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub struct Camera3dDepthTextureUsage(u32);
+pub struct Camera3dDepthTextureUsage(pub u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
     fn from(value: TextureUsages) -> Self {
@@ -152,6 +153,7 @@ pub struct Camera3dBundle {
     pub color_grading: ColorGrading,
     pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
+    pub msaa: Msaa,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -171,6 +173,7 @@ impl Default for Camera3dBundle {
             exposure: Default::default(),
             main_texture_usages: Default::default(),
             deband_dither: DebandDither::Enabled,
+            msaa: Default::default(),
         }
     }
 }

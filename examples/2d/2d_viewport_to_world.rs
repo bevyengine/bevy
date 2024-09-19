@@ -1,6 +1,6 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world_2d` method.
 
-use bevy::{color::palettes::basic::WHITE, prelude::*};
+use bevy::{color::palettes::basic::WHITE, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -17,16 +17,20 @@ fn draw_cursor(
 ) {
     let (camera, camera_transform) = camera_query.single();
 
-    let Some(cursor_position) = windows.single().cursor_position() else {
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+
+    let Some(cursor_position) = window.cursor_position() else {
         return;
     };
 
     // Calculate a world position based on the cursor's position.
-    let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+    let Ok(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
 
-    gizmos.circle_2d(point, 10., WHITE);
+    gizmos.circle_2d(Isometry2d::from_translation(point), 10., WHITE);
 }
 
 fn setup(mut commands: Commands) {

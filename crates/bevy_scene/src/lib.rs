@@ -34,7 +34,9 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
-#[allow(missing_docs)]
+/// The scene prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -56,7 +58,6 @@ impl Plugin for ScenePlugin {
         app.init_asset::<DynamicScene>()
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
-            .add_event::<SceneInstanceReady>()
             .init_resource::<SceneSpawner>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 

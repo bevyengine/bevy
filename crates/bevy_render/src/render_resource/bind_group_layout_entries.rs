@@ -1,5 +1,5 @@
 use bevy_utils::all_tuples_with_size;
-use std::num::NonZeroU32;
+use std::num::NonZero;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
@@ -130,7 +130,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 pub struct BindGroupLayoutEntryBuilder {
     ty: BindingType,
     visibility: Option<ShaderStages>,
-    count: Option<NonZeroU32>,
+    count: Option<NonZero<u32>>,
 }
 
 impl BindGroupLayoutEntryBuilder {
@@ -139,7 +139,7 @@ impl BindGroupLayoutEntryBuilder {
         self
     }
 
-    pub fn count(mut self, count: NonZeroU32) -> Self {
+    pub fn count(mut self, count: NonZero<u32>) -> Self {
         self.count = Some(count);
         self
     }
@@ -272,7 +272,7 @@ all_tuples_with_size!(impl_to_indexed_binding_type_slice, 1, 32, T, n, s);
 
 impl<const N: usize> IntoBindGroupLayoutEntryBuilderArray<N> for [BindGroupLayoutEntry; N] {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N] {
-        self.map(|x| x.into_bind_group_layout_entry_builder())
+        self.map(IntoBindGroupLayoutEntryBuilder::into_bind_group_layout_entry_builder)
     }
 }
 
@@ -353,7 +353,7 @@ pub mod binding_types {
         BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
     };
     use encase::ShaderType;
-    use std::num::NonZeroU64;
+    use std::num::NonZero;
     use wgpu::{StorageTextureAccess, TextureFormat};
 
     use super::*;
@@ -364,7 +364,7 @@ pub mod binding_types {
 
     pub fn storage_buffer_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: false },
@@ -382,7 +382,7 @@ pub mod binding_types {
 
     pub fn storage_buffer_read_only_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: true },
@@ -398,7 +398,7 @@ pub mod binding_types {
 
     pub fn uniform_buffer_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Uniform,

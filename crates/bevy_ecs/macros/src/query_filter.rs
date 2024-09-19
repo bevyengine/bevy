@@ -120,7 +120,8 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     );
 
     let filter_impl = quote! {
-        impl #user_impl_generics #path::query::QueryFilter
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
             const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
@@ -145,9 +146,13 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
 
         const _: () = {
             #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for caching."]
+            #[doc = concat!(
+                "Automatically generated internal [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) state type for [`",
+                stringify!(#struct_name),
+                "`], used for caching."
+            )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*

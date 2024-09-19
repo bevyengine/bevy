@@ -55,7 +55,11 @@ impl ReflectValueDef {
         if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            traits = Some(ContainerAttributes::parse_terminated(&content, trait_)?);
+            traits = Some({
+                let mut attrs = ContainerAttributes::default();
+                attrs.parse_terminated(&content, trait_)?;
+                attrs
+            });
         }
         Ok(ReflectValueDef {
             attrs,

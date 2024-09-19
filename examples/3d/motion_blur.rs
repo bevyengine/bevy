@@ -7,8 +7,13 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    // MSAA and Motion Blur together are not compatible on WebGL
+    #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+    app.insert_resource(Msaa::Off);
+
+    app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
         .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
         .run();
@@ -24,6 +29,8 @@ fn setup_camera(mut commands: Commands) {
             motion_blur: MotionBlur {
                 shutter_angle: 1.0,
                 samples: 2,
+                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+                _webgl2_padding: Default::default(),
             },
             ..default()
         },
@@ -137,18 +144,17 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands.spawn((
-            PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.5)),
-                ..default()
-            },
-            Moves(i as f32 * 2.0),
-        ));
-        if i == 0 {
-            entity.insert(CameraTracked);
-        }
+        let mut entity = commands
+            .spawn((
+                PbrBundle {
+                    mesh: box_mesh.clone(),
+                    material: color.clone(),
+                    transform: Transform::from_scale(Vec3::splat(0.5)),
+                    ..default()
+                },
+                Moves(i as f32 * 2.0),
+            ))
+            .insert_if(CameraTracked, || i == 0);
         entity.with_children(|parent| {
             parent.spawn(PbrBundle {
                 mesh: box_mesh.clone(),
@@ -245,10 +251,8 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle {
-        font_size: 24.0,
-        ..default()
-    };
+    let style = TextStyle::default();
+
     commands.spawn(
         TextBundle::from_sections(vec![
             TextSection::new(String::new(), style.clone()),
@@ -267,31 +271,31 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn keyboard_inputs(
-    mut settings: Query<&mut MotionBlur>,
+    mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     mut text: Query<&mut Text>,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut settings = settings.single_mut();
+    let mut motion_blur = motion_blur.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
-        settings.shutter_angle -= 0.25;
+        motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
-        settings.shutter_angle += 0.25;
+        motion_blur.shutter_angle += 0.25;
     } else if presses.just_pressed(KeyCode::Digit3) {
-        settings.samples = settings.samples.saturating_sub(1);
+        motion_blur.samples = motion_blur.samples.saturating_sub(1);
     } else if presses.just_pressed(KeyCode::Digit4) {
-        settings.samples += 1;
+        motion_blur.samples += 1;
     } else if presses.just_pressed(KeyCode::Space) {
         *camera = match *camera {
             CameraMode::Track => CameraMode::Chase,
             CameraMode::Chase => CameraMode::Track,
         };
     }
-    settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
-    settings.samples = settings.samples.clamp(0, 64);
+    motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
+    motion_blur.samples = motion_blur.samples.clamp(0, 64);
     let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset
