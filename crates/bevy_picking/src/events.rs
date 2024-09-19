@@ -253,7 +253,7 @@ pub struct DragEntry {
 #[derive(Debug, Clone, Default)]
 pub struct PointerState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
-    pub pressing: HashMap<Entity, (Location, Instant)>,
+    pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
     /// Stores the the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
     /// Stores  the hit data for each entity currently being dragged over by the pointer.
@@ -379,13 +379,19 @@ pub fn pointer_events(
                             .iter()
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                         {
-                            let event =
-                                Pointer::new(pointer_id, location.clone(), Down { button, hit });
-                            commands.trigger_targets(event.clone(), hovered_entity);
+                            let event = Pointer::new(
+                                pointer_id,
+                                location.clone(),
+                                Down {
+                                    button,
+                                    hit: hit.clone(),
+                                },
+                            );
+                            commands.trigger_targets(event, hovered_entity);
                             // Also insert the press into the state
                             state
                                 .pressing
-                                .insert(hovered_entity, (event.pointer_location, now));
+                                .insert(hovered_entity, (location.clone(), now, hit));
                         }
                     }
                     PressDirection::Up => {
@@ -442,8 +448,7 @@ pub fn pointer_events(
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                         {
                             // If this pointer previously pressed the hovered entity, emit a Click event
-                            if let Some((_location, press_instant)) =
-                                state.pressing.get(&hovered_entity)
+                            if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity)
                             {
                                 commands.trigger_targets(
                                     Pointer::new(
@@ -481,67 +486,55 @@ pub fn pointer_events(
             }
             // Moved
             PointerAction::Moved { delta } => {
+                // Triggers during movement even if not over an entity
+                for button in PointerButton::iter() {
+                    let state = pointer_state.entry((pointer_id, button)).or_default();
+
+                    // Emit DragEntry and DragStart the first time we move while pressing an entity
+                    for (press_target, (location, _, hit)) in state.pressing.iter() {
+                        if state.dragging.contains_key(press_target) {
+                            continue; // This entity is already logged as being dragged
+                        }
+                        state.dragging.insert(
+                            press_target.clone(),
+                            DragEntry {
+                                start_pos: location.position,
+                                latest_pos: location.position,
+                            },
+                        );
+                        commands.trigger_targets(
+                            Pointer::new(
+                                pointer_id,
+                                location.clone(),
+                                DragStart {
+                                    button,
+                                    hit: hit.clone(),
+                                },
+                            ),
+                            press_target.clone(),
+                        );
+                    }
+
+                    // Emit Drag events to the entities we are dragging
+                    for (drag_target, drag) in state.dragging.iter_mut() {
+                        let drag_event = Drag {
+                            button,
+                            distance: location.position - drag.start_pos,
+                            delta: location.position - drag.latest_pos,
+                        };
+                        drag.latest_pos = location.position;
+                        let event = Pointer::new(pointer_id, location.clone(), drag_event);
+                        commands.trigger_targets(event, *drag_target);
+                    }
+                }
+
+                // Triggers during movement over specific entities
                 for (hovered_entity, hit) in hover_map
                     .get(&pointer_id)
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                 {
-                    // Send drag events to entities being dragged or dragged over
-                    for button in PointerButton::iter() {
-                        let state = pointer_state.entry((pointer_id, button)).or_default();
-
-                        // Emit a DragStart the first time the pointer moves while pressing an entity
-                        for (location, _instant) in state.pressing.values() {
-                            if state.dragging.contains_key(&hovered_entity) {
-                                continue; // this entity is already logged as being dragged
-                            }
-                            state.dragging.insert(
-                                hovered_entity,
-                                DragEntry {
-                                    start_pos: location.position,
-                                    latest_pos: location.position,
-                                },
-                            );
-                            commands.trigger_targets(
-                                Pointer::new(
-                                    pointer_id,
-                                    location.clone(),
-                                    DragStart {
-                                        button,
-                                        hit: hit.clone(),
-                                    },
-                                ),
-                                hovered_entity,
-                            );
-                        }
-
-                        // Emit a Drag event to the dragged entity when it is dragged over another entity.
-                        for (dragged_entity, drag) in state.dragging.iter_mut() {
-                            let drag_event = Drag {
-                                button,
-                                distance: location.position - drag.start_pos,
-                                delta: location.position - drag.latest_pos,
-                            };
-                            drag.latest_pos = location.position;
-                            let target = *dragged_entity;
-                            let event = Pointer::new(pointer_id, location.clone(), drag_event);
-                            commands.trigger_targets(event, target);
-                        }
-
-                        // Emit a DragOver to the hovered entity when dragging a different entity over it.
-                        for drag_target in state.dragging.keys()
-                            .filter(
-                                |&&drag_target| hovered_entity != drag_target, /* can't drag over itself */
-                            )
-                        {
-                            commands.trigger_targets(
-                                Pointer::new(pointer_id, location.clone(), DragOver { button, dragged: *drag_target, hit: hit.clone() }),
-                                hovered_entity,
-                            );
-                        }
-                    }
-
-                    // Always send Move event
+                    // Emit Move events to the entities we are hovering
                     commands.trigger_targets(
                         Pointer::new(
                             pointer_id,
