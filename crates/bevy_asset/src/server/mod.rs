@@ -984,7 +984,7 @@ impl AssetServer {
     }
 
     /// Convenience method that returns true if the asset and all of its direct dependencies have been loaded.
-    pub fn is_loaded_with_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
+    pub fn is_loaded_with_direct_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
         matches!(
             self.get_load_states(id),
             Some((LoadState::Loaded, DependencyLoadState::Loaded, _))
@@ -993,7 +993,7 @@ impl AssetServer {
 
     /// Convenience method that returns true if the asset, all of its dependencies, and all of its recursive
     /// dependencies have been loaded.
-    pub fn is_loaded_with_recursive_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
+    pub fn is_loaded_with_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
         matches!(
             self.get_load_states(id),
             Some((

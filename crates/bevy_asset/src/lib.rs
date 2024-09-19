@@ -1133,8 +1133,8 @@ mod tests {
             ));
 
             assert!(asset_server.is_loaded(a_id));
-            assert!(asset_server.is_loaded_with_dependencies(a_id));
-            assert!(!asset_server.is_loaded_with_recursive_dependencies(a_id));
+            assert!(asset_server.is_loaded_with_direct_dependencies(a_id));
+            assert!(!asset_server.is_loaded_with_dependencies(a_id));
 
             Some(())
         });
