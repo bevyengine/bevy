@@ -436,8 +436,7 @@ impl<'a> ReflectDerive<'a> {
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()
-            .enumerate()
-            .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
+            .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
 
                 let fields = match variant.fields {
@@ -449,7 +448,6 @@ impl<'a> ReflectDerive<'a> {
                     fields,
                     attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
-                    index,
                     #[cfg(feature = "documentation")]
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
