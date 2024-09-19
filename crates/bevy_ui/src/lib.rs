@@ -80,10 +80,6 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
-    /// After this label, scroll positions will have been updated for UI entities.
-    ///
-    /// Runs in [`PreUpdate`].
-    Scroll,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// After this label, the ui layout state has been updated.

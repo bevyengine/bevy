@@ -150,13 +150,16 @@ impl Default for Node {
     }
 }
 
-/// The scroll position on the node
+/// The scroll position of the node.
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
+/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
-    /// How far across the node is scrolled (0 = not scrolled / scrolled to right)
+    /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
     pub offset_x: f32,
-    /// How far down the node is scrolled (0 = not scrolled / scrolled to top)
+    /// How far down the node is scrolled, in pixels. (0 = not scrolled / scrolled to top)
     pub offset_y: f32,
 }
 

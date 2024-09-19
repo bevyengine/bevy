@@ -1,5 +1,5 @@
 //! This example illustrates scrolling in Bevy UI.
-//!
+
 use bevy::{
     a11y::{
         accesskit::{NodeBuilder, Role},
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             "Horizontally Scrolling list (Shift + Mousewheel)",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 25.,
+                                font_size: LINE_HEIGHT,
                                 ..default()
                             },
                         ),
@@ -143,7 +143,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Vertically Scrolling List",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 25.,
+                                        font_size: LINE_HEIGHT,
                                         ..default()
                                     },
                                 ),
@@ -166,21 +166,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     // List items
                                     for i in 0..25 {
                                         parent
-                                            .spawn((
-                                                TextBundle::from_section(
-                                                    format!("Item {i}"),
-                                                    TextStyle {
-                                                        font: asset_server
-                                                            .load("fonts/FiraSans-Bold.ttf"),
-                                                        ..default()
-                                                    },
-                                                ),
-                                                Label,
-                                                AccessibilityNode(NodeBuilder::new(Role::ListItem)),
-                                            ))
+                                            .spawn(NodeBundle {
+                                                style: Style {
+                                                    height: Val::Px(LINE_HEIGHT),
+                                                    max_height: Val::Px(LINE_HEIGHT),
+                                                    ..default()
+                                                },
+                                                ..default()
+                                            })
                                             .insert(Pickable {
                                                 should_block_lower: false,
                                                 ..default()
+                                            })
+                                            .with_children(|parent| {
+                                                parent
+                                                    .spawn((
+                                                        TextBundle::from_section(
+                                                            format!("Item {i}"),
+                                                            TextStyle {
+                                                                font: asset_server.load(
+                                                                    "fonts/FiraSans-Bold.ttf",
+                                                                ),
+                                                                ..default()
+                                                            },
+                                                        ),
+                                                        Label,
+                                                        AccessibilityNode(NodeBuilder::new(
+                                                            Role::ListItem,
+                                                        )),
+                                                    ))
+                                                    .insert(Pickable {
+                                                        should_block_lower: false,
+                                                        ..default()
+                                                    });
                                             });
                                     }
                                 });
@@ -205,7 +223,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Bidirectionally Scrolling List",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 25.,
+                                        font_size: LINE_HEIGHT,
                                         ..default()
                                     },
                                 ),
@@ -284,7 +302,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Nested Scrolling Lists",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 25.,
+                                        font_size: LINE_HEIGHT,
                                         ..default()
                                     },
                                 ),
@@ -354,6 +372,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+const LINE_HEIGHT: f32 = 20.;
 /// Updates the scroll position of scrollable nodes in response to mouse input
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
@@ -363,7 +382,10 @@ pub fn update_scroll_position(
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         let (mut dx, mut dy) = match mouse_wheel_event.unit {
-            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Line => (
+                mouse_wheel_event.x * LINE_HEIGHT,
+                mouse_wheel_event.y * LINE_HEIGHT,
+            ),
             MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
         };
 
