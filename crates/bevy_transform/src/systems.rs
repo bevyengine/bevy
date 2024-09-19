@@ -79,7 +79,7 @@ pub fn propagate_transforms(
                 // - Since each root entity is unique and the hierarchy is consistent and forest-like,
                 //   other root entities' `propagate_recursive` calls will not conflict with this one.
                 // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
-                #[expect(unsafe_code, reason = "`propagate_recursive() is unsafe due to its use of `Query::get_unchecked()`.")]
+                #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
                 unsafe {
                     propagate_recursive(
                         &global_transform,
