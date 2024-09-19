@@ -40,7 +40,6 @@ semicolon_if_nothing_returned = "warn"
 type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
-allow_attributes_without_reason = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
