@@ -580,8 +580,6 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let clip_from_view =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
@@ -596,6 +594,12 @@ pub fn update_point_light_frusta(
         if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
+
+        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+            std::f32::consts::FRAC_PI_2,
+            1.0,
+            point_light.shadow_map_near_z,
+        );
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
@@ -639,7 +643,8 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_world_from_view = spot_light_world_from_view(transform);
-        let spot_clip_from_view = spot_light_clip_from_view(spot_light.outer_angle);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
         *frustum = Frustum::from_clip_from_world_custom_far(
@@ -820,7 +825,7 @@ pub fn check_dir_light_mesh_visibility(
     // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
     // TODO: use resource to avoid unnecessary memory alloc
     let mut defer_queue = std::mem::take(defer_visible_entities_queue.deref_mut());
-    commands.add(move |world: &mut World| {
+    commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());

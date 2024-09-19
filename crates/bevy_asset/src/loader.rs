@@ -20,6 +20,10 @@ use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
+///
+/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
+///
+/// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;

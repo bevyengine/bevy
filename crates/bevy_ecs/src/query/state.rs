@@ -123,7 +123,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Consider using `as_readonly` or `as_nop` instead which are safe functions.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
@@ -508,22 +508,46 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        self.component_access
-            .access
-            .component_reads()
-            .for_each(|id| {
+        // As a fast path, we can iterate directly over the components involved
+        // if the `access` isn't inverted.
+        #[allow(deprecated)]
+        let (component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.component_access.access.component_reads_and_writes();
+        let (component_writes, component_writes_inverted) =
+            self.component_access.access.component_writes();
+
+        if !component_reads_and_writes_inverted && !component_writes_inverted {
+            component_reads_and_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_read(id);
                 }
             });
-        self.component_access
-            .access
-            .component_writes()
-            .for_each(|id| {
+            component_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_write(id);
                 }
             });
+            return;
+        }
+
+        for (component_id, archetype_component_id) in
+            archetype.components_with_archetype_component_id()
+        {
+            if self
+                .component_access
+                .access
+                .has_component_read(component_id)
+            {
+                access.add_component_read(archetype_component_id);
+            }
+            if self
+                .component_access
+                .access
+                .has_component_write(component_id)
+            {
+                access.add_component_write(archetype_component_id);
+            }
+        }
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].

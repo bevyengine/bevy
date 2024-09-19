@@ -304,8 +304,8 @@ pub trait ChildBuild {
     /// Returns the parent entity.
     fn parent_entity(&self) -> Entity;
 
-    /// Adds a command to be executed, like [`Commands::add`].
-    fn add_command<C: Command>(&mut self, command: C) -> &mut Self;
+    /// Adds a command to be executed, like [`Commands::queue`].
+    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self;
 }
 
 impl ChildBuild for ChildBuilder<'_> {
@@ -327,8 +327,8 @@ impl ChildBuild for ChildBuilder<'_> {
         self.add_children.parent
     }
 
-    fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
-        self.commands.add(command);
+    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self {
+        self.commands.queue(command);
         self
     }
 }
@@ -439,14 +439,14 @@ impl BuildChildren for EntityCommands<'_> {
         if children.children.contains(&parent) {
             panic!("Entity cannot be a child of itself.");
         }
-        self.commands().add(children);
+        self.commands().queue(children);
         self
     }
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
         let parent = self.id();
         let child = self.commands().spawn(bundle).id();
-        self.commands().add(AddChild { parent, child });
+        self.commands().queue(AddChild { parent, child });
         self
     }
 
@@ -455,7 +455,7 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Cannot push entity as a child of itself.");
         }
-        self.commands().add(AddChildren {
+        self.commands().queue(AddChildren {
             children: SmallVec::from(children),
             parent,
         });
@@ -467,7 +467,7 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Cannot insert entity as a child of itself.");
         }
-        self.commands().add(InsertChildren {
+        self.commands().queue(InsertChildren {
             children: SmallVec::from(children),
             index,
             parent,
@@ -477,7 +477,7 @@ impl BuildChildren for EntityCommands<'_> {
 
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
-        self.commands().add(RemoveChildren {
+        self.commands().queue(RemoveChildren {
             children: SmallVec::from(children),
             parent,
         });
@@ -489,13 +489,13 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot add entity as a child of itself.");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().queue(AddChild { child, parent });
         self
     }
 
     fn clear_children(&mut self) -> &mut Self {
         let parent = self.id();
-        self.commands().add(ClearChildren { parent });
+        self.commands().queue(ClearChildren { parent });
         self
     }
 
@@ -504,7 +504,7 @@ impl BuildChildren for EntityCommands<'_> {
         if children.contains(&parent) {
             panic!("Cannot replace entity as a child of itself.");
         }
-        self.commands().add(ReplaceChildren {
+        self.commands().queue(ReplaceChildren {
             children: SmallVec::from(children),
             parent,
         });
@@ -516,13 +516,13 @@ impl BuildChildren for EntityCommands<'_> {
         if child == parent {
             panic!("Cannot set parent to itself");
         }
-        self.commands().add(AddChild { child, parent });
+        self.commands().queue(AddChild { child, parent });
         self
     }
 
     fn remove_parent(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParent { child });
+        self.commands().queue(RemoveParent { child });
         self
     }
 }
@@ -567,7 +567,7 @@ impl ChildBuild for WorldChildBuilder<'_> {
         self.parent
     }
 
-    fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
+    fn enqueue_command<C: Command>(&mut self, command: C) -> &mut Self {
         command.apply(self.world);
         self
     }
