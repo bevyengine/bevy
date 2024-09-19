@@ -5,8 +5,8 @@
 /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
 ///
-/// Shortening is performed lazily without allocation. To get a [`String`] from
-/// this type, use [`to_string()`](`ShortName::to_string`).
+/// Shortening is performed lazily without allocation. To get a string from
+/// this type, use the `to_string(...)` method provided by [`Display`](`core::fmt::Display`)
 #[derive(Clone, Copy)]
 pub struct ShortName<'a>(pub &'a str);
 
