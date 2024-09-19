@@ -27,6 +27,7 @@ use bevy_reflect::Reflect;
 mod accessibility;
 mod focus;
 mod geometry;
+mod ghost_hierarchy;
 mod layout;
 mod render;
 mod stack;
@@ -34,6 +35,7 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
+pub use ghost_hierarchy::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
