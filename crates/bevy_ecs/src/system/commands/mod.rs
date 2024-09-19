@@ -1509,9 +1509,20 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// # Panics
     ///
     /// Panics if the entity does not exist.
+    /// See [`or_try_insert_with`](Self::or_try_insert_with) for a non-panicking version.
     #[track_caller]
     pub fn or_insert_with(self, default: impl Fn() -> T) -> Self {
         self.or_insert(default())
+    }
+
+    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
+    ///
+    /// Unlike [`or_insert_with`](Self::or_insert_with), this will not panic if the entity does not exist.
+    ///
+    /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
+    #[track_caller]
+    pub fn or_try_insert_with(self, default: impl Fn() -> T) -> Self {
+        self.or_try_insert(default())
     }
 
     /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already present.
