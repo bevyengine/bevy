@@ -1045,7 +1045,7 @@ impl EntityCommands<'_> {
     /// ones.
     ///
     /// See also [`entry`](Self::entry), which let's you modify a [`Component`] if it's present,
-    /// as well as initialize it with a defualt value.
+    /// as well as initialize it with a default value.
     ///
     /// # Panics
     ///
