@@ -87,7 +87,6 @@ plugin_group! {
         bevy_transform:::TransformPlugin,
         bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
-        bevy_a11y:::AccessibilityPlugin,
         bevy_app:::ScheduleRunnerPlugin,
         #[custom(cfg(not(target_arch = "wasm32")))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
