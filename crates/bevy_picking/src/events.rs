@@ -496,7 +496,7 @@ pub fn pointer_events(
                             continue; // This entity is already logged as being dragged
                         }
                         state.dragging.insert(
-                            press_target.clone(),
+                            *press_target,
                             DragEntry {
                                 start_pos: location.position,
                                 latest_pos: location.position,
@@ -511,7 +511,7 @@ pub fn pointer_events(
                                     hit: hit.clone(),
                                 },
                             ),
-                            press_target.clone(),
+                            *press_target,
                         );
                     }
 
