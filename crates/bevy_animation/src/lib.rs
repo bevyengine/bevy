@@ -1239,7 +1239,15 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets.after(bevy_render::mesh::morph::inherit_weights),
+                    // TODO: `animate_targets` can animate anything, so
+                    // ambiguity testing currently considers it ambiguous with
+                    // every other system in `PostUpdate`. We may want to move
+                    // it to its own system set after `Update` but before
+                    // `PostUpdate`. For now, we just disable ambiguity testing
+                    // for this system.
+                    animate_targets
+                        .after(bevy_render::mesh::morph::inherit_weights)
+                        .ambiguous_with_all(),
                     expire_completed_transitions,
                 )
                     .chain()
