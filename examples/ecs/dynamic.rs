@@ -3,7 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
+use std::{alloc::Layout, io::Write, ptr::NonNull};
 
 use bevy::prelude::*;
 use bevy::{
@@ -41,7 +41,7 @@ query, q  Query for entities
 
     Accesses: 'A' with, '&A' read, '&mut A' write
     Operators: '||' or, ',' and, '?' optional
-    
+
     e.g. &A || &B, &mut C, D, ?E";
 
 fn main() {
