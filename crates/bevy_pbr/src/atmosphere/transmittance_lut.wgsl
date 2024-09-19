@@ -1,6 +1,6 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    common::{uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, AtmosphereSample, sample_atmosphere}
+    functions::{uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, AtmosphereSample, sample_atmosphere}
 }
 
 

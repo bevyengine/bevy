@@ -1,4 +1,4 @@
-#define_import_path bevy_pbr::atmosphere::common
+#define_import_path bevy_pbr::atmosphere::functions
 
 #import bevy_pbr::atmosphere::types::Atmosphere,
 
@@ -55,12 +55,23 @@ fn transmittance_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f
     return vec2<f32>(r, mu);
 }
 
-fn sample_transmittance_lut(atmosphere: Atmosphere, lut: texture_2d<f32>, smp: sampler, position: vec3<f32>, dir_to_light: vec3<f32>) -> vec3<f32> {
+fn multiscattering_lut_r_mu_to_uv(atmosphere: Atmosphere, r_mu: vec3<f32>) -> vec3<f32> {
+}
+
+fn multiscattering_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
+}
+
+fn sample_transmittance_lut(atmosphere: Atmosphere, lut: texture_2d<f32>, smp: sampler, position: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
     let r = position.y;
     let mu = dir_to_light.y;
-    let uv = transmittance_lut_r_mu_to_uv(atmosphere, vec2(r, mu));
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
     return textureSample(smp, lut).rgb;
 }
+
+fn sample_multiscattering_lut(atmosphere: Atmosphere, lut: texture_3d<f32>, smp: sampler, position: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
+}
+
+
 
 /// Simplified ray-sphere intersection
 /// where:
@@ -116,4 +127,20 @@ fn sample_atmosphere(atmosphere: Atmosphere, view_height: f32) -> AtmosphereSamp
     result.extinction = mie_extinction + rayleigh_scattering + ozone_absorption;
 
     return result;
+}
+
+// 3 / (16π)
+const FRAC_3_16_PI: f32 = 0.0596831036594607509;
+
+// 1 / (4π)
+const FRAC_4_PI: f32 = 0.07957747154594767;
+
+fn rayleigh(neg_LdotV: f32) -> f32 {
+    FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
+}
+
+fn henyey_greenstein(neg_LdotV: f32) -> f32 {
+    let g = volumetric_fog.scattering_asymmetry;
+    let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
+    return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
