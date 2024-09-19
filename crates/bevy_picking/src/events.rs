@@ -525,10 +525,30 @@ pub fn pointer_events(
                         drag.latest_pos = location.position;
                         let event = Pointer::new(pointer_id, location.clone(), drag_event);
                         commands.trigger_targets(event, *drag_target);
+
+                        // Emit corresponding DragOver to the hovered entities
+                        for (hovered_entity, hit) in hover_map
+                            .get(&pointer_id)
+                            .iter()
+                            .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
+                            .filter(|(hovered_entity, _)| *hovered_entity != *drag_target)
+                        {
+                            commands.trigger_targets(
+                                Pointer::new(
+                                    pointer_id,
+                                    location.clone(),
+                                    DragOver {
+                                        button,
+                                        dragged: *drag_target,
+                                        hit: hit.clone(),
+                                    },
+                                ),
+                                hovered_entity,
+                            );
+                        }
                     }
                 }
 
-                // Triggers during movement over specific entities
                 for (hovered_entity, hit) in hover_map
                     .get(&pointer_id)
                     .iter()
