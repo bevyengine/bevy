@@ -120,7 +120,8 @@ impl UiSurface {
             } else {
                 warn!(
                     "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected."
+without UI components as a child of an entity with UI components, results may be unexpected. \
+If this is intentional, consider adding a GhostNode component to this entity."
                 );
             }
         }
