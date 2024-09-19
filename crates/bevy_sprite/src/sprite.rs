@@ -10,7 +10,6 @@ use crate::TextureSlicer;
 /// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default)]
-#[repr(C)]
 pub struct Sprite {
     /// The sprite's color tint
     pub color: Color,
