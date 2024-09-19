@@ -146,7 +146,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             let range = range.unwrap_or(0..table.entity_count());
             accum =
-                // SAFETY: 
+                // SAFETY:
                 // - The fetched table matches both D and F
                 // - caller ensures `range` is within `[0, table.entity_count)`
                 // - The if block ensures that the query iteration is dense
@@ -1290,7 +1290,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// All arguments must stem from the same valid `QueryManyIter`.
     ///
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
@@ -1578,7 +1578,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
     /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.
@@ -1733,6 +1733,9 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
+    /// # Safety
+    /// - `world` must have permission to access any of the components registered in `query_state`.
+    /// - `world` must be the same one used to initialize `query_state`.
     unsafe fn init_empty(
         world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<D, F>,
@@ -1781,25 +1784,41 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         }
     }
 
-    /// retrieve item returned from most recent `next` call again.
+    /// Retrieve item returned from most recent `next` call again.
+    ///
+    /// # Safety
+    /// The result of `next` and any previous calls to `peek_last` with this row must have been
+    /// dropped to prevent aliasing mutable references.
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if self.is_dense {
-                let entity = self.table_entities.get_unchecked(index);
-                Some(D::fetch(
-                    &mut self.fetch,
-                    *entity,
-                    TableRow::from_usize(index),
-                ))
+                // SAFETY: This must have been called previously in `next` as `current_row > 0`
+                let entity = unsafe { self.table_entities.get_unchecked(index) };
+                // SAFETY:
+                //  - `set_table` must have been called previously either in `next` or before it.
+                //  - `*entity` and `index` are in the current table.
+                unsafe {
+                    Some(D::fetch(
+                        &mut self.fetch,
+                        *entity,
+                        TableRow::from_usize(index),
+                    ))
+                }
             } else {
-                let archetype_entity = self.archetype_entities.get_unchecked(index);
-                Some(D::fetch(
-                    &mut self.fetch,
-                    archetype_entity.id(),
-                    archetype_entity.table_row(),
-                ))
+                // SAFETY: This must have been called previously in `next` as `current_row > 0`
+                let archetype_entity = unsafe { self.archetype_entities.get_unchecked(index) };
+                // SAFETY:
+                //  - `set_archetype` must have been called previously either in `next` or before it.
+                //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
+                unsafe {
+                    Some(D::fetch(
+                        &mut self.fetch,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    ))
+                }
             }
         } else {
             None
@@ -2083,7 +2102,7 @@ mod tests {
             let mut query = world.query::<&Sparse>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2091,7 +2110,7 @@ mod tests {
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2108,7 +2127,7 @@ mod tests {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2116,7 +2135,7 @@ mod tests {
             );
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2136,7 +2155,7 @@ mod tests {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,
@@ -2145,7 +2164,7 @@ mod tests {
             assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
             _ = iter.next();
             println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", 
+                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
                 iter.cursor.archetype_entities.len(),
                 iter.cursor.table_entities.len(),
                 iter.cursor.current_len,

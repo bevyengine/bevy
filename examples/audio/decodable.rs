@@ -2,6 +2,7 @@
 use bevy::audio::AddAudioSource;
 use bevy::audio::AudioPlugin;
 use bevy::audio::Source;
+use bevy::math::ops;
 use bevy::prelude::*;
 use bevy::reflect::TypePath;
 use bevy::utils::Duration;
@@ -46,7 +47,7 @@ impl Iterator for SineDecoder {
         self.current_progress += self.progress_per_frame;
         // we loop back round to 0 to avoid floating point inaccuracies
         self.current_progress %= 1.;
-        Some(f32::sin(self.period * self.current_progress))
+        Some(ops::sin(self.period * self.current_progress))
     }
 }
 // `Source` is what allows the audio source to be played by bevy.

@@ -78,7 +78,7 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
 /// A convenient alias for `With<Mesh2dHandle>>`, for use with

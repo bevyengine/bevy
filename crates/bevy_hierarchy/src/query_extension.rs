@@ -172,8 +172,8 @@ mod tests {
 
         let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b, c]);
-        world.entity_mut(c).push_children(&[d]);
+        world.entity_mut(a).add_children(&[b, c]);
+        world.entity_mut(c).add_children(&[d]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
@@ -191,8 +191,8 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b]);
-        world.entity_mut(b).push_children(&[c]);
+        world.entity_mut(a).add_children(&[b]);
+        world.entity_mut(b).add_children(&[c]);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);

@@ -205,3 +205,11 @@ sudo eopkg it wayland-devel libxkbcommon-devel
 ```
 
 Compiling with clang is also possible - replace the `g++` package with `llvm-clang`
+
+## [FreeBSD](https://www.freebsd.org/)
+
+It is necessary to have the hgame module loaded in order to satisfy gli-rs. It will still throw an error, but the program should run successfully. You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
+
+```sh
+hgame_load="YES"
+```

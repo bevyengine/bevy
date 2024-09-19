@@ -20,10 +20,12 @@
 //! [`World`]: crate::world::World
 //! [`World::storages`]: crate::world::World::storages
 
+mod blob_array;
 mod blob_vec;
 mod resource;
 mod sparse_set;
 mod table;
+mod thin_array_ptr;
 
 pub use resource::*;
 pub use sparse_set::*;
