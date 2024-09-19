@@ -1475,7 +1475,12 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
-    /// See also [`or_try_insert`](Self::or_try_insert) and [`or_insert_with`](Self::or_insert_with).
+    /// See also [`or_insert_with`](Self::or_insert_with).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
+    /// See [`or_try_insert`](Self::or_try_insert) for a non-panicing version.
     #[track_caller]
     pub fn or_insert(mut self, default: T) -> Self {
         self.entity_commands = self
@@ -1500,6 +1505,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
     #[track_caller]
     pub fn or_insert_with(self, default: impl Fn() -> T) -> Self {
         self.or_insert(default())
@@ -1508,6 +1517,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_from_world`](Self::or_from_world).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
     #[track_caller]
     pub fn or_default(self) -> Self
     where
@@ -1521,6 +1534,10 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `T::from_world` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_default`](Self::or_default).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
     #[track_caller]
     pub fn or_from_world(mut self) -> Self
     where
