@@ -2,7 +2,7 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        common::{
+        functions::{
             uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,
             sample_transmittance_lut,
         },

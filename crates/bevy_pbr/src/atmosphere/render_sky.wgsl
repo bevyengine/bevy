@@ -1,17 +1,16 @@
-#import bevy_pbr::atmosphere::types::{Atmosphere, AtmosphereSettings};
+#import bevy_pbr::{
+    mesh_view_types::View,
+    atmosphere::types::{Atmosphere, AtmosphereSettings},
+}
+
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
-@group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
-@group(0) @binding(1) var<uniform> settings: AtmosphereSettings;
-@group(0) @binding(2) var<uniform> view: View;
-@group(0) @binding(3) var<uniform> lights: Lights;
-@group(0) @binding(4) var transmittance_lut: texture_2d<f32>;
-@group(0) @binding(5) var tranmittance_lut_sampler: sampler;
-@group(0) @binding(6) var multiscattering_lut: texture_2d<f32>;
-@group(0) @binding(7) var multiscattering_lut_sampler: sampler;
+@group(0) @binding(0) var<uniform> view: View;
+@group(0) @binding(3) var sky_view_lut: texture_2d<f32>;
+@group(0) @binding(4) var sky_view_lut_sampler: sampler;
 
 //from core_pipeline skybox.wgsl
-fn coords_to_ray_direction_horizon_oriented(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
+fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
@@ -42,4 +41,8 @@ fn coords_to_ray_direction_horizon_oriented(position: vec2<f32>, viewport: vec4<
 
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec3<f32> {
+    let ray_direction = coords_to_ray_direction(in.uv, view.viewport);
+
+
+    textureSample(sky_view_lut, sky_view_lut_sampler, in.uv)
 }

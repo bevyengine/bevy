@@ -31,5 +31,5 @@ struct AtmosphereSettings {
     sky_view_lut_size: vec2<f32>,
     sky_view_lut_samples: u32,
     aerial_view_lut_size: vec3<f32>,
-    aerial_view_lut_samples: u32,
+    aerial_lut_samples: vec3<f32>,
 }
