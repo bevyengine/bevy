@@ -8,7 +8,7 @@
 /// Shortening is performed lazily without allocation.
 #[cfg_attr(
     feature = "alloc",
-    doc = r#" To get a [`String`] from this type, use the [`to_string`](`ShortName::to_string`) method provided by [`ToString`](`alloc::string::ToString`)"#
+    doc = r#" To get a [`String`] from this type, use the [`to_string`](`alloc::string::ToString::to_string`) method."#
 )]
 ///
 /// # Examples
