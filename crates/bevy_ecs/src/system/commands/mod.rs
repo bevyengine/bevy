@@ -1642,9 +1642,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            // Safety: `NameOrEntity` is guaranteed to exist on all `Entity`s
-            let name_or_entity = world.get::<NameOrEntity>(entity).unwrap();
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {name_or_entity} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
