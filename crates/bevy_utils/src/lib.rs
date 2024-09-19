@@ -22,10 +22,8 @@ pub mod prelude {
 }
 
 pub mod futures;
-#[cfg(feature = "alloc")]
 mod short_names;
-#[cfg(feature = "alloc")]
-pub use short_names::get_short_name;
+pub use short_names::ShortName;
 pub mod synccell;
 pub mod syncunsafecell;
 

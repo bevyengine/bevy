@@ -5,7 +5,8 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::get_short_name;
+use bevy_utils::ShortName;
+use crossbeam_channel::{Receiver, Sender};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
@@ -204,9 +205,9 @@ impl<A: Asset> Default for Handle<A> {
     }
 }
 
-impl<A: Asset> core::fmt::Debug for Handle<A> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let name = get_short_name(core::any::type_name::<A>());
+impl<A: Asset> std::fmt::Debug for Handle<A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = ShortName::of::<A>();
         match self {
             Handle::Strong(handle) => {
                 write!(

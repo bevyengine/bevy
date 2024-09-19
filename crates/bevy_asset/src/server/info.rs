@@ -385,8 +385,10 @@ impl AssetInfos {
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
         let mut failed_deps = HashSet::new();
+        let mut dep_error = None;
         let mut loading_rec_deps = loading_deps.clone();
         let mut failed_rec_deps = HashSet::new();
+        let mut rec_dep_error = None;
         loading_deps.retain(|dep_id| {
             if let Some(dep_info) = self.get_mut(*dep_id) {
                 match dep_info.rec_dep_load_state {
@@ -401,7 +403,10 @@ impl AssetInfos {
                         // If dependency is loaded, reduce our count by one
                         loading_rec_deps.remove(dep_id);
                     }
-                    RecursiveDependencyLoadState::Failed => {
+                    RecursiveDependencyLoadState::Failed(ref error) => {
+                        if rec_dep_error.is_none() {
+                            rec_dep_error = Some(error.clone());
+                        }
                         failed_rec_deps.insert(*dep_id);
                         loading_rec_deps.remove(dep_id);
                     }
@@ -416,7 +421,10 @@ impl AssetInfos {
                         // If dependency is loaded, reduce our count by one
                         false
                     }
-                    LoadState::Failed(_) => {
+                    LoadState::Failed(ref error) => {
+                        if dep_error.is_none() {
+                            dep_error = Some(error.clone());
+                        }
                         failed_deps.insert(*dep_id);
                         false
                     }
@@ -434,7 +442,7 @@ impl AssetInfos {
         let dep_load_state = match (loading_deps.len(), failed_deps.len()) {
             (0, 0) => DependencyLoadState::Loaded,
             (_loading, 0) => DependencyLoadState::Loading,
-            (_loading, _failed) => DependencyLoadState::Failed,
+            (_loading, _failed) => DependencyLoadState::Failed(dep_error.unwrap()),
         };
 
         let rec_dep_load_state = match (loading_rec_deps.len(), failed_rec_deps.len()) {
@@ -447,7 +455,7 @@ impl AssetInfos {
                 RecursiveDependencyLoadState::Loaded
             }
             (_loading, 0) => RecursiveDependencyLoadState::Loading,
-            (_loading, _failed) => RecursiveDependencyLoadState::Failed,
+            (_loading, _failed) => RecursiveDependencyLoadState::Failed(rec_dep_error.unwrap()),
         };
 
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
@@ -477,14 +485,14 @@ impl AssetInfos {
             info.failed_rec_dependencies = failed_rec_deps;
             info.load_state = LoadState::Loaded;
             info.dep_load_state = dep_load_state;
-            info.rec_dep_load_state = rec_dep_load_state;
+            info.rec_dep_load_state = rec_dep_load_state.clone();
             if watching_for_changes {
                 info.loader_dependencies = loaded_asset.loader_dependencies;
             }
 
             let dependants_waiting_on_rec_load = if matches!(
                 rec_dep_load_state,
-                RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed
+                RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed(_)
             ) {
                 Some(core::mem::take(
                     &mut info.dependants_waiting_on_recursive_dep_load,
@@ -502,7 +510,9 @@ impl AssetInfos {
         for id in dependants_waiting_on_load {
             if let Some(info) = self.get_mut(id) {
                 info.loading_dependencies.remove(&loaded_asset_id);
-                if info.loading_dependencies.is_empty() {
+                if info.loading_dependencies.is_empty()
+                    && !matches!(info.dep_load_state, DependencyLoadState::Failed(_))
+                {
                     // send dependencies loaded event
                     info.dep_load_state = DependencyLoadState::Loaded;
                 }
@@ -516,9 +526,9 @@ impl AssetInfos {
                         Self::propagate_loaded_state(self, loaded_asset_id, dep_id, sender);
                     }
                 }
-                RecursiveDependencyLoadState::Failed => {
+                RecursiveDependencyLoadState::Failed(ref error) => {
                     for dep_id in dependants_waiting_on_rec_load {
-                        Self::propagate_failed_state(self, loaded_asset_id, dep_id);
+                        Self::propagate_failed_state(self, loaded_asset_id, dep_id, error);
                     }
                 }
                 RecursiveDependencyLoadState::Loading | RecursiveDependencyLoadState::NotLoaded => {
@@ -567,11 +577,12 @@ impl AssetInfos {
         infos: &mut AssetInfos,
         failed_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
+        error: &Arc<AssetLoadError>,
     ) {
         let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&failed_id);
             info.failed_rec_dependencies.insert(failed_id);
-            info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
+            info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
             Some(core::mem::take(
                 &mut info.dependants_waiting_on_recursive_dep_load,
             ))
@@ -581,7 +592,7 @@ impl AssetInfos {
 
         if let Some(dependants_waiting_on_rec_load) = dependants_waiting_on_rec_load {
             for dep_id in dependants_waiting_on_rec_load {
-                Self::propagate_failed_state(infos, waiting_id, dep_id);
+                Self::propagate_failed_state(infos, waiting_id, dep_id, error);
             }
         }
     }
@@ -592,14 +603,15 @@ impl AssetInfos {
             return;
         }
 
+        let error = Arc::new(error);
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
             let Some(info) = self.get_mut(failed_id) else {
                 // The asset was already dropped.
                 return;
             };
-            info.load_state = LoadState::Failed(Box::new(error));
-            info.dep_load_state = DependencyLoadState::Failed;
-            info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
+            info.load_state = LoadState::Failed(error.clone());
+            info.dep_load_state = DependencyLoadState::Failed(error.clone());
+            info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
             (
                 core::mem::take(&mut info.dependants_waiting_on_load),
                 core::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
@@ -610,12 +622,15 @@ impl AssetInfos {
             if let Some(info) = self.get_mut(waiting_id) {
                 info.loading_dependencies.remove(&failed_id);
                 info.failed_dependencies.insert(failed_id);
-                info.dep_load_state = DependencyLoadState::Failed;
+                // don't overwrite DependencyLoadState if already failed to preserve first error
+                if !(matches!(info.dep_load_state, DependencyLoadState::Failed(_))) {
+                    info.dep_load_state = DependencyLoadState::Failed(error.clone());
+                }
             }
         }
 
         for waiting_id in dependants_waiting_on_rec_load {
-            Self::propagate_failed_state(self, failed_id, waiting_id);
+            Self::propagate_failed_state(self, failed_id, waiting_id, &error);
         }
     }
 
