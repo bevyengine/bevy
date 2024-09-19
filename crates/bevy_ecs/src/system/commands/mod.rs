@@ -1486,7 +1486,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
-    /// See also [`or_insert`](Self::or_insert) and [`or_insert_with`](Self::or_insert_with).
+    /// Unlike [`or_insert`](Self::or_insert), this will not panic if the entity does not exist.
+    ///
+    /// See also [`or_insert_with`](Self::or_insert_with).
     #[track_caller]
     pub fn or_try_insert(mut self, default: T) -> Self {
         self.entity_commands = self
