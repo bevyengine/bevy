@@ -13,7 +13,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_utils::HashMap;
-use std::{mem::size_of, ops::Range, sync::Arc};
+use std::{ops::Range, sync::Arc};
 
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.
 #[derive(Resource)]

@@ -26,7 +26,6 @@ use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
     io::SeekFrom,
-    mem::size_of,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
