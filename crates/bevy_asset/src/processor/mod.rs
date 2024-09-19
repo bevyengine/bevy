@@ -561,7 +561,7 @@ impl AssetProcessor {
         any(target_arch = "wasm32", not(feature = "multi_threaded")),
         expect(
             dead_code,
-            reason = "This function is only used when the `multi_threade` feature is enabled, and when not on WASM."
+            reason = "This function is only used when the `multi_threaded` feature is enabled, and when not on WASM."
         )
     )]
     async fn initialize(&self) -> Result<(), InitializeError> {
