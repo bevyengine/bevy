@@ -1,17 +1,17 @@
 use crate::{
     BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
-    TargetCamera, UiScale,
+    TargetCamera, UiRootNodes, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::{Entity, EntityHashMap, EntityHashSet},
     event::EventReader,
-    query::{With, Without},
+    query::With,
     removal_detection::RemovedComponents,
     system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::Children;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 #[cfg(feature = "bevy_text")]
@@ -100,7 +100,7 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
+    root_nodes: UiRootNodes,
     mut style_query: Query<
         (
             Entity,
@@ -158,7 +158,8 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     camera_layout_info.clear();
-    root_node_query.iter().for_each(|(entity,target_camera)|{
+
+    root_nodes.iter().for_each(|(entity,target_camera)|{
         match camera_with_default(target_camera) {
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
