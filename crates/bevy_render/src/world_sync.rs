@@ -74,12 +74,12 @@ impl Plugin for WorldSyncPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.observe(
-            |trigger: Trigger<OnAdd, SyncRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         app.observe(
-            |trigger: Trigger<OnRemove, SyncRenderWorld>,
+            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
@@ -96,7 +96,7 @@ impl Plugin for WorldSyncPlugin {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 #[component(storage = "SparseSet")]
-pub struct SyncRenderWorld;
+pub struct SyncToRenderWorld;
 
 /// Marker component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
 #[derive(Component, Deref, Clone, Debug, Copy)]
@@ -198,7 +198,7 @@ mod tests {
 
     use super::{
         entity_sync_system, EntityRecord, MainEntity, PendingSyncEntity, RenderEntity,
-        SyncRenderWorld,
+        SyncToRenderWorld,
     };
 
     #[derive(Component)]
@@ -211,12 +211,12 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.observe(
-            |trigger: Trigger<OnAdd, SyncRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         main_world.observe(
-            |trigger: Trigger<OnRemove, SyncRenderWorld>,
+            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
@@ -234,7 +234,7 @@ mod tests {
         let main_entity = main_world
             .spawn(RenderDataComponent)
             // indicates that its entity needs to be synchronized to the render world
-            .insert(SyncRenderWorld)
+            .insert(SyncToRenderWorld)
             .id();
 
         entity_sync_system(&mut main_world, &mut render_world);

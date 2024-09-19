@@ -67,7 +67,7 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use world_sync::{
-    despawn_temporary_render_entities, entity_sync_system, SyncRenderWorld, WorldSyncPlugin,
+    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, WorldSyncPlugin,
 };
 
 use crate::mesh::RenderMesh;
@@ -373,7 +373,7 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>()
-            .register_type::<SyncRenderWorld>();
+            .register_type::<SyncToRenderWorld>();
     }
 
     fn ready(&self, app: &App) -> bool {

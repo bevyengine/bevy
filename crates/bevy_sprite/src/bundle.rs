@@ -6,7 +6,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
-    world_sync::SyncRenderWorld,
+    world_sync::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -34,7 +34,7 @@ pub struct SpriteBundle {
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
     /// Marker component that indicates that its entity needs to be synchronized to the render world
-    pub sync: SyncRenderWorld,
+    pub sync: SyncToRenderWorld,
 }
 
 /// A [`Bundle`] of components for drawing a single sprite from a sprite sheet (also referred
@@ -70,5 +70,5 @@ pub struct SpriteSheetBundle {
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
     /// Marker component that indicates that its entity needs to be synchronized to the render world
-    pub sync: SyncRenderWorld,
+    pub sync: SyncToRenderWorld,
 }

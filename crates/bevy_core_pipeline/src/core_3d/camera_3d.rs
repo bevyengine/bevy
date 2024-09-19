@@ -11,7 +11,7 @@ use bevy_render::{
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
-use bevy_render::{view::Msaa, world_sync::SyncRenderWorld};
+use bevy_render::{view::Msaa, world_sync::SyncToRenderWorld};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
@@ -155,7 +155,7 @@ pub struct Camera3dBundle {
     pub main_texture_usages: CameraMainTextureUsages,
     pub msaa: Msaa,
     /// Marker component that indicates that its entity needs to be synchronized to the render world
-    pub sync: SyncRenderWorld,
+    pub sync: SyncToRenderWorld,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference

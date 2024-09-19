@@ -3,7 +3,7 @@ use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::prelude::Msaa;
-use bevy_render::world_sync::SyncRenderWorld;
+use bevy_render::world_sync::SyncToRenderWorld;
 use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
@@ -39,7 +39,7 @@ pub struct Camera2dBundle {
     pub main_texture_usages: CameraMainTextureUsages,
     pub msaa: Msaa,
     /// Marker component that indicates that its entity needs to be synchronized to the render world
-    pub sync: SyncRenderWorld,
+    pub sync: SyncToRenderWorld,
 }
 
 impl Default for Camera2dBundle {
