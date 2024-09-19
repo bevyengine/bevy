@@ -16,9 +16,6 @@ enum Bird {
     Logo,
 }
 
-#[derive(Component, Debug)]
-struct Left;
-
 impl Bird {
     fn get_texture_path(&self) -> String {
         match self {
@@ -34,6 +31,9 @@ impl Bird {
         }
     }
 }
+
+#[derive(Component, Debug)]
+struct Left;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_left = Bird::Normal;
@@ -100,7 +100,7 @@ fn keyboard_controls(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         // Image handles, like other parts of the ECS, can be queried as mutable and modified at
-        // runtime. We only spawned one bird with the `Right` marker component.
+        // runtime. We only spawned one bird without the `Left` marker component.
         let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
             return;
         };
