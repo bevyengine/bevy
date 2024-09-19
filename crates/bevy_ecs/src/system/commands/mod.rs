@@ -908,8 +908,10 @@ impl EntityCommands<'_> {
         }
     }
 
-    /// Get an [`EntityEntryCommands`] for the component `T`,
+    /// Get an [`EntityEntryCommands`] for the [`Component`] `T`,
     /// allowing you to modify it or insert it if it isn't already present.
+    ///
+    /// See also [`insert_if_new`](Self::insert_if_new), which let's you insert a [`Bundle`] without overwriting it.
     ///
     /// # Example
     ///
@@ -1041,6 +1043,9 @@ impl EntityCommands<'_> {
     /// This is the same as [`EntityCommands::insert`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
     /// ones.
+    ///
+    /// See also [`entry`](Self::entry), which let's you modify a [`Component`] if it's present,
+    /// as well as initialize it with a defualt value.
     ///
     /// # Panics
     ///
