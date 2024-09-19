@@ -1,0 +1,137 @@
+//! Shows how to modify texture assets after spawning.
+
+use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, (setup, instructions))
+        .add_systems(Update, keyboard_controls)
+        .run();
+}
+
+#[derive(Component, Debug)]
+enum Bird {
+    Normal,
+    Logo,
+}
+
+#[derive(Component, Debug)]
+struct Left;
+
+impl Bird {
+    fn get_texture_path(&self) -> String {
+        match self {
+            Bird::Normal => "branding/bevy_bird_dark.png".into(),
+            Bird::Logo => "branding/bevy_logo_dark.png".into(),
+        }
+    }
+
+    fn set_next_variant(&mut self) {
+        *self = match self {
+            Bird::Normal => Bird::Logo,
+            Bird::Logo => Bird::Normal,
+        }
+    }
+}
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bird_left = Bird::Normal;
+    let bird_right = Bird::Normal;
+    commands.spawn(Camera2dBundle::default());
+
+    commands.spawn((
+        Name::new("Bird Left"),
+        // This marker component ensures we can easily find either of the Birds by using With and
+        // Without query filters.
+        Left,
+        SpriteBundle {
+            texture: asset_server.load(bird_left.get_texture_path()),
+            transform: Transform::from_xyz(-200.0, 0.0, 0.0),
+            ..default()
+        },
+        bird_left,
+    ));
+
+    commands.spawn((
+        Name::new("Bird Right"),
+        SpriteBundle {
+            texture: asset_server.load(bird_right.get_texture_path()),
+            transform: Transform::from_xyz(200.0, 0.0, 0.0),
+            ..default()
+        },
+        bird_right,
+    ));
+}
+
+fn instructions(mut commands: Commands) {
+    commands
+        .spawn((
+            Name::new("Instructions"),
+            NodeBundle {
+                style: Style {
+                    align_items: AlignItems::Start,
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Start,
+                    width: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Space: swap image texture paths by mutating a Handle<Image>",
+                TextStyle::default(),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "Return: mutate the image Asset itself, changing all copies of it",
+                TextStyle::default(),
+            ));
+        });
+}
+
+fn keyboard_controls(
+    asset_server: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+    left_bird: Query<&Handle<Image>, With<Left>>,
+    mut right_bird: Query<(&mut Bird, &mut Handle<Image>), Without<Left>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        // Image handles, like other parts of the ECS, can be queried as mutable and modified at
+        // runtime. We only spawned one bird with the `Right` marker component.
+        let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
+            return;
+        };
+
+        // Switch to a new Bird variant
+        bird.set_next_variant();
+
+        // Modify the handle associated with the Bird on the right side. Note that we will only
+        // have to load the same path from storage media once: repeated attempts will re-use the
+        // asset.
+        *handle = asset_server.load(bird.get_texture_path());
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Enter) {
+        // It's convenient to retrieve the asset handle stored with the bird on the left. However,
+        // we could just as easily have retained this in a resource or a dedicated component.
+        let Ok(handle) = left_bird.get_single() else {
+            return;
+        };
+
+        // Obtain a mutable reference to the Image asset.
+        let Some(image) = images.get_mut(handle) else {
+            return;
+        };
+
+        for pixel in &mut image.data {
+            // Directly modify the asset data, which will affect all users of this asset. By
+            // contrast, mutating the handle (as we did above) affects only one copy. In this case,
+            // we'll just invert the colors, by way of demonstration. Notice that both uses of the
+            // asset show the change, not just the one on the left.
+            *pixel = 255 - *pixel;
+        }
+    }
+}
