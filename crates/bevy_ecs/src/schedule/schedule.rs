@@ -1608,7 +1608,7 @@ impl ScheduleGraph {
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::get_short_name(&name);
+            name = bevy_utils::ShortName(&name).to_string();
         }
         name
     }
