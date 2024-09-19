@@ -176,3 +176,43 @@ mod __rust_begin_short_backtrace {
         black_box(system.run((), world))
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        prelude::{IntoSystemConfigs, Resource, Schedule},
+        schedule::ExecutorKind,
+        system::{Commands, In, IntoSystem, Res},
+        world::World,
+    };
+
+    #[derive(Resource)]
+    struct R1;
+
+    #[derive(Resource)]
+    struct R2;
+
+    #[test]
+    fn invalid_system_param_skips() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(
+            (
+                // Combined systems get skipped together.
+                (|mut commands: Commands| {
+                    commands.insert_resource(R1);
+                })
+                .pipe(|_: In<()>, _: Option<Res<R1>>| {}),
+                // This system depends on a system that is always skipped.
+                |mut commands: Commands| {
+                    commands.insert_resource(R2);
+                },
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+    }
+}
