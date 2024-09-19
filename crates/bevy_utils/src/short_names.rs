@@ -91,7 +91,7 @@ impl<'a> core::fmt::Debug for ShortName<'a> {
 
 impl<'a> core::fmt::Display for ShortName<'a> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        <Self as core::fmt::Debug>::fmt(&self, f)
+        <Self as core::fmt::Debug>::fmt(self, f)
     }
 }
 
