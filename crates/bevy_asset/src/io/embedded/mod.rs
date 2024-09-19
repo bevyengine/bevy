@@ -71,8 +71,6 @@ impl EmbeddedAssetRegistry {
         self.dir.remove_asset(full_path)
     }
 
-    /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
-    // NOTE: unused_mut because embedded_watcher feature is the only mutable consumer of `let mut source`
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
