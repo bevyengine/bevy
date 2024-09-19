@@ -15,6 +15,7 @@ use crate::{
     TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
+use core::marker::PhantomData;
 use std::fmt;
 use std::{
     any::Any,
@@ -1482,6 +1483,11 @@ impl_reflect! {
         Ok(T),
         Err(E),
     }
+}
+
+impl_reflect! {
+    #[type_path = "core::marker"]
+    struct PhantomData<T: ?Sized>;
 }
 
 impl<T: TypePath + ?Sized> TypePath for &'static T {
