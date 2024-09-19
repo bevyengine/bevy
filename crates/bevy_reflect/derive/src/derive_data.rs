@@ -122,9 +122,6 @@ pub(crate) struct EnumVariant<'a> {
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
     pub attrs: FieldAttributes,
-    /// The index of this variant within the enum.
-    #[expect(dead_code, reason = "TODO(MrGVSV): Why should this be kept?")]
-    pub index: usize,
     /// The documentation for this variant, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
