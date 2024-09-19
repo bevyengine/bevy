@@ -1,4 +1,5 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+// FIXME: troubleshoot why #![expect(...)] fails at crate level.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
