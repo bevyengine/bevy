@@ -50,6 +50,9 @@ impl<'w, 's> UiRootNodes<'w, 's> {
         //  - root_node_query: Entity, TargetCamera, With<Node>, Without<Parent>
         //  - Chain instead to avoid having to iterate ancestors on all non root Node's?
         //  - Utilize a filtered parents_query? Filter on GhostNode?
+
+        // Or maybe: Allow both GhostNode and Node to be root nodes?
+        //  - Unless there a case where one might want one multiple different UI contexts under a the same GhostNode ancestors?
         self.potential_root_node_query
             .iter()
             .filter(|(entity, _, parent)| {
