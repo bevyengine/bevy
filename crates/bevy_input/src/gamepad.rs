@@ -323,8 +323,6 @@ pub enum ButtonSettingsError {
     },
 }
 
-
-
 /// Gamepad [`bundle`](Bundle) with the minimum components required to represent a gamepad.
 #[derive(Bundle, Debug)]
 pub struct MinimalGamepad {
@@ -683,11 +681,6 @@ impl GamepadButtons {
         button_inputs
             .into_iter()
             .all(|button_type| self.just_released(button_type))
-    }
-
-    /// Returns the current state of the button.
-    pub fn pressed_state(&self, button: GamepadButtonType) -> ButtonState {
-        ButtonState::from(self.digital.pressed_state(button))
     }
 }
 
@@ -1487,7 +1480,7 @@ pub fn gamepad_connection_system(
                     preserved_settings.insert(id, settings);
                     gamepads.id_to_entity.remove(&id);
                     gamepads.entity_to_id.remove(&entity);
-                    if let Some(mut entity_commands) = commands.get_entity(entity) {
+                    if let Some(entity_commands) = commands.get_entity(entity) {
                         entity_commands.despawn();
                     } else {
                         warn!("Gamepad entity was already de-spawned.");
@@ -1603,11 +1596,18 @@ pub fn gamepad_button_event_system(
             }
             buttons.digital.press(button);
         };
+
+        let button_state = if buttons.digital.pressed(button) {
+            ButtonState::Pressed
+        } else {
+            ButtonState::Released
+        };
+
         processed_analog_events.send(GamepadButtonChangedEvent::new(
             entity,
             gamepad,
             button,
-            buttons.pressed_state(button),
+            button_state,
             filtered_value,
         ));
     }

@@ -55,11 +55,11 @@ use mouse::{
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
+    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system, Gamepad,
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
-    GamepadConnectionEvent, GamepadRumbleRequest, GamepadSettings, Gamepads,
-    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
-    Gamepad, GamepadConnection, GamepadId, GamepadInfo
+    GamepadConnection, GamepadConnectionEvent, GamepadId, GamepadInfo, GamepadRumbleRequest,
+    GamepadSettings, Gamepads, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    RawGamepadEvent,
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -137,17 +137,17 @@ impl Plugin for InputPlugin {
                 .register_type::<PanGesture>()
                 .register_type::<TouchInput>()
                 .register_type::<RawGamepadEvent>()
-            .register_type::<RawGamepadAxisChangedEvent>()
-            .register_type::<RawGamepadButtonChangedEvent>()
-            .register_type::<GamepadConnectionEvent>()
-            .register_type::<GamepadButtonChangedEvent>()
-            .register_type::<GamepadAxisChangedEvent>()
-            .register_type::<GamepadButtonStateChangedEvent>()
-            .register_type::<Gamepads>()
-            .register_type::<Gamepad>()
+                .register_type::<RawGamepadAxisChangedEvent>()
+                .register_type::<RawGamepadButtonChangedEvent>()
+                .register_type::<GamepadConnectionEvent>()
+                .register_type::<GamepadButtonChangedEvent>()
+                .register_type::<GamepadAxisChangedEvent>()
+                .register_type::<GamepadButtonStateChangedEvent>()
+                .register_type::<Gamepads>()
+                .register_type::<Gamepad>()
                 .register_type::<GamepadId>()
-            .register_type::<GamepadInfo>()
-            .register_type::<GamepadConnection>()
+                .register_type::<GamepadInfo>()
+                .register_type::<GamepadConnection>()
                 .register_type::<GamepadSettings>()
                 .register_type::<AccumulatedMouseMotion>()
                 .register_type::<AccumulatedMouseScroll>();
@@ -178,14 +178,5 @@ impl ButtonState {
     /// Is this button pressed?
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
-    }
-}
-
-impl From<InputState> for ButtonState {
-    fn from(state: InputState) -> Self {
-        match state {
-            InputState::Pressed => Self::Pressed,
-            InputState::Released => Self::Released,
-        }
     }
 }
