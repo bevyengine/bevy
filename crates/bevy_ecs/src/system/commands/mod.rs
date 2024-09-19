@@ -1480,7 +1480,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// # Panics
     ///
     /// Panics if the entity does not exist.
-    /// See [`or_try_insert`](Self::or_try_insert) for a non-panicing version.
+    /// See [`or_try_insert`](Self::or_try_insert) for a non-panicking version.
     #[track_caller]
     pub fn or_insert(mut self, default: T) -> Self {
         self.entity_commands = self
