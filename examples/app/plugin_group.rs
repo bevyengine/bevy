@@ -29,8 +29,8 @@ pub struct HelloWorldPlugins;
 impl PluginGroup for HelloWorldPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(PrintHelloPlugin)
-            .add(PrintWorldPlugin)
+            .push(PrintHelloPlugin)
+            .push(PrintWorldPlugin)
     }
 }
 

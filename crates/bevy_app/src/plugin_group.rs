@@ -129,7 +129,7 @@ macro_rules! plugin_group {
                             check_default::<$($plugin_path::)*$plugin_name>();
                         };
 
-                        group = group.add(<$($plugin_path::)*$plugin_name>::default());
+                        group = group.push(<$($plugin_path::)*$plugin_name>::default());
                     }
                 )*
                 $($(
@@ -141,7 +141,7 @@ macro_rules! plugin_group {
                             check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
                         };
 
-                        group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
+                        group = group.push(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
                     }
                 )+)?
 
@@ -280,7 +280,7 @@ impl PluginGroupBuilder {
     /// already in the group, it is removed from its previous place.
     // This is not confusing, clippy!
     #[allow(clippy::should_implement_trait)]
-    pub fn add<T: Plugin>(mut self, plugin: T) -> Self {
+    pub fn push<T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
         self.upsert_plugin_state(plugin, target_index);
@@ -289,7 +289,7 @@ impl PluginGroupBuilder {
 
     /// Adds a [`PluginGroup`] at the end of this [`PluginGroupBuilder`]. If the plugin was
     /// already in the group, it is removed from its previous place.
-    pub fn add_group(mut self, group: impl PluginGroup) -> Self {
+    pub fn push_group(mut self, group: impl PluginGroup) -> Self {
         let Self {
             mut plugins, order, ..
         } = group.build();
@@ -423,9 +423,9 @@ mod tests {
     #[test]
     fn basic_ordering() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
-            .add(PluginC);
+            .push(PluginA)
+            .push(PluginB)
+            .push(PluginC);
 
         assert_eq!(
             group.order,
@@ -440,8 +440,8 @@ mod tests {
     #[test]
     fn add_after() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
+            .push(PluginA)
+            .push(PluginB)
             .add_after::<PluginA>(PluginC);
 
         assert_eq!(
@@ -457,8 +457,8 @@ mod tests {
     #[test]
     fn add_before() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
+            .push(PluginA)
+            .push(PluginB)
             .add_before::<PluginB>(PluginC);
 
         assert_eq!(
@@ -474,10 +474,10 @@ mod tests {
     #[test]
     fn readd() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
-            .add(PluginC)
-            .add(PluginB);
+            .push(PluginA)
+            .push(PluginB)
+            .push(PluginC)
+            .push(PluginB);
 
         assert_eq!(
             group.order,
@@ -492,9 +492,9 @@ mod tests {
     #[test]
     fn readd_after() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
-            .add(PluginC)
+            .push(PluginA)
+            .push(PluginB)
+            .push(PluginC)
             .add_after::<PluginA>(PluginC);
 
         assert_eq!(
@@ -510,9 +510,9 @@ mod tests {
     #[test]
     fn readd_before() {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB)
-            .add(PluginC)
+            .push(PluginA)
+            .push(PluginB)
+            .push(PluginC)
             .add_before::<PluginB>(PluginC);
 
         assert_eq!(
@@ -528,12 +528,12 @@ mod tests {
     #[test]
     fn add_basic_subgroup() {
         let group_a = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginB);
+            .push(PluginA)
+            .push(PluginB);
 
         let group_b = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add_group(group_a)
-            .add(PluginC);
+            .push_group(group_a)
+            .push(PluginC);
 
         assert_eq!(
             group_b.order,
@@ -548,16 +548,16 @@ mod tests {
     #[test]
     fn add_conflicting_subgroup() {
         let group_a = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginA)
-            .add(PluginC);
+            .push(PluginA)
+            .push(PluginC);
 
         let group_b = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add(PluginB)
-            .add(PluginC);
+            .push(PluginB)
+            .push(PluginC);
 
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
-            .add_group(group_a)
-            .add_group(group_b);
+            .push_group(group_a)
+            .push_group(group_b);
 
         assert_eq!(
             group.order,
