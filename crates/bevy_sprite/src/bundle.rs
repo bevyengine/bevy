@@ -33,7 +33,7 @@ pub struct SpriteBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
     pub sync: SyncRenderWorld,
 }
 
@@ -69,6 +69,6 @@ pub struct SpriteSheetBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
     pub sync: SyncRenderWorld,
 }

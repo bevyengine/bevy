@@ -376,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-    mapping: Extract<Query<&RenderEntity>>,
+    render_entity_lookup: Extract<Query<&RenderEntity>>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -397,7 +397,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             else {
                 continue;
             };
-            let Ok(&camera_entity) = mapping.get(camera_entity) else {
+            let Ok(&camera_entity) = render_entity_lookup.get(camera_entity) else {
                 continue;
             };
 

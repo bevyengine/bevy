@@ -38,7 +38,7 @@ pub struct Camera2dBundle {
     pub deband_dither: DebandDither,
     pub main_texture_usages: CameraMainTextureUsages,
     pub msaa: Msaa,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
     pub sync: SyncRenderWorld,
 }
 

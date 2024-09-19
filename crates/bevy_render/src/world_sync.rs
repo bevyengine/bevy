@@ -13,15 +13,17 @@ use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::warn;
 
-/// A Plugin that synchronizes entities with specific Components between the main world and the render world.
+/// A Plugin that synchronizes entities with [`SyncRenderWorld`] between the main world and the render world.
 ///
 /// Bevy's renderer is architected independently from the main app.
-/// It operates in its own separate ECS World, so the renderer could run in parallel with the main world logic.
+/// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
 /// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
-/// between the main world and the render world.
-/// This is necessary for extraction, which copies over component data from the main to the render world.
+/// between the main world and the render world, by spawning new entities (without any components) in the main world,
+/// and despawning entities in the render world to match newly despawned entities in the main world.
+/// This is necessary preparation for extraction ([`ExtractSchedule`]), which copies over component data from the main
+/// to the render world for these entities.
 ///
 /// ```text
 /// |--------------------------------------------------------------------|
@@ -51,18 +53,18 @@ use bevy_utils::tracing::warn;
 /// ```
 ///
 /// Note that this effectively establishes a link between the main world entity and the render world entity.
-/// Not every entity needs to be synchronized, however, only entities with [`SyncRenderWorld`] are synced.
+/// Not every entity needs to be synchronized, however; only entities with the [`SyncRenderWorld`] component are synced.
 /// Adding [`SyncRenderWorld`] to a main world component will establish such a link.
 /// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
 /// despawned in the next `sync`.
 ///
-/// The sync step does not handle the transfer of component data between worlds,
-/// since its often not necessary to transfer over all the components of a main world entity.
+/// The sync step does not copy any of component data between worlds, since its often not necessary to transfer over all
+/// the components of a main world entity.
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
-/// The extraction happens in its own step, independently from synchronization.
+/// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*, stuff like mesh and texture data is handled
-/// differently, as those assets are extracted to render world resources and not entities.
+/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
+/// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
 #[derive(Default)]
@@ -87,7 +89,7 @@ impl Plugin for WorldSyncPlugin {
         );
     }
 }
-/// Marker component that indicates that its entity needs to be Synchronized to the render world
+/// Marker component that indicates that its entity needs to be synchronized to the render world
 ///
 /// NOTE: This component should persist throughout the entity's entire lifecycle.
 /// If this component is removed from its entity, the entity will be despawned.
@@ -96,8 +98,8 @@ impl Plugin for WorldSyncPlugin {
 #[component(storage = "SparseSet")]
 pub struct SyncRenderWorld;
 
-#[derive(Component, Deref, Clone, Debug, Copy)]
 /// Marker component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
+#[derive(Component, Deref, Clone, Debug, Copy)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
@@ -116,15 +118,18 @@ impl MainEntity {
     }
 }
 
-// marker component that indicates that its entity needs to be despawned at the end of every frame.
+/// Marker component that indicates that its entity needs to be despawned at the end of the frame.
+/// This is currently used for gizmos and UI nodes, which are redrawn / recalculated every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[component(storage = "SparseSet")]
 pub struct TemporaryRenderEntity;
 
 pub(crate) enum EntityRecord {
-    // When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding entity. This contains the main world entity
+    /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
+    /// entity. This contains the main world entity.
     Added(Entity),
-    // When an entity is despawned on the main world, notify the render world so that the corresponding entity can be despawned. This contains the render world entity.
+    /// When an entity is despawned on the main world, notify the render world so that the corresponding entity can be
+    /// despawned. This contains the render world entity.
     Removed(Entity),
 }
 
@@ -143,7 +148,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     if let Some(mut entity) = world.get_entity_mut(e) {
                         match entity.entry::<RenderEntity>() {
                             bevy_ecs::world::Entry::Occupied(_) => {
-                                warn!("Attempting to synchronize an entity that has already been synchronized!");
+                                panic!("Attempting to synchronize an entity that has already been synchronized!");
                             }
                             bevy_ecs::world::Entry::Vacant(entry) => {
                                 let id = render_world.spawn(MainEntity(e)).id();
@@ -164,7 +169,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
 }
 
 // TODO: directly remove matched archetype for performance
-pub(crate) fn despawn_temporary_render_entity(
+pub(crate) fn despawn_temporary_render_entities(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
     mut local: Local<Vec<Entity>>,
@@ -173,7 +178,7 @@ pub(crate) fn despawn_temporary_render_entity(
 
     local.extend(query.iter());
 
-    // ensure next frame allocation keeps order
+    // Ensure next frame allocation keeps order
     local.sort_unstable_by_key(|e| e.index());
     for e in local.drain(..).rev() {
         world.despawn(e);
@@ -228,7 +233,7 @@ mod tests {
         // spawn
         let main_entity = main_world
             .spawn(RenderDataComponent)
-            // indicates that its entity needs to be Synchronized to the render world
+            // indicates that its entity needs to be synchronized to the render world
             .insert(SyncRenderWorld)
             .id();
 

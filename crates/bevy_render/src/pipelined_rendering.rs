@@ -91,7 +91,7 @@ impl Drop for RenderAppChannels {
 /// ```
 ///
 /// - `sync` is the step where the entity-entity mapping between the main and render world is updated.
-///     This is run on the main app's thread, for more information checkout [`WorldSyncPlugin`].
+///     This is run on the main app's thread. For more information checkout [`WorldSyncPlugin`].
 /// - `extract` is the step where data is copied from the main world to the render world.
 ///     This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the

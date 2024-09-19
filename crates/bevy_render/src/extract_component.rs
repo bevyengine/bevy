@@ -206,7 +206,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     }
 }
 
-/// This system extracts all synced entities components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`SyncRenderWorld`].
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -222,7 +222,7 @@ fn extract_components<C: ExtractComponent>(
     commands.insert_or_spawn_batch(values);
 }
 
-/// This system extracts all synced visible entities components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`SyncRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,

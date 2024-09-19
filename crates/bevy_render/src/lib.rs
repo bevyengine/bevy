@@ -67,7 +67,7 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 use world_sync::{
-    despawn_temporary_render_entity, entity_sync_system, SyncRenderWorld, WorldSyncPlugin,
+    despawn_temporary_render_entities, entity_sync_system, SyncRenderWorld, WorldSyncPlugin,
 };
 
 use crate::mesh::RenderMesh;
@@ -479,7 +479,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                despawn_temporary_render_entity.in_set(RenderSet::PostCleanup),
+                despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
         );
 
