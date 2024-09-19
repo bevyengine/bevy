@@ -911,7 +911,7 @@ impl EntityCommands<'_> {
     /// Get an [`EntityEntryCommands`] for the [`Component`] `T`,
     /// allowing you to modify it or insert it if it isn't already present.
     ///
-    /// See also [`insert_if_new`](Self::insert_if_new), which let's you insert a [`Bundle`] without overwriting it.
+    /// See also [`insert_if_new`](Self::insert_if_new), which lets you insert a [`Bundle`] without overwriting it.
     ///
     /// # Example
     ///
@@ -1044,7 +1044,7 @@ impl EntityCommands<'_> {
     /// components will leave the old values instead of replacing them with new
     /// ones.
     ///
-    /// See also [`entry`](Self::entry), which let's you modify a [`Component`] if it's present,
+    /// See also [`entry`](Self::entry), which lets you modify a [`Component`] if it's present,
     /// as well as initialize it with a default value.
     ///
     /// # Panics
@@ -1461,13 +1461,14 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
-    /// Modify the component `T` using the the predicate `f`.
-    pub fn and_modify(mut self, f: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> Self {
+    ```suggestion
+    /// Modify the component `T` if it exists, using the the function `modify`.
+    pub fn and_modify(mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> Self {
         self.entity_commands = self
             .entity_commands
             .queue(move |mut entity: EntityWorldMut| {
                 if let Some(value) = entity.get_mut() {
-                    f(value);
+                    modify(value);
                 }
             });
         self
@@ -1492,7 +1493,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_insert(default())
     }
 
-    /// Insert `T::default` into this entity, if `T` is not already present.
+    /// Insert `T::default` into this entity if `T` is not already present.
     ///
     /// See also [`EntityCommands::insert`], [`or_insert_with`](Self::or_from_world), [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
     #[track_caller]
@@ -1505,7 +1506,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_insert(T::default())
     }
 
-    /// Insert `T::from_world` into this entity, if `T` is not already present.
+    /// Insert `T::from_world` into this entity if `T` is not already present.
     ///
     /// See also [`EntityCommands::insert`], [`or_default`](Self::or_default), [`or_insert`](Self::or_insert), [`or_insert_with`](Self::or_insert_with)
     #[track_caller]
@@ -1628,7 +1629,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
     }
 }
 
-/// An [`EntityCommand`] that adds the component using it's `FromWorld` implementation.
+/// An [`EntityCommand`] that adds the component using its `FromWorld` implementation.
 #[track_caller]
 fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
     let caller = Location::caller();
