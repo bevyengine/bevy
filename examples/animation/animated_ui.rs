@@ -76,6 +76,9 @@ impl AnimationInfo {
         let mut animation_clip = AnimationClip::default();
 
         // Create a curve that animates font size.
+        //
+        // `VariableCurve::linear` is just a convenience constructor; it's also
+        // possible to initialize the structure manually.
         animation_clip.add_curve_to_target(
             animation_target_id,
             VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
@@ -84,8 +87,8 @@ impl AnimationInfo {
             ),
         );
 
-        // Create a curve that animates font color.
-        // Note that this should have the same time duration as the previous curve.
+        // Create a curve that animates font color. Note that this should have
+        // the same time duration as the previous curve.
         animation_clip.add_curve_to_target(
             animation_target_id,
             VariableCurve {
