@@ -1,5 +1,7 @@
 //! The generic input type.
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::system::Resource;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -104,30 +106,6 @@ use std::hash::Hash;
 /// }
 /// ```
 ///
-/// Accepting input from multiple devices:
-///```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
-/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{ MouseButton, KeyCode}};
-///
-/// fn main() {
-///    App::new()
-///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             something_used.run_if(
-///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(MouseButton::Left)),
-///             ),
-///         )
-///         .run();
-/// }
-///
-/// fn something_used() {
-///     println!("Generic use-ish button pressed.");
-/// }
-/// ```
-///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:
@@ -143,7 +121,7 @@ use std::hash::Hash;
 ///[`ResMut`]: bevy_ecs::system::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -284,22 +262,6 @@ where
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
-
-    /// Returns the current state of the input.
-    pub fn pressed_state(&self, input: T) -> InputState {
-        if self.pressed(input) {
-            return InputState::Pressed;
-        }
-        InputState::Released
-    }
-}
-
-/// State of the input
-pub enum InputState {
-    /// Input is pressed
-    Pressed,
-    /// Input is released
-    Released,
 }
 
 #[cfg(test)]

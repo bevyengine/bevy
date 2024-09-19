@@ -1493,13 +1493,10 @@ mod tests {
         // set up system and verify its access is empty
         system.initialize(&mut world);
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // add some entities with archetypes that should match and save their ids
         expected_ids.insert(
@@ -1523,13 +1520,10 @@ mod tests {
 
         // update system and verify its accesses are correct
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // one more round
         expected_ids.insert(
@@ -1541,13 +1535,10 @@ mod tests {
         );
         world.spawn((A, B, D));
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
     }
 
     #[test]

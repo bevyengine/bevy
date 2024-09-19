@@ -2,6 +2,7 @@
 
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    math::ops,
     pbr::{
         ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle,
         ScreenSpaceAmbientOcclusionQualityLevel,
@@ -119,7 +120,7 @@ fn update(
     time: Res<Time>,
 ) {
     let mut sphere = sphere.single_mut();
-    sphere.translation.y = (time.elapsed_seconds() / 1.7).sin() * 0.7;
+    sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
 
     let (camera_entity, ssao, temporal_jitter) = camera.single();
 

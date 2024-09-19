@@ -456,14 +456,17 @@ impl World {
                     if observers.map.is_empty() && observers.entity_map.is_empty() {
                         cache.component_observers.remove(component);
                         if let Some(flag) = Observers::is_archetype_cached(event_type) {
-                            for archetype in &mut archetypes.archetypes {
-                                if archetype.contains(*component) {
-                                    let no_longer_observed = archetype
-                                        .components()
-                                        .all(|id| !cache.component_observers.contains_key(&id));
+                            if let Some(by_component) = archetypes.by_component.get(component) {
+                                for archetype in by_component.keys() {
+                                    let archetype = &mut archetypes.archetypes[archetype.index()];
+                                    if archetype.contains(*component) {
+                                        let no_longer_observed = archetype
+                                            .components()
+                                            .all(|id| !cache.component_observers.contains_key(&id));
 
-                                    if no_longer_observed {
-                                        archetype.flags.set(flag, false);
+                                        if no_longer_observed {
+                                            archetype.flags.set(flag, false);
+                                        }
                                     }
                                 }
                             }
@@ -477,6 +480,8 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
@@ -503,13 +508,12 @@ mod tests {
     struct EventA;
 
     #[derive(Resource, Default)]
-    struct R(usize);
+    struct Order(Vec<&'static str>);
 
-    impl R {
+    impl Order {
         #[track_caller]
-        fn assert_order(&mut self, count: usize) {
-            assert_eq!(count, self.0);
-            self.0 += 1;
+        fn observed(&mut self, name: &'static str) {
+            self.0.push(name);
         }
     }
 
@@ -534,61 +538,72 @@ mod tests {
     #[test]
     fn observer_order_spawn_despawn() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(2));
-        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(3));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| res.observed("replace"));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["add", "insert", "replace", "remove"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_order_insert_remove() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(2));
-        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(3));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| res.observed("replace"));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
         entity.flush();
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["add", "insert", "replace", "remove"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_order_insert_remove_sparse() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<OnAdd, S>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Trigger<OnInsert, S>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnReplace, S>, mut res: ResMut<R>| res.assert_order(2));
-        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<R>| res.assert_order(3));
+        world.observe(|_: Trigger<OnAdd, S>, mut res: ResMut<Order>| res.observed("add"));
+        world.observe(|_: Trigger<OnInsert, S>, mut res: ResMut<Order>| res.observed("insert"));
+        world.observe(|_: Trigger<OnReplace, S>, mut res: ResMut<Order>| res.observed("replace"));
+        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<Order>| res.observed("remove"));
 
         let mut entity = world.spawn_empty();
         entity.insert(S);
         entity.remove::<S>();
         entity.flush();
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["add", "insert", "replace", "remove"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_order_replace() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let entity = world.spawn(A).id();
 
-        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(0));
-        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add"));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| res.observed("replace"));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -597,53 +612,56 @@ mod tests {
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
         entity.flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["replace", "insert"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_order_recursive() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
         world.observe(
-            |obs: Trigger<OnAdd, A>, mut res: ResMut<R>, mut commands: Commands| {
-                res.assert_order(0);
+            |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
+                res.observed("add_a");
                 commands.entity(obs.entity()).insert(B);
             },
         );
         world.observe(
-            |obs: Trigger<OnRemove, A>, mut res: ResMut<R>, mut commands: Commands| {
-                res.assert_order(2);
+            |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
+                res.observed("remove_a");
                 commands.entity(obs.entity()).remove::<B>();
             },
         );
 
         world.observe(
-            |obs: Trigger<OnAdd, B>, mut res: ResMut<R>, mut commands: Commands| {
-                res.assert_order(1);
+            |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
+                res.observed("add_b");
                 commands.entity(obs.entity()).remove::<A>();
             },
         );
-        world.observe(|_: Trigger<OnRemove, B>, mut res: ResMut<R>| {
-            res.assert_order(3);
+        world.observe(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {
+            res.observed("remove_b");
         });
 
         let entity = world.spawn(A).flush();
         let entity = world.get_entity(entity).unwrap();
         assert!(!entity.contains::<A>());
         assert!(!entity.contains::<B>());
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["add_a", "add_b", "remove_a", "remove_b"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_multiple_listeners() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
-        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_1"));
+        world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| res.observed("add_2"));
 
         world.spawn(A).flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["add_1", "add_2"], world.resource::<Order>().0);
         // Our A entity plus our two observers
         assert_eq!(world.entities().len(), 3);
     }
@@ -651,40 +669,44 @@ mod tests {
     #[test]
     fn observer_multiple_events() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
-                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
-                    .with_event(on_remove)
+                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<Order>| {
+                    res.observed("add/remove");
+                })
+                .with_event(on_remove)
             },
         );
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(
+            vec!["add/remove", "add/remove"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_multiple_components() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
         world.init_component::<A>();
         world.init_component::<B>();
 
-        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| res.observed("add_ab"));
 
         let entity = world.spawn(A).id();
         world.entity_mut(entity).insert(B);
         world.flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["add_ab", "add_ab"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_despawn() {
         let mut world = World::new();
-        world.init_resource::<R>();
 
         let observer = world
             .observe(|_: Trigger<OnAdd, A>| panic!("Observer triggered after being despawned."))
@@ -697,11 +719,11 @@ mod tests {
     #[test]
     fn observer_despawn_archetype_flags() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let entity = world.spawn((A, B)).flush();
 
-        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove_a"));
 
         let observer = world
             .observe(|_: Trigger<OnRemove, B>| panic!("Observer triggered after being despawned."))
@@ -710,31 +732,31 @@ mod tests {
 
         world.despawn(entity);
 
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["remove_a"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_multiple_matches() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| res.observed("add_ab"));
 
         world.spawn((A, B)).flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["add_ab"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_no_target() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         world
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
-        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
+        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.entity(), Entity::PLACEHOLDER);
-            res.0 += 1;
+            res.observed("event_a");
         });
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -742,24 +764,24 @@ mod tests {
         world.flush();
         world.trigger(EventA);
         world.flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_entity_routing() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         world
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
-        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
+        world.observe(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.entity(), entity);
-            res.0 += 1;
+            res.observed("a_2");
         });
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -767,17 +789,17 @@ mod tests {
         world.flush();
         world.trigger_targets(EventA, entity);
         world.flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["a_2", "a_1"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_dynamic_component() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let component_id = world.init_component::<A>();
         world.spawn(
-            Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<R>| res.0 += 1)
+            Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<Order>| res.observed("event_a"))
                 .with_component(component_id),
         );
 
@@ -790,45 +812,45 @@ mod tests {
 
         world.trigger_targets(EventA, entity);
         world.flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_dynamic_trigger() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
         let event_a = world.init_component::<EventA>();
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
             runner: |mut world, _trigger, _ptr, _propagate| {
-                world.resource_mut::<R>().0 += 1;
+                world.resource_mut::<Order>().observed("event_a");
             },
             ..Default::default()
         });
 
-        world.commands().add(
+        world.commands().queue(
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             unsafe { EmitDynamicTrigger::new_with_id(event_a, EventA, ()) },
         );
         world.flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_propagating() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -836,22 +858,22 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, child);
         world.flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["child", "parent"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_propagating_redundant_dispatch_same_entity() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -859,22 +881,25 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, [child, child]);
         world.flush();
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["child", "parent", "child", "parent"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_propagating_redundant_dispatch_parent_child() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -882,24 +907,27 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, [child, parent]);
         world.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(
+            vec!["child", "parent", "parent"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_propagating_halt() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
             .id();
 
         let child = world
             .spawn(Parent(parent))
             .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                    res.0 += 1;
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                    res.observed("child");
                     trigger.propagate(false);
                 },
             )
@@ -910,30 +938,30 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, child);
         world.flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["child"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_propagating_join() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
             .id();
 
         let child_a = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                res.0 += 1;
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child_a");
             })
             .id();
 
         let child_b = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                res.0 += 1;
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child_b");
             })
             .id();
 
@@ -942,17 +970,20 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, [child_a, child_b]);
         world.flush();
-        assert_eq!(4, world.resource::<R>().0);
+        assert_eq!(
+            vec!["child_a", "parent", "child_b", "parent"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_propagating_no_next() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("event"))
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -960,24 +991,26 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, entity);
         world.flush();
-        assert_eq!(1, world.resource::<R>().0);
+        assert_eq!(vec!["event"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_propagating_parallel_propagation() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         let parent_a = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent_a");
+            })
             .id();
 
         let child_a = world
             .spawn(Parent(parent_a))
             .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                    res.0 += 1;
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                    res.observed("child_a");
                     trigger.propagate(false);
                 },
             )
@@ -985,12 +1018,14 @@ mod tests {
 
         let parent_b = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent_b");
+            })
             .id();
 
         let child_b = world
             .spawn(Parent(parent_b))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child_b"))
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -998,15 +1033,18 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, [child_a, child_b]);
         world.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(
+            vec!["child_a", "child_b", "parent_b"],
+            world.resource::<Order>().0
+        );
     }
 
     #[test]
     fn observer_propagating_world() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
-        world.observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1);
+        world.observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("event"));
 
         let grandparent = world.spawn_empty().id();
         let parent = world.spawn(Parent(grandparent)).id();
@@ -1017,18 +1055,18 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, child);
         world.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(vec!["event", "event", "event"], world.resource::<Order>().0);
     }
 
     #[test]
     fn observer_propagating_world_skipping() {
         let mut world = World::new();
-        world.init_resource::<R>();
+        world.init_resource::<Order>();
 
         world.observe(
-            |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<R>| {
+            |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
                 if query.get(trigger.entity()).is_ok() {
-                    res.0 += 1;
+                    res.observed("event");
                 }
             },
         );
@@ -1042,6 +1080,6 @@ mod tests {
         world.flush();
         world.trigger_targets(EventPropagating, child);
         world.flush();
-        assert_eq!(2, world.resource::<R>().0);
+        assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
     }
 }
