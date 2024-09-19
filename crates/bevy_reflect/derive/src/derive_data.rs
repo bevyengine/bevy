@@ -949,7 +949,7 @@ pub(crate) enum ReflectTypePath<'a> {
     /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
     #[expect(
         dead_code,
-        reason = "Not current used but may be useful in the future due to its generality."
+        reason = "Not currently used but may be useful in the future due to its generality."
     )]
     Anonymous {
         qualified_type: Type,
