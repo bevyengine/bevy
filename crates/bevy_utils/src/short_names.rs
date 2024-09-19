@@ -1,12 +1,28 @@
-/// Shortens a type name to remove all module paths.
+/// Lazily shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by
 /// [`std::any::type_name`], but with the prefix of all paths removed. For
 /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
 ///
-/// Shortening is performed lazily without allocation. To get a string from
-/// this type, use the `to_string(...)` method provided by [`Display`](`core::fmt::Display`)
+/// Shortening is performed lazily without allocation.
+#[cfg_attr(feature = "alloc",
+    doc = r#" To get a [`String`] from this type, use the [`to_string`](`ShortName::to_string`) method provided by [`ToString`](`alloc::string::ToString`)"#,
+)]
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// # use bevy_utils::ShortName;
+/// #
+/// # mod foo {
+/// #     pub mod bar {
+/// #         pub struct Baz;
+/// #     }
+/// # }
+/// // Baz
+/// let short_name = ShortName::of::<foo::bar::Baz>();
+/// ```
 #[derive(Clone, Copy)]
 pub struct ShortName<'a>(pub &'a str);
 
