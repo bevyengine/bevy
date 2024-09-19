@@ -786,4 +786,16 @@ mod tests {
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
     }
+
+    /// Regression test for a weird bug flagged by MIRI in
+    /// `spawn_exclusive_system_task`, related to a `&mut World` being captured
+    /// inside an `async` block and somehow remaining alive even after its last use.
+    #[test]
+    fn check_spawn_exclusive_system_task_miri() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
+        schedule.run(&mut world);
+    }
 }
