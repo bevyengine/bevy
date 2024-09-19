@@ -672,7 +672,7 @@ pub mod __macro_exports {
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use alloc::borrow::Cow;
-    use bevy_utils::HashMap;
+    use bevy_utils::{HashMap, ShortName};
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -2368,7 +2368,7 @@ bevy_reflect::tests::Test {
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| bevy_utils::ShortName::of::<Self>().to_string())
+                CELL.get_or_insert::<Self, _>(|| ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {

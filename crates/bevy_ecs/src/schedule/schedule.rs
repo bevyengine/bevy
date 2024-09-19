@@ -7,6 +7,7 @@ use bevy_utils::{
     default,
     tracing::{error, info, warn},
     HashMap, HashSet,
+    ShortName,
 };
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
@@ -1605,7 +1606,7 @@ impl ScheduleGraph {
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::ShortName(&name).to_string();
+            name = ShortName(&name).to_string();
         }
         name
     }

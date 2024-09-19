@@ -1,7 +1,6 @@
 mod parallel_scope;
 
-use core::panic::Location;
-use std::marker::PhantomData;
+use core::{marker::PhantomData, panic::Location};
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
@@ -1683,7 +1682,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
