@@ -156,10 +156,16 @@ fn prepare_uniform_components<C>(
     commands.insert_or_spawn_batch(entities);
 }
 
-/// This plugin extracts the components into the "render world".
+/// This plugin extracts the components into the render world for synced entities.
 ///
-/// Therefore it sets up the [`ExtractSchedule`] step
-/// for the specified [`ExtractComponent`].
+/// Therefore it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
+///
+/// # Warning
+/// Components are only extracted for synced entities (for more information see [`WorldSyncPlugin`]).
+/// Removing the component from the main world entity, will stop the [`ExtractComponentPlugin`] from extracting that
+/// data, but won't remove the corresponding entity in the render world.
+/// It's recommended to use this plugin for entities that are removed at the end of the frame, or for components that
+/// don't get removed (aside from when the entity is despawned).
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
