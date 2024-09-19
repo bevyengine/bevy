@@ -15,7 +15,7 @@ use crate::{
     TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
-use core::marker::PhantomData;
+
 use std::fmt;
 use std::{
     any::Any,
@@ -100,6 +100,7 @@ impl_reflect_value!(::std::path::PathBuf(
     Deserialize,
     Default
 ));
+impl_reflect_value!(::core::marker::PhantomData<T: ?Sized>);
 impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
 impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
@@ -1483,11 +1484,6 @@ impl_reflect! {
         Ok(T),
         Err(E),
     }
-}
-
-impl_reflect! {
-    #[type_path = "core::marker"]
-    struct PhantomData<T: ?Sized>;
 }
 
 impl<T: TypePath + ?Sized> TypePath for &'static T {
