@@ -152,6 +152,10 @@ pub struct GpuClusterableObject {
     pub(crate) shadow_depth_bias: f32,
     pub(crate) shadow_normal_bias: f32,
     pub(crate) spot_light_tan_angle: f32,
+    pub(crate) soft_shadow_size: f32,
+    pub(crate) shadow_map_near_z: f32,
+    pub(crate) pad_a: f32,
+    pub(crate) pad_b: f32,
 }
 
 pub enum GpuClusterableObjects {
