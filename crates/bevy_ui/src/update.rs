@@ -1,6 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Display, OverflowAxis, Style, TargetCamera};
+use crate::{CalculatedClip, Display, OverflowAxis, Style, TargetCamera, UiRootNodes};
 
 use super::Node;
 use bevy_ecs::{
@@ -16,11 +16,11 @@ use bevy_utils::HashSet;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_nodes: UiRootNodes,
     mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
 ) {
-    for root_node in &root_node_query {
+    for (root_node, _) in root_nodes.iter() {
         update_clipping(
             &mut commands,
             &children_query,
