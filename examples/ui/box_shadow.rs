@@ -1,12 +1,29 @@
 //! This example shows how to create a node with a shadow
 
+use argh::FromArgs;
 use bevy::color::palettes::css::LIGHT_CORAL;
 use bevy::prelude::*;
+use bevy::ui::box_shadow::BoxShadowSamples;
 use bevy::winit::WinitSettings;
 
+#[derive(FromArgs, Resource)]
+/// `box_shadow` example
+struct Args {
+    /// number of samples
+    #[argh(option, default = "4")]
+    samples: u32,
+}
+
 fn main() {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(BoxShadowSamples(args.samples))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
@@ -59,6 +76,33 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(25.),
                     Vec2::ZERO,
                     0.,
+                    BorderRadius::MAX,
+                ),
+                (
+                    Vec2::splat(100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(50.),
+                    Vec2::ZERO,
+                    10.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(50.),
+                    Vec2::ZERO,
+                    10.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 100.),
+                    Color::WHITE,
+                    Color::BLACK,
+                    Vec2::splat(25.),
+                    Vec2::ZERO,
+                    10.,
                     BorderRadius::MAX,
                 ),
                 (
