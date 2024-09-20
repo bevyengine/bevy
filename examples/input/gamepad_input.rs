@@ -11,14 +11,14 @@ fn main() {
 
 fn gamepad_system(gamepads: Query<&Gamepad>) {
     for gamepad in gamepads.iter() {
-        if gamepad.just_pressed(GamepadButtonType::South) {
+        if gamepad.just_pressed(GamepadButton::South) {
             info!("{:?} just pressed South", gamepad.id());
-        } else if gamepad.just_released(GamepadButtonType::South) {
+        } else if gamepad.just_released(GamepadButton::South) {
             info!("{:?} just released South", gamepad.id());
         }
 
         let right_trigger = gamepad
-            .button_get(GamepadButtonType::RightTrigger2)
+            .button_get(GamepadButton::RightTrigger2)
             .unwrap();
         if right_trigger.abs() > 0.01 {
             info!(

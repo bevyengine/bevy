@@ -25,7 +25,7 @@ const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
 const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
-struct ReactTo(GamepadButtonType);
+struct ReactTo(GamepadButton);
 #[derive(Component)]
 struct MoveWithAxes {
     x_axis: GamepadAxis,
@@ -38,7 +38,7 @@ struct TextWithAxes {
     y_axis: GamepadAxis,
 }
 #[derive(Component, Deref)]
-struct TextWithButtonValue(GamepadButtonType);
+struct TextWithButtonValue(GamepadButton);
 
 #[derive(Component)]
 struct ConnectedGamepadsText;
@@ -84,7 +84,7 @@ struct GamepadButtonBundle {
 
 impl GamepadButtonBundle {
     pub fn new(
-        button_type: GamepadButtonType,
+        button_type: GamepadButton,
         mesh: Mesh2dHandle,
         material: Handle<ColorMaterial>,
         x: f32,
@@ -140,28 +140,28 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::North,
+                GamepadButton::North,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::South,
+                GamepadButton::South,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 -BUTTON_CLUSTER_RADIUS,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::West,
+                GamepadButton::West,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 -BUTTON_CLUSTER_RADIUS,
                 0.,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::East,
+                GamepadButton::East,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 BUTTON_CLUSTER_RADIUS,
@@ -172,7 +172,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Start and Pause
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::Select,
+        GamepadButton::Select,
         meshes.start_pause.clone(),
         materials.normal.clone(),
         -30.,
@@ -180,7 +180,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     ));
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::Start,
+        GamepadButton::Start,
         meshes.start_pause.clone(),
         materials.normal.clone(),
         30.,
@@ -196,7 +196,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::DPadUp,
+                GamepadButton::DPadUp,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 0.,
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             ));
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadDown,
+                    GamepadButton::DPadDown,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     0.,
@@ -214,7 +214,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             );
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadLeft,
+                    GamepadButton::DPadLeft,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     -BUTTON_CLUSTER_RADIUS,
@@ -224,7 +224,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             );
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadRight,
+                    GamepadButton::DPadRight,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     BUTTON_CLUSTER_RADIUS,
@@ -237,7 +237,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Triggers
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::LeftTrigger,
+        GamepadButton::LeftTrigger,
         meshes.trigger.clone(),
         materials.normal.clone(),
         -BUTTONS_X,
@@ -245,7 +245,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     ));
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::RightTrigger,
+        GamepadButton::RightTrigger,
         meshes.trigger.clone(),
         materials.normal.clone(),
         BUTTONS_X,
@@ -362,14 +362,14 @@ fn setup_sticks(
         STICKS_Y,
         GamepadAxis::LeftStickX,
         GamepadAxis::LeftStickY,
-        GamepadButtonType::LeftThumb,
+        GamepadButton::LeftThumb,
     );
     spawn_stick(
         STICKS_X,
         STICKS_Y,
         GamepadAxis::RightStickX,
         GamepadAxis::RightStickY,
-        GamepadButtonType::RightThumb,
+        GamepadButton::RightThumb,
     );
 }
 
@@ -408,12 +408,12 @@ fn setup_triggers(
     spawn_trigger(
         -BUTTONS_X,
         BUTTONS_Y + 145.,
-        GamepadButtonType::LeftTrigger2,
+        GamepadButton::LeftTrigger2,
     );
     spawn_trigger(
         BUTTONS_X,
         BUTTONS_Y + 145.,
-        GamepadButtonType::RightTrigger2,
+        GamepadButton::RightTrigger2,
     );
 }
 

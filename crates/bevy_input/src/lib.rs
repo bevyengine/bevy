@@ -31,7 +31,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         gamepad::{
-            Gamepad, GamepadAxis, GamepadButtonType, GamepadId, GamepadSettings, Gamepads,
+            Gamepad, GamepadAxis, GamepadButton, GamepadId, GamepadSettings, Gamepads,
         },
         keyboard::KeyCode,
         mouse::MouseButton,
