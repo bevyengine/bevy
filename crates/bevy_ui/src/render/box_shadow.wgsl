@@ -29,9 +29,9 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
-// returns the closest corner radius based on the sign of x and y
-fn selectCorner(x: f32, y: f32, c: vec4<f32>) -> f32 {
-    return mix(mix(c.x, c.y, step(0., x)), mix(c.w, c.z, step(0., x)), step(0., y));
+// returns the closest corner radius based on the signs of the components of p
+fn selectCorner(p: vec2<f32>, c: vec4<f32>) -> f32 {
+    return mix(mix(c.x, c.y, step(0., p.x)), mix(c.w, c.z, step(0., p.x)), step(0., p.y));
 }
 
 fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, corner: f32, half_size: vec2<f32>) -> f32 {
@@ -59,7 +59,7 @@ fn roundedBoxShadow(
     var y = start + step * 0.5;
     var value: f32 = 0.0;
     for (var i = 0; i < SAMPLES; i++) {
-        let corner = selectCorner(p.x, p.y, corners);
+        let corner = selectCorner(p, corners);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
     }
