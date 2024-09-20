@@ -202,7 +202,10 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
         path: &'a Path,
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
     /// Returns true if the provided path points to a directory.
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`ErasedAssetReader::read_meta`] by default.
     fn read_meta_bytes<'a>(
@@ -236,7 +239,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
         Box::pin(Self::read_directory(self, path))
     }
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(Self::is_directory(self, path))
     }
     fn read_meta_bytes<'a>(
@@ -351,7 +357,10 @@ pub trait AssetWriter: Send + Sync + 'static {
 /// as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     /// Writes the full asset meta bytes at the provided path.
     /// This _should not_ include storage specific extensions like `.meta`.
     fn write_meta<'a>(
@@ -377,7 +386,10 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
     /// directory is not empty.
     fn remove_empty_directory<'a>(
@@ -404,7 +416,10 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
 }
 
 impl<T: AssetWriter> ErasedAssetWriter for T {
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
         Box::pin(Self::write(self, path))
     }
     fn write_meta<'a>(
@@ -433,7 +448,10 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
     }
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_directory(self, path))
     }
     fn remove_empty_directory<'a>(
