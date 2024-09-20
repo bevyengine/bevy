@@ -53,8 +53,12 @@ impl Debug for TypeRegistryArc {
 /// This trait is automatically implemented for items using [`#[derive(Reflect)]`](derive@crate::Reflect).
 /// The macro also allows [`TypeData`] to be more easily registered.
 ///
+/// If you need to use this trait as a generic bound along with other reflection traits,
+/// for your convenience, consider using [`Reflectable`] instead.
+///
 /// See the [crate-level documentation] for more information on type registration.
 ///
+/// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `GetTypeRegistration` so cannot provide type registration information",
@@ -574,7 +578,7 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
+    get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {

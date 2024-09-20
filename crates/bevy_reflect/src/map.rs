@@ -403,10 +403,10 @@ pub struct MapIter<'a> {
     index: usize,
 }
 
-impl<'a> MapIter<'a> {
+impl MapIter<'_> {
     /// Creates a new [`MapIter`].
     #[inline]
-    pub const fn new(map: &'a dyn Map) -> MapIter {
+    pub const fn new(map: &dyn Map) -> MapIter {
         MapIter { map, index: 0 }
     }
 }

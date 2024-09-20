@@ -1,9 +1,11 @@
 //! An example showing how to save screenshots to disk
 
 use bevy::prelude::*;
+use bevy::render::view::{
+    cursor::CursorIcon,
+    screenshot::{save_to_disk, Capturing, Screenshot},
+};
 use bevy::window::SystemCursorIcon;
-use bevy_render::view::cursor::CursorIcon;
-use bevy_render::view::screenshot::{save_to_disk, Capturing, Screenshot};
 
 fn main() {
     App::new()

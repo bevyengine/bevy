@@ -9,11 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["std"]
+std = ["alloc", "tracing/std", "ahash/std"]
+alloc = []
 detailed_trace = []
 
 [dependencies]
-ahash = "0.8.7"
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+ahash = { version = "0.8.7", default-features = false, features = [
+  "runtime-rng",
+] }
+tracing = { version = "0.1", default-features = false }
 web-time = { version = "1.1" }
 hashbrown = { version = "0.14.2", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.15.0-dev", path = "macros" }

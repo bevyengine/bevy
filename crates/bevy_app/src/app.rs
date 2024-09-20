@@ -40,7 +40,6 @@ pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
 }
 
-#[allow(clippy::needless_doctest_main)]
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
 /// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
 ///
@@ -1115,7 +1114,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
+    use std::{iter, marker::PhantomData, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},

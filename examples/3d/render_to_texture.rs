@@ -5,11 +5,11 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
         view::RenderLayers,
     },
 };
-use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
