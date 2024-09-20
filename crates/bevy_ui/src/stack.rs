@@ -15,34 +15,8 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
-fn update_uistack_recursively(
-    entity: Entity,
-    uinodes: &mut Vec<Entity>,
-    children_query: &Query<&Children>,
-    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
-) {
-    uinodes.push(entity);
-
-    if let Ok(children) = children_query.get(entity) {
-        let mut z_children: Vec<(Entity, i32)> = children
-            .iter()
-            .filter_map(|entity| {
-                zindex_query
-                    .get(*entity)
-                    .ok()
-                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            })
-            .collect();
-        radsort::sort_by_key(&mut z_children, |k| k.1);
-
-        for (child_id, _) in z_children {
-            update_uistack_recursively(child_id, uinodes, children_query, zindex_query);
-        }
-    }
-}
-
-/// Generates the render stack for UI nodes.
 pub fn ui_stack_system(
+    mut traversal_stack: Local<Vec<Entity>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
         (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
@@ -56,6 +30,7 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut Node>,
 ) {
+    traversal_stack.clear();
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
     let global_nodes = zindex_global_node_query
@@ -86,8 +61,28 @@ pub fn ui_stack_system(
 
     radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
 
-    for (entity, _) in root_nodes {
-        update_uistack_recursively(entity, uinodes, &children_query, &zindex_query);
+    traversal_stack.extend(root_nodes.into_iter().map(|(id, _)| id).rev());
+
+    while let Some(entity) = traversal_stack.pop() {
+        uinodes.push(entity);
+
+        if let Ok(children) = children_query.get(entity) {
+            let mut z_children: Vec<(Entity, i32)> = children
+                .iter()
+                .filter_map(|entity| {
+                    zindex_query
+                        .get(*entity)
+                        .ok()
+                        .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+                })
+                .collect();
+            radsort::sort_by_key(&mut z_children, |k| k.1);
+
+            // reverse because walking the tree depth first
+            for (child_id, _) in z_children.into_iter().rev() {
+                traversal_stack.push(child_id);
+            }
+        }
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
