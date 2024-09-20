@@ -13,6 +13,7 @@ use bevy_ecs::{
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -39,6 +40,9 @@ impl Plugin for BoxShadowPlugin {
             Shader::from_wgsl
         );
 
+        app.init_resource::<BoxShadowSamples>()
+            .add_plugins(ExtractResourcePlugin::<BoxShadowSamples>::default());
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<TransparentUi, DrawBoxShadows>()
@@ -63,6 +67,17 @@ impl Plugin for BoxShadowPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<BoxShadowPipeline>();
         }
+    }
+}
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+#[derive(Resource, Copy, Clone, Debug, Reflect, ExtractResource)]
+pub struct BoxShadowSamples(pub u32);
+
+impl Default for BoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
     }
 }
 
@@ -125,6 +140,8 @@ impl FromWorld for BoxShadowPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiTextureSlicePipelineKey {
     pub hdr: bool,
+    /// Number of samples, a higher value results in better quality shadows.
+    pub samples: u32,
 }
 
 impl SpecializedRenderPipeline for BoxShadowPipeline {
@@ -150,7 +167,10 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = Vec::new();
+        let shader_defs = vec![ShaderDefVal::UInt(
+            "SHADOW_SAMPLES".to_string(),
+            key.samples,
+        )];
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -312,6 +332,7 @@ pub fn queue_shadows(
     mut views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
+    samples: Res<BoxShadowSamples>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
@@ -326,7 +347,10 @@ pub fn queue_shadows(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey { hdr: view.hdr },
+            UiTextureSlicePipelineKey {
+                hdr: view.hdr,
+                samples: samples.0,
+            },
         );
 
         transparent_phase.add(TransparentUi {

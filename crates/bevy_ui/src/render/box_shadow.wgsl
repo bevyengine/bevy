@@ -2,7 +2,7 @@
 #import bevy_render::globals::Globals;
 
 const PI: f32 = 3.14159265358979323846;
-const SAMPLES: i32 = 4;
+const SAMPLES: i32 = #SHADOW_SAMPLES;
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<uniform> globals: Globals;
