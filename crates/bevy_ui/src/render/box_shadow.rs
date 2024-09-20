@@ -27,6 +27,7 @@ use crate::*;
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
+/// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;
 
 impl Plugin for BoxShadowPlugin {
