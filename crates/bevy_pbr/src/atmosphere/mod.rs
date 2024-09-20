@@ -38,7 +38,8 @@ mod shaders {
     use bevy_render::render_resource::Shader;
 
     pub const TYPES: Handle<Shader> = Handle::weak_from_u128(0xB4CA686B10FA592B508580CCC2F9558C);
-    pub const COMMON: Handle<Shader> = Handle::weak_from_u128(0xD5524FD88BDC153FBF256B7F2C21906F);
+    pub const FUNCTIONS: Handle<Shader> =
+        Handle::weak_from_u128(0xD5524FD88BDC153FBF256B7F2C21906F);
 
     pub const TRANSMITTANCE_LUT: Handle<Shader> =
         Handle::weak_from_u128(0xEECBDEDFEED7F4EAFBD401BFAA5E0EFB);
@@ -48,7 +49,7 @@ mod shaders {
         Handle::weak_from_u128(0x54136D7E6FFCD45BE38399A4E5ED7186);
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         Handle::weak_from_u128(0x6FDEC284AD356B78C3A4D8ED4CBA0BC5);
-    pub const APPLY_ATMOSPHERE: Handle<Shader> =
+    pub const RENDER_SKY: Handle<Shader> =
         Handle::weak_from_u128(0x1951EB87C8A6129F0B541B1E4B3D4962);
 }
 
@@ -57,7 +58,7 @@ pub struct AtmospherePlugin;
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, shaders::COMMON, "common.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, shaders::FUNCTIONS, "functions.wgsl", Shader::from_wgsl);
 
         load_internal_asset!(
             app,
@@ -89,8 +90,8 @@ impl Plugin for AtmospherePlugin {
 
         load_internal_asset!(
             app,
-            shaders::APPLY_ATMOSPHERE,
-            "apply.wgsl",
+            shaders::RENDER_SKY,
+            "render_sky.wgsl",
             Shader::from_wgsl
         );
 
@@ -177,6 +178,7 @@ impl Default for Atmosphere {
 
 impl Atmosphere {
     //TODO: check all these values before merge
+    //TODO: UNITS
     pub const EARTH: Atmosphere = Atmosphere {
         bottom_radius: 6360.0,
         top_radius: 6460.0,
