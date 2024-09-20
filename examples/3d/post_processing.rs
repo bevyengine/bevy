@@ -68,7 +68,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -188,7 +188,7 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
 
 /// Updates the [`ChromaticAberration`] settings per the [`AppSettings`].
 fn update_chromatic_aberration_settings(
-    mut chromatic_aberration_settings: Query<&mut ChromaticAberration>,
+    mut chromatic_aberration: Query<&mut ChromaticAberration>,
     app_settings: Res<AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
@@ -202,9 +202,9 @@ fn update_chromatic_aberration_settings(
         .clamp(8.0, 64.0)
         .round() as u32;
 
-    for mut chromatic_aberration_settings in &mut chromatic_aberration_settings {
-        chromatic_aberration_settings.intensity = intensity;
-        chromatic_aberration_settings.max_samples = max_samples;
+    for mut chromatic_aberration in &mut chromatic_aberration {
+        chromatic_aberration.intensity = intensity;
+        chromatic_aberration.max_samples = max_samples;
     }
 }
 

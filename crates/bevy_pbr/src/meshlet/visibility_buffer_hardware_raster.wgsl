@@ -56,7 +56,7 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
     return VertexOutput(
         clip_position,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-        (cluster_id << 6u) | triangle_id,
+        (cluster_id << 7u) | triangle_id,
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
         unclamped_clip_depth,
@@ -83,7 +83,7 @@ fn fragment(vertex_output: VertexOutput) {
 
 fn dummy_vertex() -> VertexOutput {
     return VertexOutput(
-        vec4(0.0),
+        vec4(divide(0.0, 0.0)), // NaN vertex position
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
         0u,
 #endif
@@ -91,4 +91,9 @@ fn dummy_vertex() -> VertexOutput {
         0.0,
 #endif
     );
+}
+
+// Naga doesn't allow divide by zero literals, but this lets us work around it
+fn divide(a: f32, b: f32) -> f32 {
+    return a / b;
 }

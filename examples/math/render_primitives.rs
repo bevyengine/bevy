@@ -3,7 +3,8 @@
 #![allow(clippy::match_same_arms)]
 
 use bevy::{
-    input::common_conditions::input_just_pressed, prelude::*, sprite::MaterialMesh2dBundle,
+    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
+    sprite::MaterialMesh2dBundle,
 };
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
@@ -445,39 +446,40 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
     let angle = time.elapsed_seconds();
+    let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_2d(&RECTANGLE, POSITION, angle, color);
+            gizmos.primitive_2d(&RECTANGLE, isometry, color);
         }
         PrimitiveSelected::CircleAndSphere => {
-            gizmos.primitive_2d(&CIRCLE, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCLE, isometry, color);
         }
-        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, POSITION, angle, color)),
-        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, POSITION, angle, color),
-        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, POSITION, angle, color),
-        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, POSITION, angle, color)),
+        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, isometry, color)),
+        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, isometry, color),
+        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color),
+        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, isometry, color)),
         PrimitiveSelected::Segment => {
-            drop(gizmos.primitive_2d(&SEGMENT_2D, POSITION, angle, color));
+            drop(gizmos.primitive_2d(&SEGMENT_2D, isometry, color));
         }
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, POSITION, angle, color),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, POSITION, angle, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, isometry, color),
+        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, isometry, color),
         PrimitiveSelected::RegularPolygon => {
-            gizmos.primitive_2d(&REGULAR_POLYGON, POSITION, angle, color);
+            gizmos.primitive_2d(&REGULAR_POLYGON, isometry, color);
         }
-        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, POSITION, angle, color),
+        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, isometry, color),
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, POSITION, angle, color)),
+        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, isometry, color)),
         PrimitiveSelected::Tetrahedron => {}
-        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, POSITION, angle, color),
+        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, isometry, color),
         PrimitiveSelected::CircularSector => {
-            gizmos.primitive_2d(&CIRCULAR_SECTOR, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCULAR_SECTOR, isometry, color);
         }
         PrimitiveSelected::CircularSegment => {
-            gizmos.primitive_2d(&CIRCULAR_SEGMENT, POSITION, angle, color);
+            gizmos.primitive_2d(&CIRCULAR_SEGMENT, isometry, color);
         }
     }
 }
@@ -633,9 +635,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -653,60 +655,61 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
     );
+    let isometry = Isometry3d::new(POSITION, rotation);
     let color = Color::WHITE;
     let resolution = 10;
 
     match state.get() {
         PrimitiveSelected::RectangleAndCuboid => {
-            gizmos.primitive_3d(&CUBOID, POSITION, rotation, color);
+            gizmos.primitive_3d(&CUBOID, isometry, color);
         }
         PrimitiveSelected::CircleAndSphere => drop(
             gizmos
-                .primitive_3d(&SPHERE, POSITION, rotation, color)
+                .primitive_3d(&SPHERE, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Ellipse => {}
-        PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, POSITION, rotation, color),
-        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, POSITION, rotation, color)),
-        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, POSITION, rotation, color),
-        PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, POSITION, rotation, color),
-        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, POSITION, rotation, color),
+        PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, isometry, color),
+        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
+        PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, isometry, color),
+        PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, isometry, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, isometry, color),
         PrimitiveSelected::Polygon => {}
         PrimitiveSelected::RegularPolygon => {}
         PrimitiveSelected::Capsule => drop(
             gizmos
-                .primitive_3d(&CAPSULE_3D, POSITION, rotation, color)
+                .primitive_3d(&CAPSULE_3D, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cylinder => drop(
             gizmos
-                .primitive_3d(&CYLINDER, POSITION, rotation, color)
+                .primitive_3d(&CYLINDER, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::Cone => drop(
             gizmos
-                .primitive_3d(&CONE, POSITION, rotation, color)
+                .primitive_3d(&CONE, isometry, color)
                 .resolution(resolution),
         ),
         PrimitiveSelected::ConicalFrustum => {
-            gizmos.primitive_3d(&CONICAL_FRUSTUM, POSITION, rotation, color);
+            gizmos.primitive_3d(&CONICAL_FRUSTUM, isometry, color);
         }
 
         PrimitiveSelected::Torus => drop(
             gizmos
-                .primitive_3d(&TORUS, POSITION, rotation, color)
+                .primitive_3d(&TORUS, isometry, color)
                 .minor_resolution(resolution)
                 .major_resolution(resolution),
         ),
         PrimitiveSelected::Tetrahedron => {
-            gizmos.primitive_3d(&TETRAHEDRON, POSITION, rotation, color);
+            gizmos.primitive_3d(&TETRAHEDRON, isometry, color);
         }
 
         PrimitiveSelected::Arc => {}

@@ -26,7 +26,6 @@ use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
     io::SeekFrom,
-    mem::size_of,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
@@ -130,7 +129,10 @@ where
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
-/// Also see [`AssetWriter`].
+/// This trait defines asset-agnostic mechanisms to read bytes from a storage system.
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+///
+/// For a complementary version of this trait that can write assets to storage, see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
@@ -261,7 +263,10 @@ pub enum AssetWriterError {
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
-/// Also see [`AssetReader`].
+/// This trait defines asset-agnostic mechanisms to write bytes to a storage system.
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+///
+/// For a complementary version of this trait that can read assets from storage, see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(

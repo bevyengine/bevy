@@ -35,9 +35,14 @@ pub mod render_resource;
 pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
+pub mod storage;
 pub mod texture;
 pub mod view;
 pub mod world_sync;
+
+/// The render prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -79,6 +84,7 @@ use crate::{
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
+    storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
@@ -361,6 +367,7 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
             BatchingPlugin,
             WorldSyncPlugin,
+            StoragePlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -446,7 +453,8 @@ fn extract(main_world: &mut World, render_world: &mut World) {
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
 
-/// SAFETY: this function must be called from the main thread.
+/// # Safety
+/// This function must be called from the main thread.
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 

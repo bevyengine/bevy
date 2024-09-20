@@ -92,16 +92,15 @@ jobs:
           components: miri
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
-        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
         run: cargo miri test -p bevy_ecs
         env:
           # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
           RUSTFLAGS: -Zrandomize-layout
           # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-permissive-provenance disables warnings against int2ptr casts (since those are used by once_cell)
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
-          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation -Zmiri-permissive-provenance
+          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
 
   check-compiles:
     runs-on: ubuntu-latest
@@ -219,7 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.24.1
+        uses: crate-ci/typos@v1.24.5
       - name: Typos info
         if: failure()
         run: |

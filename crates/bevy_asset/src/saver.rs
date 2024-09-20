@@ -1,12 +1,17 @@
 use crate::transformer::TransformedAsset;
 use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap};
+use atomicow::CowArc;
+use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Borrow, hash::Hash, ops::Deref};
 
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
+///
+/// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
+///
+/// For a complementary version of this trait that can load assets, see [`AssetLoader`].
 pub trait AssetSaver: Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;

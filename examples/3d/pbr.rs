@@ -1,5 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
+use bevy::render::camera::ScalingMode;
 use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
@@ -65,7 +66,7 @@ fn setup(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )
@@ -81,7 +82,7 @@ fn setup(
         text: Text::from_section(
             "Metallic",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         ),
@@ -102,7 +103,7 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )
@@ -120,8 +121,8 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
             projection: OrthographicProjection {
-                scale: 0.01,
-                ..default()
+                scaling_mode: ScalingMode::WindowSize(100.0),
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             ..default()
