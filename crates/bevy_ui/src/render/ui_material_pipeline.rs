@@ -394,7 +394,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     for (entity, uinode, style, transform, handle, view_visibility, clip, camera, maybe_parent) in
         uinode_query.iter()
     {
-
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };

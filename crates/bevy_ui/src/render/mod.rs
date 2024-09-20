@@ -212,16 +212,8 @@ pub fn extract_uinode_background_colors(
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
-    for (
-        uinode,
-        transform,
-        view_visibility,
-        clip,
-        camera,
-        background_color,
-        style,
-        parent,
-    ) in &uinode_query
+    for (uinode, transform, view_visibility, clip, camera, background_color, style, parent) in
+        &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
