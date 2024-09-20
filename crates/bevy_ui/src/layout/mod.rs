@@ -311,7 +311,7 @@ pub fn ui_layout_system(
         parent_scroll_position: Vec2,
         mut absolute_location: Vec2,
     ) -> Vec2 {
-        if let Ok((
+        let Ok((
             mut node,
             mut transform,
             style,
@@ -319,155 +319,136 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
-        {
-            let overflow = style.overflow;
+        else {
+            return Vec2::ZERO;
+        };
 
-            let Ok(layout) = ui_surface.get_layout(entity) else {
-                return Vec2::ZERO;
-            };
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+        let Ok(layout) = ui_surface.get_layout(entity) else {
+            return Vec2::ZERO;
+        };
 
-            absolute_location += layout_location;
+        let layout_size =
+            inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+        let layout_location =
+            inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
-            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
-                - approx_round_layout_coords(absolute_location);
+        absolute_location += layout_location;
 
-            let rounded_location =
-                approx_round_layout_coords(layout_location - parent_scroll_position)
-                    + 0.5 * (rounded_size - parent_size);
+        let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
+            - approx_round_layout_coords(absolute_location);
 
-            // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
-                node.calculated_size = rounded_size;
-                node.unrounded_size = layout_size;
-            }
+        let rounded_location = approx_round_layout_coords(layout_location - parent_scroll_position)
+            + 0.5 * (rounded_size - parent_size);
 
-            let viewport_size = root_size.unwrap_or(node.calculated_size);
+        // only trigger change detection when the new values are different
+        if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
+            node.calculated_size = rounded_size;
+            node.unrounded_size = layout_size;
+        }
 
-            if let Some(border_radius) = maybe_border_radius {
-                // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.calculated_size, viewport_size);
-            }
+        let viewport_size = root_size.unwrap_or(node.calculated_size);
 
-            if let Some(outline) = maybe_outline {
-                // don't trigger change detection when only outlines are changed
-                let node = node.bypass_change_detection();
-                node.outline_width = outline
-                    .width
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+        if let Some(border_radius) = maybe_border_radius {
+            // We don't trigger change detection for changes to border radius
+            node.bypass_change_detection().border_radius =
+                border_radius.resolve(node.calculated_size, viewport_size);
+        }
 
-                node.outline_offset = outline
-                    .offset
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
-            }
+        if let Some(outline) = maybe_outline {
+            // don't trigger change detection when only outlines are changed
+            let node = node.bypass_change_detection();
+            node.outline_width = outline
+                .width
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.);
 
-            if transform.translation.truncate() != rounded_location {
-                transform.translation = rounded_location.extend(0.);
-            }
+            node.outline_offset = outline
+                .offset
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.);
+        }
 
-            let scroll_position: Vec2 = maybe_scroll_position
-                .map(|scroll_pos| {
-                    Vec2::new(
-                        if overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
-                        } else {
-                            0.0
-                        },
-                        if overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
-                        } else {
-                            0.0
-                        },
+        if transform.translation.truncate() != rounded_location {
+            transform.translation = rounded_location.extend(0.);
+        }
+
+        let scroll_position: Vec2 = maybe_scroll_position
+            .map(|scroll_pos| {
+                Vec2::new(
+                    if style.overflow.x == OverflowAxis::Scroll {
+                        scroll_pos.offset_x
+                    } else {
+                        0.0
+                    },
+                    if style.overflow.y == OverflowAxis::Scroll {
+                        scroll_pos.offset_y
+                    } else {
+                        0.0
+                    },
+                )
+            })
+            .unwrap_or_default();
+
+        let node_scrollable_bounds = rounded_size + approx_round_layout_coords(layout_location);
+
+        if let Ok(children) = children_query.get(entity) {
+            let mut children_bounding_box = children
+                .iter()
+                .map(|child_uinode| {
+                    update_uinode_geometry_recursive(
+                        commands,
+                        *child_uinode,
+                        ui_surface,
+                        Some(viewport_size),
+                        node_transform_query,
+                        children_query,
+                        inverse_target_scale_factor,
+                        rounded_size,
+                        scroll_position,
+                        absolute_location,
                     )
                 })
-                .unwrap_or_default();
+                .fold(scroll_position, Vec2::max);
 
-            let mut node_scrollable_bounds =
-                rounded_size + approx_round_layout_coords(layout_location);
+            if children_bounding_box != Vec2::ZERO && scroll_position != Vec2::ZERO {
+                // Cannot scroll further than the edge of the furthest child
+                let max_possible_offset = (children_bounding_box - rounded_size).max(Vec2::ZERO);
+                let clamped_scroll_position =
+                    scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if let Ok(children) = children_query.get(entity) {
-                let mut children_bounding_box = children
-                    .iter()
-                    .map(|child_uinode| {
-                        update_uinode_geometry_recursive(
-                            commands,
-                            *child_uinode,
-                            ui_surface,
-                            Some(viewport_size),
-                            node_transform_query,
-                            children_query,
-                            inverse_target_scale_factor,
-                            rounded_size,
-                            scroll_position,
-                            absolute_location,
-                        )
-                    })
-                    .fold(scroll_position, |acc, size| {
-                        Vec2::new(acc.x.max(size.x), acc.y.max(size.y))
-                    });
+                // If the size of the bounding box containing all children changed in a way that impacts the scroll position of the parent
+                // Re-run the layout for all children
+                if clamped_scroll_position != scroll_position {
+                    commands
+                        .entity(entity)
+                        .insert(ScrollPosition::from(&clamped_scroll_position));
 
-                if children_bounding_box != Vec2::ZERO && scroll_position != Vec2::ZERO {
-                    // Cannot scroll further than the edge of the furthest child
-                    let max_possible_offset =
-                        (children_bounding_box - rounded_size).max(Vec2::ZERO);
-                    let clamped_scroll_position =
-                        scroll_position.clamp(Vec2::ZERO, max_possible_offset);
-
-                    // If the size of the bounding box containing all children changed in a way that impacts the scroll position of the parent
-                    // Re-run the layout for all children
-                    if clamped_scroll_position != scroll_position {
-                        commands
-                            .entity(entity)
-                            .insert(ScrollPosition::from(&clamped_scroll_position));
-
-                        children_bounding_box = children
-                            .iter()
-                            .map(|child_uinode| {
-                                update_uinode_geometry_recursive(
-                                    commands,
-                                    *child_uinode,
-                                    ui_surface,
-                                    Some(viewport_size),
-                                    node_transform_query,
-                                    children_query,
-                                    inverse_target_scale_factor,
-                                    rounded_size,
-                                    clamped_scroll_position,
-                                    absolute_location,
-                                )
-                            })
-                            .fold(scroll_position, |acc, size| {
-                                Vec2::new(acc.x.max(size.x), acc.y.max(size.y))
-                            });
-                    }
+                    children_bounding_box = children
+                        .iter()
+                        .map(|child_uinode| {
+                            update_uinode_geometry_recursive(
+                                commands,
+                                *child_uinode,
+                                ui_surface,
+                                Some(viewport_size),
+                                node_transform_query,
+                                children_query,
+                                inverse_target_scale_factor,
+                                rounded_size,
+                                clamped_scroll_position,
+                                absolute_location,
+                            )
+                        })
+                        .fold(scroll_position, Vec2::max);
                 }
-
-                // If overflow is visible, the bounds of the children must be considered.
-                // A parent of this node could scroll the overflowing children.
-                if overflow.x.is_visible() {
-                    node_scrollable_bounds.x =
-                        node_scrollable_bounds.x.max(children_bounding_box.x);
-                }
-
-                if overflow.y.is_visible() {
-                    node_scrollable_bounds.y =
-                        node_scrollable_bounds.y.max(children_bounding_box.y);
-                }
-
-                node_scrollable_bounds
-            } else {
-                node_scrollable_bounds
             }
+
+            // The scrollable area of this node may also include overflowing children.
+            node_scrollable_bounds.max(children_bounding_box)
         } else {
-            Vec2::ZERO
+            node_scrollable_bounds
         }
     }
 }
