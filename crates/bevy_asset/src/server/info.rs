@@ -111,7 +111,10 @@ impl AssetInfos {
         .unwrap()
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Arguments needed so that both `create_loading_handle_untyped()` and `get_or_create_path_handle_internal()` may share code."
+    )]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
