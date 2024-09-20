@@ -3,7 +3,6 @@ use super::{
     persistent_buffer::PersistentGpuBufferable,
 };
 use alloc::sync::Arc;
-use core::mem::size_of;
 
 const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 48;
 

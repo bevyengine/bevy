@@ -1,4 +1,4 @@
-use core::{iter, mem, mem::size_of};
+use core::{iter, mem};
 
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_render::{

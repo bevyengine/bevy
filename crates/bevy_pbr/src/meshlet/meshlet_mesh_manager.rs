@@ -14,7 +14,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_utils::HashMap;
-use core::{mem::size_of, ops::Range};
+use core::ops::Range;
 
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.
 #[derive(Resource)]

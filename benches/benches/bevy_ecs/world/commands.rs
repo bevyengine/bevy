@@ -1,5 +1,3 @@
-use core::mem::size_of;
-
 use bevy_ecs::{
     component::Component,
     entity::Entity,

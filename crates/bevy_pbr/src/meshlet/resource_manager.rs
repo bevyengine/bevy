@@ -19,7 +19,7 @@ use bevy_render::{
     view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
-use core::{array, iter, mem::size_of, sync::atomic::AtomicBool};
+use core::{array, iter, sync::atomic::AtomicBool};
 use encase::internal::WriteInto;
 
 /// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].

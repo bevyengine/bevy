@@ -502,7 +502,7 @@ mod tests {
 
     use super::BlobVec;
     use alloc::rc::Rc;
-    use core::{alloc::Layout, cell::RefCell, mem::align_of};
+    use core::{alloc::Layout, cell::RefCell};
 
     /// # Safety
     ///

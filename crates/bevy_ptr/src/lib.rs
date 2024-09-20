@@ -13,7 +13,7 @@ use core::{
     marker::PhantomData,
     mem::ManuallyDrop,
     num::NonZeroUsize,
-    ptr::NonNull,
+    ptr::{self, NonNull},
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
@@ -539,7 +539,8 @@ pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZero<usize>`.
-    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
+    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilised
+    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
@@ -603,7 +604,6 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
-        use core::mem::align_of;
         let align = align_of::<T>();
         // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.

@@ -1112,7 +1112,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::{iter, marker::PhantomData, mem::size_of};
+    use core::{iter, marker::PhantomData};
     use std::sync::Mutex;
 
     use bevy_ecs::{
