@@ -723,6 +723,16 @@ pub fn prepare_mesh_view_bind_groups(
                 (30, &atmosphere_samplers.aerial_view_lut),
             ));
 
+            entries = entries.extend_with_indices((
+                (
+                    29,
+                    atmosphere_textures
+                        .map(|textures| &textures.aerial_view_lut.default_view)
+                        .unwrap_or(&fallback_image.d3.texture_view), //TODO: should be a black (0.0, 0.0, 0.0, 1.0) texture
+                ),
+                (30, &atmosphere_samplers.aerial_view_lut),
+            ));
+
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
             });
