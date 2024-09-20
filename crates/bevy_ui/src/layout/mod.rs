@@ -159,35 +159,38 @@ pub fn ui_layout_system(
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     camera_layout_info.clear();
 
-    root_nodes.iter().for_each(|(entity,target_camera)|{
-        match camera_with_default(target_camera) {
-            Some(camera_entity) => {
-                let Ok((_, camera)) = cameras.get(camera_entity) else {
-                    warn!(
-                        "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
-                        camera_entity
-                    );
-                    return;
-                };
-                let layout_info = camera_layout_info
-                    .entry(camera_entity)
-                    .or_insert_with(|| calculate_camera_layout_info(camera));
-                layout_info.root_nodes.push(entity);
-            }
-            None => {
-                if cameras.is_empty() {
-                    warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
-                } else {
-                    warn!(
-                        "Multiple cameras found, causing UI target ambiguity. \
-                        To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
-                        entity
-                    );
+    style_query
+        .iter_many(root_nodes.iter())
+        .for_each(|(entity, _, _, target_camera)| {
+            match camera_with_default(target_camera) {
+                Some(camera_entity) => {
+                    let Ok((_, camera)) = cameras.get(camera_entity) else {
+                        warn!(
+                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            camera_entity
+                        );
+                        return;
+                    };
+                    let layout_info = camera_layout_info
+                        .entry(camera_entity)
+                        .or_insert_with(|| calculate_camera_layout_info(camera));
+                    layout_info.root_nodes.push(entity);
+                }
+                None => {
+                    if cameras.is_empty() {
+                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                    } else {
+                        warn!(
+                            "Multiple cameras found, causing UI target ambiguity. \
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            entity
+                        );
+                    }
                 }
             }
-        }
 
-    });
+        }
+    );
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
