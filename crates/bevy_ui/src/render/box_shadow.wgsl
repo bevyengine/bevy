@@ -2,6 +2,7 @@
 #import bevy_render::globals::Globals;
 
 const PI: f32 = 3.14159265358979323846;
+const SAMPLES: i32 = 4;
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<uniform> globals: Globals;
@@ -54,10 +55,10 @@ fn roundedBoxShadow(
     let high = p.y + half_size.y;
     let start = clamp(-3. * blur, low, high);
     let end = clamp(3. * blur, low, high);
-    let step = (end - start) / 4.0;
+    let step = (end - start) / f32(SAMPLES);
     var y = start + step * 0.5;
     var value: f32 = 0.0;
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < SAMPLES; i++) {
         let corner = selectCorner(p.x, p.y, corners);
         value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
