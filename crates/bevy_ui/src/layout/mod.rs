@@ -1,6 +1,6 @@
 use crate::{
     BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
-    TargetCamera, UiRootNodes, UiScale,
+    TargetCamera, UiChildren, UiRootNodes, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -110,8 +110,8 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    node_children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut Node,
@@ -244,9 +244,10 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    children_query.iter().for_each(|(entity, children)| {
+    node_children_query.iter().for_each(|(entity, children)| {
+        // TODO: Fix the change detection here
         if children.is_changed() {
-            ui_surface.update_children(entity, &children);
+            ui_surface.update_children(entity, ui_children.iter(entity));
         }
     });
 
@@ -258,9 +259,10 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    children_query.iter().for_each(|(entity, children)| {
+    node_children_query.iter().for_each(|(entity, children)| {
+        // TODO: Fix the change detection here
         if children.is_changed() {
-            ui_surface.update_children(entity, &children);
+            ui_surface.update_children(entity, ui_children.iter(entity));
         }
     });
 
@@ -283,7 +285,7 @@ pub fn ui_layout_system(
                 &ui_surface,
                 None,
                 &mut node_transform_query,
-                &just_children_query,
+                &ui_children,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
@@ -309,7 +311,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
         )>,
-        children_query: &Query<&Children>,
+        ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
@@ -406,21 +408,19 @@ pub fn ui_layout_system(
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
-            if let Ok(children) = children_query.get(entity) {
-                for &child_uinode in children {
-                    update_uinode_geometry_recursive(
-                        commands,
-                        child_uinode,
-                        ui_surface,
-                        Some(viewport_size),
-                        node_transform_query,
-                        children_query,
-                        inverse_target_scale_factor,
-                        rounded_size,
-                        clamped_scroll_position,
-                        absolute_location,
-                    );
-                }
+            for child_uinode in ui_children.iter(entity) {
+                update_uinode_geometry_recursive(
+                    commands,
+                    child_uinode,
+                    ui_surface,
+                    Some(viewport_size),
+                    node_transform_query,
+                    ui_children,
+                    inverse_target_scale_factor,
+                    rounded_size,
+                    clamped_scroll_position,
+                    absolute_location,
+                );
             }
         }
     }
