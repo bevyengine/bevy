@@ -14,15 +14,15 @@
 @group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
 @group(0) @binding(1) var<uniform> settings: AtmosphereSettings;
 @group(0) @binding(2) var<uniform> view: View;
-@group(0) @binding(2) var<uniform> lights: Lights;
+@group(0) @binding(3) var<uniform> lights: Lights;
 
-@group(0) @binding(3) var transmittance_lut: texture_2d<f32>;
-@group(0) @binding(4) var tranmittance_lut_sampler: sampler;
+@group(0) @binding(4) var transmittance_lut: texture_2d<f32>;
+@group(0) @binding(5) var tranmittance_lut_sampler: sampler;
 
-@group(0) @binding(5) var multiscattering_lut: texture_2d<f32>;
-@group(0) @binding(6) var multiscattering_lut_sampler: sampler;
+@group(0) @binding(6) var multiscattering_lut: texture_2d<f32>;
+@group(0) @binding(7) var multiscattering_lut_sampler: sampler;
 
-@group(0) @binding(7) var aerial_view_lut: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(8) var aerial_view_lut: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
@@ -84,11 +84,9 @@ fn main(@builtin(global_invocation_id) idx: vec2<u32>) {
 }
 
 
-#define VIEW_PROJECTION_PERSPECTIVE 1 //TODO: specialize pipeline for this
-
 /// Convert ndc depth to linear view z. 
 /// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth,:, f32) -> f32 {
+fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
     return -perspective_camera_near() / ndc_depth;
 #else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
