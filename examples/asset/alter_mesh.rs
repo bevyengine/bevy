@@ -71,7 +71,7 @@ fn setup(
         // A common mistake is to use `RENDER_WORLD` by itself, which can cause a confusing lack of
         // assets available in `Res<Assets<Mesh>>`. `RENDER_WORLD` alone will cause the asset to be
         // unloaded from the asset server after it's been sent to the GPU. Unless you have a clear
-        // reason not to do so, it's best to use `RenderAssetUsages::all().
+        // reason not to do so, it's best to use `RenderAssetUsages::all()`.
         |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
     );
 
