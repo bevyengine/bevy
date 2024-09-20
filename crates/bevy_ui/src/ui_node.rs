@@ -1780,7 +1780,7 @@ impl Default for BorderColor {
 ///         let outline_color =
 ///             if matches!(*interaction, Interaction::Hovered) {
 ///                 Color::WHITE
-///             } else {
+///             } else {``
 ///                 Color::NONE
 ///             };
 ///         if let Some(mut outline) = maybe_outline {
@@ -1946,7 +1946,7 @@ pub struct CalculatedClip {
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct ZIndex(pub i32);
 
-/// `GlobalZIndex` allows a node anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
+/// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
 /// be rendered above above or below other UI nodes.
 /// Nodes with a `GlobalZIndex` of greater than 0 will be drawn on top of nodes without a `GlobalZIndex` or nodes with a lower `GlobalZIndex`.
 /// Nodes with a `GlobalZIndex` of less than 0 will be drawn below nodes without a `GlobalZIndex` or nodes with a greater `GlobalZIndex`.
