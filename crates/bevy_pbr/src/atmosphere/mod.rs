@@ -1,5 +1,5 @@
 mod node;
-mod resources;
+pub mod resources;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;

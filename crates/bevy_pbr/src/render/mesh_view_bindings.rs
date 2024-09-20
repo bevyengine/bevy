@@ -44,7 +44,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    prepass,
+    resources::{AtmosphereSamplers, AtmosphereTextures},
+    Atmosphere, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
@@ -710,6 +712,16 @@ pub fn prepare_mesh_view_bind_groups(
                     ));
                 }
             }
+
+            entries = entries.extend_with_indices((
+                (
+                    29,
+                    atmosphere_textures
+                        .map(|textures| &textures.aerial_view_lut.default_view)
+                        .unwrap_or(&fallback_image.d3.texture_view), //TODO: should be a black (0.0, 0.0, 0.0, 1.0) texture
+                ),
+                (30, &atmosphere_samplers.aerial_view_lut),
+            ));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
