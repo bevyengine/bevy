@@ -19,22 +19,22 @@ struct ExampleDisplay;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // a barebones scene containing one of each gltf_extra type
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/extras/gltf_extras.glb")),
-        ..default()
+        ..Default::default()
     });
 
     // a place to display the extras on screen
@@ -43,14 +43,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             "",
             TextStyle {
                 font_size: 15.,
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         ExampleDisplay,
     ));

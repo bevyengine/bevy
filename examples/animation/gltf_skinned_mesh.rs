@@ -10,7 +10,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 750.0,
-            ..default()
+            ..Default::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
@@ -22,14 +22,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0)
             .looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf")),
-        ..default()
+        ..Default::default()
     });
 }
 

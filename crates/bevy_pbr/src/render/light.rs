@@ -19,7 +19,6 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::prelude::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::{error, warn};
@@ -157,7 +156,7 @@ impl FromWorld for ShadowSamplers {
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Nearest,
-            ..default()
+            ..Default::default()
         };
 
         ShadowSamplers {

@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // And with a `stretch_value` of `1.` the tiles will have the same size as the corresponding slices in the source image.
         center_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
         sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
-        ..default()
+        ..Default::default()
     };
 
     // ui camera
@@ -48,9 +48,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_wrap: FlexWrap::Wrap,
                 column_gap: Val::Px(10.),
                 row_gap: Val::Px(10.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             for ([width, height], flip_x, flip_y) in [
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         style: Style {
                             width: Val::Px(width),
                             height: Val::Px(height),
-                            ..default()
+                            ..Default::default()
                         },
                         ..Default::default()
                     },

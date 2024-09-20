@@ -36,7 +36,7 @@ fn setup(
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(-400.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
@@ -46,7 +46,7 @@ fn setup(
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(-300.0, 0.0, 1.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
@@ -56,7 +56,7 @@ fn setup(
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(-200.0, 0.0, -1.0),
-        ..default()
+        ..Default::default()
     });
 
     // Test the interaction between opaque/mask and transparent meshes
@@ -72,7 +72,7 @@ fn setup(
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(200.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
@@ -82,7 +82,7 @@ fn setup(
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(300.0, 0.0, 1.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
@@ -92,6 +92,6 @@ fn setup(
             texture: Some(texture_handle),
         }),
         transform: Transform::from_xyz(400.0, 0.0, -1.0),
-        ..default()
+        ..Default::default()
     });
 }

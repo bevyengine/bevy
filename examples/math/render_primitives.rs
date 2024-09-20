@@ -321,11 +321,11 @@ fn setup_lights(mut commands: Commands) {
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 5000.0,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

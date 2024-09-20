@@ -178,7 +178,7 @@ fn spawn_nested_text_bundle(
                 TextStyle {
                     font,
                     color: Color::BLACK,
-                    ..default()
+                    ..Default::default()
                 },
             ));
         });

@@ -11,9 +11,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(
@@ -33,9 +33,9 @@ fn setup(mut commands: Commands) {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // left vertical fill (border)
@@ -45,10 +45,10 @@ fn setup(mut commands: Commands) {
                         width: Val::Px(300.0),
                         height: Val::Percent(100.0),
                         border: UiRect::all(Val::Px(2.0)),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(0.65, 0.65, 0.65).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn((
@@ -57,12 +57,12 @@ fn setup(mut commands: Commands) {
                             "Example text",
                             TextStyle {
                                 font_size: 25.0,
-                                ..default()
+                                ..Default::default()
                             },
                         )
                         .with_style(Style {
                             align_self: AlignSelf::FlexEnd,
-                            ..default()
+                            ..Default::default()
                         }),
                     ));
                 });

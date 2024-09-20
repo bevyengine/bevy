@@ -63,11 +63,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 32000.0,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(0.0, 2.0, 0.0)
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-        ..default()
+        ..Default::default()
     });
 
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
@@ -75,13 +75,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -156,7 +156,7 @@ fn asset_loaded(
             image.reinterpret_stacked_2d_as_array(image.height() / image.width());
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
-                ..default()
+                ..Default::default()
             });
         }
 

@@ -25,7 +25,7 @@ fn setup(
                     position_type: PositionType::Absolute,
                     top: Val::Percent(12.0),
                     left: Val::Percent(12.0),
-                    ..default()
+                    ..Default::default()
                 },
                 ..Default::default()
             },
@@ -41,7 +41,7 @@ fn setup(
                     mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
                     material: materials.add(Color::srgb_u8(124, 144, 255)),
                     transform: Transform::from_xyz(0.0, 0.5 + 1.1 * *num as f32, 0.0),
-                    ..default()
+                    ..Default::default()
                 });
                 *num += 1;
             },
@@ -65,7 +65,7 @@ fn setup(
                 transform: Transform::from_rotation(Quat::from_rotation_x(
                     -std::f32::consts::FRAC_PI_2,
                 )),
-                ..default()
+                ..Default::default()
             },
             Pickable::default(),
         ))
@@ -77,14 +77,14 @@ fn setup(
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

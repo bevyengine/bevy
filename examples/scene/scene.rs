@@ -70,7 +70,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
         scene: asset_server.load(SCENE_FILE_PATH),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -154,12 +154,12 @@ fn infotext_system(mut commands: Commands) {
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font_size: 42.0,
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             align_self: AlignSelf::FlexEnd,
-            ..default()
+            ..Default::default()
         }),
     );
 }

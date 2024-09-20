@@ -42,7 +42,7 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::from(ORANGE)),
             transform: Transform::from_translation(points[0][0]),
-            ..default()
+            ..Default::default()
         },
         Curve(bezier),
     ));
@@ -53,23 +53,23 @@ fn setup(
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(8., 16., 8.),
-        ..default()
+        ..Default::default()
     });
 
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
         material: materials.add(Color::from(SILVER)),
-        ..default()
+        ..Default::default()
     });
 
     // The camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 3., 0.), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

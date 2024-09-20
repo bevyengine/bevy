@@ -61,9 +61,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -78,10 +78,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 // vertically center child text
                                 align_items: AlignItems::Center,
                                 margin: UiRect::all(Val::Px(20.0)),
-                                ..default()
+                                ..Default::default()
                             },
                             image: image.clone().into(),
-                            ..default()
+                            ..Default::default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
                     ))

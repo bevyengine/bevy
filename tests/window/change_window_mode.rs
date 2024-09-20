@@ -12,11 +12,11 @@ const WINDOW_HEIGHT: f32 = 768.0;
 
 fn main()
 {   //Specify Window Size.
-    let window = Window { resolution: ( WINDOW_WIDTH, WINDOW_HEIGHT ).into(), ..default() };
+    let window = Window { resolution: ( WINDOW_WIDTH, WINDOW_HEIGHT ).into(), ..Default::default() };
     let primary_window = Some ( window );
 
     App::new()
-        .add_plugins( DefaultPlugins.set( WindowPlugin { primary_window, ..default() } ) )
+        .add_plugins( DefaultPlugins.set( WindowPlugin { primary_window, ..Default::default() } ) )
         .add_systems( Startup, startup )
         .add_systems( Update, toggle_window_mode )
         .run();
@@ -26,9 +26,9 @@ fn startup( mut cmds: Commands )
 {   //Match viewport to Window size.
     let physical_position = UVec2::new( 0, 0 );
     let physical_size = Vec2::new( WINDOW_WIDTH, WINDOW_HEIGHT ).as_uvec2();
-    let viewport = Some ( Viewport { physical_position, physical_size, ..default() } );
+    let viewport = Some ( Viewport { physical_position, physical_size, ..Default::default() } );
 
-    cmds.spawn( Camera2dBundle::default() ).insert( Camera { viewport, ..default() } );
+    cmds.spawn( Camera2dBundle::default() ).insert( Camera { viewport, ..Default::default() } );
 }
 
 fn toggle_window_mode

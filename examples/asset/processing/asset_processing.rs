@@ -34,7 +34,7 @@ fn main() {
                 file_path: "examples/asset/processing/assets".to_string(),
                 processed_file_path: "examples/asset/processing/imported_assets/Default"
                     .to_string(),
-                ..default()
+                ..Default::default()
             }),
             TextPlugin,
         ))

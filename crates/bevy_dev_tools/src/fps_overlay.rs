@@ -18,7 +18,6 @@ use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
     PositionType, Style, ZIndex,
 };
-use bevy_utils::default;
 
 /// Global [`ZIndex`] used to render the fps overlay.
 ///
@@ -87,11 +86,11 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             style: Style {
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
-                ..default()
+                ..Default::default()
             },
             // Render overlay on top of everything
             z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
-            ..default()
+            ..Default::default()
         })
         .with_children(|c| {
             c.spawn((

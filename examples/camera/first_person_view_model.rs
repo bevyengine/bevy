@@ -111,7 +111,7 @@ fn spawn_view_model(
             CameraSensitivity::default(),
             SpatialBundle {
                 transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                ..default()
+                ..Default::default()
             },
         ))
         .with_children(|parent| {
@@ -120,10 +120,10 @@ fn spawn_view_model(
                 Camera3dBundle {
                     projection: PerspectiveProjection {
                         fov: 90.0_f32.to_radians(),
-                        ..default()
+                        ..Default::default()
                     }
                     .into(),
-                    ..default()
+                    ..Default::default()
                 },
             ));
 
@@ -133,14 +133,14 @@ fn spawn_view_model(
                     camera: Camera {
                         // Bump the order to render on top of the world model.
                         order: 1,
-                        ..default()
+                        ..Default::default()
                     },
                     projection: PerspectiveProjection {
                         fov: 70.0_f32.to_radians(),
-                        ..default()
+                        ..Default::default()
                     }
                     .into(),
-                    ..default()
+                    ..Default::default()
                 },
                 // Only render objects belonging to the view model.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
@@ -152,7 +152,7 @@ fn spawn_view_model(
                     mesh: arm,
                     material: arm_material,
                     transform: Transform::from_xyz(0.2, -0.1, -0.25),
-                    ..default()
+                    ..Default::default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
@@ -177,21 +177,21 @@ fn spawn_world_model(
     commands.spawn(MaterialMeshBundle {
         mesh: floor,
         material: material.clone(),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(MaterialMeshBundle {
         mesh: cube.clone(),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.25, -3.0),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(MaterialMeshBundle {
         mesh: cube,
         material,
         transform: Transform::from_xyz(0.75, 1.75, 0.0),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -201,10 +201,10 @@ fn spawn_lights(mut commands: Commands) {
             point_light: PointLight {
                 color: Color::from(tailwind::ROSE_300),
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(-2.0, 4.0, -0.75),
-            ..default()
+            ..Default::default()
         },
         // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
@@ -218,9 +218,9 @@ fn spawn_text(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(

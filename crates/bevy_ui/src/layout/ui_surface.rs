@@ -6,7 +6,6 @@ use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::prelude::Resource;
 use bevy_hierarchy::Children;
 use bevy_math::UVec2;
-use bevy_utils::default;
 use bevy_utils::tracing::warn;
 
 use crate::layout::convert;
@@ -161,7 +160,7 @@ without UI components as a child of an entity with UI components, results may be
             },
             align_items: Some(taffy::style::AlignItems::Start),
             justify_items: Some(taffy::style::JustifyItems::Start),
-            ..default()
+            ..Default::default()
         };
 
         let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();

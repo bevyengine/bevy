@@ -16,7 +16,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 1000.,
-            ..default()
+            ..Default::default()
         })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
@@ -33,11 +33,11 @@ fn setup(
         .spawn(Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         })
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
         .insert(TemporalAntiAliasBundle::default());
@@ -46,25 +46,25 @@ fn setup(
         base_color: Color::srgb(0.5, 0.5, 0.5),
         perceptual_roughness: 1.0,
         reflectance: 0.0,
-        ..default()
+        ..Default::default()
     });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material: material.clone(),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material,
         transform: Transform::from_xyz(1.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     commands.spawn((
         PbrBundle {
@@ -73,9 +73,9 @@ fn setup(
                 base_color: Color::srgb(0.4, 0.4, 0.4),
                 perceptual_roughness: 1.0,
                 reflectance: 0.0,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
         SphereMarker,
     ));
@@ -83,7 +83,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
@@ -91,7 +91,7 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(
@@ -99,7 +99,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        ..default()
+        ..Default::default()
     };
 
     commands.spawn(Camera2dBundle::default());
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }).with_children(|parent| {
         parent.spawn(TextBundle {
             text: Text::from_section(
-                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",                
+                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",
                 text_style.clone(),
             ).with_justify(JustifyText::Center),
             style: Style {
@@ -148,11 +148,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     column_gap: Val::Px(10.),
                     ..Default::default()
                 },
-                ..default() })
+                ..Default::default() })
             .with_children(|builder| {
                 let text_style = TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    ..default()
+                    ..Default::default()
                 };
 
                 builder.spawn(TextBundle {

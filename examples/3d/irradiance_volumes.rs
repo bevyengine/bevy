@@ -147,9 +147,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Irradiance Volumes Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
@@ -234,12 +234,12 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         })
         .insert(Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
-            ..default()
+            ..Default::default()
         });
 }
 
@@ -261,10 +261,10 @@ fn spawn_light(commands: &mut Commands) {
         point_light: PointLight {
             intensity: 250000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0762, 5.9039, 1.0055),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -275,7 +275,7 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
             material: assets.main_sphere_material.clone(),
             transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
                 .with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(MainObject);
 }
@@ -284,7 +284,7 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
     commands
         .spawn(SpatialBundle {
             visibility: Visibility::Hidden,
-            ..default()
+            ..Default::default()
         })
         .insert(VoxelCubeParent);
 }
@@ -295,7 +295,7 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
             scene: assets.fox.clone(),
             visibility: Visibility::Hidden,
             transform: Transform::from_scale(Vec3::splat(FOX_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(MainObject);
 }
@@ -304,13 +304,13 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn(
         TextBundle {
             text: app_status.create_text(),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -600,7 +600,7 @@ fn create_cubes(
                             material: voxel_cube_material.clone(),
                             transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
-                            ..default()
+                            ..Default::default()
                         })
                         .insert(VoxelCube)
                         .insert(NotShadowCaster)

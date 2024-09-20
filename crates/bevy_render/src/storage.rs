@@ -7,7 +7,6 @@ use bevy_ecs::system::lifetimeless::SRes;
 use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_utils::default;
 use encase::internal::WriteInto;
 use encase::ShaderType;
 use wgpu::util::BufferInitDescriptor;
@@ -57,7 +56,7 @@ impl ShaderStorageBuffer {
     pub fn new(data: &[u8], asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderStorageBuffer {
             data: Some(data.to_vec()),
-            ..default()
+            ..Default::default()
         };
         storage.asset_usage = asset_usage;
         storage
@@ -67,7 +66,7 @@ impl ShaderStorageBuffer {
     pub fn with_size(size: usize, asset_usage: RenderAssetUsages) -> Self {
         let mut storage = ShaderStorageBuffer {
             data: None,
-            ..default()
+            ..Default::default()
         };
         storage.buffer_description.size = size as u64;
         storage.buffer_description.mapped_at_creation = false;

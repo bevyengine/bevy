@@ -42,9 +42,9 @@ fn setup(
     commands.spawn(Camera2dBundle {
         camera: Camera {
             clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     const UPPER_Y: f32 = 50.0;
@@ -73,9 +73,9 @@ fn setup(
                 transform: Transform {
                     translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
                     rotation: Quat::from_rotation_z(sector_angle),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             DrawBounds(sector),
         ));
@@ -100,9 +100,9 @@ fn setup(
                 transform: Transform {
                     translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
                     rotation: Quat::from_rotation_z(segment_angle),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             DrawBounds(segment),
         ));

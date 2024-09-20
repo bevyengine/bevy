@@ -108,10 +108,10 @@ fn spawn_camera(commands: &mut Commands) {
     commands.spawn(Camera3dBundle {
         camera: Camera {
             hdr: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -151,7 +151,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
-            ..default()
+            ..Default::default()
         },
     });
 }
@@ -162,13 +162,13 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn(
         TextBundle {
             text: app_status.create_text(),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -188,7 +188,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
-                ..default()
+                ..Default::default()
             });
     }
 }
@@ -300,7 +300,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
-        ..default()
+        ..Default::default()
     }
 }
 

@@ -191,7 +191,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: None,
                 exit_condition: ExitCondition::DontExit,
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -283,14 +283,14 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
             branch_width,
         } => {
             let tree = gen_tree(depth, branch_width);
-            spawn_tree(&tree, &mut commands, &cfg.update_filter, default())
+            spawn_tree(&tree, &mut commands, &cfg.update_filter, Default::default())
         }
         TestCase::NonUniformTree {
             depth,
             branch_width,
         } => {
             let tree = gen_non_uniform_tree(depth, branch_width);
-            spawn_tree(&tree, &mut commands, &cfg.update_filter, default())
+            spawn_tree(&tree, &mut commands, &cfg.update_filter, Default::default())
         }
         TestCase::Humanoids { active, inactive } => {
             let mut result = InsertResult::default();
@@ -372,7 +372,7 @@ fn spawn_tree(
 
     // node index -> entity lookup list
     let mut ents: Vec<Entity> = Vec::with_capacity(count);
-    let mut node_info: Vec<NodeInfo> = vec![default(); count];
+    let mut node_info: Vec<NodeInfo> = vec![Default::default(); count];
     for (i, &parent_idx) in parent_map.iter().enumerate() {
         // assert spawn order (parent must be processed before child)
         assert!(parent_idx <= i, "invalid spawn order");

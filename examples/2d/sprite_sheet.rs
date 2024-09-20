@@ -51,7 +51,7 @@ fn setup(
         SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(6.0)),
             texture,
-            ..default()
+            ..Default::default()
         },
         TextureAtlas {
             layout: texture_atlas_layout,

@@ -35,7 +35,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             custom_layer,
 
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Update, log_system)
         .run();

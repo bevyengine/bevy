@@ -26,9 +26,9 @@ fn main() {
                 render_creation: RenderCreation::Automatic(WgpuSettings {
                     // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             // You need to add this plugin to enable wireframe rendering
             WireframePlugin,
@@ -60,7 +60,7 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::from(RED)),
             transform: Transform::from_xyz(-1.0, 0.5, -1.0),
-            ..default()
+            ..Default::default()
         },
         NoWireframe,
     ));
@@ -69,7 +69,7 @@ fn setup(
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(Color::from(ORANGE)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
     // Green cube: Always renders a wireframe
     commands.spawn((
@@ -77,7 +77,7 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(1.0, 0.5, 1.0),
-            ..default()
+            ..Default::default()
         },
         Wireframe,
         // This lets you configure the wireframe color of this entity.
@@ -90,7 +90,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
             material: materials.add(Color::from(BLUE)),
-            ..default()
+            ..Default::default()
         },
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
@@ -102,13 +102,13 @@ fn setup(
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(2.0, 4.0, 2.0),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Text used to show controls
@@ -117,7 +117,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

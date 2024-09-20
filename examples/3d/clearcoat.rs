@@ -109,10 +109,10 @@ fn spawn_car_paint_sphere(
                 metallic: 0.9,
                 perceptual_roughness: 0.5,
                 base_color: BLUE.into(),
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(ExampleSphere);
 }
@@ -133,10 +133,10 @@ fn spawn_coated_glass_bubble_sphere(
                 perceptual_roughness: 0.1,
                 base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
                 alpha_mode: AlphaMode::Blend,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(ExampleSphere);
 }
@@ -152,7 +152,7 @@ fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
             scene: asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
             transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(ExampleSphere);
 }
@@ -178,10 +178,10 @@ fn spawn_scratched_gold_ball(
                 metallic: 0.9,
                 perceptual_roughness: 0.1,
                 base_color: GOLD.into(),
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
+            ..Default::default()
         })
         .insert(ExampleSphere);
 }
@@ -195,9 +195,9 @@ fn spawn_light(commands: &mut Commands) {
             point_light: PointLight {
                 color: WHITE.into(),
                 intensity: 100000.0,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .insert(CascadesFrusta::default())
         .insert(Cascades::default())
@@ -211,26 +211,26 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn(Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             projection: Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 10.0),
             tonemapping: AcesFitted,
-            ..default()
+            ..Default::default()
         })
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..default()
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         });
 }
 
@@ -239,13 +239,13 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
             text: light_mode.create_help_text(),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -318,7 +318,7 @@ fn create_point_light() -> PointLight {
     PointLight {
         color: WHITE.into(),
         intensity: 100000.0,
-        ..default()
+        ..Default::default()
     }
 }
 
@@ -327,7 +327,7 @@ fn create_directional_light() -> DirectionalLight {
     DirectionalLight {
         color: WHITE.into(),
         illuminance: 1000.0,
-        ..default()
+        ..Default::default()
     }
 }
 

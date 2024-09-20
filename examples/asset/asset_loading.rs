@@ -69,7 +69,7 @@ fn setup(
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
         base_color: Color::srgb(0.8, 0.7, 0.6),
-        ..default()
+        ..Default::default()
     });
 
     // torus
@@ -77,30 +77,30 @@ fn setup(
         mesh: torus_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: cube_handle,
         material: material_handle.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     // sphere
     commands.spawn(PbrBundle {
         mesh: sphere_handle,
         material: material_handle,
         transform: Transform::from_xyz(3.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

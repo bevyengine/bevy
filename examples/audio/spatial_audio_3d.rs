@@ -28,7 +28,7 @@ fn setup(
             mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
             material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         Emitter::default(),
         AudioBundle {
@@ -46,7 +46,7 @@ fn setup(
                 mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
                 material: materials.add(Color::from(RED)),
                 transform: Transform::from_translation(listener.left_ear_offset),
-                ..default()
+                ..Default::default()
             });
 
             // right ear indicator
@@ -54,14 +54,14 @@ fn setup(
                 mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
                 material: materials.add(Color::from(LIME)),
                 transform: Transform::from_translation(listener.right_ear_offset),
-                ..default()
+                ..Default::default()
             });
         });
 
     // light
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // example instructions
@@ -74,14 +74,14 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

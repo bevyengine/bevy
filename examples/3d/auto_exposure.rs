@@ -42,19 +42,19 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         AutoExposure {
             metering_mask: metering_mask.clone(),
-            ..default()
+            ..Default::default()
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: light_consts::lux::DIRECT_SUNLIGHT,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -96,11 +96,11 @@ fn setup(
                         0.75 - level as f32 * 0.25,
                         0.5 + side.z * 0.5,
                     ),
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_translation(side * 2.0 + height)
                     .looking_at(height, Vec3::Y),
-                ..default()
+                ..Default::default()
             });
         }
     }
@@ -113,23 +113,23 @@ fn setup(
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(ImageBundle {
         image: UiImage {
             texture: metering_mask,
-            ..default()
+            ..Default::default()
         },
         style: Style {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     let text_style = TextStyle::default();
@@ -143,7 +143,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -152,7 +152,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         ExampleDisplay,
     ));

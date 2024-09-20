@@ -54,9 +54,9 @@ fn atlas_render_system(
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
                     left: Val::Px(512.0 * x_offset),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
         }
     }
@@ -91,9 +91,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             style: Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(

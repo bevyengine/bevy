@@ -46,7 +46,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 value: "\n".to_string(),
                 style: TextStyle {
                     font: font.clone(),
-                    ..default()
+                    ..Default::default()
                 },
             },
         ])
@@ -54,7 +54,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -64,10 +64,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font,
                 font_size: 100.0,
-                ..default()
+                ..Default::default()
             },
         ),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -154,7 +154,7 @@ fn listen_keyboard_input_events(
                 commands.spawn((
                     Text2dBundle {
                         text: Text::from_section(old_value, text.sections[0].style.clone()),
-                        ..default()
+                        ..Default::default()
                     },
                     Bubble {
                         timer: Timer::from_seconds(5.0, TimerMode::Once),

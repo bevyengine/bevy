@@ -15,10 +15,10 @@ fn main() {
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
                     backends: None,
-                    ..default()
+                    ..Default::default()
                 }
                 .into(),
-                ..default()
+                ..Default::default()
             }),
         )
         .run();

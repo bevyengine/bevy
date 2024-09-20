@@ -52,7 +52,7 @@ fn setup(
 ) {
     let debug_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
+        ..Default::default()
     });
 
     let shapes = [
@@ -90,7 +90,7 @@ fn setup(
                     Z_EXTENT / 2.,
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-                ..default()
+                ..Default::default()
             },
             Shape,
         ));
@@ -110,7 +110,7 @@ fn setup(
                     -Z_EXTENT / 2.,
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-                ..default()
+                ..Default::default()
             },
             Shape,
         ));
@@ -122,22 +122,22 @@ fn setup(
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(8.0, 16.0, 8.0),
-        ..default()
+        ..Default::default()
     });
 
     // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10)),
         material: materials.add(Color::from(SILVER)),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -147,7 +147,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             }),
     );
 }

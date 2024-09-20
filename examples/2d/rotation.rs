@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SpriteBundle {
             texture: ship_handle,
-            ..default()
+            ..Default::default()
         },
         Player {
             movement_speed: 500.0,                  // meters per second
@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: enemy_a_handle.clone(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         SnapToPlayer,
     ));
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: enemy_a_handle,
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
-            ..default()
+            ..Default::default()
         },
         SnapToPlayer,
     ));
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: enemy_b_handle.clone(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
@@ -106,7 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: enemy_b_handle,
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
-            ..default()
+            ..Default::default()
         },
         RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second

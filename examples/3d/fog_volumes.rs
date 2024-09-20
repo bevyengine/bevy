@@ -17,9 +17,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Fog Volumes Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(SpatialBundle {
             visibility: Visibility::Visible,
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
+            ..Default::default()
         })
         .insert(FogVolume {
             density_texture: Some(asset_server.load("volumes/bunny.ktx2")),
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Scatter as much of the light as possible, to brighten the bunny
             // up.
             scattering: 1.0,
-            ..default()
+            ..Default::default()
         });
 
     // Spawn a bright directional light that illuminates the fog well.
@@ -52,9 +52,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             directional_light: DirectionalLight {
                 shadows_enabled: true,
                 illuminance: 32000.0,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         // Make sure to add this for the light to interact with the fog.
         .insert(VolumetricLight);
@@ -66,16 +66,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .insert(VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.
             ambient_intensity: 0.0,
-            ..default()
+            ..Default::default()
         });
 }
 

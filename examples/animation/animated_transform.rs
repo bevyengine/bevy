@@ -26,17 +26,17 @@ fn setup(
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 500_000.0,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(0.0, 2.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // Let's use the `Name` component to target entities. We can use anything we
@@ -140,7 +140,7 @@ fn setup(
             PbrBundle {
                 mesh: meshes.add(Sphere::default()),
                 material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
+                ..Default::default()
             },
             // Add the animation graph and player
             planet,
@@ -171,7 +171,7 @@ fn setup(
                         transform: Transform::from_xyz(1.5, 0.0, 0.0),
                         mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
                         material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
-                        ..default()
+                        ..Default::default()
                     },
                     AnimationTarget {
                         id: satellite_animation_target_id,

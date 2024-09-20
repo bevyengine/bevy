@@ -31,7 +31,7 @@ fn setup(
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..Default::default()
     });
 
     // this material modulates the texture to make it red (and slightly transparent)
@@ -40,7 +40,7 @@ fn setup(
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..Default::default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
@@ -49,7 +49,7 @@ fn setup(
         base_color_texture: Some(texture_handle),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..Default::default()
     });
 
     // textured quad - normal
@@ -58,14 +58,14 @@ fn setup(
         material: material_handle,
         transform: Transform::from_xyz(0.0, 0.0, 1.5)
             .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
+        ..Default::default()
     });
     // textured quad - modulated
     commands.spawn(PbrBundle {
         mesh: quad_handle.clone(),
         material: red_material_handle,
         transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
+        ..Default::default()
     });
     // textured quad - modulated
     commands.spawn(PbrBundle {
@@ -73,11 +73,11 @@ fn setup(
         material: blue_material_handle,
         transform: Transform::from_xyz(0.0, 0.0, -1.5)
             .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

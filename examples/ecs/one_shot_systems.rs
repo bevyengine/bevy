@@ -104,7 +104,7 @@ fn setup_ui(mut commands: Commands) {
                 "-",
                 TextStyle {
                     color: bevy::color::palettes::css::ORANGE.into(),
-                    ..default()
+                    ..Default::default()
                 },
             ),
         ])
@@ -112,7 +112,7 @@ fn setup_ui(mut commands: Commands) {
         .with_style(Style {
             align_self: AlignSelf::Center,
             justify_self: JustifySelf::Center,
-            ..default()
+            ..Default::default()
         }),
     );
 }

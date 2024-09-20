@@ -80,9 +80,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Animation Graph Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations.before(animate_targets))
@@ -222,23 +222,23 @@ fn setup_scene(
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
+        ..Default::default()
     });
 
     // Ground
@@ -247,7 +247,7 @@ fn setup_scene(
         mesh: meshes.add(Circle::new(7.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -259,9 +259,9 @@ fn setup_help_text(commands: &mut Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -280,11 +280,11 @@ fn setup_node_rects(commands: &mut Commands) {
                     TextStyle {
                         font_size: 16.0,
                         color: ANTIQUE_WHITE.into(),
-                        ..default()
+                        ..Default::default()
                     },
                 )
                 .with_justify(JustifyText::Center),
-                ..default()
+                ..Default::default()
             })
             .id();
 
@@ -301,10 +301,10 @@ fn setup_node_rects(commands: &mut Commands) {
                         justify_items: JustifyItems::Center,
                         align_content: AlignContent::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     border_color: WHITE.into(),
-                    ..default()
+                    ..Default::default()
                 },
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
@@ -330,10 +330,10 @@ fn setup_node_rects(commands: &mut Commands) {
                         left: Val::Px(0.),
                         height: Val::Px(node_rect.height),
                         width: Val::Px(node_rect.width),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: DARK_GREEN.into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .id();
 
@@ -358,10 +358,10 @@ fn setup_node_lines(commands: &mut Commands) {
                 height: Val::Px(0.0),
                 width: Val::Px(line.length),
                 border: UiRect::bottom(Val::Px(1.0)),
-                ..default()
+                ..Default::default()
             },
             border_color: WHITE.into(),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -374,10 +374,10 @@ fn setup_node_lines(commands: &mut Commands) {
                 height: Val::Px(line.length),
                 width: Val::Px(0.0),
                 border: UiRect::left(Val::Px(1.0)),
-                ..default()
+                ..Default::default()
             },
             border_color: WHITE.into(),
-            ..default()
+            ..Default::default()
         });
     }
 }

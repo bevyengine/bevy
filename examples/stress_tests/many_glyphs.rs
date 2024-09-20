@@ -21,9 +21,9 @@ fn main() {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }),
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands) {
             value: "0123456789".repeat(10_000),
             style: TextStyle {
                 font_size: 4.,
-                ..default()
+                ..Default::default()
             },
         }],
         justify: JustifyText::Left,
@@ -63,9 +63,9 @@ fn setup(mut commands: Commands) {
                 width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|commands| {
             commands.spawn(TextBundle {

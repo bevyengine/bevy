@@ -78,9 +78,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Animation Masks Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)
@@ -104,7 +104,7 @@ fn setup_scene(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-15.0, 10.0, 20.0)
             .looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the light.
@@ -112,17 +112,17 @@ fn setup_scene(
         point_light: PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the fox.
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the ground.
@@ -130,7 +130,7 @@ fn setup_scene(
         mesh: meshes.add(Circle::new(7.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -146,7 +146,7 @@ fn setup_ui(mut commands: Commands) {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -159,21 +159,21 @@ fn setup_ui(mut commands: Commands) {
                 row_gap: Val::Px(6.0),
                 left: Val::Px(12.0),
                 bottom: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             let row_style = Style {
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(6.0),
-                ..default()
+                ..Default::default()
             };
 
             parent
                 .spawn(NodeBundle {
                     style: row_style.clone(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     add_mask_group_control(
@@ -193,7 +193,7 @@ fn setup_ui(mut commands: Commands) {
             parent
                 .spawn(NodeBundle {
                     style: row_style,
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     add_mask_group_control(
@@ -228,12 +228,12 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 align_items: AlignItems::Center,
                 padding: UiRect::all(Val::Px(6.0)),
                 margin: UiRect::ZERO,
-                ..default()
+                ..Default::default()
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::all(Val::Px(3.0)),
             background_color: Color::WHITE.into(),
-            ..default()
+            ..Default::default()
         })
         .insert(MaskGroupControl {
             group_id: mask_group_id,
@@ -244,7 +244,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
             TextStyle {
                 font_size: 14.0,
                 color: Color::BLACK,
-                ..default()
+                ..Default::default()
             },
         ));
 }

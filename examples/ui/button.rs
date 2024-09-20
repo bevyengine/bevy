@@ -61,9 +61,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -76,12 +76,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     border_color: BorderColor(Color::BLACK),
                     border_radius: BorderRadius::MAX,
                     background_color: NORMAL_BUTTON.into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_child(TextBundle::from_section(
                     "Button",

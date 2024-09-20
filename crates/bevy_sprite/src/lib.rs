@@ -236,10 +236,8 @@ impl ExtractComponent for SpriteSource {
 #[cfg(test)]
 mod test {
 
-    use bevy_math::{Rect, Vec2, Vec3A};
-    use bevy_utils::default;
-
     use super::*;
+    use bevy_math::{Rect, Vec2, Vec3A};
 
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
@@ -305,7 +303,7 @@ mod test {
             .spawn((
                 Sprite {
                     custom_size: Some(Vec2::ZERO),
-                    ..default()
+                    ..Default::default()
                 },
                 image_handle,
             ))
@@ -371,7 +369,7 @@ mod test {
                 Sprite {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     anchor: Anchor::TopRight,
-                    ..default()
+                    ..Default::default()
                 },
                 image_handle,
             ))

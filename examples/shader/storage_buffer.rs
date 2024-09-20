@@ -49,7 +49,7 @@ fn setup(
                 mesh: meshes.add(Cuboid::from_size(Vec3::splat(0.3))),
                 material: material_handle.clone(),
                 transform: Transform::from_xyz(i as f32, j as f32, 0.0),
-                ..default()
+                ..Default::default()
             });
         }
     }
@@ -57,7 +57,7 @@ fn setup(
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

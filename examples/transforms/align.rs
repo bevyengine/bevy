@@ -53,7 +53,7 @@ fn setup(
     // A camera looking at the origin
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // A plane that we can sit on top of
@@ -61,17 +61,17 @@ fn setup(
         transform: Transform::from_xyz(0., -2., 0.),
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     // A light source
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 7.0, -4.0),
-        ..default()
+        ..Default::default()
     });
 
     // Initialize random axes
@@ -84,11 +84,11 @@ fn setup(
         SceneBundle {
             scene: asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
-            ..default()
+            ..Default::default()
         },
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -109,7 +109,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         Instructions,
     ));

@@ -103,9 +103,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Screen Space Reflections Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(Startup, setup)
@@ -154,10 +154,10 @@ fn spawn_cube(
             material: standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
+            ..Default::default()
         })
         .insert(CubeModel);
 }
@@ -169,7 +169,7 @@ fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
             scene: asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_scale(Vec3::splat(2.5)),
-            ..default()
+            ..Default::default()
         })
         .insert(FlightHelmetModel)
         .insert(Visibility::Hidden);
@@ -188,7 +188,7 @@ fn spawn_water(
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,
-                ..default()
+                ..Default::default()
             },
             extension: Water {
                 normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
@@ -200,7 +200,7 @@ fn spawn_water(
                             address_mode_v: ImageAddressMode::Repeat,
                             mag_filter: ImageFilterMode::Linear,
                             min_filter: ImageFilterMode::Linear,
-                            ..default()
+                            ..Default::default()
                         });
                     },
                 ),
@@ -217,7 +217,7 @@ fn spawn_water(
             },
         }),
         transform: Transform::from_scale(Vec3::splat(100.0)),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -233,21 +233,21 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 .looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
-            ..default()
+            ..Default::default()
         })
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
-            ..default()
+            ..Default::default()
         })
         .insert(ScreenSpaceReflectionsBundle::default())
         .insert(Fxaa::default());
@@ -258,13 +258,13 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn(
         TextBundle {
             text: create_text(app_settings),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -420,7 +420,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             ssr_on: true,
-            displayed_model: default(),
+            displayed_model: Default::default(),
         }
     }
 }

@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_ecs::system::Resource;
 use bevy_utils::hashbrown::hash_map::VacantEntry;
-use bevy_utils::{default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap};
+use bevy_utils::{hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap};
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 
@@ -25,7 +25,9 @@ pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
 
 impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
     fn default() -> Self {
-        Self { cache: default() }
+        Self {
+            cache: Default::default(),
+        }
     }
 }
 
@@ -55,7 +57,9 @@ pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
 
 impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
     fn default() -> Self {
-        Self { cache: default() }
+        Self {
+            cache: Default::default(),
+        }
     }
 }
 

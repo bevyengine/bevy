@@ -33,7 +33,7 @@ fn setup_camera(mut commands: Commands) {
                 #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
                 _webgl2_padding: Default::default(),
             },
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -71,10 +71,10 @@ fn setup_scene(
         directional_light: DirectionalLight {
             illuminance: 3_000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
-        ..default()
+        ..Default::default()
     });
     // Sky
     commands.spawn(PbrBundle {
@@ -82,10 +82,10 @@ fn setup_scene(
         material: materials.add(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
-        ..default()
+        ..Default::default()
     });
     // Ground
     let mut plane: Mesh = Plane3d::default().into();
@@ -98,10 +98,10 @@ fn setup_scene(
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
-        ..default()
+        ..Default::default()
     });
 
     spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
@@ -122,13 +122,13 @@ fn spawn_cars(
     let wheel_matl = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),
-        ..default()
+        ..Default::default()
     });
 
     let mut matl = |color| {
         materials.add(StandardMaterial {
             base_color: color,
-            ..default()
+            ..Default::default()
         })
     };
 
@@ -151,7 +151,7 @@ fn spawn_cars(
                     mesh: box_mesh.clone(),
                     material: color.clone(),
                     transform: Transform::from_scale(Vec3::splat(0.5)),
-                    ..default()
+                    ..Default::default()
                 },
                 Moves(i as f32 * 2.0),
             ))
@@ -162,7 +162,7 @@ fn spawn_cars(
                 material: color,
                 transform: Transform::from_xyz(0.0, 0.08, 0.03)
                     .with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ..default()
+                ..Default::default()
             });
             let mut spawn_wheel = |x: f32, z: f32| {
                 parent.spawn((
@@ -172,7 +172,7 @@ fn spawn_cars(
                         transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        ..default()
+                        ..Default::default()
                     },
                     Rotates,
                 ));
@@ -195,7 +195,7 @@ fn spawn_barriers(
     let matl = materials.add(StandardMaterial {
         base_color: Color::srgb_u8(255, 87, 51),
         reflectance: 1.0,
-        ..default()
+        ..Default::default()
     });
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_CONES {
@@ -207,7 +207,7 @@ fn spawn_barriers(
                 mesh: capsule.clone(),
                 material: matl.clone(),
                 transform: Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
-                ..default()
+                ..Default::default()
             });
         }
     };
@@ -237,13 +237,13 @@ fn spawn_trees(
                 mesh: sphere.clone(),
                 material: leaves.clone(),
                 transform: Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
-                ..default()
+                ..Default::default()
             });
             commands.spawn(PbrBundle {
                 mesh: capsule.clone(),
                 material: trunk.clone(),
                 transform: Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
-                ..default()
+                ..Default::default()
             });
         }
     };
@@ -266,7 +266,7 @@ fn setup_ui(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

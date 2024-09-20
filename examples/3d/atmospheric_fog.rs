@@ -28,7 +28,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 0.1, 1.0)
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         DistanceFog {
             color: Color::srgba(0.35, 0.48, 0.66, 1.0),
@@ -53,7 +53,7 @@ fn setup_terrain_scene(
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
         maximum_distance: 3.0,
-        ..default()
+        ..Default::default()
     }
     .build();
 
@@ -62,19 +62,19 @@ fn setup_terrain_scene(
         directional_light: DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(0.0, 0.0, 0.0)
             .looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
         cascade_shadow_config,
-        ..default()
+        ..Default::default()
     });
 
     // Terrain
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
-        ..default()
+        ..Default::default()
     });
 
     // Sky
@@ -85,10 +85,10 @@ fn setup_terrain_scene(
                 base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_scale(Vec3::splat(20.0)),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
     ));
@@ -104,7 +104,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

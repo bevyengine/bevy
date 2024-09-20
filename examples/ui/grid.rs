@@ -7,9 +7,9 @@ fn main() {
             primary_window: Some(Window {
                 resolution: [800., 600.].into(),
                 title: "Bevy CSS Grid Layout Example".to_string(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, spawn_layout)
         .run();
@@ -41,10 +41,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GridTrack::flex(1.0),
                     GridTrack::px(20.),
                 ],
-                ..default()
+                ..Default::default()
             },
             background_color: BackgroundColor(Color::WHITE),
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             // Header
@@ -55,9 +55,9 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|builder| {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
@@ -85,10 +85,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Set a 12px gap/gutter between rows and columns
                         row_gap: Val::Px(12.0),
                         column_gap: Val::Px(12.0),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|builder| {
                     // Note there is no need to specify the position for each grid item. Grid items that are
@@ -130,17 +130,17 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
                         // Add a 10px gap between rows
                         row_gap: Val::Px(10.),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: BackgroundColor(BLACK.into()),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|builder| {
                     builder.spawn(TextBundle::from_section(
                         "Sidebar",
                         TextStyle {
                             font: font.clone(),
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                     builder.spawn(TextBundle::from_section(
@@ -148,7 +148,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: font.clone(),
                             font_size: 13.0,
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                     builder.spawn(NodeBundle::default());
@@ -159,10 +159,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: Style {
                     // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
-                    ..default()
+                    ..Default::default()
                 },
                 background_color: BackgroundColor(WHITE.into()),
-                ..default()
+                ..Default::default()
             });
 
             // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
@@ -179,10 +179,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     width: Val::Percent(60.),
                     height: Val::Px(300.),
                     max_width: Val::Px(600.),
-                    ..default()
+                    ..Default::default()
                 },
                 background_color: BackgroundColor(Color::WHITE.with_alpha(0.8)),
-                ..default()
+                ..Default::default()
             });
         });
 }
@@ -196,15 +196,15 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
             style: Style {
                 display: Display::Grid,
                 padding: UiRect::all(Val::Px(3.0)),
-                ..default()
+                ..Default::default()
             },
             background_color: BackgroundColor(BLACK.into()),
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(NodeBundle {
                 background_color: BackgroundColor(color.into()),
-                ..default()
+                ..Default::default()
             });
         });
 }
@@ -215,7 +215,7 @@ fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text
         TextStyle {
             font,
             color: Color::BLACK,
-            ..default()
+            ..Default::default()
         },
     ));
 }

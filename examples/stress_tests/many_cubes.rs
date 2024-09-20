@@ -107,9 +107,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -169,7 +169,7 @@ fn setup(
                         transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .mul_transform(*transform),
-                        ..default()
+                        ..Default::default()
                     })
                     .insert_if(NoFrustumCulling, || args.no_frustum_culling)
                     .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
@@ -190,7 +190,7 @@ fn setup(
                     mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
                     material: material_assets.add(StandardMaterial::from(Color::WHITE)),
                     transform: Transform::from_scale(-Vec3::ONE),
-                    ..default()
+                    ..Default::default()
                 },
                 NotShadowCaster,
             ));
@@ -210,7 +210,7 @@ fn setup(
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
-                        ..default()
+                        ..Default::default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
@@ -220,19 +220,19 @@ fn setup(
                             HEIGHT as f32 * scale,
                             (y as f32) * scale,
                         ),
-                        ..default()
+                        ..Default::default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
-                        ..default()
+                        ..Default::default()
                     });
                     commands.spawn(PbrBundle {
                         mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
                         material: materials.choose(&mut material_rng).unwrap().clone(),
                         transform: Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
-                        ..default()
+                        ..Default::default()
                     });
                 }
             }
@@ -240,7 +240,7 @@ fn setup(
             let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
             commands.spawn(Camera3dBundle {
                 transform: Transform::from_translation(center),
-                ..default()
+                ..Default::default()
             });
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
@@ -248,7 +248,7 @@ fn setup(
                     mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),
                     material: material_assets.add(StandardMaterial::from(Color::WHITE)),
                     transform: Transform::from_scale(-Vec3::ONE).with_translation(center),
-                    ..default()
+                    ..Default::default()
                 },
                 NotShadowCaster,
             ));
@@ -258,10 +258,10 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: args.shadows,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -309,7 +309,7 @@ fn init_materials(
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
-        ..default()
+        ..Default::default()
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -321,7 +321,7 @@ fn init_materials(
             assets.add(StandardMaterial {
                 base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
-                ..default()
+                ..Default::default()
             })
         })
         .take(capacity - materials.len()),

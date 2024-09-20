@@ -22,7 +22,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 3000.0,
-            ..default()
+            ..Default::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
@@ -45,7 +45,7 @@ fn setup(
     // Create a camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
@@ -155,7 +155,7 @@ fn setup(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),
                 )),
-                ..default()
+                ..Default::default()
             },
             SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),

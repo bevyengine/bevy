@@ -21,11 +21,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),
                 physical_size: [600, 600].into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     commands
@@ -36,9 +36,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -47,10 +47,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(235., 35., 12.).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .insert(RelativeCursorPosition::default());
 
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         color: Color::srgb(0.9, 0.9, 0.9),
                     },
                 ),
-                ..default()
+                ..Default::default()
             });
         });
 }

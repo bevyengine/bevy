@@ -44,9 +44,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 
     // left wall
@@ -58,9 +58,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
@@ -71,9 +71,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 
     // Bevy logo to demonstrate alpha mask shadows
@@ -88,9 +88,9 @@ fn setup(
                 perceptual_roughness: 1.0,
                 alpha_mode: AlphaMode::Mask(0.5),
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
         Movable,
     ));
@@ -101,10 +101,10 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(StandardMaterial {
                 base_color: DEEP_PINK.into(),
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
+            ..Default::default()
         },
         Movable,
     ));
@@ -114,10 +114,10 @@ fn setup(
             mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)),
             material: materials.add(StandardMaterial {
                 base_color: LIMEGREEN.into(),
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(1.5, 1.0, 1.5),
-            ..default()
+            ..Default::default()
         },
         Movable,
     ));
@@ -137,9 +137,9 @@ fn setup(
                 intensity: 100_000.0,
                 color: RED.into(),
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
@@ -147,9 +147,9 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: RED.into(),
                     emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -164,9 +164,9 @@ fn setup(
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
@@ -175,9 +175,9 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: LIME.into(),
                     emissive: LinearRgba::new(0.0, 4.0, 0.0, 0.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -190,9 +190,9 @@ fn setup(
                 intensity: 100_000.0,
                 color: BLUE.into(),
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
@@ -200,9 +200,9 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: BLUE.into(),
                     emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -211,12 +211,12 @@ fn setup(
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
-            ..default()
+            ..Default::default()
         },
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
@@ -224,10 +224,10 @@ fn setup(
         cascade_shadow_config: CascadeShadowConfigBuilder {
             first_cascade_far_bound: 4.0,
             maximum_distance: 10.0,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     // example instructions
@@ -263,7 +263,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -271,7 +271,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         exposure: Exposure::from_physical_camera(**parameters),
-        ..default()
+        ..Default::default()
     });
 }
 

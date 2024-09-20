@@ -345,9 +345,9 @@ mod ui {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .with_children(|parent| {
                 parent
@@ -360,10 +360,10 @@ mod ui {
                                 justify_content: JustifyContent::Center,
                                 // vertically center child text
                                 align_items: AlignItems::Center,
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: NORMAL_BUTTON.into(),
-                            ..default()
+                            ..Default::default()
                         },
                         MenuButton::Play,
                     ))
@@ -373,7 +373,7 @@ mod ui {
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
+                                ..Default::default()
                             },
                         ));
                     });
@@ -388,14 +388,14 @@ mod ui {
                                 justify_content: JustifyContent::Center,
                                 // vertically center child text
                                 align_items: AlignItems::Center,
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: match tutorial_state.get() {
                                 TutorialState::Active => ACTIVE_BUTTON,
                                 TutorialState::Inactive => NORMAL_BUTTON,
                             }
                             .into(),
-                            ..default()
+                            ..Default::default()
                         },
                         MenuButton::Tutorial,
                     ))
@@ -405,7 +405,7 @@ mod ui {
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
+                                ..Default::default()
                             },
                         ));
                     });
@@ -425,7 +425,7 @@ mod ui {
             StateScoped(InGame),
             SpriteBundle {
                 texture: asset_server.load("branding/icon.png"),
-                ..default()
+                ..Default::default()
             },
         ));
     }
@@ -477,9 +477,9 @@ mod ui {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(10.),
                         position_type: PositionType::Absolute,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -493,10 +493,10 @@ mod ui {
                                 justify_content: JustifyContent::Center,
                                 // vertically center child text
                                 align_items: AlignItems::Center,
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: NORMAL_BUTTON.into(),
-                            ..default()
+                            ..Default::default()
                         },
                         MenuButton::Play,
                     ))
@@ -506,7 +506,7 @@ mod ui {
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
+                                ..Default::default()
                             },
                         ));
                     });
@@ -527,9 +527,9 @@ mod ui {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(10.),
                         position_type: PositionType::Absolute,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -538,7 +538,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.9, 0.3, 0.1),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             });
@@ -569,9 +569,9 @@ mod ui {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(10.),
                         position_type: PositionType::Absolute,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -580,7 +580,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
                 parent.spawn(TextBundle::from_section(
@@ -588,7 +588,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
 
@@ -597,7 +597,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
 
@@ -606,7 +606,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             });
@@ -626,9 +626,9 @@ mod ui {
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(10.),
                         position_type: PositionType::Absolute,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -637,7 +637,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
 
@@ -646,7 +646,7 @@ mod ui {
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
+                        ..Default::default()
                     },
                 ));
             });

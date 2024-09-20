@@ -79,7 +79,7 @@ fn setup(mut commands: Commands) {
     // Spawns the UI that will show the user prompts.
     let text_style = TextStyle {
         font_size: 42.0,
-        ..default()
+        ..Default::default()
     };
     commands
         .spawn(NodeBundle {
@@ -87,9 +87,9 @@ fn setup(mut commands: Commands) {
             style: Style {
                 justify_self: JustifySelf::Center,
                 align_self: AlignSelf::FlexEnd,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(
@@ -144,7 +144,7 @@ fn load_level_1(
         Camera3dBundle {
             transform: Transform::from_xyz(155.0, 155.0, 155.0)
                 .looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -157,7 +157,7 @@ fn load_level_1(
         SceneBundle {
             scene: fox.clone(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -168,9 +168,9 @@ fn load_level_1(
             transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             directional_light: DirectionalLight {
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -186,7 +186,7 @@ fn load_level_2(
         Camera3dBundle {
             transform: Transform::from_xyz(1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -200,7 +200,7 @@ fn load_level_2(
     commands.spawn((
         SceneBundle {
             scene: helmet_scene.clone(),
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -211,9 +211,9 @@ fn load_level_2(
             transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             directional_light: DirectionalLight {
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         LevelComponents,
     ));
@@ -267,7 +267,7 @@ struct LoadingScreen;
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextStyle {
         font_size: 67.0,
-        ..default()
+        ..Default::default()
     };
 
     // Spawn the UI and Loading screen camera.
@@ -275,9 +275,9 @@ fn load_loading_screen(mut commands: Commands) {
         Camera2dBundle {
             camera: Camera {
                 order: 1,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         LoadingScreen,
     ));
@@ -292,9 +292,9 @@ fn load_loading_screen(mut commands: Commands) {
                     width: Val::Percent(100.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             LoadingScreen,
         ))

@@ -416,7 +416,6 @@ mod tests {
     use bevy_render::texture::Image;
     use bevy_transform::prelude::GlobalTransform;
     use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
-    use bevy_utils::prelude::default;
     use bevy_utils::HashMap;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
@@ -462,7 +461,7 @@ mod tests {
         world.spawn((
             Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+                ..Default::default()
             },
             PrimaryWindow,
         ));
@@ -495,9 +494,9 @@ mod tests {
                 style: Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .id();
 
@@ -506,9 +505,9 @@ mod tests {
                 style: Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .id();
 
@@ -744,9 +743,9 @@ mod tests {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
 
         size -= 50.;
@@ -756,9 +755,9 @@ mod tests {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
 
         size -= 50.;
@@ -768,9 +767,9 @@ mod tests {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
 
         ui_schedule.run(&mut world);
@@ -830,7 +829,7 @@ mod tests {
                 camera.viewport = Some(bevy_render::camera::Viewport {
                     physical_position,
                     physical_size,
-                    ..default()
+                    ..Default::default()
                 });
             }
         }
@@ -860,7 +859,7 @@ mod tests {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
                         left: Val::Px(pos.x),
-                        ..default()
+                        ..Default::default()
                     });
             }
         }
@@ -897,9 +896,9 @@ mod tests {
         world.spawn(Camera2dBundle {
             camera: Camera {
                 order: 1,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
 
         world.spawn((
@@ -908,9 +907,9 @@ mod tests {
                     position_type: PositionType::Absolute,
                     top: Val::Px(0.),
                     left: Val::Px(0.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             MovingUiNode,
         ));
@@ -1096,7 +1095,7 @@ mod tests {
         world.spawn((
             Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+                ..Default::default()
             },
             PrimaryWindow,
         ));
@@ -1118,9 +1117,9 @@ mod tests {
                 style: Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .id();
 
@@ -1129,9 +1128,9 @@ mod tests {
                 style: Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .id();
 

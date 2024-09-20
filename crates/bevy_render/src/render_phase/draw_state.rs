@@ -8,7 +8,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_color::LinearRgba;
-use bevy_utils::{default, detailed_trace};
+use bevy_utils::detailed_trace;
 use std::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
@@ -145,7 +145,7 @@ impl<'a> TrackedRenderPass<'a> {
             state: DrawState {
                 bind_groups: vec![(None, Vec::new()); max_bind_groups],
                 vertex_buffers: vec![None; max_vertex_buffers],
-                ..default()
+                ..Default::default()
             },
             pass,
         }

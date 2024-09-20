@@ -25,12 +25,12 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        ..default()
+        ..Default::default()
     });
 
     // Light
@@ -38,7 +38,7 @@ fn setup(
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: if cfg!(all(
@@ -53,10 +53,10 @@ fn setup(
             },
             first_cascade_far_bound: 200.0,
             maximum_distance: 280.0,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     // Cameras and their dedicated UI
@@ -77,9 +77,9 @@ fn setup(
                     camera: Camera {
                         // Renders cameras with different priorities to prevent ambiguities
                         order: index as isize,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 CameraPosition {
                     pos: UVec2::new((index % 2) as u32, (index / 2) as u32),
@@ -95,9 +95,9 @@ fn setup(
                     style: Style {
                         width: Val::Percent(100.),
                         height: Val::Percent(100.),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -107,7 +107,7 @@ fn setup(
                             position_type: PositionType::Absolute,
                             top: Val::Px(12.),
                             left: Val::Px(12.),
-                            ..default()
+                            ..Default::default()
                         },
                     ),
                 );
@@ -127,9 +127,9 @@ fn setup(
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
                     padding: UiRect::all(Val::Px(20.)),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .with_children(|parent| {
                 rotate_button(parent, "<", Direction::Left);
@@ -148,11 +148,11 @@ fn setup(
                         border: UiRect::all(Val::Px(2.)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     border_color: Color::WHITE.into(),
                     background_color: Color::srgb(0.25, 0.25, 0.25).into(),
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -190,7 +190,7 @@ fn set_camera_viewports(
             camera.viewport = Some(Viewport {
                 physical_position: camera_position.pos * size,
                 physical_size: size,
-                ..default()
+                ..Default::default()
             });
         }
     }

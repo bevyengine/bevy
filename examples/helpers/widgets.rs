@@ -32,7 +32,7 @@ pub fn main_ui_style() -> Style {
         row_gap: Val::Px(6.0),
         left: Val::Px(10.0),
         bottom: Val::Px(10.0),
-        ..default()
+        ..Default::default()
     }
 }
 
@@ -68,14 +68,14 @@ pub fn spawn_option_button<T>(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
+                ..Default::default()
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::ZERO
                 .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
                 .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
             background_color: BackgroundColor(bg_color),
-            ..default()
+            ..Default::default()
         })
         .insert(RadioButton)
         .insert(WidgetClickSender(option_value.clone()))
@@ -100,14 +100,14 @@ where
         .spawn(NodeBundle {
             style: Style {
                 align_items: AlignItems::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Style {
                 width: Val::Px(125.0),
-                ..default()
+                ..Default::default()
             });
 
             for (option_index, (option_value, option_name)) in options.iter().cloned().enumerate() {
@@ -137,7 +137,7 @@ pub fn spawn_ui_text<'a>(
         TextStyle {
             font_size: 18.0,
             color,
-            ..default()
+            ..Default::default()
         },
     ))
 }

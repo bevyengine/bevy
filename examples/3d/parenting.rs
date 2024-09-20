@@ -31,7 +31,7 @@ fn setup(
     let cube_handle = meshes.add(Cuboid::new(2.0, 2.0, 2.0));
     let cube_material_handle = materials.add(StandardMaterial {
         base_color: Color::srgb(0.8, 0.7, 0.6),
-        ..default()
+        ..Default::default()
     });
 
     // parent cube
@@ -41,7 +41,7 @@ fn setup(
                 mesh: cube_handle.clone(),
                 material: cube_material_handle.clone(),
                 transform: Transform::from_xyz(0.0, 0.0, 1.0),
-                ..default()
+                ..Default::default()
             },
             Rotator,
         ))
@@ -51,17 +51,17 @@ fn setup(
                 mesh: cube_handle,
                 material: cube_material_handle,
                 transform: Transform::from_xyz(0.0, 0.0, 3.0),
-                ..default()
+                ..Default::default()
             });
         });
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, -4.0),
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

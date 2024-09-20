@@ -90,7 +90,7 @@ fn spawn_tasks(mut commands: Commands) {
                                 mesh: box_mesh_handle,
                                 material: box_material_handle,
                                 transform,
-                                ..default()
+                                ..Default::default()
                             })
                             // Task is complete, so remove task component from entity
                             .remove::<ComputeTransform>();
@@ -131,13 +131,13 @@ fn setup_env(mut commands: Commands) {
     // lights
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

@@ -210,7 +210,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Circle(Circle::new(45.)),
         DesiredVolume::Aabb,
@@ -220,7 +220,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(0., OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Rectangle(Rectangle::new(80., 80.)),
         Spin,
@@ -231,7 +231,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Triangle(Triangle2d::new(
             Vec2::new(-40., -40.),
@@ -246,7 +246,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
         Spin,
@@ -257,7 +257,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(0., -OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Capsule(Capsule2d::new(25., 50.)),
         Spin,
@@ -268,7 +268,7 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
+            ..Default::default()
         },
         Shape::Polygon(RegularPolygon::new(50., 6)),
         Spin,
@@ -281,7 +281,7 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 50.0,
-        ..default()
+        ..Default::default()
     };
     let text_justification = JustifyText::Center;
     // 2d camera
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
                 .with_justify(text_justification),
-            ..default()
+            ..Default::default()
         },
         AnimateTranslation,
     ));
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2dBundle {
             text: Text::from_section("rotation", text_style.clone())
                 .with_justify(text_justification),
-            ..default()
+            ..Default::default()
         },
         AnimateRotation,
     ));
@@ -66,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2dBundle {
             text: Text::from_section("scale", text_style).with_justify(text_justification),
             transform: Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
-            ..default()
+            ..Default::default()
         },
         AnimateScale,
     ));
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slightly_smaller_text_style = TextStyle {
         font,
         font_size: 35.0,
-        ..default()
+        ..Default::default()
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
@@ -83,10 +83,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             sprite: Sprite {
                 color: Color::srgb(0.25, 0.25, 0.75),
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_translation(box_position.extend(0.0)),
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_2d_bounds: TextBounds::from(box_size),
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -113,10 +113,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             sprite: Sprite {
                 color: Color::srgb(0.20, 0.3, 0.70),
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_translation(other_box_position.extend(0.0)),
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
@@ -132,7 +132,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_2d_bounds: TextBounds::from(other_box_size),
                 // ensure the text is drawn on top of the box
                 transform: Transform::from_translation(Vec3::Z),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -155,7 +155,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             transform: Transform::from_translation(250. * Vec3::Y),
             text_anchor,
-            ..default()
+            ..Default::default()
         });
     }
 }

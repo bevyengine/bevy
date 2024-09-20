@@ -102,9 +102,9 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // draw padded texture atlas
@@ -113,9 +113,9 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
@@ -124,7 +124,7 @@ fn setup(
     let text_style: TextStyle = TextStyle {
         font: font.clone(),
         font_size: 42.0,
-        ..default()
+        ..Default::default()
     };
 
     // labels to indicate padding
@@ -173,7 +173,7 @@ fn setup(
     let sampling_label_style = TextStyle {
         font,
         font_size: 25.0,
-        ..default()
+        ..Default::default()
     };
 
     let base_y = 170.0; // y position of the sprites
@@ -245,10 +245,10 @@ fn create_sprite_from_atlas(
             transform: Transform {
                 translation: Vec3::new(translation.0, translation.1, translation.2),
                 scale: Vec3::splat(3.0),
-                ..default()
+                ..Default::default()
             },
             texture,
-            ..default()
+            ..Default::default()
         },
         TextureAtlas {
             layout: atlas_handle,
@@ -268,8 +268,8 @@ fn create_label(
         text: Text::from_section(text, text_style).with_justify(JustifyText::Center),
         transform: Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }

@@ -16,7 +16,7 @@ use bevy_render::{
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
 use bevy_ui::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
-use bevy_utils::{default, warn_once};
+use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, Window, WindowRef};
 
 use inset::InsetGizmo;
@@ -97,9 +97,9 @@ fn update_debug_camera(
                     camera: Camera {
                         order: LAYOUT_DEBUG_CAMERA_ORDER,
                         clear_color: ClearColorConfig::None,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 LAYOUT_DEBUG_LAYERS.clone(),
                 DebugOverlayCamera,

@@ -36,7 +36,6 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::prelude::default;
 
 use crate::{
     core_2d::graph::{Core2d, Node2d},
@@ -304,14 +303,14 @@ impl FromWorld for PostProcessingPipeline {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
-            ..default()
+            ..Default::default()
         });
 
         let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
             mipmap_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
-            ..default()
+            ..Default::default()
         });
 
         PostProcessingPipeline {
@@ -340,9 +339,9 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            primitive: default(),
+            primitive: Default::default(),
             depth_stencil: None,
-            multisample: default(),
+            multisample: Default::default(),
             push_constant_ranges: vec![],
         }
     }

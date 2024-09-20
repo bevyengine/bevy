@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 67.0,
-                ..default()
+                ..Default::default()
             },
         ) // Set the justification of the Text
         .with_text_justify(JustifyText::Center)
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             right: Val::Px(5.0),
-            ..default()
+            ..Default::default()
         }),
         ColorText,
     ));
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // This font is loaded and will be used instead of the default font.
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 42.0,
-                    ..default()
+                    ..Default::default()
                 },
             ),
             TextSection::from_style(if cfg!(feature = "default_font") {
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 33.0,
                     color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                    ..default()
+                    ..Default::default()
                 }
             } else {
                 // "default_font" feature is unavailable, load a font to use instead.
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(5.0),
                 left: Val::Px(15.0),
-                ..default()
+                ..Default::default()
             },
         ),
     );
@@ -104,14 +104,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             "Default font disabled",
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

@@ -22,7 +22,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(6.0, 6.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     // Transparent sphere, uses `alpha_mode: Mask(f32)`
@@ -37,10 +37,10 @@ fn setup(
             // Mask sets a cutoff for transparency. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Mask(0.5),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(1.0, 0.5, -1.5),
-        ..default()
+        ..Default::default()
     });
 
     // Transparent unlit sphere, uses `alpha_mode: Mask(f32)`
@@ -50,10 +50,10 @@ fn setup(
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
             unlit: true,
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(-1.0, 0.5, -1.5),
-        ..default()
+        ..Default::default()
     });
 
     // Transparent cube, uses `alpha_mode: Blend`
@@ -64,7 +64,7 @@ fn setup(
         // automatically set to `Blend` if the alpha channel is anything lower than 1.0.
         material: materials.add(Color::srgba(0.5, 0.5, 1.0, 0.0)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // Transparent cube, uses `alpha_mode: AlphaToCoverage`
@@ -73,10 +73,10 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::srgba(0.5, 1.0, 0.5, 0.0),
             alpha_mode: AlphaMode::AlphaToCoverage,
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(-1.5, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // Opaque sphere
@@ -84,23 +84,23 @@ fn setup(
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(3).unwrap()),
         material: materials.add(Color::srgb(0.7, 0.2, 0.1)),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
-        ..default()
+        ..Default::default()
     });
 
     // Light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

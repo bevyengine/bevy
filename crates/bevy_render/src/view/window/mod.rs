@@ -7,7 +7,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
-use bevy_utils::{default, tracing::debug, HashSet};
+use bevy_utils::{tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -76,7 +76,7 @@ impl ExtractedWindow {
     fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
         let texture_view_descriptor = TextureViewDescriptor {
             format: Some(frame.texture.format().add_srgb_suffix()),
-            ..default()
+            ..Default::default()
         };
         self.swap_chain_texture_view = Some(TextureView::from(
             frame.texture.create_view(&texture_view_descriptor),

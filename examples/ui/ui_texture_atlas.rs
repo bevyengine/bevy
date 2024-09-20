@@ -41,9 +41,9 @@ fn setup(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 row_gap: Val::Px(text_style.font_size * 2.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn((
@@ -51,11 +51,11 @@ fn setup(
                     style: Style {
                         width: Val::Px(256.),
                         height: Val::Px(256.),
-                        ..default()
+                        ..Default::default()
                     },
                     image: UiImage::new(texture_handle),
                     background_color: BackgroundColor(ANTIQUE_WHITE.into()),
-                    ..default()
+                    ..Default::default()
                 },
                 TextureAtlas::from(texture_atlas_handle),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),

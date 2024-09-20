@@ -23,9 +23,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceAround,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -35,10 +35,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(0.1, 0.5, 0.1).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
@@ -61,10 +61,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(0.5, 0.1, 0.5).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(

@@ -163,13 +163,13 @@ impl WallBundle {
                     // or their ordering will be affected in surprising ways.
                     // See https://github.com/bevyengine/bevy/issues/4149
                     scale: location.size().extend(1.0),
-                    ..default()
+                    ..Default::default()
                 },
                 sprite: Sprite {
                     color: WALL_COLOR,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             collider: Collider,
         }
@@ -205,13 +205,13 @@ fn setup(
             transform: Transform {
                 translation: Vec3::new(0.0, paddle_y, 0.0),
                 scale: PADDLE_SIZE.extend(1.0),
-                ..default()
+                ..Default::default()
             },
             sprite: Sprite {
                 color: PADDLE_COLOR,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         Paddle,
         Collider,
@@ -224,7 +224,7 @@ fn setup(
             material: materials.add(BALL_COLOR),
             transform: Transform::from_translation(BALL_STARTING_POSITION)
                 .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
-            ..default()
+            ..Default::default()
         },
         Ball,
         Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
@@ -239,20 +239,20 @@ fn setup(
                 TextStyle {
                     font_size: SCOREBOARD_FONT_SIZE,
                     color: TEXT_COLOR,
-                    ..default()
+                    ..Default::default()
                 },
             ),
             TextSection::from_style(TextStyle {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
-                ..default()
+                ..Default::default()
             }),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: SCOREBOARD_TEXT_PADDING,
             left: SCOREBOARD_TEXT_PADDING,
-            ..default()
+            ..Default::default()
         }),
     ));
 
@@ -301,14 +301,14 @@ fn setup(
                 SpriteBundle {
                     sprite: Sprite {
                         color: BRICK_COLOR,
-                        ..default()
+                        ..Default::default()
                     },
                     transform: Transform {
                         translation: brick_position.extend(0.0),
                         scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 Brick,
                 Collider,

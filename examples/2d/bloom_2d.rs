@@ -27,10 +27,10 @@ fn setup(
         Camera2dBundle {
             camera: Camera {
                 hdr: true, // 1. HDR is required for bloom
-                ..default()
+                ..Default::default()
             },
             tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
-            ..default()
+            ..Default::default()
         },
         Bloom::default(), // 3. Enable bloom for the camera
     ));
@@ -41,9 +41,9 @@ fn setup(
         sprite: Sprite {
             color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
             custom_size: Some(Vec2::splat(160.0)),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // Circle mesh
@@ -52,7 +52,7 @@ fn setup(
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(Color::srgb(7.5, 0.0, 7.5)),
         transform: Transform::from_translation(Vec3::new(-200., 0., 0.)),
-        ..default()
+        ..Default::default()
     });
 
     // Hexagon mesh
@@ -61,7 +61,7 @@ fn setup(
         // 4. Put something bright in a dark environment to see the effect
         material: materials.add(Color::srgb(6.25, 9.4, 9.1)),
         transform: Transform::from_translation(Vec3::new(200., 0., 0.)),
-        ..default()
+        ..Default::default()
     });
 
     // UI
@@ -70,7 +70,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

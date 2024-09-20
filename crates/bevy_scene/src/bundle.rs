@@ -109,7 +109,6 @@ mod tests {
     use bevy_ecs::prelude::{AppTypeRegistry, ReflectComponent, World};
     use bevy_hierarchy::{Children, HierarchyPlugin};
     use bevy_reflect::Reflect;
-    use bevy_utils::default;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -146,7 +145,7 @@ mod tests {
             .world_mut()
             .spawn(DynamicSceneBundle {
                 scene: scene_handle.clone(),
-                ..default()
+                ..Default::default()
             })
             .id();
 

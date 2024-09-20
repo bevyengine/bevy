@@ -49,7 +49,7 @@ fn main() {
         .insert_resource(PointLightShadowMap { size: 2048 })
         .insert_resource(AmbientLight {
             brightness: 0.0,
-            ..default()
+            ..Default::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system));
@@ -86,7 +86,7 @@ fn setup(
                 3.7,
                 21.3,
             )),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -106,7 +106,7 @@ fn setup(
                 2.3,
                 4.7,
             )),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -124,10 +124,10 @@ fn setup(
                 diffuse_transmission: 0.7,
                 perceptual_roughness: 0.32,
                 thickness: 0.2,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -152,10 +152,10 @@ fn setup(
             material: materials.add(StandardMaterial {
                 emissive,
                 diffuse_transmission: 1.0,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, 1.15, 0.0).with_scale(Vec3::new(0.1, 0.2, 0.1)),
-            ..default()
+            ..Default::default()
         },
         Flicker,
         NotShadowCaster,
@@ -172,10 +172,10 @@ fn setup(
                 thickness: 1.8,
                 ior: 1.5,
                 perceptual_roughness: 0.12,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(1.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -195,10 +195,10 @@ fn setup(
                 thickness: 1.8,
                 ior: 1.5,
                 perceptual_roughness: 0.12,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -218,10 +218,10 @@ fn setup(
                 thickness: 1.8,
                 ior: 1.5,
                 perceptual_roughness: 0.12,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -241,10 +241,10 @@ fn setup(
                 thickness: 1.8,
                 ior: 1.5,
                 perceptual_roughness: 0.12,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(-1.0, -0.5, 2.0).with_scale(Vec3::splat(0.5)),
-            ..default()
+            ..Default::default()
         },
         ExampleControls {
             color: true,
@@ -258,14 +258,14 @@ fn setup(
         base_color: Color::BLACK,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
-        ..default()
+        ..Default::default()
     });
 
     let white_material = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         reflectance: 0.3,
         perceptual_roughness: 0.8,
-        ..default()
+        ..Default::default()
     });
 
     for x in -3..4 {
@@ -279,7 +279,7 @@ fn setup(
                         white_material.clone()
                     },
                     transform: Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
-                    ..default()
+                    ..Default::default()
                 },
                 ExampleControls {
                     color: true,
@@ -301,12 +301,12 @@ fn setup(
                 reflectance: 1.0,
                 double_sided: true,
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.5, -3.0)
                 .with_scale(Vec3::new(2.0, 1.0, 1.0))
                 .with_rotation(Quat::from_euler(EulerRot::XYZ, PI / 2.0, 0.0, 0.0)),
-            ..default()
+            ..Default::default()
         },
         TransmittedShadowReceiver,
         ExampleControls {
@@ -328,9 +328,9 @@ fn setup(
                 radius: 0.2,
                 range: 5.0,
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         Flicker,
     ));
@@ -340,21 +340,21 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
                 global: ColorGradingGlobal {
                     post_saturation: 1.2,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
             exposure: Exposure { ev100: 6.0 },
             #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasBundle::default(),
@@ -362,7 +362,7 @@ fn setup(
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..default()
+            ..Default::default()
         },
         Bloom::default(),
     ));
@@ -375,7 +375,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         ExampleDisplay,
     ));

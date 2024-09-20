@@ -30,7 +30,7 @@ fn spawn_sprites(
             Some(ImageScaleMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
-                ..default()
+                ..Default::default()
             })),
         ),
         // Scaled sliced sprite
@@ -42,7 +42,7 @@ fn spawn_sprites(
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-                ..default()
+                ..Default::default()
             })),
         ),
         // Scaled sliced sprite horizontally
@@ -54,7 +54,7 @@ fn spawn_sprites(
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
-                ..default()
+                ..Default::default()
             })),
         ),
         // Scaled sliced sprite horizontally with max scale
@@ -78,9 +78,9 @@ fn spawn_sprites(
             texture: texture_handle.clone(),
             sprite: Sprite {
                 custom_size: Some(size),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
         if let Some(scale_mode) = scale_mode {
             cmd = cmd.insert(scale_mode);
@@ -90,7 +90,7 @@ fn spawn_sprites(
                 text: Text::from_section(label, text_style).with_justify(JustifyText::Center),
                 transform: Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
                 text_anchor: bevy::sprite::Anchor::TopCenter,
-                ..default()
+                ..Default::default()
             });
         });
         position.x += 0.5 * size.x + gap;
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextStyle {
         font: font.clone(),
-        ..default()
+        ..Default::default()
     };
 
     // Load textures

@@ -56,11 +56,13 @@ fn setup(
         mesh: Mesh2dHandle(mesh),
         material: materials.add(CustomMaterial {}),
         transform: Transform::from_scale(150.0 * Vec3::ONE),
-        ..default()
+        ..Default::default()
     });
 
     // Add a camera
-    commands.spawn(Camera2dBundle { ..default() });
+    commands.spawn(Camera2dBundle {
+        ..Default::default()
+    });
 }
 
 /// This custom material uses barycentric coordinates from

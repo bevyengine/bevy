@@ -53,13 +53,13 @@ fn setup(
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
                 .looking_at(Vec3::ZERO, Vec3::Y),
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..Default::default()
         },
         CameraController::default(),
     ));
@@ -68,12 +68,12 @@ fn setup(
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 15.0,
-            ..default()
+            ..Default::default()
         }
         .build(),
         transform: Transform::from_rotation(Quat::from_euler(
@@ -82,7 +82,7 @@ fn setup(
             PI * -0.15,
             PI * -0.15,
         )),
-        ..default()
+        ..Default::default()
     });
 
     // A custom file format storing a [`bevy_render::mesh::Mesh`]
@@ -105,12 +105,12 @@ fn setup(
                     _ => unreachable!(),
                 },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
-            ..default()
+            ..Default::default()
         });
     }
     for x in -2..=2 {
@@ -121,7 +121,7 @@ fn setup(
                 .with_scale(Vec3::splat(0.2))
                 .with_rotation(Quat::from_rotation_y(PI))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -130,9 +130,9 @@ fn setup(
         material: standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 }
 

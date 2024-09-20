@@ -38,13 +38,13 @@ fn setup(
             camera: Camera {
                 // Deferred both supports both hdr: true and hdr: false
                 hdr: false,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             // MSAA needs to be off for Deferred rendering
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
@@ -52,13 +52,13 @@ fn setup(
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -70,16 +70,16 @@ fn setup(
         directional_light: DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
-            ..default()
+            ..Default::default()
         }
         .into(),
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
-        ..default()
+        ..Default::default()
     });
 
     // FlightHelmet
@@ -88,12 +88,12 @@ fn setup(
 
     commands.spawn(SceneBundle {
         scene: helmet_scene.clone(),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(SceneBundle {
         scene: helmet_scene,
         transform: Transform::from_xyz(-4.0, 0.0, -3.0),
-        ..default()
+        ..Default::default()
     });
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
@@ -104,7 +104,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: forward_mat_h.clone(),
-        ..default()
+        ..Default::default()
     });
 
     let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
@@ -115,13 +115,13 @@ fn setup(
         mesh: cube_h.clone(),
         material: forward_mat_h.clone(),
         transform: Transform::from_xyz(-0.3, 0.5, -0.2),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(PbrBundle {
         mesh: cube_h,
         material: forward_mat_h,
         transform: Transform::from_xyz(0.2, 0.5, 0.2),
-        ..default()
+        ..Default::default()
     });
 
     let sphere_color = Color::srgb(10.0, 4.0, 1.0);
@@ -134,7 +134,7 @@ fn setup(
             mesh: sphere_h.clone(),
             material: materials.add(unlit_mat),
             transform: sphere_pos,
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
     ));
@@ -145,10 +145,10 @@ fn setup(
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
-            ..default()
+            ..Default::default()
         },
         transform: sphere_pos,
-        ..default()
+        ..Default::default()
     });
 
     // Spheres
@@ -160,21 +160,21 @@ fn setup(
                 base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..Default::default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
                 base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..Default::default()
             })
         } else {
             materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..Default::default()
             })
         };
         commands.spawn(PbrBundle {
@@ -185,7 +185,7 @@ fn setup(
                 0.125,
                 -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
             ),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -197,10 +197,10 @@ fn setup(
                 base_color: Srgba::hex("888888").unwrap().into(),
                 unlit: true,
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
         NotShadowReceiver,
@@ -212,7 +212,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -265,14 +265,14 @@ fn setup_parallax(
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
         max_parallax_layer_count: ops::exp2(5.0f32),
-        ..default()
+        ..Default::default()
     });
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(cube),
             material: parallax_material,
             transform: Transform::from_xyz(0.4, 0.2, -0.8),
-            ..default()
+            ..Default::default()
         },
         Spin { speed: 0.3 },
     ));

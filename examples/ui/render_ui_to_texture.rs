@@ -33,7 +33,7 @@ fn setup(
     let size = Extent3d {
         width: 512,
         height: 512,
-        ..default()
+        ..Default::default()
     };
 
     // This is the texture that will be rendered to.
@@ -57,9 +57,9 @@ fn setup(
         .spawn(Camera2dBundle {
             camera: Camera {
                 target: RenderTarget::Image(image_handle.clone()),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .id();
 
@@ -73,10 +73,10 @@ fn setup(
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    ..default()
+                    ..Default::default()
                 },
                 background_color: GOLD.into(),
-                ..default()
+                ..Default::default()
             },
             TargetCamera(texture_camera),
         ))
@@ -86,7 +86,7 @@ fn setup(
                 TextStyle {
                     font_size: 40.0,
                     color: Color::BLACK,
-                    ..default()
+                    ..Default::default()
                 },
             ));
         });
@@ -100,7 +100,7 @@ fn setup(
         reflectance: 0.02,
         unlit: false,
 
-        ..default()
+        ..Default::default()
     });
 
     // Cube with material containing the rendered UI texture.
@@ -110,7 +110,7 @@ fn setup(
             material: material_handle,
             transform: Transform::from_xyz(0.0, 0.0, 1.5)
                 .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
+            ..Default::default()
         },
         Cube,
     ));
@@ -118,7 +118,7 @@ fn setup(
     // The main pass camera.
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

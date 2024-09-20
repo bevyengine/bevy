@@ -41,7 +41,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 start: 5.0,
                 end: 20.0,
             },
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -54,7 +54,7 @@ fn setup_pyramid_scene(
     let stone = materials.add(StandardMaterial {
         base_color: Srgba::hex("28221B").unwrap().into(),
         perceptual_roughness: 1.0,
-        ..default()
+        ..Default::default()
     });
 
     // pillars
@@ -63,7 +63,7 @@ fn setup_pyramid_scene(
             mesh: meshes.add(Cuboid::new(1.0, 3.0, 1.0)),
             material: stone.clone(),
             transform: Transform::from_xyz(*x, 1.5, *z),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -77,11 +77,11 @@ fn setup_pyramid_scene(
                 perceptual_roughness: 0.0,
                 metallic: 0.5,
                 alpha_mode: AlphaMode::Blend,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_scale(Vec3::splat(1.75))
                 .with_translation(Vec3::new(0.0, 4.0, 0.0)),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
         NotShadowReceiver,
@@ -95,7 +95,7 @@ fn setup_pyramid_scene(
             mesh: meshes.add(Cuboid::new(2.0 * half_size, 0.5, 2.0 * half_size)),
             material: stone.clone(),
             transform: Transform::from_xyz(0.0, y + 0.25, 0.0),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -106,10 +106,10 @@ fn setup_pyramid_scene(
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
-        ..default()
+        ..Default::default()
     });
 
     // light
@@ -117,9 +117,9 @@ fn setup_pyramid_scene(
         transform: Transform::from_xyz(0.0, 1.0, 0.0),
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -129,7 +129,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

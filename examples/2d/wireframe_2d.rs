@@ -29,9 +29,9 @@ fn main() {
                 render_creation: RenderCreation::Automatic(WgpuSettings {
                     // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             // You need to add this plugin to enable wireframe rendering
             Wireframe2dPlugin,
@@ -69,7 +69,7 @@ fn setup(
                 .into(),
             material: materials.add(Color::BLACK),
             transform: Transform::from_xyz(-150.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         NoWireframe2d,
     ));
@@ -78,7 +78,7 @@ fn setup(
         mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
         material: materials.add(Color::BLACK),
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     // Circle: Always renders a wireframe
     commands.spawn((
@@ -86,7 +86,7 @@ fn setup(
             mesh: meshes.add(Circle::new(50.0)).into(),
             material: materials.add(Color::BLACK),
             transform: Transform::from_xyz(150.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
@@ -105,7 +105,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

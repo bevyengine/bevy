@@ -24,9 +24,9 @@ fn main() {
                         .with_scale_factor_override(1.0),
                     title: "many_lights".into(),
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -57,13 +57,13 @@ fn setup(
         mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
         material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
-        ..default()
+        ..Default::default()
     });
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
         base_color: DEEP_PINK.into(),
-        ..default()
+        ..Default::default()
     });
 
     // NOTE: This pattern is good for testing performance of culling as it provides roughly
@@ -83,10 +83,10 @@ fn setup(
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
-            ..default()
+            ..Default::default()
         }
     }));
 
@@ -98,7 +98,7 @@ fn setup(
                 ..OrthographicProjection::default_3d()
             }
             .into(),
-            ..default()
+            ..Default::default()
         }),
         _ => commands.spawn(Camera3dBundle::default()),
     };
@@ -111,9 +111,9 @@ fn setup(
         transform: Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 

@@ -32,13 +32,13 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             })
             .set(AssetPlugin {
                 file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-                ..default()
+                ..Default::default()
             }),
         CameraControllerPlugin,
         SceneViewerPlugin,
@@ -119,7 +119,7 @@ fn setup_scene_after_load(
         let camera_controller = CameraController {
             walk_speed,
             run_speed: 3.0 * walk_speed,
-            ..default()
+            ..Default::default()
         };
 
         // Display the controls of the scene viewer
@@ -135,9 +135,9 @@ fn setup_scene_after_load(
                 .looking_at(Vec3::from(aabb.center), Vec3::Y),
                 camera: Camera {
                     is_active: false,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             EnvironmentMapLight {
                 diffuse_map: asset_server
@@ -145,7 +145,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
-                ..default()
+                ..Default::default()
             },
             camera_controller,
         ));
@@ -155,7 +155,7 @@ fn setup_scene_after_load(
             info!("Spawning a directional light");
             commands.spawn(DirectionalLightBundle {
                 transform: Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-                ..default()
+                ..Default::default()
             });
 
             scene_handle.has_light = true;

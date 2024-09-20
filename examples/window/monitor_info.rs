@@ -9,7 +9,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: None,
             exit_condition: ExitCondition::DontExit,
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Update, (update, close_on_esc))
         .run();
@@ -44,7 +44,7 @@ fn update(
                     title: name.clone(),
                     mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
-                    ..default()
+                    ..Default::default()
                 },
                 MonitorRef(entity),
             ))
@@ -54,9 +54,9 @@ fn update(
             .spawn(Camera2dBundle {
                 camera: Camera {
                     target: RenderTarget::Window(WindowRef::Entity(window)),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .id();
 
@@ -64,11 +64,11 @@ fn update(
             "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
         );
         commands.spawn((
-            TextBundle::from_section(info_text, default()).with_style(Style {
+            TextBundle::from_section(info_text, Default::default()).with_style(Style {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),
-                ..default()
+                ..Default::default()
             }),
             TargetCamera(camera),
             MonitorRef(entity),

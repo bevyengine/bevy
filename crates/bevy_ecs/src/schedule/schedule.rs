@@ -3,9 +3,9 @@ use std::{
     fmt::{Debug, Write},
 };
 
+use bevy_utils::tracing::info;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, tracing::info};
 use bevy_utils::{
     tracing::{error, warn},
     HashMap, HashSet,
@@ -246,7 +246,7 @@ pub enum Chain {
 /// fn system_one() { println!("System 1 works!") }
 /// fn system_two() { println!("System 2 works!") }
 /// fn system_three() { println!("System 3 works!") }
-///    
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
@@ -636,7 +636,7 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             anonymous_sets: 0,
             changed: false,
-            settings: default(),
+            settings: Default::default(),
             no_sync_edges: BTreeSet::new(),
             auto_sync_node_ids: HashMap::new(),
         }

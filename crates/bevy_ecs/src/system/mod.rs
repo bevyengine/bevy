@@ -340,7 +340,6 @@ impl<T> std::ops::DerefMut for In<T> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::default;
     use std::any::TypeId;
 
     use crate::prelude::EntityRef;
@@ -1721,13 +1720,13 @@ mod tests {
         let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 
-        sys.run(default(), &mut world);
+        sys.run(Default::default(), &mut world);
 
         // The second system should observe a change made in the first system.
         let info = sys.run(
             Info {
                 do_first: true,
-                ..default()
+                ..Default::default()
             },
             &mut world,
         );
@@ -1739,11 +1738,11 @@ mod tests {
         let info1 = sys.run(
             Info {
                 do_second: true,
-                ..default()
+                ..Default::default()
             },
             &mut world,
         );
-        let info2 = sys.run(default(), &mut world);
+        let info2 = sys.run(Default::default(), &mut world);
         assert!(!info1.first_flag);
         assert!(!info1.second_flag);
         assert!(info2.first_flag);

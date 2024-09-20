@@ -81,9 +81,9 @@ mod splash {
                         justify_content: JustifyContent::Center,
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnSplashScreen,
             ))
@@ -92,10 +92,10 @@ mod splash {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
                         width: Val::Px(200.0),
-                        ..default()
+                        ..Default::default()
                     },
                     image: UiImage::new(icon),
-                    ..default()
+                    ..Default::default()
                 });
             });
         // Insert the timer as a resource
@@ -151,9 +151,9 @@ mod game {
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnGameScreen,
             ))
@@ -168,10 +168,10 @@ mod game {
                             // vertical (column), so the cross axis is horizontal. This will center the
                             // children
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: Color::BLACK.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         // Display two lines of text, the second one with the current settings
@@ -181,12 +181,12 @@ mod game {
                                 TextStyle {
                                     font_size: 67.0,
                                     color: TEXT_COLOR,
-                                    ..default()
+                                    ..Default::default()
                                 },
                             )
                             .with_style(Style {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..Default::default()
                             }),
                         );
                         parent.spawn(
@@ -196,7 +196,7 @@ mod game {
                                     TextStyle {
                                         font_size: 50.0,
                                         color: BLUE.into(),
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                                 TextSection::new(
@@ -204,7 +204,7 @@ mod game {
                                     TextStyle {
                                         font_size: 50.0,
                                         color: TEXT_COLOR,
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                                 TextSection::new(
@@ -212,13 +212,13 @@ mod game {
                                     TextStyle {
                                         font_size: 50.0,
                                         color: LIME.into(),
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                             ])
                             .with_style(Style {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..Default::default()
                             }),
                         );
                     });
@@ -390,7 +390,7 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..Default::default()
         };
         let button_icon_style = Style {
             width: Val::Px(30.0),
@@ -398,12 +398,12 @@ mod menu {
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            ..default()
+            ..Default::default()
         };
         let button_text_style = TextStyle {
             font_size: 33.0,
             color: TEXT_COLOR,
-            ..default()
+            ..Default::default()
         };
 
         commands
@@ -414,9 +414,9 @@ mod menu {
                         height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnMainMenuScreen,
             ))
@@ -426,10 +426,10 @@ mod menu {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: CRIMSON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         // Display the game name
@@ -439,12 +439,12 @@ mod menu {
                                 TextStyle {
                                     font_size: 67.0,
                                     color: TEXT_COLOR,
-                                    ..default()
+                                    ..Default::default()
                                 },
                             )
                             .with_style(Style {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..Default::default()
                             }),
                         );
 
@@ -457,7 +457,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style.clone(),
                                     background_color: NORMAL_BUTTON.into(),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 MenuButtonAction::Play,
                             ))
@@ -466,7 +466,7 @@ mod menu {
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
                                     image: UiImage::new(icon),
-                                    ..default()
+                                    ..Default::default()
                                 });
                                 parent.spawn(TextBundle::from_section(
                                     "New Game",
@@ -478,7 +478,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style.clone(),
                                     background_color: NORMAL_BUTTON.into(),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 MenuButtonAction::Settings,
                             ))
@@ -487,7 +487,7 @@ mod menu {
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
                                     image: UiImage::new(icon),
-                                    ..default()
+                                    ..Default::default()
                                 });
                                 parent.spawn(TextBundle::from_section(
                                     "Settings",
@@ -499,7 +499,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style,
                                     background_color: NORMAL_BUTTON.into(),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 MenuButtonAction::Quit,
                             ))
@@ -508,7 +508,7 @@ mod menu {
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style,
                                     image: UiImage::new(icon),
-                                    ..default()
+                                    ..Default::default()
                                 });
                                 parent.spawn(TextBundle::from_section("Quit", button_text_style));
                             });
@@ -523,13 +523,13 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..Default::default()
         };
 
         let button_text_style = TextStyle {
             font_size: 33.0,
             color: TEXT_COLOR,
-            ..default()
+            ..Default::default()
         };
 
         commands
@@ -540,9 +540,9 @@ mod menu {
                         height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnSettingsMenuScreen,
             ))
@@ -552,10 +552,10 @@ mod menu {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: CRIMSON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         for (action, text) in [
@@ -568,7 +568,7 @@ mod menu {
                                     ButtonBundle {
                                         style: button_style.clone(),
                                         background_color: NORMAL_BUTTON.into(),
-                                        ..default()
+                                        ..Default::default()
                                     },
                                     action,
                                 ))
@@ -590,12 +590,12 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..Default::default()
         };
         let button_text_style = TextStyle {
             font_size: 33.0,
             color: TEXT_COLOR,
-            ..default()
+            ..Default::default()
         };
 
         commands
@@ -606,9 +606,9 @@ mod menu {
                         height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnDisplaySettingsMenuScreen,
             ))
@@ -618,10 +618,10 @@ mod menu {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: CRIMSON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
@@ -630,10 +630,10 @@ mod menu {
                             .spawn(NodeBundle {
                                 style: Style {
                                     align_items: AlignItems::Center,
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: CRIMSON.into(),
-                                ..default()
+                                ..Default::default()
                             })
                             .with_children(|parent| {
                                 // Display a label for the current setting
@@ -655,7 +655,7 @@ mod menu {
                                                 ..button_style.clone()
                                             },
                                             background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                            ..Default::default()
                                         },
                                         quality_setting,
                                     ));
@@ -676,7 +676,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style,
                                     background_color: NORMAL_BUTTON.into(),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
@@ -694,12 +694,12 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..Default::default()
         };
         let button_text_style = TextStyle {
             font_size: 33.0,
             color: TEXT_COLOR,
-            ..default()
+            ..Default::default()
         };
 
         commands
@@ -710,9 +710,9 @@ mod menu {
                         height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 OnSoundSettingsMenuScreen,
             ))
@@ -722,20 +722,20 @@ mod menu {
                         style: Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: CRIMSON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
                                     align_items: AlignItems::Center,
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: CRIMSON.into(),
-                                ..default()
+                                ..Default::default()
                             })
                             .with_children(|parent| {
                                 parent.spawn(TextBundle::from_section(
@@ -751,7 +751,7 @@ mod menu {
                                                 ..button_style.clone()
                                             },
                                             background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                            ..Default::default()
                                         },
                                         Volume(volume_setting),
                                     ));
@@ -765,7 +765,7 @@ mod menu {
                                 ButtonBundle {
                                     style: button_style,
                                     background_color: NORMAL_BUTTON.into(),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))

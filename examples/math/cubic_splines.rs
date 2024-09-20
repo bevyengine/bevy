@@ -85,9 +85,9 @@ fn setup(mut commands: Commands) {
                 left: Val::Px(12.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(20.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(instructions_text, style.clone()));

@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(0.75)),
             texture: texture.clone(),
-            ..default()
+            ..Default::default()
         })
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
@@ -32,9 +32,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 texture: texture.clone(),
                 sprite: Sprite {
                     color: BLUE.into(),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
         })
         // Store parent entity for next sections
@@ -48,9 +48,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture,
             sprite: Sprite {
                 color: LIME.into(),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .id();
 

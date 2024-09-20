@@ -75,10 +75,10 @@ fn spawn_sphere(
             metallic: 0.9,
             perceptual_roughness: 0.1,
             base_color: GOLD.into(),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -88,9 +88,9 @@ fn spawn_light(commands: &mut Commands) {
         point_light: PointLight {
             color: WHITE.into(),
             intensity: 100000.0,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -100,25 +100,25 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn(Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             projection: Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
-                ..default()
+                ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 10.0),
             tonemapping: AcesFitted,
-            ..default()
+            ..Default::default()
         })
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..default()
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         });
 }

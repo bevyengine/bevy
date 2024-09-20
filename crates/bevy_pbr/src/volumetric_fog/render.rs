@@ -41,7 +41,6 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
@@ -551,7 +550,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             },
             primitive: PrimitiveState {
                 cull_mode: Some(Face::Back),
-                ..default()
+                ..Default::default()
             },
             depth_stencil: None,
             multisample: MultisampleState::default(),

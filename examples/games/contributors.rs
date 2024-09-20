@@ -111,11 +111,11 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                         custom_size: Some(Vec2::splat(SPRITE_SIZE)),
                         color: DESELECTED.with_hue(hue).into(),
                         flip_x: flipped,
-                        ..default()
+                        ..Default::default()
                     },
                     texture: texture_handle.clone(),
                     transform,
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .id();
@@ -134,7 +134,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 60.0,
-        ..default()
+        ..Default::default()
     };
 
     commands.spawn((
@@ -149,7 +149,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..Default::default()
         }),
         ContributorDisplay,
     ));

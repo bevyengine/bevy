@@ -63,8 +63,8 @@ struct AppStatus {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            light_type: default(),
-            shadow_filter: default(),
+            light_type: Default::default(),
+            shadow_filter: Default::default(),
             soft_shadows: true,
         }
     }
@@ -116,9 +116,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Percentage Closer Soft Shadows Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_plugins(TemporalAntiAliasPlugin)
         .add_event::<WidgetClickEvent<AppSetting>>()
@@ -159,7 +159,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                     -0.175,
                     0.0,
                 )),
-            ..default()
+            ..Default::default()
         })
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
@@ -194,7 +194,7 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
                 -0.5648683,
             ]))
             .with_translation(vec3(57.693, 34.334, -6.422)),
-            ..default()
+            ..Default::default()
         })
         // These two are needed for point lights.
         .insert(CubemapVisibleEntities::default())
@@ -208,7 +208,7 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -217,7 +217,7 @@ fn spawn_buttons(commands: &mut Commands) {
     commands
         .spawn(NodeBundle {
             style: widgets::main_ui_style(),
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             widgets::spawn_option_buttons(
@@ -384,7 +384,7 @@ fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
             None
         },
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
-        ..default()
+        ..Default::default()
     }
 }
 
@@ -398,7 +398,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
-        ..default()
+        ..Default::default()
     }
 }
 
@@ -412,6 +412,6 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
-        ..default()
+        ..Default::default()
     }
 }

@@ -40,7 +40,7 @@ fn setup(
     let white_handle = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
-        ..default()
+        ..Default::default()
     });
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
@@ -49,7 +49,7 @@ fn setup(
         .spawn((
             SpatialBundle {
                 transform: light_transform,
-                ..default()
+                ..Default::default()
             },
             Lights,
         ))
@@ -62,18 +62,18 @@ fn setup(
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
             builder.spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadow_depth_bias: 0.0,
                     shadow_normal_bias: 0.0,
                     shadows_enabled: true,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -82,7 +82,7 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 1.0)
                 .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         CameraController::default(),
         ShadowFilteringMethod::Hardware2x2,
@@ -101,7 +101,7 @@ fn setup(
                 },
                 z_i32 as f32,
             ),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -110,7 +110,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
         material: white_handle,
-        ..default()
+        ..Default::default()
     });
 
     let style = TextStyle::default();
@@ -120,11 +120,11 @@ fn setup(
             style: Style {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                ..default()
+                ..Default::default()
             },
             z_index: ZIndex::Global(i32::MAX),
             background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
+            ..Default::default()
         })
         .with_children(|c| {
             c.spawn(TextBundle::from_sections([

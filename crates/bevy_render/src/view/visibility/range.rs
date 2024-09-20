@@ -18,7 +18,7 @@ use bevy_ecs::{
 use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::HashMap;
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
@@ -223,8 +223,8 @@ struct RenderVisibilityEntityInfo {
 impl Default for RenderVisibilityRanges {
     fn default() -> Self {
         Self {
-            entities: default(),
-            range_to_index: default(),
+            entities: Default::default(),
+            range_to_index: Default::default(),
             buffer: BufferVec::new(
                 BufferUsages::STORAGE | BufferUsages::UNIFORM | BufferUsages::VERTEX,
             ),
@@ -447,14 +447,14 @@ pub fn write_render_visibility_ranges(
             if render_visibility_ranges.buffer.len() < VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE =>
         {
             while render_visibility_ranges.buffer.len() < VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE {
-                render_visibility_ranges.buffer.push(default());
+                render_visibility_ranges.buffer.push(Default::default());
             }
         }
 
         // Otherwise, if we're using a storage buffer, just ensure there's
         // something in the buffer, or else it won't get allocated.
         BufferBindingType::Storage { .. } if render_visibility_ranges.buffer.is_empty() => {
-            render_visibility_ranges.buffer.push(default());
+            render_visibility_ranges.buffer.push(Default::default());
         }
 
         _ => {}

@@ -6,7 +6,6 @@ use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
 use bevy_color::Srgba;
-use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
 use ktx2::{
@@ -301,7 +300,7 @@ pub fn ktx2_buffer_to_image(
     if dimension.is_some() {
         image.texture_view_descriptor = Some(TextureViewDescriptor {
             dimension,
-            ..default()
+            ..Default::default()
         });
     }
     Ok(image)

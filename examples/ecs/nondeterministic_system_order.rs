@@ -25,7 +25,7 @@ fn main() {
         .edit_schedule(Update, |schedule| {
             schedule.set_build_settings(ScheduleBuildSettings {
                 ambiguity_detection: LogLevel::Warn,
-                ..default()
+                ..Default::default()
             });
         })
         .init_resource::<A>()

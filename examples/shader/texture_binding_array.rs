@@ -74,7 +74,7 @@ fn setup(
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // load 16 textures
@@ -87,7 +87,7 @@ fn setup(
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(BindlessMaterial { textures }),
-        ..default()
+        ..Default::default()
     });
 }
 

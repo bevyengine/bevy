@@ -14,18 +14,18 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
-        ..default()
+        ..Default::default()
     });
     // light
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     let first_window_camera = commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         })
         .id();
 
@@ -33,7 +33,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let second_window = commands
         .spawn(Window {
             title: "Second window".to_owned(),
-            ..default()
+            ..Default::default()
         })
         .id();
 
@@ -42,9 +42,9 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 target: RenderTarget::Window(WindowRef::Entity(second_window)),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .id();
 

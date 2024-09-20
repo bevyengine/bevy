@@ -40,7 +40,7 @@ fn setup_scene(
     commands.spawn(MaterialMesh2dBundle {
         mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000., 700.))),
         material: materials.add(Color::srgb(0.2, 0.2, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     // Player
@@ -51,9 +51,9 @@ fn setup_scene(
             material: materials.add(Color::srgb(6.25, 9.4, 9.1)), // RGB values exceed 1 to achieve a bright color for the bloom effect
             transform: Transform {
                 translation: vec3(0., 0., 2.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -68,7 +68,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -78,9 +78,9 @@ fn setup_camera(mut commands: Commands) {
         Camera2dBundle {
             camera: Camera {
                 hdr: true, // HDR is required for the bloom effect
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         Bloom::NATURAL,
     ));

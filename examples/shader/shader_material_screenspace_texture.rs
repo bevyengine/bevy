@@ -30,11 +30,11 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: standard_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(MaterialMeshBundle {
@@ -45,14 +45,14 @@ fn setup(
                 "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
             ),
         }),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         MainCamera,
     ));

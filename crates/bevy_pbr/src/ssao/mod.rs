@@ -33,10 +33,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    prelude::default,
-    tracing::{error, warn},
-};
+use bevy_utils::tracing::{error, warn};
 use std::mem;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
@@ -668,7 +665,7 @@ fn prepare_ssao_bind_groups(
                     format: Some(TextureFormat::R16Float),
                     dimension: Some(TextureViewDimension::D2),
                     mip_level_count: Some(1),
-                    ..default()
+                    ..Default::default()
                 })
         };
 

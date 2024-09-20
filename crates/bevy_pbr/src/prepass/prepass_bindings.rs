@@ -6,7 +6,6 @@ use bevy_render::render_resource::{
     BindGroupLayoutEntryBuilder, TextureAspect, TextureSampleType, TextureView,
     TextureViewDescriptor,
 };
-use bevy_utils::default;
 
 use crate::MeshPipelineViewLayoutKey;
 
@@ -60,7 +59,7 @@ pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<T
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
-        ..default()
+        ..Default::default()
     };
     let depth_view = prepass_textures
         .and_then(|x| x.depth.as_ref())

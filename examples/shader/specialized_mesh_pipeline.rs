@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn(Camera3dBundle {
         // Move the camera back a bit to see all the triangles
         transform: Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -250,7 +250,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
-                ..default()
+                ..Default::default()
             },
             // Note that if your view has no depth buffer this will need to be
             // changed.
@@ -258,8 +258,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
-                stencil: default(),
-                bias: default(),
+                stencil: Default::default(),
+                bias: Default::default(),
             }),
             // It's generally recommended to specialize your pipeline for MSAA,
             // but it's not always possible

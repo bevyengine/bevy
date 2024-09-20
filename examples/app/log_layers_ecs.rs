@@ -94,7 +94,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             custom_layer,
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, (log_system, setup))
         .add_systems(Update, print_logs)
@@ -123,9 +123,9 @@ fn setup(mut commands: Commands) {
                 width: Val::Vw(100.0),
                 height: Val::Vh(100.0),
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         LogViewerRoot,
     ));

@@ -26,9 +26,9 @@ fn main() {
             primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, test_setup::setup)
         .add_systems(
@@ -174,40 +174,42 @@ pub(crate) mod test_setup {
             PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
                 material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
+                ..Default::default()
             },
             Rotator,
         ));
 
         commands.spawn(DirectionalLightBundle {
             transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         });
         commands.spawn(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         });
         event.send(RequestRedraw);
         commands.spawn((
             TextBundle::from_sections([
                 TextSection::new(
                     "Press space bar to cycle modes\n",
-                    TextStyle { ..default() },
+                    TextStyle {
+                        ..Default::default()
+                    },
                 ),
                 TextSection::from_style(TextStyle {
                     color: LIME.into(),
-                    ..default()
+                    ..Default::default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
                         color: YELLOW.into(),
-                        ..default()
+                        ..Default::default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
                     color: YELLOW.into(),
-                    ..default()
+                    ..Default::default()
                 }),
             ])
             .with_style(Style {
@@ -215,7 +217,7 @@ pub(crate) mod test_setup {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             }),
             ModeText,
         ));

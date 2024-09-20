@@ -67,9 +67,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Visibility Range Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
@@ -97,7 +97,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the two HLODs.
@@ -106,7 +106,7 @@ fn setup(
         .spawn(SceneBundle {
             scene: asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
+            ..Default::default()
         })
         .insert(MainModel::HighPoly);
 
@@ -116,7 +116,7 @@ fn setup(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
             ),
-            ..default()
+            ..Default::default()
         })
         .insert(MainModel::LowPoly);
 
@@ -125,7 +125,7 @@ fn setup(
         directional_light: DirectionalLight {
             illuminance: FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
@@ -136,36 +136,36 @@ fn setup(
         cascade_shadow_config: CascadeShadowConfigBuilder {
             maximum_distance: 30.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn a camera.
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
-            ..default()
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..Default::default()
         });
 
     // Create the text.
     commands.spawn(
         TextBundle {
             text: app_status.create_text(),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

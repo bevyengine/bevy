@@ -175,9 +175,9 @@ fn setup_ui(mut commands: Commands) {
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::End,
 
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|b| {
             b.spawn((
@@ -210,7 +210,7 @@ fn setup_scene(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(10.0, 10.0, 15.0)
             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Light
@@ -218,9 +218,9 @@ fn setup_scene(
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // Plane
@@ -228,7 +228,7 @@ fn setup_scene(
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
             material: materials.add(Color::srgb(0.7, 0.2, 0.2)),
-            ..default()
+            ..Default::default()
         },
         Loading,
     ));
@@ -255,7 +255,7 @@ fn wait_on_load(
         mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         transform: Transform::from_translation(Vec3::Z * -0.01),
-        ..default()
+        ..Default::default()
     },));
 
     // Spawn our scenes.

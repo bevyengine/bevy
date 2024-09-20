@@ -38,9 +38,9 @@ fn setup_ui(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(100.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|root| {
             // Text where we display current resolution
@@ -49,7 +49,7 @@ fn setup_ui(mut commands: Commands) {
                     "Resolution",
                     TextStyle {
                         font_size: 42.0,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
                 ResolutionText,

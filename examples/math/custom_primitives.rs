@@ -133,7 +133,7 @@ fn setup(
                 ..Default::default()
             }),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
+            ..Default::default()
         },
         Shape2d,
     ));
@@ -161,10 +161,10 @@ fn setup(
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(8.0, 12.0, 1.0),
-        ..default()
+        ..Default::default()
     });
 
     // Example instructions
@@ -178,7 +178,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

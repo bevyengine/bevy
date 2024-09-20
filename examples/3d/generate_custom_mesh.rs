@@ -40,9 +40,9 @@ fn setup(
             mesh: cube_mesh_handle,
             material: materials.add(StandardMaterial {
                 base_color_texture: Some(custom_texture_handle),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
         CustomUV,
     ));
@@ -54,13 +54,13 @@ fn setup(
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
         transform: camera_and_light_transform,
-        ..default()
+        ..Default::default()
     });
 
     // Light up the scene.
     commands.spawn(PointLightBundle {
         transform: camera_and_light_transform,
-        ..default()
+        ..Default::default()
     });
 
     // Text to describe the controls.
@@ -73,7 +73,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

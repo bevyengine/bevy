@@ -46,7 +46,7 @@ fn setup(
         mesh: meshes.add(Circle::new(4.0)),
         material: materials.add(Color::WHITE),
         transform: Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
-        ..default()
+        ..Default::default()
     });
 
     // Cubes.
@@ -58,7 +58,7 @@ fn setup(
                 mesh: mesh.clone(),
                 material: material.clone(),
                 transform: Transform::from_xyz(x, 0.5, 0.0),
-                ..default()
+                ..Default::default()
             });
         }
     }
@@ -70,10 +70,10 @@ fn setup(
                 shadows_enabled: true,
                 range: 2.0,
                 color: DARK_CYAN.into(),
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(0.0, 1.5, 0.0),
-            ..default()
+            ..Default::default()
         });
         commands.spawn(SpotLightBundle {
             spot_light: SpotLight {
@@ -82,27 +82,27 @@ fn setup(
                 color: PURPLE.into(),
                 outer_angle: PI / 4.0,
                 inner_angle: PI / 4.0 * 0.8,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
-            ..default()
+            ..Default::default()
         });
         commands.spawn(DirectionalLightBundle {
             directional_light: DirectionalLight {
                 color: GOLD.into(),
                 illuminance: DirectionalLight::default().illuminance * 0.05,
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
-            ..default()
+            ..Default::default()
         });
     }
 
     // Camera.
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Example instructions and gizmo config.
@@ -121,7 +121,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             }),
         );
 
@@ -138,7 +138,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             }),
             GizmoColorText,
         ));

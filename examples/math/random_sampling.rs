@@ -62,7 +62,7 @@ fn setup(
         mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
         transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // Store the shape we sample from in a resource:
@@ -76,25 +76,25 @@ fn setup(
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 
     // A light:
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     // A camera:
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Store the mesh and material for sample points in resources:
@@ -108,7 +108,7 @@ fn setup(
     commands.insert_resource(PointMaterial(materials.add(StandardMaterial {
         base_color: Color::srgb(1.0, 0.8, 0.8),
         metallic: 0.8,
-        ..default()
+        ..Default::default()
     })));
 
     // Instructions for the example:
@@ -126,7 +126,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -172,7 +172,7 @@ fn handle_keypress(
                 mesh: sample_mesh.0.clone(),
                 material: sample_material.0.clone(),
                 transform: Transform::from_translation(sample),
-                ..default()
+                ..Default::default()
             },
             SamplePoint,
         ));
@@ -209,7 +209,7 @@ fn handle_keypress(
                     mesh: sample_mesh.0.clone(),
                     material: sample_material.0.clone(),
                     transform: Transform::from_translation(sample),
-                    ..default()
+                    ..Default::default()
                 },
                 SamplePoint,
             ));

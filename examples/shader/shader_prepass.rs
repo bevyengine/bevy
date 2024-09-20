@@ -22,14 +22,14 @@ fn main() {
                 // but you can disable it if you need to.
                 //
                 // prepass_enabled: false,
-                ..default()
+                ..Default::default()
             }),
             MaterialPlugin::<CustomMaterial>::default(),
             MaterialPlugin::<PrepassOutputMaterial> {
                 // This material only needs to read the prepass textures,
                 // but the meshes using it should not contribute to the prepass render, so we can disable it.
                 prepass_enabled: false,
-                ..default()
+                ..Default::default()
             },
         ))
         .add_systems(Startup, setup)
@@ -52,7 +52,7 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
@@ -67,7 +67,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     // A quad that shows the outputs of the prepass
@@ -81,7 +81,7 @@ fn setup(
             }),
             transform: Transform::from_xyz(-0.75, 1.25, 3.0)
                 .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
     ));
@@ -96,7 +96,7 @@ fn setup(
                 alpha_mode: AlphaMode::Opaque,
             }),
             transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
+            ..Default::default()
         },
         Rotates,
     ));
@@ -107,10 +107,10 @@ fn setup(
         material: std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // Cube with alpha blending.
@@ -123,17 +123,17 @@ fn setup(
             alpha_mode: AlphaMode::Blend,
         }),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     let style = TextStyle::default();
@@ -150,7 +150,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

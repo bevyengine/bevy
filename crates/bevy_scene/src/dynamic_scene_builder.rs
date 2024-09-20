@@ -7,7 +7,6 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{PartialReflect, ReflectFromReflect};
-use bevy_utils::default;
 use std::collections::BTreeMap;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
@@ -66,8 +65,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
     pub fn from_world(world: &'w World) -> Self {
         Self {
-            extracted_resources: default(),
-            extracted_scene: default(),
+            extracted_resources: Default::default(),
+            extracted_scene: Default::default(),
             component_filter: SceneFilter::default(),
             resource_filter: SceneFilter::default(),
             original_world: world,

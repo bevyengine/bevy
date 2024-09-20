@@ -26,7 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextStyle {
         font_size: 13.,
         color: Color::BLACK,
-        ..default()
+        ..Default::default()
     };
 
     commands
@@ -39,10 +39,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
-                ..default()
+                ..Default::default()
             },
             background_color: ANTIQUE_WHITE.into(),
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -50,10 +50,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: RED.into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section("Size!", text_style));
@@ -62,19 +62,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: Style {
                     width: Val::Percent(15.0),
                     height: Val::Percent(15.0),
-                    ..default()
+                    ..Default::default()
                 },
                 background_color: BLUE.into(),
-                ..default()
+                ..Default::default()
             });
             parent.spawn(ImageBundle {
                 style: Style {
                     width: Val::Px(30.0),
                     height: Val::Px(30.0),
-                    ..default()
+                    ..Default::default()
                 },
                 image: asset_server.load("branding/icon.png").into(),
-                ..default()
+                ..Default::default()
             });
         });
 }

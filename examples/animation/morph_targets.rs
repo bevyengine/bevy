@@ -15,13 +15,13 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "morph targets".to_string(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .insert_resource(AmbientLight {
             brightness: 150.0,
-            ..default()
+            ..Default::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, (name_morphs, setup_animations))
@@ -49,15 +49,15 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

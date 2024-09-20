@@ -255,7 +255,7 @@ fn detect_morphs(
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextStyle {
         font_size: 13.0,
-        ..default()
+        ..Default::default()
     };
     let mut sections = vec![
         TextSection::new("Morph Target Controls\n", style.clone()),
@@ -269,7 +269,7 @@ fn detect_morphs(
         position_type: PositionType::Absolute,
         top: Val::Px(10.0),
         left: Val::Px(10.0),
-        ..default()
+        ..Default::default()
     }));
 }
 

@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         Instructions,
     ));
@@ -108,9 +108,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -121,9 +121,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
                         row_gap: Val::Px(80.),
                         column_gap: Val::Px(80.),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     spawn_image(parent, &asset_server, Move);
@@ -150,9 +150,9 @@ fn spawn_image(
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         });
     });
 }
@@ -168,7 +168,7 @@ fn spawn_text(
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
-                ..default()
+                ..Default::default()
             },
         ));
     });
@@ -192,10 +192,10 @@ fn spawn_container(
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     overflow: Overflow::clip(),
-                    ..default()
+                    ..Default::default()
                 },
                 background_color: Color::srgb(0.25, 0.25, 0.25).into(),
-                ..default()
+                ..Default::default()
             },
             Container(0),
         ))
@@ -208,10 +208,10 @@ fn spawn_container(
                             justify_content: JustifyContent::Center,
                             top: Val::Px(transform.translation.x),
                             left: Val::Px(transform.translation.y),
-                            ..default()
+                            ..Default::default()
                         },
                         transform,
-                        ..default()
+                        ..Default::default()
                     },
                     update_transform,
                 ))

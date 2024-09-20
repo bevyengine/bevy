@@ -202,7 +202,7 @@ fn setup(mut commands: Commands) {
         .spawn(SpatialBundle {
             visibility: Visibility::Visible,
             transform: Transform::IDENTITY,
-            ..default()
+            ..Default::default()
         })
         // This `Aabb` is necessary for the visibility checks to work.
         .insert(Aabb {
@@ -214,7 +214,7 @@ fn setup(mut commands: Commands) {
     // Spawn the camera.
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -337,8 +337,8 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
-                stencil: default(),
-                bias: default(),
+                stencil: Default::default(),
+                bias: Default::default(),
             }),
             multisample: MultisampleState {
                 count: msaa.samples(),

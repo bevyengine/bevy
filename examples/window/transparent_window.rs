@@ -18,9 +18,9 @@ fn main() {
                 decorations: false,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))
@@ -32,6 +32,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..default()
+        ..Default::default()
     });
 }

@@ -38,7 +38,7 @@ fn setup(
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         }),
-        ..default()
+        ..Default::default()
     });
 }
 

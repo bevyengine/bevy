@@ -259,7 +259,6 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
-    use bevy_utils::default;
 
     use super::*;
 
@@ -293,8 +292,8 @@ mod tests {
         let entity = app
             .world_mut()
             .spawn((Text2dBundle {
-                text: Text::from_section(FIRST_TEXT, default()),
-                ..default()
+                text: Text::from_section(FIRST_TEXT, Default::default()),
+                ..Default::default()
             },))
             .id();
 
@@ -349,7 +348,7 @@ mod tests {
             .expect("Could not find entity");
         *entity_ref
             .get_mut::<Text>()
-            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, default());
+            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, Default::default());
 
         // Recomputes the AABB.
         app.update();

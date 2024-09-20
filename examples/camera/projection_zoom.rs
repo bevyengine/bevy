@@ -61,7 +61,7 @@ fn setup(
             }
             .into(),
             transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -73,9 +73,9 @@ fn setup(
                 base_color: Color::srgb(0.3, 0.5, 0.3),
                 // Turning off culling keeps the plane visible when viewed from beneath.
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -87,7 +87,7 @@ fn setup(
             // Note: the scale adjustment is purely an accident of our fox model, which renders
             // HUGE unless mitigated!
             transform: Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -95,7 +95,7 @@ fn setup(
         Name::new("Light"),
         PointLightBundle {
             transform: Transform::from_xyz(3.0, 8.0, 5.0),
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -110,9 +110,9 @@ fn instructions(mut commands: Commands) {
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Start,
                     width: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
         ))
         .with_children(|parent| {
@@ -139,7 +139,7 @@ fn switch_projection(
         *projection = match *projection {
             Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection {
                 fov: camera_settings.perspective_zoom_range.start,
-                ..default()
+                ..Default::default()
             }),
             Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection {
                 scaling_mode: ScalingMode::FixedVertical(

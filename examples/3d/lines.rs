@@ -41,7 +41,7 @@ fn setup(
         material: materials.add(LineMaterial {
             color: LinearRgba::GREEN,
         }),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn a line strip that goes from point to point
@@ -57,13 +57,13 @@ fn setup(
         material: materials.add(LineMaterial {
             color: LinearRgba::BLUE,
         }),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

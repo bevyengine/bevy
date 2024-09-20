@@ -61,10 +61,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         sprite: Sprite {
                             custom_size: sprite_size,
                             color: Color::BLACK,
-                            ..default()
+                            ..Default::default()
                         },
                         transform: Transform::from_xyz(i * len - len, j * len - len, -1.0),
-                        ..default()
+                        ..Default::default()
                     })
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
@@ -77,14 +77,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             custom_size: sprite_size,
                             color: Color::srgb(1.0, 0.0, 0.0),
                             anchor: anchor.to_owned(),
-                            ..default()
+                            ..Default::default()
                         },
                         texture: asset_server.load("branding/bevy_bird_dark.png"),
                         // 3x3 grid of anchor examples by changing transform
                         transform: Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
                             .with_rotation(Quat::from_rotation_z((j - 1.0) * 0.2)),
-                        ..default()
+                        ..Default::default()
                     })
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
@@ -138,7 +138,7 @@ fn setup_atlas(
             SpriteBundle {
                 texture: texture_handle,
                 transform: Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
-                ..default()
+                ..Default::default()
             },
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),

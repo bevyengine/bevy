@@ -86,7 +86,7 @@ fn main() {
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
         global_volume: GlobalVolume::new(0.2),
-        ..default()
+        ..Default::default()
     }))
     .add_audio_source::<SineAudio>()
     .add_systems(Startup, setup)
@@ -100,6 +100,6 @@ fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
     });
     commands.spawn(AudioSourceBundle {
         source: audio_handle,
-        ..default()
+        ..Default::default()
     });
 }

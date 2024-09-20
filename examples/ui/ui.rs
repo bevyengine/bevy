@@ -39,9 +39,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // left vertical fill (border)
@@ -50,10 +50,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(0.65, 0.65, 0.65).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     // left vertical fill (content)
@@ -64,10 +64,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect::all(Val::Px(5.)),
                                 row_gap: Val::Px(5.),
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-                            ..default()
+                            ..Default::default()
                         })
                         .with_children(|parent| {
                             // text
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 25.0,
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                                 // Because this is a distinct label widget and
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Press Space to enable debug outlines.",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                                 Label,
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Try enabling feature \"bevy_dev_tools\".",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
+                                        ..Default::default()
                                     },
                                 ),
                                 Label,
@@ -120,10 +120,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         width: Val::Px(200.),
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     // Title
@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 21.,
-                                ..default()
+                                ..Default::default()
                             },
                         ),
                         Label,
@@ -146,10 +146,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
                                 overflow: Overflow::clip_y(),
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                            ..default()
+                            ..Default::default()
                         })
                         .with_children(|parent| {
                             // Moving panel
@@ -159,9 +159,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         style: Style {
                                             flex_direction: FlexDirection::Column,
                                             align_items: AlignItems::Center,
-                                            ..default()
+                                            ..Default::default()
                                         },
-                                        ..default()
+                                        ..Default::default()
                                     },
                                     ScrollingList::default(),
                                     AccessibilityNode(NodeBuilder::new(Role::List)),
@@ -175,7 +175,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
-                                                    ..default()
+                                                    ..Default::default()
                                                 },
                                             ),
                                             Label,
@@ -194,21 +194,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         left: Val::Px(210.),
                         bottom: Val::Px(10.),
                         border: UiRect::all(Val::Px(20.)),
-                        ..default()
+                        ..Default::default()
                     },
                     border_color: LIME.into(),
                     background_color: Color::srgb(0.4, 0.4, 1.).into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
                         style: Style {
                             width: Val::Percent(100.0),
                             height: Val::Percent(100.0),
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: Color::srgb(0.8, 0.8, 1.).into(),
-                        ..default()
+                        ..Default::default()
                     });
                 });
             // render order test: reddest in the back, whitest in the front (flex center)
@@ -220,9 +220,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent
@@ -230,10 +230,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 width: Val::Px(100.0),
                                 height: Val::Px(100.0),
-                                ..default()
+                                ..Default::default()
                             },
                             background_color: Color::srgb(1.0, 0.0, 0.).into(),
-                            ..default()
+                            ..Default::default()
                         })
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
@@ -244,10 +244,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(20.),
                                     bottom: Val::Px(20.),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: Color::srgb(1.0, 0.3, 0.3).into(),
-                                ..default()
+                                ..Default::default()
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
@@ -256,10 +256,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(40.),
                                     bottom: Val::Px(40.),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: Color::srgb(1.0, 0.5, 0.5).into(),
-                                ..default()
+                                ..Default::default()
                             });
                             parent.spawn(NodeBundle {
                                 style: Style {
@@ -268,10 +268,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(60.),
                                     bottom: Val::Px(60.),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: Color::srgb(1.0, 0.7, 0.7).into(),
-                                ..default()
+                                ..Default::default()
                             });
                             // alpha test
                             parent.spawn(NodeBundle {
@@ -281,10 +281,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(80.),
                                     bottom: Val::Px(80.),
-                                    ..default()
+                                    ..Default::default()
                                 },
                                 background_color: Color::srgba(1.0, 0.9, 0.9, 0.4).into(),
-                                ..default()
+                                ..Default::default()
                             });
                         });
                 });
@@ -296,9 +296,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         position_type: PositionType::Absolute,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
@@ -311,9 +311,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Px(500.0),
                                     height: Val::Px(125.0),
                                     margin: UiRect::top(Val::VMin(5.)),
-                                    ..default()
+                                    ..Default::default()
                                 },
-                                ..default()
+                                ..Default::default()
                             },
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
                         ))

@@ -84,7 +84,7 @@ fn change_track(
                         settings: PlaybackSettings {
                             mode: bevy::audio::PlaybackMode::Loop,
                             volume: bevy::audio::Volume::ZERO,
-                            ..default()
+                            ..Default::default()
                         },
                     },
                     FadeIn,
@@ -97,7 +97,7 @@ fn change_track(
                         settings: PlaybackSettings {
                             mode: bevy::audio::PlaybackMode::Loop,
                             volume: bevy::audio::Volume::ZERO,
-                            ..default()
+                            ..Default::default()
                         },
                     },
                     FadeIn,

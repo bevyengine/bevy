@@ -289,10 +289,10 @@ fn setup(
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     let shape_material = materials.add(StandardMaterial {
@@ -300,7 +300,7 @@ fn setup(
         reflectance: 0.0,
         alpha_mode: AlphaMode::Blend,
         cull_mode: None,
-        ..default()
+        ..Default::default()
     });
 
     // Spawn shapes to be sampled
@@ -310,7 +310,7 @@ fn setup(
             mesh: meshes.add(shape.mesh()),
             material: shape_material.clone(),
             transform: Transform::from_translation(*translation),
-            ..default()
+            ..Default::default()
         });
 
         // Lights which work as the bulk lighting of the fireflies:
@@ -322,10 +322,10 @@ fn setup(
                     intensity: 1.0,
                     shadows_enabled: false,
                     color: Color::LinearRgba(INSIDE_POINT_COLOR),
-                    ..default()
+                    ..Default::default()
                 },
                 transform: Transform::from_translation(*translation),
-                ..default()
+                ..Default::default()
             },
             FireflyLights,
         ));
@@ -337,10 +337,10 @@ fn setup(
             color: SKY_COLOR,
             intensity: 2_000.0,
             shadows_enabled: false,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     // A camera:
@@ -349,11 +349,11 @@ fn setup(
             camera: Camera {
                 hdr: true, // HDR is required for bloom
                 clear_color: ClearColorConfig::Custom(SKY_COLOR),
-                ..default()
+                ..Default::default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
             transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         Bloom::NATURAL,
         CameraRig {
@@ -373,13 +373,13 @@ fn setup(
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 2.5 * INSIDE_POINT_COLOR,
-            ..default()
+            ..Default::default()
         }),
         boundary: materials.add(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 1.5 * BOUNDARY_POINT_COLOR,
-            ..default()
+            ..Default::default()
         }),
     });
 
@@ -402,7 +402,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -608,7 +608,7 @@ fn spawn_points(
                     SamplingMode::Boundary => sample_material.boundary.clone(),
                 },
                 transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
-                ..default()
+                ..Default::default()
             },
             SamplePoint,
             SpawningPoint { progress: 0.0 },

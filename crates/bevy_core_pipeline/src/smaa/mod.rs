@@ -76,7 +76,6 @@ use bevy_render::{
     render_asset::RenderAssetUsages,
     texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
 };
-use bevy_utils::prelude::default;
 
 #[cfg(not(feature = "smaa_luts"))]
 use crate::tonemapping::lut_placeholder;
@@ -509,7 +508,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                     read_mask: 1,
                     write_mask: 1,
                 },
-                bias: default(),
+                bias: Default::default(),
             }),
             multisample: MultisampleState::default(),
         }
@@ -568,7 +567,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                     read_mask: 1,
                     write_mask: 1,
                 },
-                bias: default(),
+                bias: Default::default(),
             }),
             multisample: MultisampleState::default(),
         }
@@ -789,7 +788,7 @@ fn prepare_smaa_bind_groups(
             address_mode_w: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            ..default()
+            ..Default::default()
         });
 
         commands.entity(entity).insert(SmaaBindGroups {
@@ -941,7 +940,7 @@ fn perform_edge_detection(
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.edge_detection_color_texture.default_view,
             resolve_target: None,
-            ops: default(),
+            ops: Default::default(),
         })],
         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             view: &smaa_textures.edge_detection_stencil_texture.default_view,
@@ -997,7 +996,7 @@ fn perform_blending_weight_calculation(
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.blend_texture.default_view,
             resolve_target: None,
-            ops: default(),
+            ops: Default::default(),
         })],
         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             view: &smaa_textures.edge_detection_stencil_texture.default_view,
@@ -1054,7 +1053,7 @@ fn perform_neighborhood_blending(
         color_attachments: &[Some(RenderPassColorAttachment {
             view: destination,
             resolve_target: None,
-            ops: default(),
+            ops: Default::default(),
         })],
         depth_stencil_attachment: None,
         timestamp_writes: None,

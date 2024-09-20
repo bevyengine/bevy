@@ -47,7 +47,7 @@ fn setup(
         mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
         material: materials.add(Color::srgb(0.3, 0.15, 0.3)),
         transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // The target sphere:
@@ -55,7 +55,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Sphere::new(0.3)),
             material: materials.add(Color::srgb(0.3, 0.15, 0.9)),
-            ..default()
+            ..Default::default()
         },
         TargetSphere,
     ));
@@ -66,7 +66,7 @@ fn setup(
             mesh: meshes.add(Sphere::new(0.3)),
             material: materials.add(Color::srgb(0.9, 0.3, 0.3)),
             transform: Transform::from_translation(vec3(0.0, -2.0, 0.0)),
-            ..default()
+            ..Default::default()
         },
         FollowingSphere,
     ));
@@ -76,16 +76,16 @@ fn setup(
         point_light: PointLight {
             intensity: 15_000_000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     // A camera:
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Set starting values for resources used by the systems:

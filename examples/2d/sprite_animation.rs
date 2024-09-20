@@ -109,7 +109,7 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(6.0))
                 .with_translation(Vec3::new(-50.0, 0.0, 0.0)),
             texture: texture.clone(),
-            ..default()
+            ..Default::default()
         },
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
@@ -128,7 +128,7 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(6.0))
                 .with_translation(Vec3::new(50.0, 0.0, 0.0)),
             texture: texture.clone(),
-            ..default()
+            ..Default::default()
         },
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
@@ -148,8 +148,8 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }

@@ -3,7 +3,6 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_utils::default;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +71,7 @@ impl Text {
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -108,7 +107,7 @@ impl Text {
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
-            ..default()
+            ..Default::default()
         }
     }
 
@@ -158,7 +157,7 @@ impl From<&str> for TextSection {
     fn from(value: &str) -> Self {
         Self {
             value: value.into(),
-            ..default()
+            ..Default::default()
         }
     }
 }

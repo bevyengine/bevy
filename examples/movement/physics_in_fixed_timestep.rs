@@ -136,7 +136,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_scale(Vec3::splat(0.3)),
-            ..default()
+            ..Default::default()
         },
         AccumulatedInput::default(),
         Velocity::default(),
@@ -153,16 +153,16 @@ fn spawn_text(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(
                 "Move the player with WASD",
                 TextStyle {
                     font_size: 25.0,
-                    ..default()
+                    ..Default::default()
                 },
             ));
         });

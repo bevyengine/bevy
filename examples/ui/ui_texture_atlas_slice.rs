@@ -69,9 +69,9 @@ fn setup(
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             for (idx, [w, h]) in [
@@ -90,10 +90,10 @@ fn setup(
                                 // vertically center child text
                                 align_items: AlignItems::Center,
                                 margin: UiRect::all(Val::Px(20.0)),
-                                ..default()
+                                ..Default::default()
                             },
                             image: texture_handle.clone().into(),
-                            ..default()
+                            ..Default::default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
                         TextureAtlas {

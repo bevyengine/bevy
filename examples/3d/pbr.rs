@@ -32,10 +32,10 @@ fn setup(
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
-                ..default()
+                ..Default::default()
             });
         }
     }
@@ -46,19 +46,19 @@ fn setup(
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(-5.0, -2.5, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(DirectionalLightBundle {
         transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
         directional_light: DirectionalLight {
             illuminance: 1_500.,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // labels
@@ -67,14 +67,14 @@ fn setup(
             "Perceptual Roughness",
             TextStyle {
                 font_size: 30.0,
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -83,20 +83,20 @@ fn setup(
             "Metallic",
             TextStyle {
                 font_size: 30.0,
-                ..default()
+                ..Default::default()
             },
         ),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
-            ..default()
+            ..Default::default()
         },
         transform: Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn((
@@ -104,14 +104,14 @@ fn setup(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 30.0,
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
-            ..default()
+            ..Default::default()
         }),
         EnvironmentMapLabel,
     ));
@@ -125,13 +125,13 @@ fn setup(
                 ..OrthographicProjection::default_3d()
             }
             .into(),
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 900.0,
-            ..default()
+            ..Default::default()
         },
     ));
 }

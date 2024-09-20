@@ -288,7 +288,7 @@ impl render_graph::Node for ComputeNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("GPU readback compute pass"),
-                        ..default()
+                        ..Default::default()
                     });
 
             pass.set_bind_group(0, &bind_group.0, &[]);

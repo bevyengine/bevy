@@ -19,6 +19,6 @@ fn setup(
         mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_scale(Vec3::splat(128.)),
         material: materials.add(Color::from(PURPLE)),
-        ..default()
+        ..Default::default()
     });
 }

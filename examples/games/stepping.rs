@@ -119,7 +119,7 @@ fn build_ui(
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
                 color: FONT_COLOR,
-                ..default()
+                ..Default::default()
             },
         ));
 
@@ -145,7 +145,7 @@ fn build_ui(
                 "   ",
                 TextStyle {
                     color: FONT_COLOR,
-                    ..default()
+                    ..Default::default()
                 },
             ));
 
@@ -154,7 +154,7 @@ fn build_ui(
                 format!("{}\n", system.name()),
                 TextStyle {
                     color: FONT_COLOR,
-                    ..default()
+                    ..Default::default()
                 },
             ));
         }
@@ -173,11 +173,11 @@ fn build_ui(
                 top: state.ui_top,
                 left: state.ui_left,
                 padding: UiRect::all(Val::Px(10.0)),
-                ..default()
+                ..Default::default()
             },
             background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
             visibility: Visibility::Hidden,
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -195,14 +195,14 @@ fn build_stepping_hint(mut commands: Commands) {
         TextStyle {
             font_size: 15.0,
             color: FONT_COLOR,
-            ..default()
+            ..Default::default()
         },
     )])
     .with_style(Style {
         position_type: PositionType::Absolute,
         bottom: Val::Px(5.0),
         left: Val::Px(5.0),
-        ..default()
+        ..Default::default()
     }),));
 }
 

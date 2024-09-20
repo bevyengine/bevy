@@ -29,9 +29,9 @@ fn setup(mut commands: Commands) {
                 height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -40,9 +40,9 @@ fn setup(mut commands: Commands) {
                     style: Style {
                         width: Val::Px(180.0),
                         height: Val::Px(100.0),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     // spawn a node with default z-index.
@@ -54,9 +54,9 @@ fn setup(mut commands: Commands) {
                             bottom: Val::Px(40.0),
                             width: Val::Px(100.0),
                             height: Val::Px(50.0),
-                            ..default()
+                            ..Default::default()
                         },
-                        ..default()
+                        ..Default::default()
                     });
 
                     // spawn a node with a positive local z-index of 2.
@@ -70,9 +70,9 @@ fn setup(mut commands: Commands) {
                             bottom: Val::Px(30.0),
                             width: Val::Px(100.),
                             height: Val::Px(50.),
-                            ..default()
+                            ..Default::default()
                         },
-                        ..default()
+                        ..Default::default()
                     });
 
                     // spawn a node with a negative local z-index.
@@ -86,9 +86,9 @@ fn setup(mut commands: Commands) {
                             bottom: Val::Px(20.0),
                             width: Val::Px(100.),
                             height: Val::Px(75.),
-                            ..default()
+                            ..Default::default()
                         },
-                        ..default()
+                        ..Default::default()
                     });
 
                     // spawn a node with a positive global z-index of 1.
@@ -103,9 +103,9 @@ fn setup(mut commands: Commands) {
                             bottom: Val::Px(10.0),
                             width: Val::Px(100.),
                             height: Val::Px(60.),
-                            ..default()
+                            ..Default::default()
                         },
-                        ..default()
+                        ..Default::default()
                     });
 
                     // spawn a node with a negative global z-index of -1.
@@ -120,9 +120,9 @@ fn setup(mut commands: Commands) {
                             bottom: Val::Px(-15.0),
                             width: Val::Px(100.),
                             height: Val::Px(125.),
-                            ..default()
+                            ..Default::default()
                         },
-                        ..default()
+                        ..Default::default()
                     });
                 });
         });

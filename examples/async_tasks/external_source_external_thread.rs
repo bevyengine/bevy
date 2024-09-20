@@ -61,7 +61,7 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
             text: Text::from_section(event.0.to_string(), text_style.clone())
                 .with_justify(JustifyText::Center),
             transform: Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
-            ..default()
+            ..Default::default()
         });
     }
 }

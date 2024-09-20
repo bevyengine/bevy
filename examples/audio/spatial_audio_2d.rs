@@ -15,7 +15,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
             default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, update_emitters)
@@ -38,7 +38,7 @@ fn setup(
             mesh: meshes.add(Circle::new(15.0)).into(),
             material: materials.add(Color::from(BLUE)),
             transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-            ..default()
+            ..Default::default()
         },
         Emitter::default(),
         AudioBundle {
@@ -56,10 +56,10 @@ fn setup(
                 sprite: Sprite {
                     color: RED.into(),
                     custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
+                    ..Default::default()
                 },
                 transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             });
 
             // right ear
@@ -67,10 +67,10 @@ fn setup(
                 sprite: Sprite {
                     color: LIME.into(),
                     custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
+                    ..Default::default()
                 },
                 transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             });
         });
 
@@ -84,7 +84,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 

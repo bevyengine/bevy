@@ -61,7 +61,6 @@ pub mod prelude {
 
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
-use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
@@ -460,7 +459,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     // so commands can be applied on the render thread.
     extract_schedule.set_build_settings(ScheduleBuildSettings {
         auto_insert_apply_deferred: false,
-        ..default()
+        ..Default::default()
     });
     extract_schedule.set_apply_final_deferred(false);
 

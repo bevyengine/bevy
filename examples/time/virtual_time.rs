@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         SpriteBundle {
             texture: texture_handle.clone(),
             transform: Transform::from_scale(sprite_scale),
-            ..default()
+            ..Default::default()
         },
         RealTime,
     ));
@@ -67,14 +67,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             texture: texture_handle,
             sprite: Sprite {
                 color: virtual_color,
-                ..default()
+                ..Default::default()
             },
             transform: Transform {
                 scale: sprite_scale,
                 translation: Vec3::new(0., -160., 0.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         VirtualTime,
     ));
@@ -91,9 +91,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.),
                 padding: UiRect::all(Val::Px(20.0)),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|builder| {
             // real time info
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     "",
                     TextStyle {
                         font_size,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
                 RealTime,
@@ -115,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     TextStyle {
                         font_size,
                         color: Color::srgb(0.85, 0.85, 0.85),
-                        ..default()
+                        ..Default::default()
                     },
                 )
                 .with_text_justify(JustifyText::Center),
@@ -128,7 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     TextStyle {
                         font_size,
                         color: virtual_color,
-                        ..default()
+                        ..Default::default()
                     },
                 )
                 .with_text_justify(JustifyText::Right),

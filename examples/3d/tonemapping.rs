@@ -61,10 +61,10 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: camera_transform.0,
-            ..default()
+            ..Default::default()
         },
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
@@ -72,13 +72,13 @@ fn setup(
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -88,7 +88,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -100,7 +100,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             scene: asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
             ),
-            ..default()
+            ..Default::default()
         })
         .insert(SceneNumber(1));
 
@@ -111,7 +111,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-            ..default()
+            ..Default::default()
         },
         SceneNumber(1),
     ));
@@ -122,7 +122,7 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             directional_light: DirectionalLight {
                 illuminance: 15_000.,
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_rotation(Quat::from_euler(
                 EulerRot::ZYX,
@@ -133,10 +133,10 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             cascade_shadow_config: CascadeShadowConfigBuilder {
                 maximum_distance: 3.0,
                 first_cascade_far_bound: 0.9,
-                ..default()
+                ..Default::default()
             }
             .into(),
-            ..default()
+            ..Default::default()
         },
         SceneNumber(1),
     ));
@@ -157,7 +157,7 @@ fn setup_color_gradient_scene(
             material: materials.add(ColorGradientMaterial {}),
             transform,
             visibility: Visibility::Hidden,
-            ..default()
+            ..Default::default()
         },
         SceneNumber(2),
     ));
@@ -179,11 +179,11 @@ fn setup_image_viewer_scene(
             material: materials.add(StandardMaterial {
                 base_color_texture: None,
                 unlit: true,
-                ..default()
+                ..Default::default()
             }),
             transform,
             visibility: Visibility::Hidden,
-            ..default()
+            ..Default::default()
         },
         SceneNumber(3),
         HDRViewer,
@@ -196,14 +196,14 @@ fn setup_image_viewer_scene(
                 TextStyle {
                     font_size: 36.0,
                     color: Color::BLACK,
-                    ..default()
+                    ..Default::default()
                 },
             )
             .with_text_justify(JustifyText::Center)
             .with_style(Style {
                 align_self: AlignSelf::Center,
                 margin: UiRect::all(Val::Auto),
-                ..default()
+                ..Default::default()
             }),
             SceneNumber(3),
         ))
@@ -571,26 +571,26 @@ impl PerMethodSettings {
             Tonemapping::Reinhard | Tonemapping::ReinhardLuminance => ColorGrading {
                 global: ColorGradingGlobal {
                     exposure: 0.5,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             Tonemapping::AcesFitted => ColorGrading {
                 global: ColorGradingGlobal {
                     exposure: 0.35,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
             Tonemapping::AgX => ColorGrading::with_identical_sections(
                 ColorGradingGlobal {
                     exposure: -0.2,
                     post_saturation: 1.1,
-                    ..default()
+                    ..Default::default()
                 },
                 ColorGradingSection {
                     saturation: 1.1,
-                    ..default()
+                    ..Default::default()
                 },
             ),
             _ => ColorGrading::default(),

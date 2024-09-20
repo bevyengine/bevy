@@ -13,9 +13,9 @@ fn main() {
                 transparent: true,
                 decorations: true,
                 window_level: bevy::window::WindowLevel::AlwaysOnTop,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, toggle_mouse_passthrough) // This allows us to hit 'P' to toggle on/off the mouse's passthrough
@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 83.0, // Nice and big so you can see it!
-                ..default()
+                ..Default::default()
             },
         )
         // Set the style of the TextBundle itself.
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.),
             right: Val::Px(10.),
-            ..default()
+            ..Default::default()
         }),
     ));
 }

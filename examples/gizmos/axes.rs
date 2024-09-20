@@ -51,16 +51,16 @@ fn setup(
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(2., 6., 0.),
-        ..default()
+        ..Default::default()
     });
 
     // Camera...
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Action! (Our cubes that are going to move)
@@ -68,11 +68,11 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(1., 1., 1.)),
             material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            ..default()
+            ..Default::default()
         },
         ShowAxes,
         TransformTracking {
-            initial_transform: default(),
+            initial_transform: Default::default(),
             target_transform: random_transform(&mut rng),
             progress: 0.0,
         },
@@ -82,11 +82,11 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
             material: materials.add(Color::srgb(0.6, 0.7, 0.8)),
-            ..default()
+            ..Default::default()
         },
         ShowAxes,
         TransformTracking {
-            initial_transform: default(),
+            initial_transform: Default::default(),
             target_transform: random_transform(&mut rng),
             progress: 0.0,
         },
@@ -97,7 +97,7 @@ fn setup(
         mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
         material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
         transform: Transform::from_xyz(0., -2., 0.),
-        ..default()
+        ..Default::default()
     });
 
     commands.insert_resource(SeededRng(rng));

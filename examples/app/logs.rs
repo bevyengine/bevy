@@ -9,7 +9,7 @@ fn main() {
             // Uncomment this to override the default log settings:
             // level: bevy::log::Level::TRACE,
             // filter: "wgpu=warn,bevy_ecs=info".to_string(),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, log_system)
@@ -26,9 +26,9 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 

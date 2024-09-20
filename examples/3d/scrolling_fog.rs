@@ -24,9 +24,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Scrolling Fog".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(TemporalAntiAliasPlugin)
@@ -49,17 +49,17 @@ fn setup(
                 .looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         TemporalAntiAliasBundle::default(),
         Bloom::default(),
         VolumetricFog {
             ambient_intensity: 0.0,
             jitter: 0.5,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -70,9 +70,9 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
             directional_light: DirectionalLight {
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         VolumetricLight,
     ));
@@ -84,9 +84,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::BLACK,
             perceptual_roughness: 1.0,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn pillar standing between the camera and the sun.
@@ -94,7 +94,7 @@ fn setup(
         transform: Transform::from_xyz(-10.0, 4.5, -11.0),
         mesh: meshes.add(Cuboid::new(2.0, 9.0, 2.0)),
         material: materials.add(Color::BLACK),
-        ..default()
+        ..Default::default()
     });
 
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
@@ -109,9 +109,9 @@ fn setup(
                 mag_filter: ImageFilterMode::Linear,
                 min_filter: ImageFilterMode::Linear,
                 mipmap_filter: ImageFilterMode::Linear,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }
     });
 
@@ -120,12 +120,12 @@ fn setup(
         SpatialBundle {
             visibility: Visibility::Visible,
             transform: Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
-            ..default()
+            ..Default::default()
         },
         FogVolume {
             density_texture: Some(noise_texture),
             density_factor: 0.05,
-            ..default()
+            ..Default::default()
         },
     ));
 }

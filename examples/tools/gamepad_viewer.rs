@@ -95,7 +95,7 @@ impl GamepadButtonBundle {
                 mesh,
                 material,
                 transform: Transform::from_xyz(x, y, 0.),
-                ..default()
+                ..Default::default()
             },
             react_to: ReactTo(button_type),
         }
@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     commands
         .spawn(SpatialBundle {
             transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
@@ -192,7 +192,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     commands
         .spawn(SpatialBundle {
             transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
@@ -277,7 +277,7 @@ fn setup_sticks(
         commands
             .spawn(SpatialBundle {
                 transform: Transform::from_xyz(x_pos, y_pos, 0.),
-                ..default()
+                ..Default::default()
             })
             .with_children(|parent| {
                 // full extent
@@ -285,9 +285,9 @@ fn setup_sticks(
                     sprite: Sprite {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
                         color: DEAD_COLOR,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
                 // live zone
                 parent.spawn(SpriteBundle {
@@ -295,9 +295,9 @@ fn setup_sticks(
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(live_size, live_size)),
                         color: LIVE_COLOR,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
                 // dead zone
                 parent.spawn(SpriteBundle {
@@ -305,14 +305,14 @@ fn setup_sticks(
                     sprite: Sprite {
                         custom_size: Some(Vec2::new(dead_size, dead_size)),
                         color: DEAD_COLOR,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
                 // text
                 let style = TextStyle {
                     font_size: 13.,
-                    ..default()
+                    ..Default::default()
                 };
                 parent.spawn((
                     Text2dBundle {
@@ -332,7 +332,7 @@ fn setup_sticks(
                             },
                         ]),
                         text_anchor: Anchor::BottomCenter,
-                        ..default()
+                        ..Default::default()
                     },
                     TextWithAxes { x_axis, y_axis },
                 ));
@@ -343,7 +343,7 @@ fn setup_sticks(
                         material: materials.normal.clone(),
                         transform: Transform::from_xyz(0., 0., 5.)
                             .with_scale(Vec2::splat(0.15).extend(1.)),
-                        ..default()
+                        ..Default::default()
                     },
                     MoveWithAxes {
                         x_axis,
@@ -393,10 +393,10 @@ fn setup_triggers(
                             format!("{:.3}", 0.),
                             TextStyle {
                                 font_size: 13.,
-                                ..default()
+                                ..Default::default()
                             },
                         ),
-                        ..default()
+                        ..Default::default()
                     },
                     TextWithButtonValue(button_type),
                 ));
@@ -434,9 +434,9 @@ fn setup_connected(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         ConnectedGamepadsText,
     ));

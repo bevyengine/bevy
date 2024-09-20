@@ -18,9 +18,9 @@ fn main() {
             // on iOS, gestures must be enabled.
             // This doesn't work on Android
             recognize_rotation_gesture: true,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
@@ -71,21 +71,21 @@ fn setup_scene(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
         material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
+        ..Default::default()
     });
     // cube
     commands.spawn(PbrBundle {
         mesh: meshes.add(Cuboid::default()),
         material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
+        ..Default::default()
     });
     // sphere
     commands.spawn(PbrBundle {
         mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
         material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
-        ..default()
+        ..Default::default()
     });
     // light
     commands.spawn(PointLightBundle {
@@ -96,9 +96,9 @@ fn setup_scene(
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
@@ -107,7 +107,7 @@ fn setup_scene(
         // https://github.com/bevyengine/bevy/issues/8229
         #[cfg(target_os = "android")]
         msaa: Msaa::Off,
-        ..default()
+        ..Default::default()
     });
 
     // Test ui
@@ -120,9 +120,9 @@ fn setup_scene(
                 left: Val::Px(50.0),
                 right: Val::Px(50.0),
                 bottom: Val::Px(50.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|b| {
             b.spawn(
@@ -131,7 +131,7 @@ fn setup_scene(
                     TextStyle {
                         font_size: 30.0,
                         color: Color::BLACK,
-                        ..default()
+                        ..Default::default()
                     },
                 )
                 .with_text_justify(JustifyText::Center),

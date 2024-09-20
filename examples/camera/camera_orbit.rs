@@ -52,7 +52,7 @@ fn setup(
         Name::new("Camera"),
         Camera3dBundle {
             transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -64,9 +64,9 @@ fn setup(
                 base_color: Color::srgb(0.3, 0.5, 0.3),
                 // Turning off culling keeps the plane visible when viewed from beneath.
                 cull_mode: None,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -76,7 +76,7 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
             transform: Transform::from_xyz(1.5, 0.51, 1.5),
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -84,7 +84,7 @@ fn setup(
         Name::new("Light"),
         PointLightBundle {
             transform: Transform::from_xyz(3.0, 8.0, 5.0),
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -99,9 +99,9 @@ fn instructions(mut commands: Commands) {
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Start,
                     width: Val::Percent(100.),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             },
         ))
         .with_children(|parent| {

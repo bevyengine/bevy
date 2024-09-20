@@ -36,7 +36,7 @@ fn setup(
             color: LinearRgba::BLUE,
             is_red: false,
         }),
-        ..default()
+        ..Default::default()
     });
 
     // red cube (with green color overridden by the IS_RED "shader def")
@@ -47,13 +47,13 @@ fn setup(
             color: LinearRgba::GREEN,
             is_red: true,
         }),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

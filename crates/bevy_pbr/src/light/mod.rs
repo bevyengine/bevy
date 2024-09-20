@@ -122,11 +122,10 @@ impl Default for DirectionalLightShadowMap {
 /// ```
 /// # use bevy_pbr::CascadeShadowConfig;
 /// # use bevy_pbr::CascadeShadowConfigBuilder;
-/// # use bevy_utils::default;
 /// #
 /// let config: CascadeShadowConfig = CascadeShadowConfigBuilder {
 ///   maximum_distance: 100.0,
-///   ..default()
+///   ..Default::default()
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]

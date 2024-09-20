@@ -71,7 +71,7 @@ enum SelectedColorGradingOption {
 
 impl Default for SelectedColorGradingOption {
     fn default() -> Self {
-        Self::Global(default())
+        Self::Global(Default::default())
     }
 }
 
@@ -145,9 +145,9 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 row_gap: Val::Px(6.0),
                 left: Val::Px(12.0),
                 bottom: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // Create the first row, which contains the global controls.
@@ -175,16 +175,16 @@ fn add_buttons_for_global_controls(
     parent
         .spawn(NodeBundle {
             style: Style::default(),
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // Add some placeholder text to fill this column.
             parent.spawn(NodeBundle {
                 style: Style {
                     width: Val::Px(125.0),
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
 
             // Add each global color grading option button.
@@ -217,15 +217,15 @@ fn add_buttons_for_section(
         .spawn(NodeBundle {
             style: Style {
                 align_items: AlignItems::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
             add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
                 width: Val::Px(125.0),
-                ..default()
+                ..Default::default()
             });
 
             // Spawn the buttons.
@@ -263,12 +263,12 @@ fn add_button_for_value(
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                 margin: UiRect::right(Val::Px(12.0)),
-                ..default()
+                ..Default::default()
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::MAX,
             background_color: Color::BLACK.into(),
-            ..default()
+            ..Default::default()
         })
         .insert(ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
@@ -289,9 +289,9 @@ fn add_button_for_value(
             parent.spawn(NodeBundle {
                 style: Style {
                     flex_grow: 1.0,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
 
             // Add the value text.
@@ -320,13 +320,13 @@ fn add_help_text(
                 position_type: PositionType::Absolute,
                 left: Val::Px(12.0),
                 top: Val::Px(12.0),
-                ..default()
+                ..Default::default()
             },
             ..TextBundle::from_section(
                 create_help_text(currently_selected_option),
                 TextStyle {
                     font: font.clone(),
-                    ..default()
+                    ..Default::default()
                 },
             )
         })
@@ -355,12 +355,12 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             color_grading,
-            ..default()
+            ..Default::default()
         },
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
@@ -368,13 +368,13 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..Default::default()
         },
     ));
 }
@@ -385,7 +385,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
         scene: asset_server.load(
             GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
         ),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the flight helmet.
@@ -394,7 +394,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
             .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         transform: Transform::from_xyz(0.5, 0.0, -0.5)
             .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the light.
@@ -402,7 +402,7 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
         directional_light: DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
@@ -413,10 +413,10 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
         cascade_shadow_config: CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 }
 

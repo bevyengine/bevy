@@ -101,7 +101,7 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
         .looking_at(game.camera_is_focus, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -127,9 +127,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     // spawn the game board
@@ -143,7 +143,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     commands.spawn(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         scene: cell_scene.clone(),
-                        ..default()
+                        ..Default::default()
                     });
                     Cell { height }
                 })
@@ -162,11 +162,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                         game.player.j as f32,
                     ),
                     rotation: Quat::from_rotation_y(-PI / 2.),
-                    ..default()
+                    ..Default::default()
                 },
                 scene: asset_server
                     .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
-                ..default()
+                ..Default::default()
             })
             .id(),
     );
@@ -182,14 +182,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             TextStyle {
                 font_size: 33.0,
                 color: Color::srgb(0.5, 0.5, 1.0),
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
             left: Val::Px(5.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -254,7 +254,7 @@ fn move_player(
                     game.player.j as f32,
                 ),
                 rotation: Quat::from_rotation_y(rotation),
-                ..default()
+                ..Default::default()
             };
         }
     }
@@ -353,7 +353,7 @@ fn spawn_bonus(
                     game.bonus.j as f32,
                 ),
                 scene: game.bonus.handle.clone(),
-                ..default()
+                ..Default::default()
             })
             .with_children(|children| {
                 children.spawn(PointLightBundle {
@@ -361,10 +361,10 @@ fn spawn_bonus(
                         color: Color::srgb(1.0, 1.0, 0.0),
                         intensity: 500_000.0,
                         range: 10.0,
-                        ..default()
+                        ..Default::default()
                     },
                     transform: Transform::from_xyz(0.0, 2.0, 0.0),
-                    ..default()
+                    ..Default::default()
                 });
             })
             .id(),
@@ -407,9 +407,9 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(
@@ -417,7 +417,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 TextStyle {
                     font_size: 67.0,
                     color: Color::srgb(0.5, 0.5, 1.0),
-                    ..default()
+                    ..Default::default()
                 },
             ));
         });

@@ -78,14 +78,14 @@ fn setup(mut commands: Commands) {
             When it explodes it will trigger all overlapping mines.",
             TextStyle {
                 color: Color::WHITE,
-                ..default()
+                ..Default::default()
             },
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..Default::default()
         }),
     );
 

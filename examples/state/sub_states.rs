@@ -163,9 +163,9 @@ mod ui {
                     height: Val::Percent(100.),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             })
             .with_children(|parent| {
                 parent
@@ -177,10 +177,10 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: NORMAL_BUTTON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
@@ -188,7 +188,7 @@ mod ui {
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
+                                ..Default::default()
                             },
                         ));
                     });
@@ -200,7 +200,7 @@ mod ui {
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -217,9 +217,9 @@ mod ui {
                         align_items: AlignItems::Center,
                         flex_direction: FlexDirection::Column,
                         row_gap: Val::Px(10.),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
             ))
             .with_children(|parent| {
@@ -232,10 +232,10 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..Default::default()
                         },
                         background_color: NORMAL_BUTTON.into(),
-                        ..default()
+                        ..Default::default()
                     })
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
@@ -243,7 +243,7 @@ mod ui {
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
-                                ..default()
+                                ..Default::default()
                             },
                         ));
                     });

@@ -214,7 +214,7 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         CameraController,
     ));
@@ -225,14 +225,17 @@ fn setup(
             transform: Transform::from_xyz(2.0, 1.0, -1.1),
             point_light: PointLight {
                 shadows_enabled: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn(PbrBundle { mesh, ..default() });
+            commands.spawn(PbrBundle {
+                mesh,
+                ..Default::default()
+            });
         });
 
     // Plane
@@ -246,7 +249,7 @@ fn setup(
             ..Color::srgb_u8(0, 80, 0).into()
         }),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     let parallax_depth_scale = TargetDepth::default().0;
@@ -262,7 +265,7 @@ fn setup(
         parallax_depth_scale,
         parallax_mapping_method: parallax_mapping_method.0,
         max_parallax_layer_count,
-        ..default()
+        ..Default::default()
     });
     commands.spawn((
         PbrBundle {
@@ -274,7 +277,7 @@ fn setup(
                     .unwrap(),
             ),
             material: parallax_material.clone_weak(),
-            ..default()
+            ..Default::default()
         },
         Spin { speed: 0.3 },
     ));
@@ -291,7 +294,7 @@ fn setup(
                 transform: Transform::from_translation(translation),
                 mesh: background_cube.clone(),
                 material: parallax_material.clone(),
-                ..default()
+                ..Default::default()
             },
             Spin { speed: -0.1 },
         )
@@ -329,7 +332,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

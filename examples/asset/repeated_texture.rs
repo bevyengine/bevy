@@ -30,10 +30,10 @@ fn setup(
         mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
         material: materials.add(StandardMaterial {
             base_color_texture: Some(image_with_default_sampler.clone()),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_translation(Vec3::ZERO),
-        ..default()
+        ..Default::default()
     });
 
     // left cube with repeated texture
@@ -48,9 +48,9 @@ fn setup(
                             // rewriting mode to repeat image,
                             address_mode_u: ImageAddressMode::Repeat,
                             address_mode_v: ImageAddressMode::Repeat,
-                            ..default()
+                            ..Default::default()
                         }),
-                        ..default()
+                        ..Default::default()
                     }
                 },
             )),
@@ -58,10 +58,10 @@ fn setup(
             // uv_transform used here for proportions only, but it is full Affine2
             // that's why you can use rotation and shift also
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(-1.5, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // right cube with scaled texture, because with default sampler
@@ -76,24 +76,24 @@ fn setup(
             // uv_transform used here for proportions only, but it is full Affine2
             // that's why you can use rotation and shift also
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-            ..default()
+            ..Default::default()
         }),
         transform: Transform::from_xyz(1.5, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 1.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }

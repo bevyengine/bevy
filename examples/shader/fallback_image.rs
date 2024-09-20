@@ -39,11 +39,11 @@ fn setup(
             image_cube_array: None,
             image_3d: None,
         }),
-        ..default()
+        ..Default::default()
     });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

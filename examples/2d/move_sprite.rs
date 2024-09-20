@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             transform: Transform::from_xyz(100., 0., 0.),
-            ..default()
+            ..Default::default()
         },
         Direction::Up,
     ));

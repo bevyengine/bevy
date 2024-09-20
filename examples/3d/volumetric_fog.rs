@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             GltfAssetLabel::Scene(0)
                 .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
         ),
-        ..default()
+        ..Default::default()
     });
 
     // Spawn the camera.
@@ -43,27 +43,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .insert(Tonemapping::TonyMcMapface)
         .insert(Bloom::default())
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
-            ..default()
+            ..Default::default()
         })
         .insert(VolumetricFog {
             // This value is explicitly set to 0 since we have no environment map light
             ambient_intensity: 0.0,
-            ..default()
+            ..Default::default()
         });
 
     // Add the fog volume.
     commands.spawn(FogVolumeBundle {
         transform: Transform::from_scale(Vec3::splat(35.0)),
-        ..default()
+        ..Default::default()
     });
 
     // Add the help text.
@@ -73,13 +73,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "Press WASD or the arrow keys to change the light direction",
                 TextStyle::default(),
             ),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

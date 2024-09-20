@@ -25,9 +25,9 @@ fn main() {
                 transparent: true,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .insert_resource(ClearColor(WINDOW_CLEAR_COLOR))
         .insert_resource(WindowTransparency(false))
@@ -111,7 +111,7 @@ fn setup(
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 25.0,
-        ..default()
+        ..Default::default()
     };
     commands.spawn((
         Text2dBundle {
@@ -120,7 +120,7 @@ fn setup(
                 text_style.clone(),
             ),
             transform: Transform::from_xyz(0.0, -300.0, 100.0),
-            ..default()
+            ..Default::default()
         },
         InstructionsText,
     ));
@@ -138,7 +138,7 @@ fn setup(
         .spawn((
             SpriteBundle {
                 texture: asset_server.load("branding/icon.png"),
-                ..default()
+                ..Default::default()
             },
             BevyLogo,
         ))
@@ -151,7 +151,7 @@ fn setup(
                     material: outline_material.clone(),
                     transform: Transform::from_xyz(x, y - 1.0, 1.0)
                         .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
-                    ..default()
+                    ..Default::default()
                 });
 
                 // sclera
@@ -165,7 +165,7 @@ fn setup(
                             mesh: circle.clone(),
                             material: sclera_material.clone(),
                             transform: Transform::from_scale(Vec3::new(radius, radius, 0.0)),
-                            ..default()
+                            ..Default::default()
                         });
 
                         let pupil_radius = radius * 0.6;
@@ -188,7 +188,7 @@ fn setup(
                                     material: pupil_material.clone(),
                                     transform: Transform::from_xyz(0.0, 0.0, 0.0)
                                         .with_scale(Vec3::new(pupil_radius, pupil_radius, 1.0)),
-                                    ..default()
+                                    ..Default::default()
                                 });
 
                                 // pupil highlight
@@ -205,7 +205,7 @@ fn setup(
                                         pupil_highlight_radius,
                                         1.0,
                                     )),
-                                    ..default()
+                                    ..Default::default()
                                 });
                             });
                     });

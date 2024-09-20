@@ -20,13 +20,13 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_xyz(3.0, 1.0, 3.0)
                 .looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2_000.0,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -41,7 +41,7 @@ fn setup(
                 mesh: cube.clone(),
                 material: materials.add(Color::from(hsla)),
                 transform: Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
-                ..default()
+                ..Default::default()
             });
             hsla = hsla.rotate_hue(GOLDEN_ANGLE);
         }

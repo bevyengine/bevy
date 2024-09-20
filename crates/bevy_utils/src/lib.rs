@@ -17,20 +17,12 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-/// The utilities prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    pub use crate::default;
-}
-
 pub mod futures;
 mod short_names;
 pub use short_names::ShortName;
 pub mod synccell;
 pub mod syncunsafecell;
 
-mod default;
 mod object_safe;
 pub use object_safe::assert_object_safe;
 mod once;
@@ -38,7 +30,6 @@ mod parallel_queue;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
-pub use default::default;
 pub use hashbrown;
 pub use parallel_queue::*;
 pub use tracing;

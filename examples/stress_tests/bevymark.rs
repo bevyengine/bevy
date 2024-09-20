@@ -138,9 +138,9 @@ fn main() {
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -263,7 +263,7 @@ fn setup(
             TextStyle {
                 font_size: 40.0,
                 color: color.into(),
-                ..default()
+                ..Default::default()
             },
         )
     };
@@ -274,11 +274,11 @@ fn setup(
             style: Style {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                ..default()
+                ..Default::default()
             },
             z_index: ZIndex::Global(i32::MAX),
             background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
+            ..Default::default()
         })
         .with_children(|c| {
             c.spawn((
@@ -440,8 +440,11 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             transform,
-                            sprite: Sprite { color, ..default() },
-                            ..default()
+                            sprite: Sprite {
+                                color,
+                                ..Default::default()
+                            },
+                            ..Default::default()
                         },
                         Bird { velocity },
                     )
@@ -481,7 +484,7 @@ fn spawn_birds(
                             mesh: bird_resources.quad.clone(),
                             material,
                             transform,
-                            ..default()
+                            ..Default::default()
                         },
                         Bird { velocity },
                     )

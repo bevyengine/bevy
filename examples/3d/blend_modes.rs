@@ -47,10 +47,10 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color,
                     alpha_mode: AlphaMode::Opaque,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(-4.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             },
             ExampleControls {
                 unlit: true,
@@ -67,10 +67,10 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color,
                     alpha_mode: AlphaMode::Blend,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(-2.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             },
             ExampleControls {
                 unlit: true,
@@ -87,10 +87,10 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color,
                     alpha_mode: AlphaMode::Premultiplied,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             },
             ExampleControls {
                 unlit: true,
@@ -107,10 +107,10 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color,
                     alpha_mode: AlphaMode::Add,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(2.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             },
             ExampleControls {
                 unlit: true,
@@ -127,10 +127,10 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color,
                     alpha_mode: AlphaMode::Multiply,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(4.0, 0.0, 0.0),
-                ..default()
+                ..Default::default()
             },
             ExampleControls {
                 unlit: true,
@@ -156,7 +156,7 @@ fn setup(
                         white_material.clone()
                     },
                     transform: Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
-                    ..default()
+                    ..Default::default()
                 },
                 ExampleControls {
                     unlit: false,
@@ -169,13 +169,13 @@ fn setup(
     // Light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
+        ..Default::default()
     });
 
     // Camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Controls Text
@@ -185,13 +185,13 @@ fn setup(
 
     let text_style = TextStyle {
         font: font.clone(),
-        ..default()
+        ..Default::default()
     };
 
     let label_text_style = TextStyle {
         font,
         color: ORANGE.into(),
-        ..default()
+        ..Default::default()
     };
 
     commands.spawn(
@@ -203,7 +203,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 
@@ -212,7 +212,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
         ExampleDisplay,
     ));
@@ -223,9 +223,9 @@ fn setup(
                 NodeBundle {
                     style: Style {
                         position_type: PositionType::Absolute,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 ExampleLabel { entity },
             ))
@@ -235,7 +235,7 @@ fn setup(
                         .with_style(Style {
                             position_type: PositionType::Absolute,
                             bottom: Val::ZERO,
-                            ..default()
+                            ..Default::default()
                         })
                         .with_no_wrap(),
                 );

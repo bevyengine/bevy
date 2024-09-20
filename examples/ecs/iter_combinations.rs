@@ -66,7 +66,7 @@ fn generate_bodies(
                 transform: Transform {
                     translation: position,
                     scale: Vec3::splat(radius),
-                    ..default()
+                    ..Default::default()
                 },
                 mesh: mesh.clone(),
                 material: materials.add(Color::srgb(
@@ -74,7 +74,7 @@ fn generate_bodies(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                 )),
-                ..default()
+                ..Default::default()
             },
             mass: Mass(mass_value),
             acceleration: Acceleration(Vec3::ZERO),
@@ -100,12 +100,12 @@ fn generate_bodies(
                     material: materials.add(StandardMaterial {
                         base_color: ORANGE_RED.into(),
                         emissive: LinearRgba::from(ORANGE_RED) * 2.,
-                        ..default()
+                        ..Default::default()
                     }),
-                    ..default()
+                    ..Default::default()
                 },
                 mass: Mass(500.0),
-                ..default()
+                ..Default::default()
             },
             Star,
         ))
@@ -115,14 +115,14 @@ fn generate_bodies(
                     color: Color::WHITE,
                     range: 100.0,
                     radius: star_radius,
-                    ..default()
+                    ..Default::default()
                 },
-                ..default()
+                ..Default::default()
             });
         });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

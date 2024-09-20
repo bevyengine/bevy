@@ -15,9 +15,9 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
         ))
@@ -38,9 +38,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::SpaceBetween,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .id();
 
@@ -51,9 +51,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::Start,
             flex_grow: 1.,
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     }).with_children(|builder| {
         builder.spawn(
             TextBundle::from_section(
@@ -61,7 +61,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    ..default()
+                    ..Default::default()
                 },
             )
         );
@@ -75,7 +75,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_text_justify(JustifyText::Right)
             .with_style(Style {
                 max_width: Val::Px(300.),
-                ..default()
+                ..Default::default()
             })
         );
         builder.spawn(
@@ -84,12 +84,12 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 25.0,
-                    ..default()
+                    ..Default::default()
                 },
             )
             .with_style(Style {
                 max_width: Val::Px(300.),
-                ..default()
+                ..Default::default()
             })
         );
     }).id();
@@ -101,9 +101,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::End,
             flex_grow: 1.,
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     }).with_children(|builder| {
 
         builder.spawn(TextBundle::from_section(
@@ -117,7 +117,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_text_justify(JustifyText::Center)
             .with_style(Style {
                 max_width: Val::Px(400.),
-                ..default()
+                ..Default::default()
             })
         );
 
@@ -133,7 +133,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_text_justify(JustifyText::Left)
             .with_style(Style {
                 max_width: Val::Px(300.),
-                ..default()
+                ..Default::default()
             }),
         );
 
@@ -149,7 +149,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_text_justify(JustifyText::Justified)
             .with_style(Style {
                 max_width: Val::Px(300.),
-                ..default()
+                ..Default::default()
             }),
         );
 
@@ -160,7 +160,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 21.0,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
                 TextSection::new(
@@ -168,7 +168,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextStyle {
                         font: font.clone(),
                         font_size: 21.0,
-                        ..default()
+                        ..Default::default()
                     },
                 ),
                 TextSection::new(

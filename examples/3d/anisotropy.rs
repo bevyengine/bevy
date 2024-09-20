@@ -50,9 +50,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Anisotropy Example".into(),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, create_material_variants)
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     commands.spawn(Camera3dBundle {
         transform: Transform::from_translation(CAMERA_INITIAL_POSITION)
             .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     spawn_directional_light(&mut commands);
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     commands.spawn(SceneBundle {
         scene: asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
         transform: Transform::from_xyz(0.0, 0.07, -0.13),
-        ..default()
+        ..Default::default()
     });
 
     spawn_text(&mut commands, &app_status);
@@ -86,13 +86,13 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn(
         TextBundle {
             text: app_status.create_help_text(),
-            ..default()
+            ..Default::default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
@@ -240,13 +240,13 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..default()
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2500.0,
-            ..default()
+            ..Default::default()
         });
 }
 
@@ -256,9 +256,9 @@ fn spawn_directional_light(commands: &mut Commands) {
         directional_light: DirectionalLight {
             color: WHITE.into(),
             illuminance: 3000.0,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -268,9 +268,9 @@ fn spawn_point_light(commands: &mut Commands) {
         point_light: PointLight {
             color: WHITE.into(),
             intensity: 200000.0,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 
@@ -302,7 +302,7 @@ impl AppStatus {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            light_mode: default(),
+            light_mode: Default::default(),
             anisotropy_enabled: true,
         }
     }

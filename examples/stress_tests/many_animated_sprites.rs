@@ -27,9 +27,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
         ))
         .insert_resource(WinitSettings {
@@ -91,9 +91,9 @@ fn setup(
                     },
                     sprite: Sprite {
                         custom_size: Some(tile_size),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 },
                 TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),

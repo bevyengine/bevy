@@ -36,7 +36,7 @@ fn setup(
     let size = Extent3d {
         width: 512,
         height: 512,
-        ..default()
+        ..Default::default()
     };
 
     // This is the texture that will be rendered to.
@@ -58,7 +58,7 @@ fn setup(
         base_color: Color::srgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
-        ..default()
+        ..Default::default()
     });
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
@@ -70,7 +70,7 @@ fn setup(
             mesh: cube_handle,
             material: cube_material_handle,
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..default()
+            ..Default::default()
         },
         FirstPassCube,
         first_pass_layer.clone(),
@@ -83,7 +83,7 @@ fn setup(
     commands.spawn((
         PointLightBundle {
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            ..default()
+            ..Default::default()
         },
         RenderLayers::layer(0).with(1),
     ));
@@ -93,11 +93,11 @@ fn setup(
             camera: Camera {
                 target: image_handle.clone().into(),
                 clear_color: Color::WHITE.into(),
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
                 .looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         first_pass_layer,
     ));
@@ -110,7 +110,7 @@ fn setup(
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-        ..default()
+        ..Default::default()
     });
 
     // Main pass cube, with material containing the rendered first pass texture.
@@ -120,7 +120,7 @@ fn setup(
             material: material_handle,
             transform: Transform::from_xyz(0.0, 0.0, 1.5)
                 .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
+            ..Default::default()
         },
         MainPassCube,
     ));
@@ -128,7 +128,7 @@ fn setup(
     // The main pass camera.
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

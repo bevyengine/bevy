@@ -44,14 +44,14 @@ fn setup(
             },
             extension: MyExtension { quantize_steps: 3 },
         }),
-        ..default()
+        ..Default::default()
     });
 
     // light
     commands.spawn((
         DirectionalLightBundle {
             transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         Rotate,
     ));
@@ -59,7 +59,7 @@ fn setup(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

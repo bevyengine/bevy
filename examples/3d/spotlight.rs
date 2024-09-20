@@ -22,7 +22,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 20.0,
-            ..default()
+            ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -44,7 +44,7 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
             material: materials.add(Color::WHITE),
-            ..default()
+            ..Default::default()
         },
         Movable,
     ));
@@ -68,7 +68,7 @@ fn setup(
                     mesh: cube_mesh.clone(),
                     material: blue.clone(),
                     transform: Transform::from_xyz(x, y, z),
-                    ..default()
+                    ..Default::default()
                 },
                 Movable,
             )
@@ -81,12 +81,12 @@ fn setup(
     let red_emissive = materials.add(StandardMaterial {
         base_color: RED.into(),
         emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: MAROON.into(),
         emissive: LinearRgba::new(0.369, 0.0, 0.0, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     for x in 0..4 {
@@ -104,22 +104,22 @@ fn setup(
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
                         mesh: sphere_mesh.clone(),
                         material: red_emissive.clone(),
-                        ..default()
+                        ..Default::default()
                     });
                     builder.spawn((
                         PbrBundle {
                             transform: Transform::from_translation(Vec3::Z * -0.1),
                             mesh: sphere_mesh_direction.clone(),
                             material: maroon_emissive.clone(),
-                            ..default()
+                            ..Default::default()
                         },
                         NotShadowCaster,
                     ));
@@ -131,10 +131,10 @@ fn setup(
     commands.spawn(Camera3dBundle {
         camera: Camera {
             hdr: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(
@@ -142,7 +142,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

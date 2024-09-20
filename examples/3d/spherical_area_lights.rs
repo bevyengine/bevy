@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 60.0,
-            ..default()
+            ..Default::default()
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -21,7 +21,7 @@ fn setup(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // plane
@@ -30,9 +30,9 @@ fn setup(
         material: materials.add(StandardMaterial {
             base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
-            ..default()
+            ..Default::default()
         }),
-        ..default()
+        ..Default::default()
     });
 
     const COUNT: usize = 6;
@@ -53,20 +53,20 @@ fn setup(
                 material: materials.add(StandardMaterial {
                     base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
-                    ..default()
+                    ..Default::default()
                 }),
                 transform: Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
-                ..default()
+                ..Default::default()
             })
             .with_children(|children| {
                 children.spawn(PointLightBundle {
                     point_light: PointLight {
                         radius,
                         color: Color::srgb(0.2, 0.2, 1.0),
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
             });
     }

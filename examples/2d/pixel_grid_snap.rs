@@ -56,7 +56,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: asset_server.load("pixel/bevy_pixel_dark.png"),
             transform: Transform::from_xyz(-40., 20., 2.),
-            ..default()
+            ..Default::default()
         },
         Rotate,
         PIXEL_PERFECT_LAYERS,
@@ -67,7 +67,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             texture: asset_server.load("pixel/bevy_pixel_light.png"),
             transform: Transform::from_xyz(-40., -20., 2.),
-            ..default()
+            ..Default::default()
         },
         Rotate,
         HIGH_RES_LAYERS,
@@ -85,7 +85,7 @@ fn setup_mesh(
             mesh: meshes.add(Capsule2d::default()).into(),
             transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
             material: materials.add(Color::BLACK),
-            ..default()
+            ..Default::default()
         },
         Rotate,
         PIXEL_PERFECT_LAYERS,
@@ -96,7 +96,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
         width: RES_WIDTH,
         height: RES_HEIGHT,
-        ..default()
+        ..Default::default()
     };
 
     // this Image serves as a canvas representing the low-resolution game screen
@@ -113,7 +113,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         },
-        ..default()
+        ..Default::default()
     };
 
     // fill image.data with zeroes
@@ -128,10 +128,10 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 // render before the "main pass" camera
                 order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
-                ..default()
+                ..Default::default()
             },
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
@@ -141,7 +141,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         SpriteBundle {
             texture: image_handle,
-            ..default()
+            ..Default::default()
         },
         Canvas,
         HIGH_RES_LAYERS,
@@ -152,7 +152,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         Camera2dBundle {
             msaa: Msaa::Off,
-            ..default()
+            ..Default::default()
         },
         OuterCamera,
         HIGH_RES_LAYERS,

@@ -48,9 +48,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..Default::default()
                 }),
-                ..default()
+                ..Default::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -178,7 +178,7 @@ fn setup(
                     transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                    ..default()
+                    ..Default::default()
                 });
             });
         }
@@ -198,14 +198,14 @@ fn setup(
     commands.spawn(Camera3dBundle {
         transform: Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     // Plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
         material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        ..Default::default()
     });
 
     // Light
@@ -213,15 +213,15 @@ fn setup(
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     println!("Animation controls:");

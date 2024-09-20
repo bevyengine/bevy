@@ -19,9 +19,9 @@ fn main() {
                 title: "Many Debug Lines".to_string(),
                 present_mode: PresentMode::AutoNoVsync,
                 resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
+                ..Default::default()
             }),
-            ..default()
+            ..Default::default()
         }),
         FrameTimeDiagnosticsPlugin,
     ))
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }

@@ -9,7 +9,6 @@ use bevy_ecs::{event::EventReader, system::Resource};
 use bevy_tasks::Task;
 use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
-    default,
     tracing::{debug, error},
     HashMap, HashSet,
 };
@@ -435,7 +434,7 @@ impl LayoutCache {
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
-                        ..default()
+                        ..Default::default()
                     },
                 ))
             })
@@ -488,10 +487,10 @@ impl PipelineCache {
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,
-            layout_cache: default(),
-            waiting_pipelines: default(),
-            new_pipelines: default(),
-            pipelines: default(),
+            layout_cache: Default::default(),
+            waiting_pipelines: Default::default(),
+            new_pipelines: Default::default(),
+            pipelines: Default::default(),
             synchronous_pipeline_compilation,
         }
     }

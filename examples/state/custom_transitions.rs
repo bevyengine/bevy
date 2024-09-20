@@ -225,7 +225,7 @@ fn setup(mut commands: Commands) {
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..default()
+        ..Default::default()
     });
     info!("Setup game");
 }
@@ -253,9 +253,9 @@ fn setup_menu(mut commands: Commands) {
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         })
         .with_children(|parent| {
             parent
@@ -267,10 +267,10 @@ fn setup_menu(mut commands: Commands) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..Default::default()
                     },
                     background_color: NORMAL_BUTTON.into(),
-                    ..default()
+                    ..Default::default()
                 })
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
@@ -278,7 +278,7 @@ fn setup_menu(mut commands: Commands) {
                         TextStyle {
                             font_size: 33.0,
                             color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
+                            ..Default::default()
                         },
                     ));
                 });

@@ -35,7 +35,7 @@ fn setup(
     let white_handle = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
-        ..default()
+        ..Default::default()
     });
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
@@ -44,7 +44,7 @@ fn setup(
         mesh: sphere_handle.clone(),
         material: materials.add(Color::from(RED)),
         transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
-        ..default()
+        ..Default::default()
     });
 
     // sphere - initially not a caster
@@ -53,7 +53,7 @@ fn setup(
             mesh: sphere_handle,
             material: materials.add(Color::from(BLUE)),
             transform: Transform::from_xyz(1.0, spawn_height, 0.0),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
     ));
@@ -64,7 +64,7 @@ fn setup(
             mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
             material: materials.add(Color::from(LIME)),
             transform: Transform::from_xyz(0.0, 1.0, -10.0),
-            ..default()
+            ..Default::default()
         },
         NotShadowCaster,
         NotShadowReceiver,
@@ -74,7 +74,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
         material: white_handle,
-        ..default()
+        ..Default::default()
     });
 
     println!("Using DirectionalLight");
@@ -86,16 +86,16 @@ fn setup(
             range: spawn_plane_depth,
             color: Color::WHITE,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
@@ -106,17 +106,17 @@ fn setup(
         cascade_shadow_config: CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,
             maximum_distance: 25.0,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-5.0, 5.0, 5.0)
             .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-        ..default()
+        ..Default::default()
     });
 }
 

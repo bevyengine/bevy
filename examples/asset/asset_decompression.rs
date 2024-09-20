@@ -109,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Compressed::<Image> {
             compressed: asset_server.load("data/compressed_image.png.gz"),
-            ..default()
+            ..Default::default()
         },
         Sprite::default(),
         TransformBundle::default(),

@@ -319,15 +319,15 @@ fn setup(
                 .looking_at(Vec3::default(), Vec3::Y),
             camera: Camera {
                 clear_color: Color::WHITE.into(),
-                ..default()
+                ..Default::default()
             },
-            ..default()
+            ..Default::default()
         },
         // Add the setting to the camera.
         // This component is also used to determine on which camera to run the post processing effect.
         PostProcessSettings {
             intensity: 0.02,
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -337,7 +337,7 @@ fn setup(
             mesh: meshes.add(Cuboid::default()),
             material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
             transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
+            ..Default::default()
         },
         Rotates,
     ));
@@ -345,9 +345,9 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 1_000.,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     });
 }
 

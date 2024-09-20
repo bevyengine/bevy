@@ -256,12 +256,12 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
         material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
+        ..Default::default()
     });
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
+        ..Default::default()
     });
 
     // Cubes
@@ -270,7 +270,7 @@ fn setup(
             mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
             material: cube_material.clone(),
             transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
+            ..Default::default()
         });
     }
 
@@ -278,7 +278,7 @@ fn setup(
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
+        ..Default::default()
     });
 
     // Light
@@ -286,7 +286,7 @@ fn setup(
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..Default::default()
         },
         transform: Transform::from_rotation(Quat::from_euler(
             EulerRot::ZYX,
@@ -297,10 +297,10 @@ fn setup(
         cascade_shadow_config: CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..Default::default()
         }
         .into(),
-        ..default()
+        ..Default::default()
     });
 
     // Camera
@@ -308,21 +308,21 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 hdr: true,
-                ..default()
+                ..Default::default()
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
+            ..Default::default()
         },
         ContrastAdaptiveSharpening {
             enabled: false,
-            ..default()
+            ..Default::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..Default::default()
         },
         DistanceFog {
             color: Color::srgba_u8(43, 44, 47, 255),
@@ -330,7 +330,7 @@ fn setup(
                 start: 1.0,
                 end: 4.0,
             },
-            ..default()
+            ..Default::default()
         },
     ));
 
@@ -340,7 +340,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..Default::default()
         }),
     );
 }
