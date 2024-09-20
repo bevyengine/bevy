@@ -1,4 +1,4 @@
-use bevy_input::gamepad::{GamepadAxisType, GamepadButtonType, GamepadId};
+use bevy_input::gamepad::{GamepadAxis, GamepadButtonType, GamepadId};
 
 //  TODO: bevy_input directly depends on Gilrs::GamepadId's. This could cause conflicts with other plugins.
 //  Instead, bevy_input should provide a unique GamepadId and bevy_gilrs keep a mapping between them
@@ -31,14 +31,14 @@ pub fn convert_button(button: gilrs::Button) -> Option<GamepadButtonType> {
     }
 }
 
-pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxisType> {
+pub fn convert_axis(axis: gilrs::Axis) -> Option<GamepadAxis> {
     match axis {
-        gilrs::Axis::LeftStickX => Some(GamepadAxisType::LeftStickX),
-        gilrs::Axis::LeftStickY => Some(GamepadAxisType::LeftStickY),
-        gilrs::Axis::LeftZ => Some(GamepadAxisType::LeftZ),
-        gilrs::Axis::RightStickX => Some(GamepadAxisType::RightStickX),
-        gilrs::Axis::RightStickY => Some(GamepadAxisType::RightStickY),
-        gilrs::Axis::RightZ => Some(GamepadAxisType::RightZ),
+        gilrs::Axis::LeftStickX => Some(GamepadAxis::LeftStickX),
+        gilrs::Axis::LeftStickY => Some(GamepadAxis::LeftStickY),
+        gilrs::Axis::LeftZ => Some(GamepadAxis::LeftZ),
+        gilrs::Axis::RightStickX => Some(GamepadAxis::RightStickX),
+        gilrs::Axis::RightStickY => Some(GamepadAxis::RightStickY),
+        gilrs::Axis::RightZ => Some(GamepadAxis::RightZ),
         // The `axis_dpad_to_button` gilrs filter should filter out all DPadX and DPadY events. If
         // it doesn't then we probably need an entry added to the following repo and an update to
         // GilRs to use the updated database: https://github.com/gabomdq/SDL_GameControllerDB

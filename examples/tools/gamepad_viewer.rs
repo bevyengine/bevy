@@ -28,14 +28,14 @@ const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 struct ReactTo(GamepadButtonType);
 #[derive(Component)]
 struct MoveWithAxes {
-    x_axis: GamepadAxisType,
-    y_axis: GamepadAxisType,
+    x_axis: GamepadAxis,
+    y_axis: GamepadAxis,
     scale: f32,
 }
 #[derive(Component)]
 struct TextWithAxes {
-    x_axis: GamepadAxisType,
-    y_axis: GamepadAxisType,
+    x_axis: GamepadAxis,
+    y_axis: GamepadAxis,
 }
 #[derive(Component, Deref)]
 struct TextWithButtonValue(GamepadButtonType);
@@ -360,15 +360,15 @@ fn setup_sticks(
     spawn_stick(
         -STICKS_X,
         STICKS_Y,
-        GamepadAxisType::LeftStickX,
-        GamepadAxisType::LeftStickY,
+        GamepadAxis::LeftStickX,
+        GamepadAxis::LeftStickY,
         GamepadButtonType::LeftThumb,
     );
     spawn_stick(
         STICKS_X,
         STICKS_Y,
-        GamepadAxisType::RightStickX,
-        GamepadAxisType::RightStickY,
+        GamepadAxis::RightStickX,
+        GamepadAxis::RightStickY,
         GamepadButtonType::RightThumb,
     );
 }

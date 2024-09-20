@@ -28,7 +28,7 @@ fn gamepad_system(gamepads: Query<&Gamepad>) {
             );
         }
 
-        let left_stick_x = gamepad.get(GamepadAxisType::LeftStickX).unwrap();
+        let left_stick_x = gamepad.get(GamepadAxis::LeftStickX).unwrap();
         if left_stick_x.abs() > 0.01 {
             info!("{:?} LeftStickX value is {}", gamepad.id(), left_stick_x);
         }

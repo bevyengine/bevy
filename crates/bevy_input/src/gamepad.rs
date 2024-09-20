@@ -103,14 +103,14 @@ pub struct RawGamepadAxisChangedEvent {
     /// The gamepad on which the axis is triggered.
     pub gamepad: GamepadId,
     /// The type of the triggered axis.
-    pub axis: GamepadAxisType,
+    pub axis: GamepadAxis,
     /// The value of the axis.
     pub value: f32,
 }
 
 impl RawGamepadAxisChangedEvent {
     /// Creates a [`RawGamepadAxisChangedEvent`].
-    pub fn new(gamepad: GamepadId, axis_type: GamepadAxisType, value: f32) -> Self {
+    pub fn new(gamepad: GamepadId, axis_type: GamepadAxis, value: f32) -> Self {
         Self {
             gamepad,
             axis: axis_type,
@@ -245,7 +245,7 @@ pub struct GamepadAxisChangedEvent {
     /// The gamepad id of this gamepad.
     pub gamepad: GamepadId,
     /// The gamepad axis assigned to the event.
-    pub axis: GamepadAxisType,
+    pub axis: GamepadAxis,
     /// The value of this axis.
     pub value: f32,
 }
@@ -255,7 +255,7 @@ impl GamepadAxisChangedEvent {
     pub fn new(
         entity: Entity,
         gamepad_id: impl AsRef<GamepadId>,
-        axis: GamepadAxisType,
+        axis: GamepadAxis,
         value: f32,
     ) -> Self {
         Self {
@@ -369,7 +369,7 @@ impl Display for GamepadId {
 /// # Examples
 ///
 /// ```
-/// # use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
+/// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButtonType};
 /// # use bevy_ecs::system::Query;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
@@ -380,7 +380,7 @@ impl Display for GamepadId {
 ///             println!("{} just pressed North", gamepad.id())
 ///         }
 ///
-///         if let Some(left_stick_x) = gamepad.get(GamepadAxisType::LeftStickX)  {
+///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
 ///             println!("left stick X: {}", left_stick_x)
 ///         }
 ///     }
@@ -397,7 +397,7 @@ impl Display for GamepadId {
 pub struct Gamepad {
     id: GamepadId,
     info: GamepadInfo,
-    axis: Axis<GamepadAxisType>,
+    axis: Axis<GamepadAxis>,
     /// [`ButtonInput`] of [`GamepadButtonType`] representing their digital state
     pub(crate) digital: ButtonInput<GamepadButtonType>,
     /// [`Axis`] of [`GamepadButtonType`] representing their analog state.
@@ -444,33 +444,33 @@ impl Gamepad {
         self.info.name.as_str()
     }
 
-    /// Returns the position data of the provided [`GamepadAxisType`].
+    /// Returns the position data of the provided [`GamepadAxis`].
     ///
     /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
-    pub fn get(&self, axis_type: GamepadAxisType) -> Option<f32> {
+    pub fn get(&self, axis_type: GamepadAxis) -> Option<f32> {
         self.axis.get(axis_type)
     }
 
-    /// Returns the unclamped position data of the provided [`GamepadAxisType`].
+    /// Returns the unclamped position data of the provided [`GamepadAxis`].
     ///
     /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
-    pub fn get_unclamped(&self, axis_type: GamepadAxisType) -> Option<f32> {
+    pub fn get_unclamped(&self, axis_type: GamepadAxis) -> Option<f32> {
         self.axis.get_unclamped(axis_type)
     }
 
     /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadAxisType::LeftStickX).unwrap_or(0.0),
-            y: self.get(GamepadAxisType::LeftStickY).unwrap_or(0.0),
+            x: self.get(GamepadAxis::LeftStickX).unwrap_or(0.0),
+            y: self.get(GamepadAxis::LeftStickY).unwrap_or(0.0),
         }
     }
 
     /// Returns the right stick as a [`Vec2`]
     pub fn right_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadAxisType::RightStickX).unwrap_or(0.0),
-            y: self.get(GamepadAxisType::RightStickY).unwrap_or(0.0),
+            x: self.get(GamepadAxis::RightStickX).unwrap_or(0.0),
+            y: self.get(GamepadAxis::RightStickY).unwrap_or(0.0),
         }
     }
 
@@ -675,7 +675,7 @@ pub enum GamepadButtonType {
     Other(u8),
 }
 
-/// A type of gamepad axis.
+/// Represents gamepad input types that are mapped in the range [-1.0, 1.0]
 ///
 /// ## Usage
 ///
@@ -688,7 +688,7 @@ pub enum GamepadButtonType {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub enum GamepadAxisType {
+pub enum GamepadAxis {
     /// The horizontal value of the left stick.
     LeftStickX,
     /// The vertical value of the left stick.
@@ -712,7 +712,7 @@ pub enum GamepadAxisType {
 /// ## Usage
 ///
 /// It is used to create a `bevy` component that stores the settings of [`GamepadButtonType`] in [`GamepadButtons`]
-/// and [`GamepadAxisType`] in [`GamepadAxes`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
+/// and [`GamepadAxis`] in [`GamepadAxes`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
 /// are defined, the default settings of each are used as a fallback accordingly.
 ///
 /// ## Note
@@ -732,7 +732,7 @@ pub struct GamepadSettings {
     /// The user defined button settings.
     pub button_settings: HashMap<GamepadButtonType, ButtonSettings>,
     /// The user defined axis settings.
-    pub axis_settings: HashMap<GamepadAxisType, AxisSettings>,
+    pub axis_settings: HashMap<GamepadAxis, AxisSettings>,
     /// The user defined button axis settings.
     pub button_axis_settings: HashMap<GamepadButtonType, ButtonAxisSettings>,
 }
@@ -763,12 +763,12 @@ impl GamepadSettings {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_input::gamepad::{GamepadSettings, GamepadAxisType};
+    /// # use bevy_input::gamepad::{GamepadSettings, GamepadAxis};
     /// #
     /// # let settings = GamepadSettings::default();
-    /// let axis_settings = settings.get_axis_settings(GamepadAxisType::LeftStickX);
+    /// let axis_settings = settings.get_axis_settings(GamepadAxis::LeftStickX);
     /// ```
-    pub fn get_axis_settings(&self, axis: GamepadAxisType) -> &AxisSettings {
+    pub fn get_axis_settings(&self, axis: GamepadAxis) -> &AxisSettings {
         self.axis_settings
             .get(&axis)
             .unwrap_or(&self.default_axis_settings)
@@ -949,7 +949,7 @@ impl ButtonSettings {
     }
 }
 
-/// Settings for a [`GamepadAxisType`].
+/// Settings for a [`GamepadAxis`].
 ///
 /// It is used inside the [`GamepadSettings`] to define the sensitivity range and
 /// threshold for an axis.
@@ -1550,14 +1550,14 @@ pub const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
     GamepadButtonType::DPadRight,
 ];
 
-/// An array of every [`GamepadAxisType`] variant.
-pub const ALL_AXIS_TYPES: [GamepadAxisType; 6] = [
-    GamepadAxisType::LeftStickX,
-    GamepadAxisType::LeftStickY,
-    GamepadAxisType::LeftZ,
-    GamepadAxisType::RightStickX,
-    GamepadAxisType::RightStickY,
-    GamepadAxisType::RightZ,
+/// An array of every [`GamepadAxis`] variant.
+pub const ALL_AXIS_TYPES: [GamepadAxis; 6] = [
+    GamepadAxis::LeftStickX,
+    GamepadAxis::LeftStickY,
+    GamepadAxis::LeftZ,
+    GamepadAxis::RightStickX,
+    GamepadAxis::RightStickY,
+    GamepadAxis::RightZ,
 ];
 
 /// The intensity at which a gamepad's force-feedback motors may rumble.
