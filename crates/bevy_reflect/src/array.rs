@@ -363,7 +363,7 @@ pub struct ArrayIter<'a> {
 impl<'a> ArrayIter<'a> {
     /// Creates a new [`ArrayIter`].
     #[inline]
-    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+    pub const fn new(array: &'a dyn Array) -> ArrayIter<'a> {
         ArrayIter { array, index: 0 }
     }
 }

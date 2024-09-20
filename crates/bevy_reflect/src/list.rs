@@ -381,10 +381,10 @@ pub struct ListIter<'a> {
     index: usize,
 }
 
-impl<'a> ListIter<'a> {
+impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &'a dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter {
         ListIter { list, index: 0 }
     }
 }
@@ -406,7 +406,7 @@ impl<'a> Iterator for ListIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ListIter<'a> {}
+impl ExactSizeIterator for ListIter<'_> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
