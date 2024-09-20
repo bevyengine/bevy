@@ -1,7 +1,7 @@
 //! Shows how to modify mesh assets after spawning.
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*};
-use bevy_render::mesh::VertexAttributeValues;
+use bevy::{gltf::GltfLoaderSettings, input::common_conditions::input_just_pressed, prelude::*};
+use bevy_render::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
 
 fn main() {
     App::new()
@@ -51,7 +51,9 @@ fn setup(
     let left_shape = Shape::Cube;
     let right_shape = Shape::Cube;
 
-    let left_shape_model = asset_server.load(
+    // In normal use, you can call `asset_server.load`, however see below for an explanation of
+    // `RenderAssetUsages`.
+    let left_shape_model = asset_server.load_with_settings(
         GltfAssetLabel::Primitive {
             mesh: 0,
             // This field stores an index to this primitive in its parent mesh. In this case, we
@@ -63,7 +65,17 @@ fn setup(
             primitive: 0,
         }
         .from_asset(left_shape.get_model_path()),
+        // This is the default loader setting, ensuring both `RENDER_WORLD` and `MAIN_WORLD` are
+        // enabled. It's provided explicitly here only by way of demonstration.
+        //
+        // A common mistake is to use `RENDER_WORLD` by itself, which can cause a confusing lack of
+        // assets available in `Res<Assets<Mesh>>`. `RENDER_WORLD` alone will cause the asset to be
+        // unloaded from the asset server after it's been sent to the GPU. Unless you have a clear
+        // reason not to do so, it's best to use `RenderAssetUsages::all().
+        |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
     );
+
+    // Here, we rely on the default loader settings to achieve a similar result to the above.
     let right_shape_model = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
