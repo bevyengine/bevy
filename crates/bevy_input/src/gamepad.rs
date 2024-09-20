@@ -397,11 +397,10 @@ impl Display for GamepadId {
 pub struct Gamepad {
     id: GamepadId,
     info: GamepadInfo,
-    axis: Axis<GamepadAxis>,
     /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
     pub(crate) digital: ButtonInput<GamepadButton>,
     /// [`Axis`] of [`GamepadButton`] representing their analog state.
-    pub(crate) analog: Axis<GamepadButton>,
+    pub(crate) analog: Axis<GamepadInput>,
 }
 
 impl AsRef<GamepadId> for Gamepad {
@@ -413,18 +412,16 @@ impl AsRef<GamepadId> for Gamepad {
 impl Gamepad {
     /// Delete this after entity as id
     pub fn new(id: GamepadId, info: GamepadInfo) -> Self {
-        let mut axis = Axis::default();
-        for axis_type in &ALL_AXIS_TYPES {
-            axis.set(*axis_type, 0.0);
-        }
         let mut analog = Axis::default();
-        for button in &ALL_BUTTON_TYPES {
-            analog.set(*button, 0.0);
+        for button in ALL_BUTTON_TYPES.iter().copied() {
+            analog.set(button.into(), 0.0);
+        }
+        for axis_type in ALL_AXIS_TYPES.iter().copied() {
+            analog.set(axis_type.into(), 0.0);
         }
         Self {
             id,
             info,
-            axis,
             analog,
             digital: ButtonInput::default(),
         }
@@ -447,15 +444,15 @@ impl Gamepad {
     /// Returns the position data of the provided [`GamepadAxis`].
     ///
     /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
-    pub fn get(&self, axis_type: GamepadAxis) -> Option<f32> {
-        self.axis.get(axis_type)
+    pub fn get(&self, input: impl Into<GamepadInput>) -> Option<f32> {
+        self.analog.get(input.into())
     }
 
     /// Returns the unclamped position data of the provided [`GamepadAxis`].
     ///
     /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
-    pub fn get_unclamped(&self, axis_type: GamepadAxis) -> Option<f32> {
-        self.axis.get_unclamped(axis_type)
+    pub fn get_unclamped(&self, input: impl Into<GamepadInput>) -> Option<f32> {
+        self.analog.get_unclamped(input.into())
     }
 
     /// Returns the left stick as a [`Vec2`]
@@ -472,24 +469,6 @@ impl Gamepad {
             x: self.get(GamepadAxis::RightStickX).unwrap_or(0.0),
             y: self.get(GamepadAxis::RightStickY).unwrap_or(0.0),
         }
-    }
-
-    /// Returns the position data of the provided [`GamepadButton`].
-    ///
-    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
-    pub fn button_get(&self, button_type: GamepadButton) -> Option<f32> {
-        self.analog.get(button_type)
-    }
-
-    /// Returns the unclamped position data of the provided [`GamepadButton`].
-    ///
-    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
-    ///
-    /// Use for things like camera zoom, where you want devices like mouse wheels to be able to
-    /// exceed the normal range. If being able to move faster on one input device
-    /// than another would give an unfair advantage, you should likely use [`Axis::get`] instead.
-    pub fn button_get_unclamped(&self, button_type: GamepadButton) -> Option<f32> {
-        self.analog.get_unclamped(button_type)
     }
 
     /// Returns `true` if the [`GamepadButton`] has been pressed.
@@ -707,6 +686,24 @@ pub enum GamepadAxis {
     Other(u8),
 }
 
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+pub enum GamepadInput {
+    Axis(GamepadAxis),
+    Button(GamepadButton),
+}
+
+impl From<GamepadAxis> for GamepadInput {
+    fn from(value: GamepadAxis) -> Self {
+        GamepadInput::Axis(value)
+    }
+}
+
+impl From<GamepadButton> for GamepadInput {
+    fn from(value: GamepadButton) -> Self {
+        GamepadInput::Button(value)
+    }
+}
+
 /// Gamepad settings component.
 ///
 /// ## Usage
@@ -795,7 +792,7 @@ impl GamepadSettings {
 
 /// Manages settings for gamepad buttons.
 ///
-/// It is used inside of [`GamepadSettings`] to define the threshold for a gamepad button
+/// It is used inside [`GamepadSettings`] to define the threshold for a gamepad button
 /// to be considered pressed or released. A button is considered pressed if the `press_threshold`
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
@@ -1445,7 +1442,7 @@ pub fn gamepad_axis_event_system(
             continue;
         };
 
-        gamepad_axis.axis.set(axis_event.axis, filtered_value);
+        gamepad_axis.analog.set(axis_event.axis.into(), filtered_value);
         filtered_events.send(GamepadAxisChangedEvent::new(
             entity,
             axis_event.gamepad,
@@ -1478,12 +1475,12 @@ pub fn gamepad_button_event_system(
         };
         let Some(filtered_value) = settings
             .get_button_axis_settings(button)
-            .filter(event.value, gamepad.button_get(button))
+            .filter(event.value, gamepad.get(button))
         else {
             continue;
         };
         let button_settings = settings.get_button_settings(button);
-        gamepad.analog.set(button, filtered_value);
+        gamepad.analog.set(button.into(), filtered_value);
 
         if button_settings.is_released(filtered_value) {
             // Check if button was previously pressed

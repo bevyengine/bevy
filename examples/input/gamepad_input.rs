@@ -18,7 +18,7 @@ fn gamepad_system(gamepads: Query<&Gamepad>) {
         }
 
         let right_trigger = gamepad
-            .button_get(GamepadButton::RightTrigger2)
+            .get(GamepadButton::RightTrigger2)
             .unwrap();
         if right_trigger.abs() > 0.01 {
             info!(
