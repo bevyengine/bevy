@@ -419,7 +419,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Check for Bevy internal imports
+      - name: Check for internal Bevy imports
         shell: bash
         run: |
           errors=""
