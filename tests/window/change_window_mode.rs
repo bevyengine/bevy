@@ -39,11 +39,11 @@ fn toggle_window_mode
     window.mode = match window.mode {
         WindowMode::Windowed => {
             //it takes a while for the window to change from windowed to sizedfullscreen and back
-            std::thread::sleep(core::time::Duration::from_secs(4));
+            std::thread::sleep(std::time::Duration::from_secs(4));
             WindowMode::SizedFullscreen
         },
         _  => {
-            std::thread::sleep(core::time::Duration::from_secs(4));
+            std::thread::sleep(std::time::Duration::from_secs(4));
             WindowMode::Windowed
         },
     };
