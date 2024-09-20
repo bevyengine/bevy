@@ -1421,18 +1421,25 @@ pub enum GamepadConnection {
 }
 
 /// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChangedEvent`] [`event`](Event).
-pub fn gamepad_axis_event_system(
-    // TODO: Change settings to Option<T>?
-    mut gamepads_axis: Query<(&mut Gamepad, &GamepadSettings)>,
+pub fn gamepad_event_processing_system(
+    mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
     gamepads_map: Res<Gamepads>,
-    mut raw_events: EventReader<RawGamepadAxisChangedEvent>,
+    mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
+    mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
+    mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
+    mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
 ) {
-    for axis_event in raw_events.read() {
+    // Clear digital buttons state
+    for (mut gamepad, _) in gamepads.iter_mut() {
+        gamepad.bypass_change_detection().digital.clear();
+    }
+
+    for axis_event in raw_axis_events.read() {
         let Some(entity) = gamepads_map.get_entity(axis_event.gamepad) else {
             continue;
         };
-        let Ok((mut gamepad_axis, gamepad_settings)) = gamepads_axis.get_mut(entity) else {
+        let Ok((mut gamepad_axis, gamepad_settings)) = gamepads.get_mut(entity) else {
             continue;
         };
         let Some(filtered_value) = gamepad_settings
@@ -1450,22 +1457,8 @@ pub fn gamepad_axis_event_system(
             filtered_value,
         ));
     }
-}
 
-/// Consumes [`RawGamepadButtonChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadButtons`] and sends a [`GamepadButtonStateChangedEvent`] [`event`](Event).
-pub fn gamepad_button_event_system(
-    // TODO: Change settings to Option<T>?
-    mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
-    gamepads_map: Res<Gamepads>,
-    mut raw_events: EventReader<RawGamepadButtonChangedEvent>,
-    mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
-    mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
-) {
-    // Clear digital buttons state
-    for (mut gamepad, _) in gamepads.iter_mut() {
-        gamepad.bypass_change_detection().digital.clear();
-    }
-    for event in raw_events.read() {
+    for event in raw_button_events.read() {
         let button = event.button;
         let Some(entity) = gamepads_map.get_entity(event.gamepad) else {
             continue;

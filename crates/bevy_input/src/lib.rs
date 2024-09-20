@@ -54,7 +54,7 @@ use mouse::{
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
+    gamepad_event_processing_system, gamepad_connection_system,
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
     GamepadConnection, GamepadConnectionEvent, GamepadId, GamepadInfo, GamepadRumbleRequest,
     GamepadSettings, Gamepads, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
@@ -114,8 +114,7 @@ impl Plugin for InputPlugin {
                 PreUpdate,
                 (
                     gamepad_connection_system,
-                    gamepad_button_event_system.after(gamepad_connection_system),
-                    gamepad_axis_event_system.after(gamepad_connection_system),
+                    gamepad_event_processing_system.after(gamepad_connection_system),
                 )
                     .in_set(InputSystem),
             )
