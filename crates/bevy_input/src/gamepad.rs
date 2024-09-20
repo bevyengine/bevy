@@ -474,8 +474,10 @@ impl Gamepad {
     /// Returns the directional pad as a [`Vec2`]
     pub fn dpad(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadButton::DPadRight).unwrap_or(0.0) - self.get(GamepadButton::DPadLeft).unwrap_or(0.0),
-            y: self.get(GamepadButton::DPadUp).unwrap_or(0.0) - self.get(GamepadButton::DPadDown).unwrap_or(0.0),
+            x: self.get(GamepadButton::DPadRight).unwrap_or(0.0)
+                - self.get(GamepadButton::DPadLeft).unwrap_or(0.0),
+            y: self.get(GamepadButton::DPadUp).unwrap_or(0.0)
+                - self.get(GamepadButton::DPadDown).unwrap_or(0.0),
         }
     }
 
@@ -485,14 +487,14 @@ impl Gamepad {
     }
 
     /// Returns `true` if any item in [`GamepadButton`] has been pressed.
-    pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item =GamepadButton>) -> bool {
+    pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         button_inputs
             .into_iter()
             .any(|button_type| self.pressed(button_type))
     }
 
     /// Returns `true` if all items in [`GamepadButton`] have been pressed.
-    pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item =GamepadButton>) -> bool {
+    pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         button_inputs
             .into_iter()
             .all(|button_type| self.pressed(button_type))
@@ -506,20 +508,14 @@ impl Gamepad {
     }
 
     /// Returns `true` if any item in [`GamepadButton`] has been pressed during the current frame.
-    pub fn any_just_pressed(
-        &self,
-        button_inputs: impl IntoIterator<Item =GamepadButton>,
-    ) -> bool {
+    pub fn any_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         button_inputs
             .into_iter()
             .any(|button_type| self.just_pressed(button_type))
     }
 
     /// Returns `true` if all items in [`GamepadButton`] have been just pressed.
-    pub fn all_just_pressed(
-        &self,
-        button_inputs: impl IntoIterator<Item =GamepadButton>,
-    ) -> bool {
+    pub fn all_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
         button_inputs
             .into_iter()
             .all(|button_type| self.just_pressed(button_type))
@@ -535,7 +531,7 @@ impl Gamepad {
     /// Returns `true` if any item in [`GamepadButton`] has just been released.
     pub fn any_just_released(
         &self,
-        button_inputs: impl IntoIterator<Item =GamepadButton>,
+        button_inputs: impl IntoIterator<Item = GamepadButton>,
     ) -> bool {
         button_inputs
             .into_iter()
@@ -545,7 +541,7 @@ impl Gamepad {
     /// Returns `true` if all items in [`GamepadButton`] have just been released.
     pub fn all_just_released(
         &self,
-        button_inputs: impl IntoIterator<Item =GamepadButton>,
+        button_inputs: impl IntoIterator<Item = GamepadButton>,
     ) -> bool {
         button_inputs
             .into_iter()
@@ -1457,7 +1453,9 @@ pub fn gamepad_event_processing_system(
             continue;
         };
 
-        gamepad_axis.analog.set(axis_event.axis.into(), filtered_value);
+        gamepad_axis
+            .analog
+            .set(axis_event.axis.into(), filtered_value);
         filtered_events.send(GamepadAxisChangedEvent::new(
             entity,
             axis_event.gamepad,
