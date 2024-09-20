@@ -389,9 +389,8 @@ pub fn ui_layout_system(
                 })
                 .unwrap_or_default();
 
-            let node_content_size = ui_surface.get_layout(entity).unwrap().content_size;
             let round_content_size = approx_round_layout_coords(
-                Vec2::new(node_content_size.width, node_content_size.height)
+                Vec2::new(layout.content_size.width, layout.content_size.height)
                     * inverse_target_scale_factor,
             );
             let max_possible_offset = (round_content_size - rounded_size).max(Vec2::ZERO);
