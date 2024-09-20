@@ -344,7 +344,7 @@ fn toggle_overlay(
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<(&mut ScrollPosition, &Style)>,
+    mut scrolled_node_query: Query<&mut ScrollPosition>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
@@ -360,13 +360,9 @@ pub fn update_scroll_position(
 
         for (_pointer, pointer_map) in hover_map.iter() {
             for (entity, _hit) in pointer_map.iter() {
-                if let Ok((mut scroll_position, style)) = scrolled_node_query.get_mut(*entity) {
-                    if style.overflow.x == OverflowAxis::Scroll {
-                        scroll_position.offset_x -= dx;
-                    }
-                    if style.overflow.y == OverflowAxis::Scroll {
-                        scroll_position.offset_y -= dy;
-                    }
+                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
+                    scroll_position.offset_x -= dx;
+                    scroll_position.offset_y -= dy;
                 }
             }
         }
