@@ -360,10 +360,10 @@ pub struct ArrayIter<'a> {
     index: usize,
 }
 
-impl<'a> ArrayIter<'a> {
+impl ArrayIter<'_> {
     /// Creates a new [`ArrayIter`].
     #[inline]
-    pub const fn new(array: &'a dyn Array) -> ArrayIter {
+    pub const fn new(array: &dyn Array) -> ArrayIter {
         ArrayIter { array, index: 0 }
     }
 }
