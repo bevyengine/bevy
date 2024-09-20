@@ -246,7 +246,7 @@ pub enum Chain {
 /// fn system_one() { println!("System 1 works!") }
 /// fn system_two() { println!("System 2 works!") }
 /// fn system_three() { println!("System 3 works!") }
-///    
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
@@ -1608,7 +1608,7 @@ impl ScheduleGraph {
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::ShortName(&name).to_string();
+            name = bevy_reflect::ShortName(&name).to_string();
         }
         name
     }

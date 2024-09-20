@@ -25,6 +25,7 @@ debug_stack = []
 documentation = ["bevy_reflect_derive/documentation"]
 # Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
+alloc = []
 
 [dependencies]
 # bevy

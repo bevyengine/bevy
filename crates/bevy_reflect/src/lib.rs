@@ -549,6 +549,8 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
+mod short_names;
+pub use short_names::ShortName;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -2366,7 +2368,7 @@ bevy_reflect::tests::Test {
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| bevy_utils::ShortName::of::<Self>().to_string())
+                CELL.get_or_insert::<Self, _>(|| ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {
