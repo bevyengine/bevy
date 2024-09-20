@@ -15,6 +15,9 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
+/// Create a list of root nodes from unparented entities and entities with a `GlobalZIndex` component.
+/// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
+/// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
     mut traversal_stack: Local<Vec<Entity>>,
     mut ui_stack: ResMut<UiStack>,
@@ -33,31 +36,27 @@ pub fn ui_stack_system(
     traversal_stack.clear();
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
-    let global_nodes = zindex_global_node_query
-        .iter()
-        .map(|(id, global_zindex, maybe_zindex)| {
-            (
-                id,
-                (
-                    global_zindex.0,
-                    maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
-                ),
-            )
-        });
+    let mut root_nodes = Vec::new();
 
-    let mut root_nodes: Vec<_> = root_node_query
-        .iter()
-        .map(|(root_id, maybe_global_zindex, maybe_zindex)| {
+    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+        root_nodes.push((
+            id,
             (
-                root_id,
-                (
-                    maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
-                    maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
-                ),
-            )
-        })
-        .chain(global_nodes)
-        .collect();
+                global_zindex.0,
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+    }
+
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter() {
+        root_nodes.push((
+            id,
+            (
+                maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+    }
 
     radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
     traversal_stack.extend(root_nodes.into_iter().map(|(id, _)| id).rev());
@@ -77,7 +76,7 @@ pub fn ui_stack_system(
                 .collect();
             radsort::sort_by_key(&mut z_children, |k| k.1);
 
-            // reverse because walking the tree depth first
+            // reverse order because we're walking the tree depth first
             for (child_id, _) in z_children.into_iter().rev() {
                 traversal_stack.push(child_id);
             }
