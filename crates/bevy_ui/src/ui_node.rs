@@ -1780,7 +1780,7 @@ impl Default for BorderColor {
 ///         let outline_color =
 ///             if matches!(*interaction, Interaction::Hovered) {
 ///                 Color::WHITE
-///             } else {``
+///             } else {
 ///                 Color::NONE
 ///             };
 ///         if let Some(mut outline) = maybe_outline {
