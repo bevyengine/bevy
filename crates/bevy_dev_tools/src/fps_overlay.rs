@@ -20,7 +20,7 @@ use bevy_ui::{
 };
 use bevy_utils::default;
 
-/// Global [`ZIndex`] used to render the fps overlay.
+/// [`GlobalZIndex`] used to render the fps overlay.
 ///
 /// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
 pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
