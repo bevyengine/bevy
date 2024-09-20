@@ -109,3 +109,72 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::{
+        prelude::Component,
+        system::{Query, SystemState},
+        world::World,
+    };
+    use bevy_hierarchy::{BuildChildren, ChildBuild};
+
+    use super::{GhostNode, UiChildren, UiRootNodes};
+    use crate::prelude::NodeBundle;
+
+    #[derive(Component, PartialEq, Debug)]
+    struct A(usize);
+
+    #[test]
+    fn iterate_ui_root_nodes() {
+        let world = &mut World::new();
+
+        // Normal root
+        world
+            .spawn((A(1), NodeBundle::default()))
+            .with_children(|parent| {
+                parent.spawn((A(2), NodeBundle::default()));
+                parent
+                    .spawn((A(3), GhostNode))
+                    .with_child((A(4), NodeBundle::default()));
+            });
+
+        // Ghost root
+        world.spawn((A(5), GhostNode)).with_children(|parent| {
+            parent.spawn((A(6), NodeBundle::default()));
+            parent
+                .spawn((A(7), GhostNode))
+                .with_child((A(8), NodeBundle::default()));
+        });
+
+        let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
+        let (ui_root_nodes, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query
+            .iter_many(ui_root_nodes.iter().map(|(entity, _)| entity))
+            .collect();
+
+        assert_eq!([&A(6), &A(8), &A(1)], result.as_slice());
+    }
+
+    #[test]
+    fn iterate_ui_children() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), NodeBundle::default())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n4 = world.spawn((A(4), NodeBundle::default())).id();
+        let n5 = world.spawn((A(5), NodeBundle::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3, n4]);
+        world.entity_mut(n2).add_children(&[n5]);
+
+        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
+        let (ui_children, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query.iter_many(ui_children.iter(n1)).collect();
+
+        assert_eq!([&A(5), &A(4)], result.as_slice());
+    }
+}
