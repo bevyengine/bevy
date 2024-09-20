@@ -5,8 +5,7 @@ use bevy::prelude::*;
 use crossbeam_channel::{bounded, Receiver};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::time::Duration;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 fn main() {
     App::new()

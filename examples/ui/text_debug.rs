@@ -1,7 +1,6 @@
 //! Shows various text layout options.
 
-use std::collections::VecDeque;
-use std::time::Duration;
+use std::{collections::VecDeque, time::Duration};
 
 use bevy::{
     color::palettes::css::*,

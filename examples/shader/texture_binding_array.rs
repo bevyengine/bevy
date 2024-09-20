@@ -16,8 +16,7 @@ use bevy::{
         RenderApp,
     },
 };
-use std::num::NonZero;
-use std::process::exit;
+use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";

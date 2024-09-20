@@ -3,8 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::io::Write;
-use std::{alloc::Layout, mem::size_of, ptr::NonNull};
+use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
 
 use bevy::{
     ecs::{

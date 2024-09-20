@@ -26,11 +26,13 @@ use bevy::{
     },
 };
 use crossbeam_channel::{Receiver, Sender};
-use std::path::PathBuf;
-use std::sync::Arc;
 use std::{
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
