@@ -471,6 +471,14 @@ impl Gamepad {
         }
     }
 
+    /// Returns the directional pad as a [`Vec2`]
+    pub fn dpad(&self) -> Vec2 {
+        Vec2 {
+            x: self.get(GamepadButton::DPadRight).unwrap_or(0.0) - self.get(GamepadButton::DPadLeft).unwrap_or(0.0),
+            y: self.get(GamepadButton::DPadUp).unwrap_or(0.0) - self.get(GamepadButton::DPadDown).unwrap_or(0.0),
+        }
+    }
+
     /// Returns `true` if the [`GamepadButton`] has been pressed.
     pub fn pressed(&self, button_type: GamepadButton) -> bool {
         self.digital.pressed(button_type)
