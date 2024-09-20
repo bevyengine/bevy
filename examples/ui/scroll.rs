@@ -21,6 +21,9 @@ fn main() {
     app.run();
 }
 
+const FONT_SIZE: f32 = 20.;
+const LINE_HEIGHT: f32 = 21.;
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
@@ -56,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             "Horizontally Scrolling list (Shift + Mousewheel)",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: LINE_HEIGHT,
+                                font_size: FONT_SIZE,
                                 ..default()
                             },
                         ),
@@ -143,7 +146,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Vertically Scrolling List",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: LINE_HEIGHT,
+                                        font_size: FONT_SIZE,
                                         ..default()
                                     },
                                 ),
@@ -168,7 +171,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         parent
                                             .spawn(NodeBundle {
                                                 style: Style {
-                                                    height: Val::Px(LINE_HEIGHT),
+                                                    min_height: Val::Px(LINE_HEIGHT),
                                                     max_height: Val::Px(LINE_HEIGHT),
                                                     ..default()
                                                 },
@@ -223,7 +226,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Bidirectionally Scrolling List",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: LINE_HEIGHT,
+                                        font_size: FONT_SIZE,
                                         ..default()
                                     },
                                 ),
@@ -302,7 +305,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     "Nested Scrolling Lists",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: LINE_HEIGHT,
+                                        font_size: FONT_SIZE,
                                         ..default()
                                     },
                                 ),
@@ -372,7 +375,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-const LINE_HEIGHT: f32 = 20.;
 /// Updates the scroll position of scrollable nodes in response to mouse input
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
