@@ -1,12 +1,19 @@
 //! Shows how to modify texture assets after spawning.
 
-use bevy::prelude::*;
+use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (setup, instructions))
-        .add_systems(Update, keyboard_controls)
+        .add_systems(Startup, (setup, spawn_text))
+        .add_systems(
+            Update,
+            alter_handle.run_if(input_just_pressed(KeyCode::Space)),
+        )
+        .add_systems(
+            Update,
+            alter_asset.run_if(input_just_pressed(KeyCode::Enter)),
+        )
         .run();
 }
 
@@ -64,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn instructions(mut commands: Commands) {
+fn spawn_text(mut commands: Commands) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -91,47 +98,42 @@ fn instructions(mut commands: Commands) {
         });
 }
 
-fn keyboard_controls(
+fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-    left_bird: Query<&Handle<Image>, With<Left>>,
     mut right_bird: Query<(&mut Bird, &mut Handle<Image>), Without<Left>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        // Image handles, like other parts of the ECS, can be queried as mutable and modified at
-        // runtime. We only spawned one bird without the `Left` marker component.
-        let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
-            return;
-        };
+    // Image handles, like other parts of the ECS, can be queried as mutable and modified at
+    // runtime. We only spawned one bird without the `Left` marker component.
+    let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
+        return;
+    };
 
-        // Switch to a new Bird variant
-        bird.set_next_variant();
+    // Switch to a new Bird variant
+    bird.set_next_variant();
 
-        // Modify the handle associated with the Bird on the right side. Note that we will only
-        // have to load the same path from storage media once: repeated attempts will re-use the
-        // asset.
-        *handle = asset_server.load(bird.get_texture_path());
-    }
+    // Modify the handle associated with the Bird on the right side. Note that we will only
+    // have to load the same path from storage media once: repeated attempts will re-use the
+    // asset.
+    *handle = asset_server.load(bird.get_texture_path());
+}
 
-    if keyboard_input.just_pressed(KeyCode::Enter) {
-        // It's convenient to retrieve the asset handle stored with the bird on the left. However,
-        // we could just as easily have retained this in a resource or a dedicated component.
-        let Ok(handle) = left_bird.get_single() else {
-            return;
-        };
+fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Handle<Image>, With<Left>>) {
+    // It's convenient to retrieve the asset handle stored with the bird on the left. However,
+    // we could just as easily have retained this in a resource or a dedicated component.
+    let Ok(handle) = left_bird.get_single() else {
+        return;
+    };
 
-        // Obtain a mutable reference to the Image asset.
-        let Some(image) = images.get_mut(handle) else {
-            return;
-        };
+    // Obtain a mutable reference to the Image asset.
+    let Some(image) = images.get_mut(handle) else {
+        return;
+    };
 
-        for pixel in &mut image.data {
-            // Directly modify the asset data, which will affect all users of this asset. By
-            // contrast, mutating the handle (as we did above) affects only one copy. In this case,
-            // we'll just invert the colors, by way of demonstration. Notice that both uses of the
-            // asset show the change, not just the one on the left.
-            *pixel = 255 - *pixel;
-        }
+    for pixel in &mut image.data {
+        // Directly modify the asset data, which will affect all users of this asset. By
+        // contrast, mutating the handle (as we did above) affects only one copy. In this case,
+        // we'll just invert the colors, by way of demonstration. Notice that both uses of the
+        // asset show the change, not just the one on the left.
+        *pixel = 255 - *pixel;
     }
 }

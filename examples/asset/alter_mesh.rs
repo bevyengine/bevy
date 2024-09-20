@@ -1,13 +1,20 @@
 //! Shows how to modify mesh assets after spawning.
 
-use bevy::prelude::*;
+use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 use bevy_render::mesh::VertexAttributeValues;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, (setup, instructions))
-        .add_systems(Update, keyboard_controls)
+        .add_systems(Startup, (setup, spawn_text))
+        .add_systems(
+            Update,
+            alter_handle.run_if(input_just_pressed(KeyCode::Space)),
+        )
+        .add_systems(
+            Update,
+            alter_mesh.run_if(input_just_pressed(KeyCode::Enter)),
+        )
         .run();
 }
 
@@ -47,6 +54,12 @@ fn setup(
     let left_shape_model = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
+            // This field stores an index to this primitive in its parent mesh. In this case, we
+            // want the first one. You might also have seen the syntax:
+            //
+            //     models/cube/cube.gltf#Scene0
+            //
+            // which accomplishes the same thing.
             primitive: 0,
         }
         .from_asset(left_shape.get_model_path()),
@@ -105,7 +118,7 @@ fn setup(
     ));
 }
 
-fn instructions(mut commands: Commands) {
+fn spawn_text(mut commands: Commands) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -132,69 +145,72 @@ fn instructions(mut commands: Commands) {
         });
 }
 
-#[derive(Default)]
-struct IsMeshScaled(bool);
-
-fn keyboard_controls(
+fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut is_mesh_scaled: Local<IsMeshScaled>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    left_shape: Query<&Handle<Mesh>, With<Left>>,
     mut right_shape: Query<(&mut Handle<Mesh>, &mut Shape), Without<Left>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        // Mesh handles, like other parts of the ECS, can be queried as mutable and modified at
-        // runtime. We only spawned one shape without the `Left` marker component.
-        let Ok((mut handle, mut shape)) = right_shape.get_single_mut() else {
-            return;
-        };
+    // Mesh handles, like other parts of the ECS, can be queried as mutable and modified at
+    // runtime. We only spawned one shape without the `Left` marker component.
+    let Ok((mut handle, mut shape)) = right_shape.get_single_mut() else {
+        return;
+    };
 
-        // Switch to a new Shape variant
-        shape.set_next_variant();
+    // Switch to a new Shape variant
+    shape.set_next_variant();
 
-        // Modify the handle associated with the Shape on the right side. Note that we will only
-        // have to load the same path from storage media once: repeated attempts will re-use the
-        // asset.
-        *handle = asset_server.load(
-            GltfAssetLabel::Primitive {
-                mesh: 0,
-                primitive: 0,
-            }
-            .from_asset(shape.get_model_path()),
-        );
-    }
-
-    if keyboard_input.just_pressed(KeyCode::Enter) {
-        // It's convenient to retrieve the asset handle stored with the shape on the left. However,
-        // we could just as easily have retained this in a resource or a dedicated component.
-        let Ok(handle) = left_shape.get_single() else {
-            return;
-        };
-
-        // Obtain a mutable reference to the Mesh asset.
-        let Some(mesh) = meshes.get_mut(handle) else {
-            return;
-        };
-
-        // Now we can directly manipulate vertices on the mesh. Here, we're just scaling in and out
-        // for demonstration purposes. This will affect all entities currently using the asset.
-        if let Some(VertexAttributeValues::Float32x3(positions)) =
-            mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
-        {
-            // Check a Local value (which only this system can make use of) to determine if we're
-            // currently scaled up or not.
-            let scale_factor = if is_mesh_scaled.0 { 0.5 } else { 2.0 };
-
-            for position in positions.iter_mut() {
-                // Apply the scale factor to each of x, y, and z.
-                position[0] *= scale_factor;
-                position[1] *= scale_factor;
-                position[2] *= scale_factor;
-            }
-
-            // Flip the local value to reverse the behaviour next time the key is pressed.
-            is_mesh_scaled.0 = !is_mesh_scaled.0;
+    // Modify the handle associated with the Shape on the right side. Note that we will only
+    // have to load the same path from storage media once: repeated attempts will re-use the
+    // asset.
+    *handle = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
         }
+        .from_asset(shape.get_model_path()),
+    );
+}
+
+fn alter_mesh(
+    mut is_mesh_scaled: Local<bool>,
+    left_shape: Query<&Handle<Mesh>, With<Left>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    // It's convenient to retrieve the asset handle stored with the shape on the left. However,
+    // we could just as easily have retained this in a resource or a dedicated component.
+    let Ok(handle) = left_shape.get_single() else {
+        return;
+    };
+
+    // Obtain a mutable reference to the Mesh asset.
+    let Some(mesh) = meshes.get_mut(handle) else {
+        return;
+    };
+
+    // Now we can directly manipulate vertices on the mesh. Here, we're just scaling in and out
+    // for demonstration purposes. This will affect all entities currently using the asset.
+    //
+    // To do this, we need to grab the stored attributes of each vertex. `Float32x3` just describes
+    // the format in which the attributes will be read: each position consists of an array of three
+    // f32 corresponding to x, y, and z.
+    //
+    // `ATTRIBUTE_POSITION` is a constant indicating that we want to know where the vertex is
+    // located in space (as opposed to which way its normal is facing, vertex color, or other
+    // details).
+    if let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+    {
+        // Check a Local value (which only this system can make use of) to determine if we're
+        // currently scaled up or not.
+        let scale_factor = if *is_mesh_scaled { 0.5 } else { 2.0 };
+
+        for position in positions.iter_mut() {
+            // Apply the scale factor to each of x, y, and z.
+            position[0] *= scale_factor;
+            position[1] *= scale_factor;
+            position[2] *= scale_factor;
+        }
+
+        // Flip the local value to reverse the behaviour next time the key is pressed.
+        *is_mesh_scaled = !*is_mesh_scaled;
     }
 }
