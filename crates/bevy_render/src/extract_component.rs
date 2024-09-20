@@ -163,7 +163,7 @@ fn prepare_uniform_components<C>(
 /// # Warning
 /// Components are only extracted for synced entities (for more information see [`WorldSyncPlugin`]).
 /// Removing the component from the main world entity, will stop the [`ExtractComponentPlugin`] from extracting that
-/// data, but won't remove the corresponding entity in the render world.
+/// data, but won't remove the corresponding component in the render world.
 /// It's recommended to use this plugin for entities that are removed at the end of the frame, or for components that
 /// don't get removed (aside from when the entity is despawned).
 pub struct ExtractComponentPlugin<C, F = ()> {
