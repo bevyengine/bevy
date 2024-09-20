@@ -60,7 +60,6 @@ pub fn ui_stack_system(
         .collect();
 
     radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
-
     traversal_stack.extend(root_nodes.into_iter().map(|(id, _)| id).rev());
 
     while let Some(entity) = traversal_stack.pop() {
