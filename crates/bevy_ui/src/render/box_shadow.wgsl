@@ -19,6 +19,7 @@ fn gaussian(x: f32, sigma: f32) -> f32 {
     return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
 }
 
+// Approximates the gauss error function
 fn erf(p: vec2<f32>) -> vec2<f32> {
     let s = sign(p);
     let a = abs(p);
@@ -31,10 +32,10 @@ fn selectCorner(x: f32, y: f32, c: vec4<f32>) -> f32 {
     return mix(mix(c.x, c.y, step(0., x)), mix(c.w, c.z, step(0., x)), step(0., y));
 }
 
-fn horizontalRoundedBoxShadow(x: f32, y: f32, s: f32, corner: f32, halfSize: vec2<f32>) -> f32 {
-    let d = min(halfSize.y - corner - abs(y), 0.);
-    let c = halfSize.x - corner + sqrt(max(0., corner * corner - d * d));
-    let integral = 0.5 + 0.5 * erf((x + vec2(-c, c)) * (sqrt(0.5) / s));
+fn horizontalRoundedBoxShadow(x: f32, y: f32, blur: f32, corner: f32, half_size: vec2<f32>) -> f32 {
+    let d = min(half_size.y - corner - abs(y), 0.);
+    let c = half_size.x - corner + sqrt(max(0., corner * corner - d * d));
+    let integral = 0.5 + 0.5 * erf((x + vec2(-c, c)) * (sqrt(0.5) / blur));
     return integral.y - integral.x;
 }
 
@@ -42,22 +43,22 @@ fn roundedBoxShadow(
     lower: vec2<f32>,
     upper: vec2<f32>,
     point: vec2<f32>,
-    sigma: f32,
+    blur: f32,
     corners: vec4<f32>,
 ) -> f32 {
     let center = (lower + upper) * 0.5;
-    let halfSize = (upper - lower) * 0.5;
+    let half_size = (upper - lower) * 0.5;
     let p = point - center;
-    let low = p.y - halfSize.y;
-    let high = p.y + halfSize.y;
-    let start = clamp(-3. * sigma, low, high);
-    let end = clamp(3. * sigma, low, high);
+    let low = p.y - half_size.y;
+    let high = p.y + half_size.y;
+    let start = clamp(-3. * blur, low, high);
+    let end = clamp(3. * blur, low, high);
     let step = (end - start) / 4.0;
     var y = start + step * 0.5;
     var value: f32 = 0.0;
     for (var i = 0; i < 4; i++) {
         let corner = selectCorner(p.x, p.y, corners);
-        value += horizontalRoundedBoxShadow(p.x, p.y - y, sigma, corner, halfSize) * gaussian(y, sigma) * step;
+        value += horizontalRoundedBoxShadow(p.x, p.y - y, blur, corner, half_size) * gaussian(y, blur) * step;
         y += step;
     }
     return value;
