@@ -39,7 +39,8 @@ impl SystemInput for () {
     fn wrap(_this: Self::Inner<'_>) -> Self::Param<'_> {}
 }
 
-/// Wrapper type to mark a [`SystemParam`] as an input.
+/// A [`SystemInput`] type which denotes that a [`System`] receives
+/// an input value of type `T` from its caller.
 ///
 /// [`System`]s may take an optional input which they require to be passed to them when they
 /// are being [`run`](System::run). For [`FunctionSystem`]s the input may be marked
@@ -48,7 +49,7 @@ impl SystemInput for () {
 ///
 /// # Examples
 ///
-/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
+/// Here is a simple example of a system that takes a [`usize`] and returns the square of it.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -92,14 +93,15 @@ impl<T> DerefMut for In<T> {
     }
 }
 
-/// Wrapper type to mark a [`SystemParam`] as an input which takes a read-only reference.
+/// A [`SystemInput`] type which denotes that a [`System`] receives
+/// a read-only reference to a value of type `T` from its caller.
 ///
 /// This is similar to [`In`] but takes a reference to a value instead of the value itself.
 /// See [`InMut`] for the mutable version.
 ///
 /// # Examples
 ///
-/// Here is a simple example of a system that takes a `&usize` returning it doubled.
+/// Here is a simple example of a system that logs the passed in message.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -142,7 +144,8 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
     }
 }
 
-/// Wrapper type to mark a [`SystemParam`] as an input which takes a mutable reference.
+/// A [`SystemInput`] type which denotes that a [`System`] receives
+/// a mutable reference to a value of type `T` from its caller.
 ///
 /// This is similar to [`In`] but takes a mutable reference to a value instead of the value itself.
 /// See [`InRef`] for the read-only version.
