@@ -11,7 +11,6 @@ pub mod common_conditions;
 mod fixed;
 mod real;
 mod stopwatch;
-#[allow(clippy::module_inception)]
 mod time;
 mod timer;
 mod virt;
@@ -44,9 +43,9 @@ use crossbeam_channel::{Receiver, Sender};
 #[derive(Default)]
 pub struct TimePlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystem;
 
 impl Plugin for TimePlugin {

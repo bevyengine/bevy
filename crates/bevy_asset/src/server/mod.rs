@@ -1391,7 +1391,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
 }
 
 /// Internal events for asset load results
-#[allow(clippy::large_enum_variant)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,

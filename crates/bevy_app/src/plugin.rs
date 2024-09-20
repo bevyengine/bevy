@@ -167,7 +167,9 @@ mod sealed {
             where
                 $($plugins: Plugins<$param>),*
             {
-                #[allow(non_snake_case, unused_variables)]
+                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
