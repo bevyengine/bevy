@@ -19,8 +19,8 @@ pub use crate::{
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
-    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
-    OccupiedEntry, VacantEntry,
+    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
+    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
 };
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -61,7 +61,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
-/// Should be used with [`Commands::add`].
+/// Should be used with [`Commands::queue`].
 ///
 /// # Usage
 ///
@@ -83,7 +83,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// }
 ///
 /// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
+///     commands.queue(AddToCounter(42));
 /// }
 /// ```
 pub trait Command: Send + 'static {
@@ -162,6 +162,8 @@ impl Drop for World {
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -2500,7 +2502,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, size_of::<A>() + size_of::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s

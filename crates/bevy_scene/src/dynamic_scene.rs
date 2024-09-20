@@ -213,7 +213,7 @@ mod tests {
     use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
     use bevy_ecs::system::Resource;
     use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
-    use bevy_hierarchy::{Parent, PushChild};
+    use bevy_hierarchy::{AddChild, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -284,7 +284,7 @@ mod tests {
             .register::<Parent>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        PushChild {
+        AddChild {
             parent: original_parent_entity,
             child: original_child_entity,
         }
@@ -305,7 +305,7 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        PushChild {
+        AddChild {
             parent: original_child_entity,
             child: from_scene_parent_entity,
         }

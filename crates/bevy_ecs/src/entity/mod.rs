@@ -553,12 +553,14 @@ impl Entities {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self
-            .free_cursor
-            // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-            // and use AtomicIsize instead (see note on `IdCursor`).
-            .fetch_sub(IdCursor::try_from(count).unwrap(), Ordering::Relaxed);
-        let range_start = range_end - IdCursor::try_from(count).unwrap();
+        let range_end = self.free_cursor.fetch_sub(
+            IdCursor::try_from(count)
+                .expect("64-bit atomic operations are not supported on this platform."),
+            Ordering::Relaxed,
+        );
+        let range_start = range_end
+            - IdCursor::try_from(count)
+                .expect("64-bit atomic operations are not supported on this platform.");
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
@@ -745,9 +747,9 @@ impl Entities {
         self.verify_flushed();
 
         let freelist_size = *self.free_cursor.get_mut();
-        // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-        // and use AtomicIsize instead (see note on `IdCursor`).
-        let shortfall = IdCursor::try_from(additional).unwrap() - freelist_size;
+        let shortfall = IdCursor::try_from(additional)
+            .expect("64-bit atomic operations are not supported on this platform.")
+            - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
         }
@@ -1004,7 +1006,6 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {

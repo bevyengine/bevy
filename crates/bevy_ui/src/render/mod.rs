@@ -25,7 +25,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiImage, UiScale, Val,
+    TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -260,8 +260,7 @@ pub fn extract_uinode_background_colors(
             uinode.border_radius.top_right,
             uinode.border_radius.bottom_right,
             uinode.border_radius.bottom_left,
-        ]
-        .map(|r| r * ui_scale.0);
+        ];
 
         extracted_uinodes.uinodes.insert(
             entity,
@@ -329,25 +328,31 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        let (rect, atlas_scaling) = match atlas {
-            Some(atlas) => {
-                let Some(layout) = texture_atlases.get(&atlas.layout) else {
-                    // Atlas not present in assets resource (should this warn the user?)
-                    continue;
-                };
-                let mut atlas_rect = layout.textures[atlas.index].as_rect();
-                let atlas_scaling = uinode.size() / atlas_rect.size();
-                atlas_rect.min *= atlas_scaling;
-                atlas_rect.max *= atlas_scaling;
-                (atlas_rect, Some(atlas_scaling))
+        let atlas_rect = atlas
+            .and_then(|s| s.texture_rect(&texture_atlases))
+            .map(|r| r.as_rect());
+
+        let mut rect = match (atlas_rect, image.rect) {
+            (None, None) => Rect {
+                min: Vec2::ZERO,
+                max: uinode.calculated_size,
+            },
+            (None, Some(image_rect)) => image_rect,
+            (Some(atlas_rect), None) => atlas_rect,
+            (Some(atlas_rect), Some(mut image_rect)) => {
+                image_rect.min += atlas_rect.min;
+                image_rect.max += atlas_rect.min;
+                image_rect
             }
-            None => (
-                Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.calculated_size,
-                },
-                None,
-            ),
+        };
+
+        let atlas_scaling = if atlas_rect.is_some() || image.rect.is_some() {
+            let atlas_scaling = uinode.size() / rect.size();
+            rect.min *= atlas_scaling;
+            rect.max *= atlas_scaling;
+            Some(atlas_scaling)
+        } else {
+            None
         };
 
         let ui_logical_viewport_size = camera_query
@@ -381,8 +386,7 @@ pub fn extract_uinode_images(
             uinode.border_radius.top_right,
             uinode.border_radius.bottom_right,
             uinode.border_radius.bottom_left,
-        ]
-        .map(|r| r * ui_scale.0);
+        ];
 
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
@@ -519,8 +523,7 @@ pub fn extract_uinode_borders(
             uinode.border_radius.top_right,
             uinode.border_radius.bottom_right,
             uinode.border_radius.bottom_left,
-        ]
-        .map(|r| r * ui_scale.0);
+        ];
 
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
@@ -605,13 +608,15 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    query: Extract<
+        Query<(Entity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+    >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera) in &query {
+    for (entity, camera, ui_anti_alias) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -657,9 +662,12 @@ pub fn extract_default_ui_camera_view(
                     color_grading: Default::default(),
                 })
                 .id();
-            commands
+            let entity_commands = commands
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
+            if let Some(ui_anti_alias) = ui_anti_alias {
+                entity_commands.insert(*ui_anti_alias);
+            }
             transparent_render_phases.insert_or_clear(entity);
 
             live_entities.insert(entity);
@@ -834,13 +842,14 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
             continue;
         };
 
@@ -851,7 +860,10 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
+            UiPipelineKey {
+                hdr: view.hdr,
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+            },
         );
         transparent_phase.add(TransparentUi {
             draw_function,

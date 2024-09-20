@@ -123,7 +123,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Consider using `as_readonly` or `as_nop` instead which are safe functions.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
@@ -508,22 +508,46 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        self.component_access
-            .access
-            .component_reads()
-            .for_each(|id| {
+        // As a fast path, we can iterate directly over the components involved
+        // if the `access` isn't inverted.
+        #[allow(deprecated)]
+        let (component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.component_access.access.component_reads_and_writes();
+        let (component_writes, component_writes_inverted) =
+            self.component_access.access.component_writes();
+
+        if !component_reads_and_writes_inverted && !component_writes_inverted {
+            component_reads_and_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_read(id);
                 }
             });
-        self.component_access
-            .access
-            .component_writes()
-            .for_each(|id| {
+            component_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_write(id);
                 }
             });
+            return;
+        }
+
+        for (component_id, archetype_component_id) in
+            archetype.components_with_archetype_component_id()
+        {
+            if self
+                .component_access
+                .access
+                .has_component_read(component_id)
+            {
+                access.add_component_read(archetype_component_id);
+            }
+            if self
+                .component_access
+                .access
+                .has_component_write(component_id)
+            {
+                access.add_component_write(archetype_component_id);
+            }
+        }
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
@@ -1174,14 +1198,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -1209,14 +1230,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.validate_world(world.id());
         // SAFETY: query is read only, world id is validated
         unsafe {
@@ -1234,14 +1252,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1334,7 +1349,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
-    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList: IntoIterator>(
+    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList>(
         &'s self,
         entities: EntityList,
         world: UnsafeWorldCell<'w>,
@@ -1342,7 +1357,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         this_run: Tick,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
     where
-        EntityList::Item: Borrow<Entity>,
+        EntityList: IntoIterator<Item: Borrow<Entity>>,
     {
         QueryManyIter::new(world, self, entities, last_run, this_run)
     }

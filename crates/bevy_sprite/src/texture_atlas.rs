@@ -1,6 +1,8 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
 use bevy_ecs::component::Component;
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{URect, UVec2};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
@@ -19,7 +21,6 @@ use bevy_utils::HashMap;
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct TextureAtlasLayout {
-    // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: UVec2,
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<URect>,
@@ -142,6 +143,7 @@ impl TextureAtlasLayout {
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
     pub layout: Handle<TextureAtlasLayout>,

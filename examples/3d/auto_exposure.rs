@@ -13,7 +13,7 @@
 
 use bevy::{
     core_pipeline::{
-        auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
+        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
         Skybox,
     },
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
@@ -47,7 +47,7 @@ fn setup(
             transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        AutoExposureSettings {
+        AutoExposure {
             metering_mask: metering_mask.clone(),
             ..default()
         },
@@ -168,7 +168,7 @@ struct ExampleResources {
 }
 
 fn example_control_system(
-    mut camera: Query<(&mut Transform, &mut AutoExposureSettings), With<Camera3d>>,
+    mut camera: Query<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,

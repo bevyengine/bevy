@@ -42,7 +42,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -76,7 +76,7 @@ impl Default for Interaction {
 ///
 /// The component is updated when it is in the same entity with [`Node`].
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -101,7 +101,7 @@ impl RelativeCursorPosition {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -352,12 +352,12 @@ pub(crate) fn pick_rounded_rect(
     size: Vec2,
     border_radius: ResolvedBorderRadius,
 ) -> bool {
-    let s = point.signum();
-    let r = (border_radius.top_left * (1. - s.x) * (1. - s.y)
-        + border_radius.top_right * (1. + s.x) * (1. - s.y)
-        + border_radius.bottom_right * (1. + s.x) * (1. + s.y)
-        + border_radius.bottom_left * (1. - s.x) * (1. + s.y))
-        / 4.;
+    let [top, bottom] = if point.x < 0. {
+        [border_radius.top_left, border_radius.bottom_left]
+    } else {
+        [border_radius.top_right, border_radius.bottom_right]
+    };
+    let r = if point.y < 0. { top } else { bottom };
 
     let corner_to_point = point.abs() - 0.5 * size;
     let q = corner_to_point + r;

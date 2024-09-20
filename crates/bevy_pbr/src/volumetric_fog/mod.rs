@@ -6,9 +6,9 @@
 //! for light beams from directional lights to shine through, creating what is
 //! known as *light shafts* or *god rays*.
 //!
-//! To add volumetric fog to a scene, add [`VolumetricFogSettings`] to the
+//! To add volumetric fog to a scene, add [`VolumetricFog`] to the
 //! camera, and add [`VolumetricLight`] to directional lights that you wish to
-//! be volumetric. [`VolumetricFogSettings`] feature numerous settings that
+//! be volumetric. [`VolumetricFog`] feature numerous settings that
 //! allow you to define the accuracy of the simulation, as well as the look of
 //! the fog. Currently, only interaction with directional lights that have
 //! shadow maps is supported. Note that the overhead of the effect scales
@@ -44,6 +44,7 @@ use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::{Mesh, Meshable},
@@ -71,15 +72,15 @@ pub struct VolumetricFogPlugin;
 ///
 /// This allows the light to generate light shafts/god rays.
 #[derive(Clone, Copy, Component, Default, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
-#[reflect(Component)]
-pub struct VolumetricFogSettings {
+#[reflect(Component, Default, Debug)]
+pub struct VolumetricFog {
     /// Color of the ambient light.
     ///
     /// This is separate from Bevy's [`AmbientLight`](crate::light::AmbientLight) because an
@@ -115,6 +116,9 @@ pub struct VolumetricFogSettings {
     pub step_count: u32,
 }
 
+#[deprecated(since = "0.15.0", note = "Renamed to `VolumetricFog`")]
+pub type VolumetricFogSettings = VolumetricFog;
+
 /// A convenient [`Bundle`] that contains all components necessary to generate a
 /// fog volume.
 #[derive(Bundle, Clone, Debug, Default)]
@@ -135,7 +139,7 @@ pub struct FogVolumeBundle {
 }
 
 #[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
@@ -218,7 +222,7 @@ impl Plugin for VolumetricFogPlugin {
         meshes.insert(&PLANE_MESH, Plane3d::new(Vec3::Z, Vec2::ONE).mesh().into());
         meshes.insert(&CUBE_MESH, Cuboid::new(1.0, 1.0, 1.0).mesh().into());
 
-        app.register_type::<VolumetricFogSettings>()
+        app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -261,7 +265,7 @@ impl Plugin for VolumetricFogPlugin {
     }
 }
 
-impl Default for VolumetricFogSettings {
+impl Default for VolumetricFog {
     fn default() -> Self {
         Self {
             step_count: 64,

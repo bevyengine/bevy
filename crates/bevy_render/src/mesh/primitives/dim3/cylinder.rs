@@ -1,4 +1,4 @@
-use bevy_math::primitives::Cylinder;
+use bevy_math::{ops, primitives::Cylinder};
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -122,7 +122,7 @@ impl MeshBuilder for CylinderMeshBuilder {
 
             for segment in 0..=resolution {
                 let theta = segment as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
+                let (sin, cos) = ops::sin_cos(theta);
 
                 positions.push([self.cylinder.radius * cos, y, self.cylinder.radius * sin]);
                 normals.push([cos, 0., sin]);
@@ -163,7 +163,7 @@ impl MeshBuilder for CylinderMeshBuilder {
 
                 for i in 0..self.resolution {
                     let theta = i as f32 * step_theta;
-                    let (sin, cos) = theta.sin_cos();
+                    let (sin, cos) = ops::sin_cos(theta);
 
                     positions.push([cos * self.cylinder.radius, y, sin * self.cylinder.radius]);
                     normals.push([0.0, normal_y, 0.0]);

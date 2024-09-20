@@ -445,6 +445,7 @@ mod libm_ops {
 
 #[cfg(feature = "libm")]
 pub use libm_ops::*;
+
 #[cfg(not(feature = "libm"))]
 pub use std_ops::*;
 

@@ -101,8 +101,8 @@ fn update_positions(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 3.0;
-            emitter_transform.translation.z = time.elapsed_seconds().cos() * 3.0;
+            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 3.0;
+            emitter_transform.translation.z = ops::cos(time.elapsed_seconds()) * 3.0;
         }
     }
 }

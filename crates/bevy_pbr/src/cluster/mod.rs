@@ -80,7 +80,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,
@@ -152,6 +152,10 @@ pub struct GpuClusterableObject {
     pub(crate) shadow_depth_bias: f32,
     pub(crate) shadow_normal_bias: f32,
     pub(crate) spot_light_tan_angle: f32,
+    pub(crate) soft_shadow_size: f32,
+    pub(crate) shadow_map_near_z: f32,
+    pub(crate) pad_a: f32,
+    pub(crate) pad_b: f32,
 }
 
 pub enum GpuClusterableObjects {
@@ -257,8 +261,9 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio: f32 =
-                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
+                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y)
+                    .expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values")
+                    .ratio();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");

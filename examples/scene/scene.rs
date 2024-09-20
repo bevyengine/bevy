@@ -153,7 +153,7 @@ fn infotext_system(mut commands: Commands) {
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font_size: 50.0,
+                font_size: 42.0,
                 ..default()
             },
         )
