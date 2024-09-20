@@ -30,9 +30,7 @@ pub use button_input::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        gamepad::{
-            Gamepad, GamepadAxis, GamepadButton, GamepadId, GamepadSettings, Gamepads,
-        },
+        gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadSettings},
         keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},
@@ -54,11 +52,10 @@ use mouse::{
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_event_processing_system, gamepad_connection_system,
-    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
-    GamepadConnection, GamepadConnectionEvent, GamepadId, GamepadInfo, GamepadRumbleRequest,
-    GamepadSettings, Gamepads, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
-    RawGamepadEvent,
+    gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
+    GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnection,
+    GamepadConnectionEvent, GamepadInfo, GamepadRumbleRequest, GamepadSettings,
+    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -107,7 +104,7 @@ impl Plugin for InputPlugin {
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
             .add_event::<GamepadRumbleRequest>()
-            .init_resource::<Gamepads>()
+            //.init_resource::<Gamepads>()
             .init_resource::<AccumulatedMouseMotion>()
             .init_resource::<AccumulatedMouseScroll>()
             .add_systems(
@@ -141,9 +138,7 @@ impl Plugin for InputPlugin {
                 .register_type::<GamepadButtonChangedEvent>()
                 .register_type::<GamepadAxisChangedEvent>()
                 .register_type::<GamepadButtonStateChangedEvent>()
-                .register_type::<Gamepads>()
                 //.register_type::<Gamepad>()
-                .register_type::<GamepadId>()
                 .register_type::<GamepadInfo>()
                 .register_type::<GamepadConnection>()
                 .register_type::<GamepadSettings>()

@@ -72,7 +72,7 @@ impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
 )]
 pub struct RawGamepadButtonChangedEvent {
     /// The gamepad on which the button is triggered.
-    pub gamepad: GamepadId,
+    pub gamepad: Entity,
     /// The type of the triggered button.
     pub button: GamepadButton,
     /// The value of the button.
@@ -81,7 +81,7 @@ pub struct RawGamepadButtonChangedEvent {
 
 impl RawGamepadButtonChangedEvent {
     /// Creates a [`RawGamepadButtonChangedEvent`].
-    pub fn new(gamepad: GamepadId, button_type: GamepadButton, value: f32) -> Self {
+    pub fn new(gamepad: Entity, button_type: GamepadButton, value: f32) -> Self {
         Self {
             gamepad,
             button: button_type,
@@ -101,7 +101,7 @@ impl RawGamepadButtonChangedEvent {
 )]
 pub struct RawGamepadAxisChangedEvent {
     /// The gamepad on which the axis is triggered.
-    pub gamepad: GamepadId,
+    pub gamepad: Entity,
     /// The type of the triggered axis.
     pub axis: GamepadAxis,
     /// The value of the axis.
@@ -110,7 +110,7 @@ pub struct RawGamepadAxisChangedEvent {
 
 impl RawGamepadAxisChangedEvent {
     /// Creates a [`RawGamepadAxisChangedEvent`].
-    pub fn new(gamepad: GamepadId, axis_type: GamepadAxis, value: f32) -> Self {
+    pub fn new(gamepad: Entity, axis_type: GamepadAxis, value: f32) -> Self {
         Self {
             gamepad,
             axis: axis_type,
@@ -130,14 +130,14 @@ impl RawGamepadAxisChangedEvent {
 )]
 pub struct GamepadConnectionEvent {
     /// The gamepad whose connection status changed.
-    pub gamepad: GamepadId,
+    pub gamepad: Entity,
     /// The change in the gamepads connection.
     pub connection: GamepadConnection,
 }
 
 impl GamepadConnectionEvent {
     /// Creates a [`GamepadConnectionEvent`].
-    pub fn new(gamepad: GamepadId, connection: GamepadConnection) -> Self {
+    pub fn new(gamepad: Entity, connection: GamepadConnection) -> Self {
         Self {
             gamepad,
             connection,
@@ -166,8 +166,6 @@ impl GamepadConnectionEvent {
 pub struct GamepadButtonStateChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
-    /// The gamepad id of this gamepad.
-    pub gamepad: GamepadId,
     /// The gamepad button assigned to the event.
     pub button: GamepadButton,
     /// The pressed state of the button.
@@ -176,15 +174,9 @@ pub struct GamepadButtonStateChangedEvent {
 
 impl GamepadButtonStateChangedEvent {
     /// Creates a new [`GamepadButtonStateChangedEvent`]
-    pub fn new(
-        entity: Entity,
-        gamepad_id: impl AsRef<GamepadId>,
-        button: GamepadButton,
-        state: ButtonState,
-    ) -> Self {
+    pub fn new(entity: Entity, button: GamepadButton, state: ButtonState) -> Self {
         Self {
             entity,
-            gamepad: *gamepad_id.as_ref(),
             button,
             state,
         }
@@ -202,8 +194,6 @@ impl GamepadButtonStateChangedEvent {
 pub struct GamepadButtonChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
-    /// The gamepad id of this gamepad.
-    pub gamepad: GamepadId,
     /// The gamepad button assigned to the event.
     pub button: GamepadButton,
     /// The pressed state of the button.
@@ -214,16 +204,9 @@ pub struct GamepadButtonChangedEvent {
 
 impl GamepadButtonChangedEvent {
     /// Creates a new [`GamepadButtonChangedEvent`]
-    pub fn new(
-        entity: Entity,
-        gamepad_id: impl AsRef<GamepadId>,
-        button: GamepadButton,
-        state: ButtonState,
-        value: f32,
-    ) -> Self {
+    pub fn new(entity: Entity, button: GamepadButton, state: ButtonState, value: f32) -> Self {
         Self {
             entity,
-            gamepad: *gamepad_id.as_ref(),
             button,
             state,
             value,
@@ -242,8 +225,6 @@ impl GamepadButtonChangedEvent {
 pub struct GamepadAxisChangedEvent {
     /// The entity that represents this gamepad.
     pub entity: Entity,
-    /// The gamepad id of this gamepad.
-    pub gamepad: GamepadId,
     /// The gamepad axis assigned to the event.
     pub axis: GamepadAxis,
     /// The value of this axis.
@@ -252,15 +233,9 @@ pub struct GamepadAxisChangedEvent {
 
 impl GamepadAxisChangedEvent {
     /// Creates a new [`GamepadAxisChangedEvent`]
-    pub fn new(
-        entity: Entity,
-        gamepad_id: impl AsRef<GamepadId>,
-        axis: GamepadAxis,
-        value: f32,
-    ) -> Self {
+    pub fn new(entity: Entity, axis: GamepadAxis, value: f32) -> Self {
         Self {
             entity,
-            gamepad: *gamepad_id.as_ref(),
             axis,
             value,
         }
@@ -322,42 +297,6 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// A gamepad with an associated `ID`.
-///
-/// ## Usage
-///
-/// It is the primary identifier for raw events. You can access the individual [`entity`](Entity)
-/// belonging to a [`GamepadId`] through the [`Gamepads`] [`resource`](Res) or a [`query`](Query) with [`Gamepad`].
-///
-/// ## Note
-///
-/// The `ID` of a gamepad is fixed until the app is restarted.
-/// Reconnected gamepads will try to preserve their `ID` but it's not guaranteed.
-#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
-)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Serialize, Deserialize)
-)]
-pub struct GamepadId(pub usize);
-
-impl AsRef<GamepadId> for GamepadId {
-    fn as_ref(&self) -> &GamepadId {
-        self
-    }
-}
-
-impl Display for GamepadId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 /// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the [`GamepadId`] identifier or `name`.
 ///
 /// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
@@ -395,7 +334,6 @@ impl Display for GamepadId {
     reflect(Serialize, Deserialize)
 )]*/
 pub struct Gamepad {
-    id: GamepadId,
     info: GamepadInfo,
     /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
     pub(crate) digital: ButtonInput<GamepadButton>,
@@ -403,15 +341,9 @@ pub struct Gamepad {
     pub(crate) analog: Axis<GamepadInput>,
 }
 
-impl AsRef<GamepadId> for Gamepad {
-    fn as_ref(&self) -> &GamepadId {
-        &self.id
-    }
-}
-
 impl Gamepad {
     /// Delete this after entity as id
-    pub fn new(id: GamepadId, info: GamepadInfo) -> Self {
+    pub fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
         for button in ALL_BUTTON_TYPES.iter().copied() {
             analog.set(button.into(), 0.0);
@@ -420,16 +352,10 @@ impl Gamepad {
             analog.set(axis_type.into(), 0.0);
         }
         Self {
-            id,
             info,
             analog,
             digital: ButtonInput::default(),
         }
-    }
-
-    /// Returns the [`GamepadId`] of the gamepad.
-    pub fn id(&self) -> GamepadId {
-        self.id
     }
 
     /// The name of the gamepad.
@@ -566,34 +492,7 @@ pub struct GamepadInfo {
     pub name: String,
 }
 
-/// A [`resource`](Resource) with the mapping of connected [`GamepadId`] and their [`Entity`].
-#[derive(Debug, Default, Resource, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct Gamepads {
-    /// Mapping of [`Entity`] to [`GamepadId`].
-    pub(crate) entity_to_id: EntityHashMap<GamepadId>,
-    /// Mapping of [`GamepadId`] to [`Entity`].
-    pub(crate) id_to_entity: HashMap<GamepadId, Entity>,
-}
-
-impl Gamepads {
-    /// Returns the [`Entity`] assigned to a connected [`GamepadId`].
-    pub fn get_entity(&self, gamepad_id: impl AsRef<GamepadId>) -> Option<Entity> {
-        self.id_to_entity.get(gamepad_id.as_ref()).copied()
-    }
-
-    /// Returns the [`GamepadId`] assigned to a gamepad [`Entity`].
-    pub fn get_gamepad_id(&self, entity: Entity) -> Option<GamepadId> {
-        self.entity_to_id.get(&entity).copied()
-    }
-}
-
-/// Represents gamepad input types that are mapped in the range [0.0, 1.0].
+/// A type of gamepad button.
 ///
 /// ## Usage
 ///
@@ -1363,7 +1262,6 @@ impl ButtonAxisSettings {
 pub fn gamepad_connection_system(
     mut commands: Commands,
     // gamepads_settings: Query<&GamepadSettings>,
-    mut gamepads: ResMut<Gamepads>,
     mut connection_events: EventReader<GamepadConnectionEvent>,
     //mut preserved_settings: Local<HashMap<GamepadId, GamepadSettings>>,
 ) {
@@ -1371,39 +1269,20 @@ pub fn gamepad_connection_system(
         let id = connection_event.gamepad;
         match &connection_event.connection {
             GamepadConnection::Connected(info) => {
-                if gamepads.get_entity(id).is_some() {
-                    warn!("Gamepad connection event on active gamepad. Connection event has been ignored");
+                let Some(gamepad) = commands.get_entity(id) else {
+                    warn!("Gamepad {:} removed before handling connection event.", id);
                     continue;
-                }
-                /*let settings = preserved_settings
-                .get(&id)
-                .cloned()
-                .unwrap_or(GamepadSettings::default());*/
-                let entity = commands.spawn(Gamepad::new(id, info.clone())).id();
-                gamepads.id_to_entity.insert(id, entity);
-                gamepads.entity_to_id.insert(entity, id);
-                info!("{:?} Connected", id);
+                };
+                gamepad.insert(Gamepad::new(info.clone()));
+                info!("Gamepad {:?} connected.", id);
             }
             GamepadConnection::Disconnected => {
-                if let Some(entity) = gamepads.id_to_entity.get(&id).copied() {
-                    //.expect("GamepadId should exist in id_to_entity map");
-                    // Preserve settings for reconnection event
-                    /*let settings = gamepads_settings
-                        .get(entity)
-                        .cloned()
-                        .unwrap_or(GamepadSettings::default());
-                    preserved_settings.insert(id, settings);*/
-                    gamepads.id_to_entity.remove(&id);
-                    gamepads.entity_to_id.remove(&entity);
-                    if let Some(entity_commands) = commands.get_entity(entity) {
-                        entity_commands.despawn();
-                    } else {
-                        warn!("Gamepad entity was already de-spawned.");
-                    }
-                    info!("{:?} Disconnected", id);
-                } else {
-                    warn!("Gamepad disconnection event on inactive gamepad. Disconnection event has been ignored");
-                }
+                let Some(gamepad) = commands.get_entity(id) else {
+                    warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    continue;
+                };
+                gamepad.remove::<Gamepad>();
+                info!("Gamepad {:} disconnected.", id);
             }
         }
     }
@@ -1427,7 +1306,6 @@ pub enum GamepadConnection {
 /// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChangedEvent`] [`event`](Event).
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
-    gamepads_map: Res<Gamepads>,
     mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
     mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
@@ -1440,10 +1318,7 @@ pub fn gamepad_event_processing_system(
     }
 
     for axis_event in raw_axis_events.read() {
-        let Some(entity) = gamepads_map.get_entity(axis_event.gamepad) else {
-            continue;
-        };
-        let Ok((mut gamepad_axis, gamepad_settings)) = gamepads.get_mut(entity) else {
+        let Ok((mut gamepad_axis, gamepad_settings)) = gamepads.get_mut(axis_event.gamepad) else {
             continue;
         };
         let Some(filtered_value) = gamepad_settings
@@ -1457,7 +1332,6 @@ pub fn gamepad_event_processing_system(
             .analog
             .set(axis_event.axis.into(), filtered_value);
         filtered_events.send(GamepadAxisChangedEvent::new(
-            entity,
             axis_event.gamepad,
             axis_event.axis,
             filtered_value,
@@ -1466,10 +1340,7 @@ pub fn gamepad_event_processing_system(
 
     for event in raw_button_events.read() {
         let button = event.button;
-        let Some(entity) = gamepads_map.get_entity(event.gamepad) else {
-            continue;
-        };
-        let Ok((mut gamepad, settings)) = gamepads.get_mut(entity) else {
+        let Ok((mut gamepad, settings)) = gamepads.get_mut(event.gamepad) else {
             continue;
         };
         let Some(filtered_value) = settings
@@ -1485,8 +1356,7 @@ pub fn gamepad_event_processing_system(
             // Check if button was previously pressed
             if gamepad.pressed(button) {
                 processed_digital_events.send(GamepadButtonStateChangedEvent::new(
-                    entity,
-                    gamepad.id,
+                    event.gamepad,
                     button,
                     ButtonState::Released,
                 ));
@@ -1498,8 +1368,7 @@ pub fn gamepad_event_processing_system(
             // Check if button was previously not pressed
             if !gamepad.pressed(button) {
                 processed_digital_events.send(GamepadButtonStateChangedEvent::new(
-                    entity,
-                    gamepad.id,
+                    event.gamepad,
                     button,
                     ButtonState::Pressed,
                 ));
@@ -1514,8 +1383,7 @@ pub fn gamepad_event_processing_system(
         };
 
         processed_analog_events.send(GamepadButtonChangedEvent::new(
-            entity,
-            gamepad.id,
+            event.gamepad,
             button,
             button_state,
             filtered_value,
@@ -1624,7 +1492,7 @@ impl GamepadRumbleIntensity {
 /// # Example
 ///
 /// ```
-/// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity, Gamepads};
+/// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_ecs::prelude::{EventWriter, Res, Query};
 /// # use bevy_utils::Duration;
 /// fn rumble_gamepad_system(
@@ -1662,18 +1530,18 @@ pub enum GamepadRumbleRequest {
         /// How intense the rumble should be.
         intensity: GamepadRumbleIntensity,
         /// The gamepad to rumble.
-        gamepad: GamepadId,
+        gamepad: Entity,
     },
     /// Stop all running rumbles on the given [`GamepadId`].
     Stop {
         /// The gamepad to stop rumble.
-        gamepad: GamepadId,
+        gamepad: Entity,
     },
 }
 
 impl GamepadRumbleRequest {
     /// Get the [`GamepadId`] associated with this request.
-    pub fn gamepad(&self) -> GamepadId {
+    pub fn gamepad(&self) -> Entity {
         match self {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
         }

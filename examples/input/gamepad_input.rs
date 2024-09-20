@@ -17,9 +17,7 @@ fn gamepad_system(gamepads: Query<&Gamepad>) {
             info!("{:?} just released South", gamepad.id());
         }
 
-        let right_trigger = gamepad
-            .get(GamepadButton::RightTrigger2)
-            .unwrap();
+        let right_trigger = gamepad.get(GamepadButton::RightTrigger2).unwrap();
         if right_trigger.abs() > 0.01 {
             info!(
                 "{:?} RightTrigger2 value is {}",

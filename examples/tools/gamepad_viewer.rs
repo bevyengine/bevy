@@ -405,16 +405,8 @@ fn setup_triggers(
             });
     };
 
-    spawn_trigger(
-        -BUTTONS_X,
-        BUTTONS_Y + 145.,
-        GamepadButton::LeftTrigger2,
-    );
-    spawn_trigger(
-        BUTTONS_X,
-        BUTTONS_Y + 145.,
-        GamepadButton::RightTrigger2,
-    );
+    spawn_trigger(-BUTTONS_X, BUTTONS_Y + 145., GamepadButton::LeftTrigger2);
+    spawn_trigger(BUTTONS_X, BUTTONS_Y + 145., GamepadButton::RightTrigger2);
 }
 
 fn setup_connected(mut commands: Commands) {
@@ -502,7 +494,7 @@ fn update_axes(
 
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
-    gamepads: Query<&Gamepad>,
+    gamepads: Query<(Entity, &Gamepad)>,
     mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
 ) {
     if connected.is_empty() {
@@ -513,7 +505,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|gamepad| format!("{} - {}", gamepad.id(), gamepad.name()))
+        .map(|(entity, gamepad)| format!("{} - {}", entity, gamepad.name()))
         .collect::<Vec<_>>()
         .join("\n");
 

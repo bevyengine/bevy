@@ -1,10 +1,4 @@
-use bevy_input::gamepad::{GamepadAxis, GamepadButton, GamepadId};
-
-//  TODO: bevy_input directly depends on Gilrs::GamepadId's. This could cause conflicts with other plugins.
-//  Instead, bevy_input should provide a unique GamepadId and bevy_gilrs keep a mapping between them
-pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> GamepadId {
-    GamepadId(gamepad_id.into())
-}
+use bevy_input::gamepad::{GamepadAxis, GamepadButton};
 
 pub fn convert_button(button: gilrs::Button) -> Option<GamepadButton> {
     match button {
