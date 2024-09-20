@@ -2,9 +2,10 @@
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,
-    clippy::ptr_cast_constness
+    clippy::ptr_cast_constness,
+    // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+    missing_docs
 )]
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",

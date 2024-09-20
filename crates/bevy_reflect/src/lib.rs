@@ -1,4 +1,4 @@
-// FIXME: troubleshoot why #![expect(...)] fails at crate level.
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
 #![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]

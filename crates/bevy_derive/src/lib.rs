@@ -1,4 +1,5 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
