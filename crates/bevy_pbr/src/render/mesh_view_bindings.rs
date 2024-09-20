@@ -41,7 +41,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    prepass,
+    resources::{AtmosphereSamplers, AtmosphereTextures},
+    Atmosphere, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
@@ -343,6 +345,7 @@ fn layout_entries(
         (28, sampler(SamplerBindingType::Filtering)),
     ));
 
+    // Atmosphere Lut
     entries = entries.extend_with_indices((
         (
             29,
@@ -471,6 +474,7 @@ pub fn prepare_mesh_view_bind_groups(
         &Tonemapping,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
+        Option<&AtmosphereTextures>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -483,6 +487,7 @@ pub fn prepare_mesh_view_bind_groups(
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
+    atmosphere_samplers: Res<AtmosphereSamplers>,
 ) {
     if let (
         Some(view_binding),
@@ -516,6 +521,7 @@ pub fn prepare_mesh_view_bind_groups(
             tonemapping,
             render_view_environment_maps,
             render_view_irradiance_volumes,
+            atmosphere_textures,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -645,6 +651,16 @@ pub fn prepare_mesh_view_bind_groups(
 
             entries =
                 entries.extend_with_indices(((27, transmission_view), (28, transmission_sampler)));
+
+            entries = entries.extend_with_indices((
+                (
+                    29,
+                    atmosphere_textures
+                        .map(|textures| &textures.aerial_view_lut.default_view)
+                        .unwrap_or(&fallback_image.d3.texture_view), //TODO: should be a black (0.0, 0.0, 0.0, 1.0) texture
+                ),
+                (30, &atmosphere_samplers.aerial_view_lut),
+            ));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

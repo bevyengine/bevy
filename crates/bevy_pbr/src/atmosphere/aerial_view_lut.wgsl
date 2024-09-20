@@ -82,18 +82,3 @@ fn main(@builtin(global_invocation_id) idx: vec2<u32>) {
         }
     }
 }
-
-
-/// Convert ndc depth to linear view z. 
-/// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
-    return -perspective_camera_near() / ndc_depth;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
-    return -(view.clip_from_view[3][2] - ndc_depth) / view.clip_from_view[2][2];
-#else
-    let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
-#endif
-}
-

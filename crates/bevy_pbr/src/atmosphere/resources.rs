@@ -34,7 +34,6 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayout,
     pub sky_view_lut: BindGroupLayout,
     pub aerial_view_lut: BindGroupLayout,
-    pub apply_atmosphere: BindGroupLayout,
 }
 
 impl FromWorld for AtmosphereBindGroupLayouts {
@@ -96,28 +95,11 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
-        let apply = render_device.create_bind_group_layout(
-            "apply_atmosphere_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    uniform_buffer::<ViewUniform>(true),
-                    texture_2d(TextureSampleType::Depth),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_3d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
-            ),
-        );
-
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            apply_atmosphere: apply,
         }
     }
 }
@@ -129,7 +111,6 @@ pub struct AtmosphereSamplers {
     pub multiscattering_lut: Sampler,
     pub sky_view_lut: Sampler,
     pub aerial_view_lut: Sampler,
-    pub view_depth: Sampler, //TODO: get actual depth sampler (or just texture load?);
 }
 
 impl FromWorld for AtmosphereSamplers {
@@ -168,20 +149,11 @@ impl FromWorld for AtmosphereSamplers {
             ..Default::default()
         });
 
-        let view_depth = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("view_depth_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Linear,
-            ..Default::default()
-        });
-
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            view_depth,
         }
     }
 }
@@ -192,7 +164,6 @@ pub(crate) struct AtmospherePipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedRenderPipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
-    pub apply_atmosphere: CachedRenderPipelineId,
 }
 
 impl FromWorld for AtmospherePipelines {
@@ -259,44 +230,11 @@ impl FromWorld for AtmospherePipelines {
             entry_point: "main".into(),
         });
 
-        let apply_atmosphere = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("apply_atmosphere_pipeline".into()),
-            layout: vec![layouts.apply_atmosphere.clone()],
-            push_constant_ranges: vec![],
-            vertex: fullscreen_shader_vertex_state(),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            fragment: Some(FragmentState {
-                shader: shaders::APPLY_ATMOSPHERE.clone(),
-                shader_defs: vec![],
-                entry_point: "main".into(),
-                targets: vec![Some(ColorTargetState {
-                    //TODO: only works with HDR for now. Need to integrate non-hdr + tonemap in shader. But then this node doesn't work at all, so idk. Maybe just add stuff to view bind group and integrate with normal lighting?
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::Zero,
-                            operation: BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-        });
-
         Self {
             transmittance_lut,
             multiscattering_lut: multi_scattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            apply_atmosphere,
         }
     }
 }
@@ -405,15 +343,11 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
-    pub apply_atmosphere: BindGroup,
 }
 
 #[expect(clippy::too_many_arguments)]
 pub(super) fn prepare_atmosphere_bind_groups(
-    views: Query<
-        (Entity, &AtmosphereTextures, &ViewDepthTexture),
-        (With<Camera3d>, With<Atmosphere>),
-    >,
+    views: Query<(Entity, &AtmosphereTextures), (With<Camera3d>, With<Atmosphere>)>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     samplers: Res<AtmosphereSamplers>,
@@ -435,7 +369,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .expect("Failed to prepare atmosphere bind groups. View uniform buffer missing");
 
-    for (entity, textures, depth_texture) in &views {
+    for (entity, textures) in &views {
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
@@ -481,26 +415,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        let apply_atmosphere = render_device.create_bind_group(
-            "apply_atmosphere_bind_group",
-            &layouts.apply_atmosphere,
-            &BindGroupEntries::sequential((
-                view_binding.clone(),
-                depth_texture.view(),
-                &samplers.view_depth,
-                &textures.sky_view_lut.default_view,
-                &samplers.sky_view_lut,
-                &textures.aerial_view_lut.default_view,
-                &samplers.aerial_view_lut,
-            )),
-        );
-
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
-            apply_atmosphere,
         });
     }
 }
