@@ -11,7 +11,6 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
-use bevy_utils::tracing::warn;
 
 /// A Plugin that synchronizes entities with [`SyncRenderWorld`] between the main world and the render world.
 ///
