@@ -31,8 +31,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         gamepad::{
-            Gamepad, GamepadAxes, GamepadAxisType, GamepadButtonType, GamepadButtons, GamepadId,
-            GamepadSettings, Gamepads,
+            Gamepad, GamepadAxisType, GamepadButtonType, GamepadId, GamepadSettings, Gamepads,
         },
         keyboard::KeyCode,
         mouse::MouseButton,
@@ -55,7 +54,7 @@ use mouse::{
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use gamepad::{
-    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system, Gamepad,
+    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
     GamepadConnection, GamepadConnectionEvent, GamepadId, GamepadInfo, GamepadRumbleRequest,
     GamepadSettings, Gamepads, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
@@ -144,7 +143,7 @@ impl Plugin for InputPlugin {
                 .register_type::<GamepadAxisChangedEvent>()
                 .register_type::<GamepadButtonStateChangedEvent>()
                 .register_type::<Gamepads>()
-                .register_type::<Gamepad>()
+                //.register_type::<Gamepad>()
                 .register_type::<GamepadId>()
                 .register_type::<GamepadInfo>()
                 .register_type::<GamepadConnection>()
