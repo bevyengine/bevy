@@ -28,6 +28,7 @@ fn erf(p: vec2<f32>) -> vec2<f32> {
     return s - s / (result * result);
 }
 
+// returns the closest corner radius based on the sign of x and y
 fn selectCorner(x: f32, y: f32, c: vec4<f32>) -> f32 {
     return mix(mix(c.x, c.y, step(0., x)), mix(c.w, c.z, step(0., x)), step(0., y));
 }
