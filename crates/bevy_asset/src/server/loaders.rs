@@ -341,9 +341,7 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{
-        Asset, {self as bevy_asset},
-    };
+    use crate::{self as bevy_asset, Asset};
 
     use super::*;
 

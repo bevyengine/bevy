@@ -6,9 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::{
     env::VarError,
     hash::DefaultHasher,
-    io::{
-        BufRead, BufReader, {self},
-    },
+    io::{self, BufRead, BufReader},
     process::Stdio,
 };
 

@@ -20,8 +20,8 @@ use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
         no_gpu_preprocessing::{
-            batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
-            write_batched_instance_buffer, BatchedInstanceBuffer, {self},
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
         },
         GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },

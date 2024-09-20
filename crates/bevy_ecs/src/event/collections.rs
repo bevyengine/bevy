@@ -401,10 +401,7 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        event::Events,
-        {self as bevy_ecs},
-    };
+    use crate::{self as bevy_ecs, event::Events};
     use bevy_ecs_macros::Event;
 
     #[test]

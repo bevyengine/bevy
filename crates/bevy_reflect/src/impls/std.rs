@@ -2,7 +2,7 @@
 #![allow(unused_qualifications)]
 
 use crate::{
-    impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
     std_traits::ReflectDefault,
@@ -11,7 +11,7 @@ use crate::{
     FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
     PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
     ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, ValueInfo, {self as bevy_reflect},
+    TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use alloc::{borrow::Cow, collections::VecDeque};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
@@ -2221,8 +2221,8 @@ crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 #[cfg(test)]
 mod tests {
     use crate::{
-        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
-        Typed, VariantInfo, VariantType, {self as bevy_reflect},
+        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
+        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
     use alloc::collections::BTreeMap;
     use bevy_utils::{Duration, HashMap, Instant};

@@ -1,6 +1,4 @@
-use core::mem::{
-    size_of, {self},
-};
+use core::mem::{self, size_of};
 
 use bevy_asset::Assets;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};

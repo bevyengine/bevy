@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Font;
 pub use cosmic_text::{
-    FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle, Weight as FontWeight,
-    {self},
+    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
+    Weight as FontWeight,
 };
 
 /// Wrapper for [`cosmic_text::Buffer`]

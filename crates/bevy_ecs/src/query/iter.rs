@@ -9,9 +9,7 @@ use crate::{
 use core::{
     borrow::Borrow,
     cmp::Ordering,
-    fmt::{
-        Debug, Formatter, {self},
-    },
+    fmt::{self, Debug, Formatter},
     iter::FusedIterator,
     mem::MaybeUninit,
     ops::Range,

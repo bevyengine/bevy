@@ -419,10 +419,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        prelude::Image,
-        {self as bevy_render},
-    };
+    use crate::{self as bevy_render, prelude::Image};
     use bevy_asset::Handle;
 
     #[test]

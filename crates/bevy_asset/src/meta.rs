@@ -1,7 +1,6 @@
 use crate::{
-    loader::AssetLoader,
-    processor::Process,
-    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies, {self as bevy_asset},
+    self as bevy_asset, loader::AssetLoader, processor::Process, Asset, AssetPath,
+    DeserializeMetaError, VisitAssetDependencies,
 };
 use bevy_utils::tracing::error;
 use downcast_rs::{impl_downcast, Downcast};

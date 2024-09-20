@@ -7,9 +7,7 @@ use core::{
 };
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
-    fs::{
-        File, {self},
-    },
+    fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
     process::exit,

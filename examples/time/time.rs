@@ -2,9 +2,7 @@
 
 use bevy::{app::AppExit, prelude::*};
 
-use std::io::{
-    BufRead, {self},
-};
+use std::io::{self, BufRead};
 use std::time::Duration;
 
 fn banner() {

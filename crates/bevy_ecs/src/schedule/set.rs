@@ -212,10 +212,7 @@ mod tests {
 
     #[test]
     fn test_schedule_label() {
-        use crate::{
-            world::World,
-            {self as bevy_ecs},
-        };
+        use crate::{self as bevy_ecs, world::World};
 
         #[derive(Resource)]
         struct Flag(bool);

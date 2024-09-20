@@ -1192,13 +1192,13 @@ mod tests {
     use core::panic::Location;
 
     use crate::{
+        self as bevy_ecs,
         change_detection::{
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
         system::{IntoSystem, Query, System},
         world::World,
-        {self as bevy_ecs},
     };
 
     use super::{DetectChanges, DetectChangesMut, MutUntyped};

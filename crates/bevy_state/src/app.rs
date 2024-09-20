@@ -298,9 +298,9 @@ impl Plugin for StatesPlugin {
 #[cfg(test)]
 mod tests {
     use crate::{
+        self as bevy_state,
         app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
-        {self as bevy_state},
     };
     use bevy_app::App;
     use bevy_ecs::event::Events;

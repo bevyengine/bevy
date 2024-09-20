@@ -1,6 +1,5 @@
 use crate::{
-    std_traits::ReflectDefault,
-    ReflectDeserialize, ReflectSerialize, {self as bevy_reflect},
+    self as bevy_reflect, std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize,
 };
 use bevy_reflect_derive::impl_reflect_value;
 

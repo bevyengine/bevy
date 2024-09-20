@@ -58,9 +58,7 @@ use bevy_render::{
     prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types::{
-            uniform_buffer, {self},
-        },
+        binding_types::{self, uniform_buffer},
         BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },

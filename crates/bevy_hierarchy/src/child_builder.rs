@@ -700,9 +700,7 @@ mod tests {
     use super::{BuildChildren, ChildBuild};
     use crate::{
         components::{Children, Parent},
-        HierarchyEvent::{
-            ChildAdded, ChildMoved, ChildRemoved, {self},
-        },
+        HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
     };
     use smallvec::{smallvec, SmallVec};
 

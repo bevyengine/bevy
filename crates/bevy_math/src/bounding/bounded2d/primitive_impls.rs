@@ -404,9 +404,7 @@ mod tests {
 
     use crate::{
         bounding::Bounded2d,
-        ops::{
-            FloatPow, {self},
-        },
+        ops::{self, FloatPow},
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,

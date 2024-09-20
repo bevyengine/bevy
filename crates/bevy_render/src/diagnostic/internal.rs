@@ -3,9 +3,7 @@ use core::{
     ops::{DerefMut, Range},
     sync::atomic::{AtomicBool, Ordering},
 };
-use std::thread::{
-    ThreadId, {self},
-};
+use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};

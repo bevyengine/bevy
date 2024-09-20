@@ -6,20 +6,19 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::{
     default,
     tracing::{error, info, warn},
-    HashMap, HashSet,
-    ShortName,
+    HashMap, HashSet, ShortName,
 };
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
 
 use crate::{
+    self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
     schedule::*,
     system::{BoxedSystem, IntoSystem, Resource, System},
     world::World,
-    {self as bevy_ecs},
 };
 
 use crate::{query::AccessConflicts, storage::SparseSetIndex};
@@ -2048,6 +2047,7 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
+        self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
             tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
@@ -2055,7 +2055,6 @@ mod tests {
         },
         system::Commands,
         world::World,
-        {self as bevy_ecs},
     };
 
     use super::Schedules;

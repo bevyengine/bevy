@@ -2318,8 +2318,8 @@ mod tests {
 
     use super::*;
     use crate::{
+        self as bevy_ecs,
         system::{assert_is_system, Query},
-        {self as bevy_ecs},
     };
 
     #[derive(Component)]

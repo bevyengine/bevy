@@ -2,9 +2,7 @@ use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
-    ops::{
-        FloatPow, {self},
-    },
+    ops::{self, FloatPow},
     Dir2, Vec2,
 };
 

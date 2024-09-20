@@ -1,6 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
+    self as bevy_ecs,
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
@@ -8,7 +9,6 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
-    {self as bevy_ecs},
 };
 use alloc::{borrow::Cow, sync::Arc};
 pub use bevy_ecs_macros::Component;

@@ -8,9 +8,7 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph::{
-            RenderGraph, RenderLabel, {self},
-        },
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         texture::GpuImage,

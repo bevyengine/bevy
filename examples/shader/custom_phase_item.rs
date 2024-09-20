@@ -31,9 +31,7 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault as _,
-        view::{
-            ExtractedView, VisibilitySystems, VisibleEntities, {self},
-        },
+        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
         Render, RenderApp, RenderSet,
     },
 };

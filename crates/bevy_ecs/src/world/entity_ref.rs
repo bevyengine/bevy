@@ -2766,11 +2766,11 @@ mod tests {
     use core::panic::AssertUnwindSafe;
 
     use crate::{
+        self as bevy_ecs,
         component::ComponentId,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
         world::{FilteredEntityMut, FilteredEntityRef},
-        {self as bevy_ecs},
     };
 
     use super::{EntityMutExcept, EntityRefExcept};

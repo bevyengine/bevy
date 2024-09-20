@@ -2,9 +2,7 @@
 
 use std::{
     f32::consts::PI,
-    fmt::{
-        Formatter, {self},
-    },
+    fmt::{self, Formatter},
 };
 
 use bevy::{

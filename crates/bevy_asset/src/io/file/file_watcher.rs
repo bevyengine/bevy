@@ -7,8 +7,9 @@ use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
+        self,
         event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-        RecommendedWatcher, RecursiveMode, Watcher, {self},
+        RecommendedWatcher, RecursiveMode, Watcher,
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };

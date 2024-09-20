@@ -4,9 +4,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    type_info::impl_type_methods,
-    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath, {self as bevy_reflect},
+    self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [map-like] operations via [reflection].

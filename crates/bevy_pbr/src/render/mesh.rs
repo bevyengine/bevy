@@ -1,6 +1,4 @@
-use core::mem::{
-    size_of, {self},
-};
+use core::mem::{self, size_of};
 
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};
@@ -20,7 +18,7 @@ use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
-            GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer, {self},
+            self, GpuPreprocessingSupport, IndirectParameters, IndirectParametersBuffer,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },

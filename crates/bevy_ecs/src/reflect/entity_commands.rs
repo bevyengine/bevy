@@ -350,13 +350,13 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
 #[cfg(test)]
 mod tests {
     use crate::{
+        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},
         reflect::{ReflectBundle, ReflectCommandExt},
         system::{Commands, SystemState},
         world::World,
-        {self as bevy_ecs},
     };
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};

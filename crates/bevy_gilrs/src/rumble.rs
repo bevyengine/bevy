@@ -11,9 +11,7 @@ use bevy_utils::{
     Duration, HashMap,
 };
 use gilrs::{
-    ff::{
-        BaseEffect, BaseEffectType, Repeat, Replay, {self},
-    },
+    ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,
 };
 use thiserror::Error;

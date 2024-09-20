@@ -2,11 +2,10 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
 use crate::{
-    type_info::impl_type_methods,
-    utility::GenericTypePathCell,
-    ApplyError, FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField, {self as bevy_reflect},
+    self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
+    FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    UnnamedField,
 };
 use core::{
     any::Any,

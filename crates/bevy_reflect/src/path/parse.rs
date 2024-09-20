@@ -1,7 +1,5 @@
 use core::{
-    fmt::{
-        Write, {self},
-    },
+    fmt::{self, Write},
     num::ParseIntError,
     str::from_utf8_unchecked,
 };

@@ -1,6 +1,6 @@
 use crate::{
-    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle,
-    {self as bevy_asset},
+    self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
+    UntypedHandle,
 };
 use alloc::sync::Arc;
 use bevy_ecs::{

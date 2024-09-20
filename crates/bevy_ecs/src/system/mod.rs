@@ -345,6 +345,7 @@ mod tests {
     use core::any::TypeId;
 
     use crate::{
+        self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
@@ -362,7 +363,6 @@ mod tests {
             Resource, StaticSystemParam, System, SystemState,
         },
         world::{EntityMut, FromWorld, World},
-        {self as bevy_ecs},
     };
 
     #[derive(Resource, PartialEq, Debug)]

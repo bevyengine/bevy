@@ -4,10 +4,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
 use crate::{
-    hash_error,
-    type_info::impl_type_methods,
-    ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath, {self as bevy_reflect},
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].

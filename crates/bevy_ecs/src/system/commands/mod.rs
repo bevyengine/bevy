@@ -4,6 +4,7 @@ use core::{marker::PhantomData, panic::Location};
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
+    self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, ComponentInfo},
@@ -15,7 +16,6 @@ use crate::{
         command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
         SpawnBatchIter, World,
     },
-    {self as bevy_ecs},
 };
 use bevy_ptr::OwningPtr;
 use bevy_utils::tracing::{error, info};
@@ -1819,10 +1819,10 @@ fn observe<E: Event, B: Bundle, M>(
 #[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
+        self as bevy_ecs,
         component::Component,
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
-        {self as bevy_ecs},
     };
     use alloc::sync::Arc;
     use core::{

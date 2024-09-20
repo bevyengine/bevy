@@ -2,10 +2,7 @@
 
 use core::f32::consts::PI;
 
-use crate::{
-    primitives::dim3::GizmoPrimitive3d,
-    {self as bevy_gizmos},
-};
+use crate::{self as bevy_gizmos, primitives::dim3::GizmoPrimitive3d};
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{

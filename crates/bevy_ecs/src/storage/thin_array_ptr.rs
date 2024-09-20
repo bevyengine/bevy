@@ -4,9 +4,7 @@ use core::{
     alloc::Layout,
     mem::{needs_drop, size_of},
     num::NonZeroUsize,
-    ptr::{
-        NonNull, {self},
-    },
+    ptr::{self, NonNull},
 };
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.

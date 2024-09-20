@@ -1,8 +1,6 @@
 use core::{
     any,
-    fmt::{
-        Formatter, {self},
-    },
+    fmt::{self, Formatter},
 };
 
 use serde::{

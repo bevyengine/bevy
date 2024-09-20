@@ -1,8 +1,6 @@
 use alloc::sync::Arc;
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{
-    JoinHandle, {self},
-};
+use std::thread::{self, JoinHandle};
 
 use async_executor::FallibleTask;
 use concurrent_queue::ConcurrentQueue;

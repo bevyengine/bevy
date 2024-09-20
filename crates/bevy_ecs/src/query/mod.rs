@@ -104,13 +104,13 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
+        self as bevy_ecs,
         component::Component,
         prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
         query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData},
         schedule::{IntoSystemConfigs, Schedule},
         system::{IntoSystem, Query, System, SystemState},
         world::World,
-        {self as bevy_ecs},
     };
     use bevy_ecs_macros::{QueryData, QueryFilter};
     use core::{any::type_name, fmt::Debug, hash::Hash};

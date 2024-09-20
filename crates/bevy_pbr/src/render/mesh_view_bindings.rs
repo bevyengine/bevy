@@ -37,12 +37,10 @@ use environment_map::EnvironmentMapLight;
 #[cfg(debug_assertions)]
 use crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES;
 use crate::{
-    environment_map::{
-        RenderViewEnvironmentMapBindGroupEntries, {self},
-    },
+    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{
-        IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
-        IRRADIANCE_VOLUMES_ARE_USABLE, {self},
+        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
+        IRRADIANCE_VOLUMES_ARE_USABLE,
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,

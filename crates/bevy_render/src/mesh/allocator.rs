@@ -2,9 +2,7 @@
 
 use alloc::{borrow::Cow, vec::Vec};
 use core::{
-    fmt::{
-        Display, Formatter, {self},
-    },
+    fmt::{self, Display, Formatter},
     iter,
     ops::Range,
 };

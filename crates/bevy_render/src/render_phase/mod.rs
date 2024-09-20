@@ -39,13 +39,10 @@ pub use rangefinder::*;
 
 use crate::{
     batching::{
-        gpu_preprocessing::{
-            BatchedInstanceBuffers, {self},
-        },
-        no_gpu_preprocessing::{
-            BatchedInstanceBuffer, {self},
-        },
-        GetFullBatchData, {self},
+        self,
+        gpu_preprocessing::{self, BatchedInstanceBuffers},
+        no_gpu_preprocessing::{self, BatchedInstanceBuffer},
+        GetFullBatchData,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSet,
@@ -56,9 +53,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use core::{
-    fmt::{
-        Debug, Formatter, {self},
-    },
+    fmt::{self, Debug, Formatter},
     hash::Hash,
     iter,
     marker::PhantomData,

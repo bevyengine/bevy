@@ -1517,9 +1517,7 @@ mod tests {
             CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
             RationalGenerator,
         },
-        ops::{
-            FloatPow, {self},
-        },
+        ops::{self, FloatPow},
     };
 
     /// How close two floats can be and still be considered equal

@@ -604,6 +604,7 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
+        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -614,7 +615,7 @@ mod tests {
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
-        RecursiveDependencyLoadState, {self as bevy_asset},
+        RecursiveDependencyLoadState,
     };
     use alloc::sync::Arc;
     use bevy_app::{App, Update};

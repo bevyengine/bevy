@@ -10,9 +10,7 @@
 use bevy::{
     prelude::*,
     render::{
-        render_graph::{
-            RenderGraph, RenderLabel, {self},
-        },
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::storage_buffer, *},
         renderer::{RenderContext, RenderDevice, RenderQueue},
         Render, RenderApp, RenderSet,

@@ -9,9 +9,7 @@
 
 use core::{
     cell::UnsafeCell,
-    fmt::{
-        Formatter, Pointer, {self},
-    },
+    fmt::{self, Formatter, Pointer},
     marker::PhantomData,
     mem::ManuallyDrop,
     num::NonZeroUsize,

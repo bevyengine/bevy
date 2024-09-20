@@ -14,9 +14,7 @@ use bevy::{
     render::{
         camera::RenderTarget,
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph::{
-            NodeRunError, RenderGraph, RenderGraphContext, RenderLabel, {self},
-        },
+        render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
             ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDimension, TextureFormat,

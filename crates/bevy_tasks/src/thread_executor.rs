@@ -1,7 +1,5 @@
 use core::marker::PhantomData;
-use std::thread::{
-    ThreadId, {self},
-};
+use std::thread::{self, ThreadId};
 
 use async_executor::{Executor, Task};
 use futures_lite::Future;
