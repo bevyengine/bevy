@@ -551,6 +551,7 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
+mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -618,6 +619,7 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+pub use short_name::ShortName;
 
 /// Exports used by the reflection macros.
 ///
@@ -672,7 +674,7 @@ pub mod __macro_exports {
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use alloc::borrow::Cow;
-    use bevy_utils::{HashMap, ShortName};
+    use bevy_utils::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -690,6 +692,7 @@ mod tests {
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,
+        ShortName,
     };
 
     #[test]

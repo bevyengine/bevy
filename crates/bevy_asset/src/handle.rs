@@ -4,8 +4,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::ShortName;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ShortName, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},

@@ -25,8 +25,6 @@ pub mod prelude {
 }
 
 pub mod futures;
-mod short_names;
-pub use short_names::ShortName;
 pub mod synccell;
 pub mod syncunsafecell;
 

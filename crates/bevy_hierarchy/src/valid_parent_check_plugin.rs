@@ -3,10 +3,7 @@ use core::marker::PhantomData;
 use bevy_ecs::prelude::*;
 
 #[cfg(feature = "bevy_app")]
-use {
-    crate::Parent,
-    bevy_utils::{HashSet, ShortName},
-};
+use {crate::Parent, bevy_reflect::ShortName, bevy_utils::HashSet};
 
 /// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
 ///
