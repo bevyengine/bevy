@@ -1582,7 +1582,7 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let mut name = match id {
+        let name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
                 if report_sets {
@@ -1610,9 +1610,14 @@ impl ScheduleGraph {
         #[cfg(feature = "bevy_reflect")]
         {
             if self.settings.use_shortnames {
-                name = bevy_reflect::ShortName(&name).to_string();
+                return bevy_reflect::ShortName(&name).to_string();
+            }
+            else
+            {
+                return name;
             }
         }
+        #[cfg(not(feature = "bevy_reflect"))]
         name
     }
 
