@@ -158,6 +158,47 @@ impl<A> AssetPresence<A> {
     pub fn is_some(&self) -> bool {
         matches!(self, Self::Unlocked(_) | Self::Locked(_))
     }
+
+    /// Locks the current asset, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] only if [`AssetPresence::None`].
+    pub fn lock(&mut self) -> Option<Arc<A>> {
+        match self {
+            Self::None => None,
+            Self::Locked(asset_arc) => Some(Arc::clone(asset_arc)),
+            Self::Unlocked(_) => {
+                let Self::Unlocked(asset) = self.take() else {
+                    unreachable!()
+                };
+                let asset = Arc::new(asset);
+                *self = Self::Locked(Arc::clone(&asset));
+                Some(asset)
+            }
+        }
+    }
+
+    /// Attempts to unlock the asset (returning it to a mutable state). Note an
+    /// already unlocked asset will return [`Ok`].
+    pub fn try_unlock(&mut self) -> Result<(), UnlockAssetError> {
+        match self {
+            Self::None => Err(UnlockAssetError::Missing),
+            Self::Unlocked(_) => Ok(()),
+            Self::Locked(_) => {
+                let Self::Locked(asset_arc) = self.take() else {
+                    unreachable!();
+                };
+                match Arc::try_unwrap(asset_arc) {
+                    Ok(asset) => {
+                        *self = Self::Unlocked(asset);
+                        Ok(())
+                    }
+                    Err(asset_arc) => {
+                        *self = Self::Locked(asset_arc);
+                        Err(UnlockAssetError::InUse)
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// An error from trying to mutably access an asset.
@@ -167,6 +208,15 @@ pub enum MutableAssetError {
     Missing,
     #[error("The asset is currently locked and cannot be mutated.")]
     Locked,
+}
+
+/// An error from trying to unlock an asset.
+#[derive(Clone, Copy, PartialEq, Eq, Error, Debug)]
+pub enum UnlockAssetError {
+    #[error("The asset is not present or has an invalid generation.")]
+    Missing,
+    #[error("The asset is currently locked and is still being used.")]
+    InUse,
 }
 
 /// A possibly mutable access to an asset.
@@ -309,6 +359,40 @@ impl<A: Asset> DenseAssetStorage<A> {
                     value.as_mut()
                 } else {
                     Err(MutableAssetError::Missing)
+                }
+            }
+        }
+    }
+
+    /// Locks the asset at `index`, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] if the asset is missing.
+    pub(crate) fn lock(&mut self, index: AssetIndex) -> Option<Arc<A>> {
+        let entry = self.storage.get_mut(index.index as usize)?;
+        match entry {
+            Entry::None => None,
+            Entry::Some { value, generation } => {
+                if *generation == index.generation {
+                    value.lock()
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Attempts to unlock the asset at `index` (returning it to a mutable
+    /// state). Note an already unlocked asset will return [`Ok`].
+    pub(crate) fn try_unlock(&mut self, index: AssetIndex) -> Result<(), UnlockAssetError> {
+        let Some(entry) = self.storage.get_mut(index.index as usize) else {
+            return Err(UnlockAssetError::Missing);
+        };
+        match entry {
+            Entry::None => Err(UnlockAssetError::Missing),
+            Entry::Some { value, generation } => {
+                if *generation == index.generation {
+                    value.try_unlock()
+                } else {
+                    Err(UnlockAssetError::Missing)
                 }
             }
         }
@@ -524,6 +608,32 @@ impl<A: Asset> Assets<A> {
             self.queued_events.push(AssetEvent::Modified { id });
         }
         result
+    }
+
+    /// Locks the asset with the given `id`, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] if the asset is missing.
+    pub fn lock(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId::Index { index, .. } => self.dense_storage.lock(index),
+            AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
+                None => None,
+                Some(asset_presence) => asset_presence.lock(),
+            },
+        }
+    }
+
+    /// Attempts to unlock the asset with the given `id` (returning it to a mutable
+    /// state). Note an already unlocked asset will return [`Ok`].
+    pub fn try_unlock(&mut self, id: impl Into<AssetId<A>>) -> Result<(), UnlockAssetError> {
+        let id: AssetId<A> = id.into();
+        match id {
+            AssetId::Index { index, .. } => self.dense_storage.try_unlock(index),
+            AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
+                None => Err(UnlockAssetError::Missing),
+                Some(asset_presence) => asset_presence.try_unlock(),
+            },
+        }
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
