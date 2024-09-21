@@ -391,7 +391,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (entity, uinode, style, transform, handle, view_visibility, clip, camera, maybe_parent) in
+    for (uinode, style, transform, handle, view_visibility, clip, camera, maybe_parent) in
         uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
@@ -433,7 +433,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 / uinode.size().y;
 
         extracted_uinodes.uinodes.insert(
-            entity,
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiMaterialNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -444,7 +444,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border: [left, right, top, bottom],
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                camera_entity: camera_entity.id(),
             },
         );
     }

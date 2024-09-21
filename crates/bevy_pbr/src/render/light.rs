@@ -441,8 +441,6 @@ pub(crate) fn remove_light_view_entities(
     }
 }
 
-pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
-
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
     pub(crate) up: Vec3,

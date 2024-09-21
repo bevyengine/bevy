@@ -26,8 +26,8 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
+    BackgroundColor, BorderColor, CalculatedClip, Display, Node, Outline, Style, TargetCamera,
+    UiAntiAlias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -211,11 +211,11 @@ pub fn extract_uinode_background_colors(
     node_query: Extract<Query<&Node>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    let default_ui_camera = default_ui_camera.get();
     for (uinode, transform, view_visibility, clip, camera, background_color, style, parent) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
 
@@ -314,7 +314,8 @@ pub fn extract_uinode_images(
     for (uinode, transform, view_visibility, clip, camera, image, atlas, parent, style) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
 
@@ -327,26 +328,17 @@ pub fn extract_uinode_images(
         }
 
         let ui_logical_viewport_size = camera_query
-        .get(camera_entity)
-        .ok()
-        .and_then(Camera::logical_viewport_size)
-        .unwrap_or(Vec2::ZERO)
-        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-        // so we have to divide by `UiScale` to get the size of the UI viewport.
-        / ui_scale.0;
+            .get(camera_entity)
+            .ok()
+            .and_then(Camera::logical_viewport_size)
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
 
         let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
-
-        if let Some(slices) = slices {
-            extracted_uinodes.uinodes.extend(
-                slices
-                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity.id())
-                    .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
-            );
-            continue;
-        }
 
         let atlas_rect = atlas
             .and_then(|s| s.texture_rect(&texture_atlases))
@@ -477,7 +469,6 @@ pub fn extract_uinode_borders(
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
-    let default_ui_camera = default_ui_camera.get();
 
     for (
         uinode,
@@ -596,7 +587,7 @@ pub fn extract_uinode_borders(
                     clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity,
+                    camera_entity: camera_entity.id(),
                     border: [uinode.outline_width(); 4],
                     border_radius: outline_radius,
                     node_type: NodeType::Border,
