@@ -1,9 +1,8 @@
 use std::sync::OnceLock;
 
 use crate::{
-    change_detection::{MutUntyped, Res, Ticks, TicksMut},
+    change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
     component::{ComponentId, Tick},
-    prelude::Mut,
     query::Access,
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -53,7 +52,7 @@ use bevy_ptr::UnsafeCellDeref;
 ///     // The resource exists and we have access, so we can read it.
 ///     let c = res.get::<C>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
-///     let c: Res<C> = res.get().unwrap();
+///     let c: Ref<C> = res.get().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -86,7 +85,7 @@ use bevy_ptr::UnsafeCellDeref;
 ///
 /// // Read access to A does not conflict with read access to A or write access to B.
 /// fn resource_system(filtered: FilteredResources, res_a: Res<A>, res_mut_b: ResMut<B>) {
-///     let res_a_2: Res<A> = filtered.get::<A>().unwrap();
+///     let res_a_2: Ref<A> = filtered.get::<A>().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -156,14 +155,14 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Res<'w, R>> {
+    pub fn get<R: Resource>(&self) -> Option<Ref<'w, R>> {
         let component_id = self.world.components().resource_id::<R>()?;
         if !self.access.has_resource_read(component_id) {
             return None;
         }
         // SAFETY: We have read access to this resource
         unsafe { self.world.get_resource_with_ticks(component_id) }.map(
-            |(value, ticks, _caller)| Res {
+            |(value, ticks, _caller)| Ref {
                 // SAFETY: `component_id` was obtained from the type ID of `R`.
                 value: unsafe { value.deref() },
                 // SAFETY: We have read access to the resource, so no mutable reference can exist.
@@ -295,7 +294,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///     let d = res.get::<D>().unwrap();
 ///     let d = res.get_mut::<D>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
-///     let c: Res<C> = res.get().unwrap();
+///     let c: Ref<C> = res.get().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -333,7 +332,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// // Read access to A does not conflict with read access to A or write access to C.
 /// // Write access to B does not conflict with access to A or C.
 /// fn resource_system(mut filtered: FilteredResourcesMut, res_a: Res<A>, res_mut_c: ResMut<C>) {
-///     let res_a_2: Res<A> = filtered.get::<A>().unwrap();
+///     let res_a_2: Ref<A> = filtered.get::<A>().unwrap();
 ///     let res_mut_b: Mut<B> = filtered.get_mut::<B>().unwrap();
 /// }
 /// #
@@ -423,7 +422,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Gets a reference to the resource of the given type if it exists and the `FilteredResources` has access to it.
-    pub fn get<R: Resource>(&self) -> Option<Res<'_, R>> {
+    pub fn get<R: Resource>(&self) -> Option<Ref<'_, R>> {
         self.as_readonly().get()
     }
 
