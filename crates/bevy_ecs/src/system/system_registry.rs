@@ -750,4 +750,33 @@ mod tests {
         let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
+
+    #[test]
+    fn cached_system() {
+        use crate::system::SystemId;
+
+        fn four() -> i32 {
+            4
+        }
+
+        let old = world.register_system_cached(four);
+        let new = world.register_system_cached(four);
+        assert_eq!(old, new);
+
+        world.remove_system_cached(four);
+        let new = world.register_system_cached(four);
+        assert_ne!(old, new);
+
+        let output = world.run_system(old);
+        assert_eq!(output, Err(RegisteredSystemError::SystemIdNotRegistered(old)));
+
+        let output = world.run_system(new);
+        assert_eq!(output, Ok(four()));
+
+        let output = world.run_system_cached(four);
+        assert_eq!(output, Ok(four()));
+
+        let output = world.run_system_cached_with(four, ());
+        assert_eq!(output, Ok(four()));
+    }
 }
