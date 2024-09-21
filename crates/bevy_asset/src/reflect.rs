@@ -46,14 +46,19 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get_mut`]
-    #[allow(unsafe_code)]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
         handle: UntypedHandle,
     ) -> Option<&'w mut dyn Reflect> {
         // SAFETY: unique world access
-        unsafe { (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle) }
+        #[expect(
+            unsafe_code,
+            reason = "Use of unsafe `Self::get_unchecked_mut()` function."
+        )]
+        unsafe {
+            (self.get_unchecked_mut)(world.as_unsafe_world_cell(), handle)
+        }
     }
 
     /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
@@ -83,7 +88,10 @@ impl ReflectAsset {
     /// violating Rust's aliasing rules. To avoid this:
     /// * Only call this method if you know that the [`UnsafeWorldCell`] may be used to access the corresponding `Assets<T>`
     /// * Don't call this method more than once in the same scope.
-    #[allow(unsafe_code)]
+    #[expect(
+        unsafe_code,
+        reason = "This function calls unsafe code and has safety requirements."
+    )]
     pub unsafe fn get_unchecked_mut<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
@@ -108,7 +116,6 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::len`]
-    #[allow(clippy::len_without_is_empty)] // clippy expects the `is_empty` method to have the signature `(&self) -> bool`
     pub fn len(&self, world: &World) -> usize {
         (self.len)(world)
     }
@@ -137,7 +144,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
-                #[allow(unsafe_code)]
+                #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
                 let asset = assets.get_mut(&handle.typed_debug_checked());
                 asset.map(|asset| asset as &mut dyn Reflect)

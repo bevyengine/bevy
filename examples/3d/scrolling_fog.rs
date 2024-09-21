@@ -17,9 +17,10 @@ use bevy::{
     },
     pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
-};
-use bevy_render::texture::{
-    ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
+    render::texture::{
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageSamplerDescriptor,
+    },
 };
 
 /// Initializes the example.

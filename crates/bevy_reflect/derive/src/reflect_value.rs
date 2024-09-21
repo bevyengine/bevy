@@ -24,7 +24,13 @@ use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, 
 /// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
 pub(crate) struct ReflectValueDef {
-    #[allow(dead_code)]
+    #[cfg_attr(
+        not(feature = "documentation"),
+        expect(
+            dead_code,
+            reason = "The is used when the `documentation` feature is enabled.",
+        )
+    )]
     pub attrs: Vec<Attribute>,
     pub type_path: Path,
     pub generics: Generics,

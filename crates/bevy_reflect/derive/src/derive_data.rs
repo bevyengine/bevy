@@ -119,11 +119,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
-    #[allow(dead_code)]
     pub attrs: FieldAttributes,
-    /// The index of this variant within the enum.
-    #[allow(dead_code)]
-    pub index: usize,
     /// The documentation for this variant, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
@@ -438,8 +434,7 @@ impl<'a> ReflectDerive<'a> {
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
             .iter()
-            .enumerate()
-            .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
+            .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
 
                 let fields = match variant.fields {
@@ -451,7 +446,6 @@ impl<'a> ReflectDerive<'a> {
                     fields,
                     attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
-                    index,
                     #[cfg(feature = "documentation")]
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
@@ -489,7 +483,10 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The `FromReflect` attributes on this type.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(
+        clippy::wrong_self_convention,
+        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+    )]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
         self.attrs.from_reflect_attrs()
     }
@@ -560,7 +557,13 @@ impl<'a> StructField<'a> {
         let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
         };
@@ -672,7 +675,13 @@ impl<'a> ReflectStruct<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new::<Self>(&[
                 #(#field_infos),*
@@ -769,7 +778,13 @@ impl<'a> ReflectEnum<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::EnumInfo::new::<Self>(&[
                 #(#variants),*
@@ -800,7 +815,6 @@ impl<'a> EnumVariant<'a> {
     }
 
     /// The complete set of fields in this variant.
-    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         match &self.fields {
             EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
@@ -840,7 +854,13 @@ impl<'a> EnumVariant<'a> {
 
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
                 .with_custom_attributes(#custom_attributes)
@@ -920,8 +940,10 @@ pub(crate) enum ReflectTypePath<'a> {
         generics: &'a Generics,
     },
     /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
-    #[allow(dead_code)]
-    // Not currently used but may be useful in the future due to its generality.
+    #[expect(
+        dead_code,
+        reason = "Not currently used but may be useful in the future due to its generality."
+    )]
     Anonymous {
         qualified_type: Type,
         long_type_path: StringExpr,
