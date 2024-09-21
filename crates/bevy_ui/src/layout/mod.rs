@@ -110,7 +110,7 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    node_children_query: Query<(Entity, Ref<Children>), With<Node>>,
+    node_query: Query<Entity, With<Node>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -244,10 +244,10 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    node_children_query.iter().for_each(|(entity, children)| {
-        // TODO: Fix the change detection here
-        if children.is_changed() {
-            ui_surface.update_children(entity, ui_children.iter(entity));
+
+    node_query.iter().for_each(|entity| {
+        if ui_children.is_changed(entity) {
+            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
     });
 
@@ -259,10 +259,9 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    node_children_query.iter().for_each(|(entity, children)| {
-        // TODO: Fix the change detection here
-        if children.is_changed() {
-            ui_surface.update_children(entity, ui_children.iter(entity));
+    node_query.iter().for_each(|entity| {
+        if ui_children.is_changed(entity) {
+            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
     });
 
@@ -408,7 +407,7 @@ pub fn ui_layout_system(
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
-            for child_uinode in ui_children.iter(entity) {
+            for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
                     child_uinode,
