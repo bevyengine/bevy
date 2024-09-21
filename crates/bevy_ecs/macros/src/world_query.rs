@@ -2,7 +2,10 @@ use proc_macro2::Ident;
 use quote::quote;
 use syn::{Attribute, Fields, ImplGenerics, TypeGenerics, Visibility, WhereClause};
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Required to generate the entire item structure."
+)]
 pub(crate) fn item_struct(
     path: &syn::Path,
     fields: &Fields,
@@ -52,7 +55,10 @@ pub(crate) fn item_struct(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Required to generate the entire world query implementation."
+)]
 pub(crate) fn world_query_impl(
     path: &syn::Path,
     struct_name: &Ident,

@@ -505,7 +505,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, rc::Rc};
 
     /// # Safety
     ///

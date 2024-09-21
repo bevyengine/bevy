@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
@@ -2366,9 +2366,7 @@ bevy_reflect::tests::Test {
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    bevy_utils::get_short_name(std::any::type_name::<Self>())
-                })
+                CELL.get_or_insert::<Self, _>(|| bevy_utils::ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {

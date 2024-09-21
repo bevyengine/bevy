@@ -1,5 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Some utilities, such as futures and cells, require unsafe code."
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -22,10 +25,8 @@ pub mod prelude {
 }
 
 pub mod futures;
-#[cfg(feature = "alloc")]
 mod short_names;
-#[cfg(feature = "alloc")]
-pub use short_names::get_short_name;
+pub use short_names::ShortName;
 pub mod synccell;
 pub mod syncunsafecell;
 
@@ -65,7 +66,7 @@ mod conditional_send {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
 mod conditional_send {
     pub trait ConditionalSend {}
     impl<T> ConditionalSend for T {}

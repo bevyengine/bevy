@@ -11,11 +11,7 @@ use thiserror::Error;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
-// Needed for doc strings.
-#[allow(unused_imports)]
-use crate::io::{AssetReader, AssetWriter};
-
-/// A reference to an "asset source", which maps to an [`AssetReader`] and/or [`AssetWriter`].
+/// A reference to an "asset source", which maps to an [`AssetReader`](crate::io::AssetReader) and/or [`AssetWriter`](crate::io::AssetWriter).
 ///
 /// * [`AssetSourceId::Default`] corresponds to "default asset paths" that don't specify a source: `/path/to/asset.png`
 /// * [`AssetSourceId::Name`] corresponds to asset paths that _do_ specify a source: `remote://path/to/asset.png`, where `remote` is the name.
@@ -127,7 +123,7 @@ impl<'a> PartialEq for AssetSourceId<'a> {
     }
 }
 
-/// Metadata about an "asset source", such as how to construct the [`AssetReader`] and [`AssetWriter`] for the source,
+/// Metadata about an "asset source", such as how to construct the [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) for the source,
 /// and whether or not the source is processed.
 #[derive(Default)]
 pub struct AssetSourceBuilder {
@@ -210,7 +206,7 @@ impl AssetSourceBuilder {
         Some(source)
     }
 
-    /// Will use the given `reader` function to construct unprocessed [`AssetReader`] instances.
+    /// Will use the given `reader` function to construct unprocessed [`AssetReader`](crate::io::AssetReader) instances.
     pub fn with_reader(
         mut self,
         reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
@@ -219,7 +215,7 @@ impl AssetSourceBuilder {
         self
     }
 
-    /// Will use the given `writer` function to construct unprocessed [`AssetWriter`] instances.
+    /// Will use the given `writer` function to construct unprocessed [`AssetWriter`](crate::io::AssetWriter) instances.
     pub fn with_writer(
         mut self,
         writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
@@ -240,7 +236,7 @@ impl AssetSourceBuilder {
         self
     }
 
-    /// Will use the given `reader` function to construct processed [`AssetReader`] instances.
+    /// Will use the given `reader` function to construct processed [`AssetReader`](crate::io::AssetReader) instances.
     pub fn with_processed_reader(
         mut self,
         reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
@@ -249,7 +245,7 @@ impl AssetSourceBuilder {
         self
     }
 
-    /// Will use the given `writer` function to construct processed [`AssetWriter`] instances.
+    /// Will use the given `writer` function to construct processed [`AssetWriter`](crate::io::AssetWriter) instances.
     pub fn with_processed_writer(
         mut self,
         writer: impl FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync + 'static,
@@ -309,7 +305,7 @@ impl AssetSourceBuilder {
     }
 }
 
-/// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`] and [`AssetWriter`] instances
+/// A [`Resource`] that hold (repeatable) functions capable of producing new [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) instances
 /// for a given asset source.
 #[derive(Resource, Default)]
 pub struct AssetSourceBuilders {
@@ -372,7 +368,7 @@ impl AssetSourceBuilders {
     }
 }
 
-/// A collection of unprocessed and processed [`AssetReader`], [`AssetWriter`], and [`AssetWatcher`] instances
+/// A collection of unprocessed and processed [`AssetReader`](crate::io::AssetReader), [`AssetWriter`](crate::io::AssetWriter), and [`AssetWatcher`] instances
 /// for a specific asset source, identified by an [`AssetSourceId`].
 pub struct AssetSource {
     id: AssetSourceId<'static>,
@@ -398,13 +394,13 @@ impl AssetSource {
         self.id.clone()
     }
 
-    /// Return's this source's unprocessed [`AssetReader`].
+    /// Return's this source's unprocessed [`AssetReader`](crate::io::AssetReader).
     #[inline]
     pub fn reader(&self) -> &dyn ErasedAssetReader {
         &*self.reader
     }
 
-    /// Return's this source's unprocessed [`AssetWriter`], if it exists.
+    /// Return's this source's unprocessed [`AssetWriter`](crate::io::AssetWriter), if it exists.
     #[inline]
     pub fn writer(&self) -> Result<&dyn ErasedAssetWriter, MissingAssetWriterError> {
         self.writer
@@ -412,7 +408,7 @@ impl AssetSource {
             .ok_or_else(|| MissingAssetWriterError(self.id.clone_owned()))
     }
 
-    /// Return's this source's processed [`AssetReader`], if it exists.
+    /// Return's this source's processed [`AssetReader`](crate::io::AssetReader), if it exists.
     #[inline]
     pub fn processed_reader(
         &self,
@@ -422,7 +418,7 @@ impl AssetSource {
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
     }
 
-    /// Return's this source's processed [`AssetWriter`], if it exists.
+    /// Return's this source's processed [`AssetWriter`](crate::io::AssetWriter), if it exists.
     #[inline]
     pub fn processed_writer(
         &self,
@@ -452,7 +448,7 @@ impl AssetSource {
         self.processed_writer.is_some()
     }
 
-    /// Returns a builder function for this platform's default [`AssetReader`]. `path` is the relative path to
+    /// Returns a builder function for this platform's default [`AssetReader`](crate::io::AssetReader). `path` is the relative path to
     /// the asset root.
     pub fn get_default_reader(
         _path: String,
@@ -467,7 +463,7 @@ impl AssetSource {
         }
     }
 
-    /// Returns a builder function for this platform's default [`AssetWriter`]. `path` is the relative path to
+    /// Returns a builder function for this platform's default [`AssetWriter`](crate::io::AssetWriter). `path` is the relative path to
     /// the asset root. This will return [`None`] if this platform does not support writing assets by default.
     pub fn get_default_writer(
         _path: String,
@@ -508,7 +504,17 @@ impl AssetSource {
     /// `file_debounce_time` is the amount of time to wait (and debounce duplicate events) before returning an event.
     /// Higher durations reduce duplicates but increase the amount of time before a change event is processed. If the
     /// duration is set too low, some systems might surface events _before_ their filesystem has the changes.
-    #[allow(unused)]
+    #[cfg_attr(
+        any(
+            not(feature = "file_watcher"),
+            target_arch = "wasm32",
+            target_os = "android"
+        ),
+        expect(
+            unused_variables,
+            reason = "The `path` and `file_debounce_wait_time` arguments are unused when on WASM, Android, or if the `file_watcher` feature is disabled."
+        )
+    )]
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
@@ -548,7 +554,7 @@ impl AssetSource {
         }
     }
 
-    /// This will cause processed [`AssetReader`] futures (such as [`AssetReader::read`]) to wait until
+    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
     pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
         if let Some(reader) = self.processed_reader.take() {
@@ -610,7 +616,7 @@ impl AssetSources {
             .chain(Some(AssetSourceId::Default))
     }
 
-    /// This will cause processed [`AssetReader`] futures (such as [`AssetReader::read`]) to wait until
+    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
     pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
         for source in self.iter_processed_mut() {
@@ -624,17 +630,17 @@ impl AssetSources {
 #[error("Asset Source '{0}' does not exist")]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
-/// An error returned when an [`AssetWriter`] does not exist for a given id.
+/// An error returned when an [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
 #[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have an AssetWriter.")]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
-/// An error returned when a processed [`AssetReader`] does not exist for a given id.
+/// An error returned when a processed [`AssetReader`](crate::io::AssetReader) does not exist for a given id.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("Asset Source '{0}' does not have a processed AssetReader.")]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
-/// An error returned when a processed [`AssetWriter`] does not exist for a given id.
+/// An error returned when a processed [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
 #[derive(Error, Debug, Clone)]
 #[error("Asset Source '{0}' does not have a processed AssetWriter.")]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);

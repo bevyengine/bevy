@@ -67,7 +67,10 @@ use {bevy_ecs::system::Resource, bevy_utils::synccell::SyncCell};
 /// Wrapper resource for `tracing-chrome`'s flush guard.
 /// When the guard is dropped the chrome log is written to file.
 #[cfg(feature = "tracing-chrome")]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "`FlushGuard` never needs to be read, it just needs to be kept alive for the `App`'s lifetime."
+)]
 #[derive(Resource)]
 pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
@@ -187,7 +190,6 @@ impl Default for LogPlugin {
 }
 
 impl Plugin for LogPlugin {
-    #[cfg_attr(not(feature = "tracing-chrome"), allow(unused_variables))]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "trace")]
         {

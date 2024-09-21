@@ -434,7 +434,10 @@ impl ContainerAttributes {
     }
 
     /// The `FromReflect` configuration found within `#[reflect(...)]` attributes on this type.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(
+        clippy::wrong_self_convention,
+        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+    )]
     pub fn from_reflect_attrs(&self) -> &FromReflectAttrs {
         &self.from_reflect_attrs
     }

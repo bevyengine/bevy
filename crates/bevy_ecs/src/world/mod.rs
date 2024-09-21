@@ -162,6 +162,8 @@ impl Drop for World {
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -2500,7 +2502,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, size_of::<A>() + size_of::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s
