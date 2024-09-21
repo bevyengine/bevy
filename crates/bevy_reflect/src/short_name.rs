@@ -14,7 +14,7 @@
 /// # Examples
 ///
 /// ```rust
-/// # use bevy_utils::ShortName;
+/// # use bevy_reflect::ShortName;
 /// #
 /// # mod foo {
 /// #     pub mod bar {

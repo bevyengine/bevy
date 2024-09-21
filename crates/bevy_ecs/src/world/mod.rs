@@ -40,7 +40,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Res, Resource},
+    system::{Commands, Resource},
     world::{command_queue::RawCommandQueue, error::TryRunScheduleError},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1612,7 +1612,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -1660,7 +1660,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2400,7 +2400,7 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
@@ -2502,7 +2502,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, size_of::<A>() + size_of::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s
