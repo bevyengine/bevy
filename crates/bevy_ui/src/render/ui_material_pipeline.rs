@@ -8,7 +8,6 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
@@ -369,7 +368,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
-                Option<&Parent>,
             ),
             Without<BackgroundColor>,
         >,
@@ -377,6 +375,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
     node_query: Extract<Query<&Node>>,
+    ui_children: Extract<UiChildren>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -389,7 +388,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (entity, uinode, style, transform, handle, view_visibility, clip, camera, maybe_parent) in
+    for (entity, uinode, style, transform, handle, view_visibility, clip, camera) in
         uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
@@ -408,8 +407,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = maybe_parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+        let parent_width = ui_children
+            .get_parent(entity)
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
 

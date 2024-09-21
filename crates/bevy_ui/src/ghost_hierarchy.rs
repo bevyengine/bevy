@@ -1,7 +1,7 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -54,6 +54,7 @@ pub struct UiChildren<'w, 's> {
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
+    parents_query: Query<'w, 's, &'static Parent>,
 }
 
 impl<'w, 's> UiChildren<'w, 's> {
@@ -70,6 +71,13 @@ impl<'w, 's> UiChildren<'w, 's> {
                 }),
             query: &self.ui_children_query,
         }
+    }
+
+    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
+    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+        self.parents_query
+            .iter_ancestors(entity)
+            .find(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.

@@ -7,7 +7,6 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
@@ -25,7 +24,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
-    TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
+    TargetCamera, UiAntiAlias, UiChildren, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -204,22 +203,13 @@ pub fn extract_uinode_background_colors(
             Option<&TargetCamera>,
             &BackgroundColor,
             &Style,
-            Option<&Parent>,
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    ui_children: Extract<UiChildren>,
 ) {
-    for (
-        entity,
-        uinode,
-        transform,
-        view_visibility,
-        clip,
-        camera,
-        background_color,
-        style,
-        parent,
-    ) in &uinode_query
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color, style) in
+        &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -242,8 +232,9 @@ pub fn extract_uinode_background_colors(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+        let parent_width = ui_children
+            .get_parent(entity)
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =
@@ -299,6 +290,7 @@ pub fn extract_uinode_images(
     uinode_query: Extract<
         Query<
             (
+                Entity,
                 &Node,
                 &GlobalTransform,
                 &ViewVisibility,
@@ -306,15 +298,15 @@ pub fn extract_uinode_images(
                 Option<&TargetCamera>,
                 &UiImage,
                 Option<&TextureAtlas>,
-                Option<&Parent>,
                 &Style,
             ),
             Without<ImageScaleMode>,
         >,
     >,
     node_query: Extract<Query<&Node>>,
+    ui_children: Extract<UiChildren>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, parent, style) in
+    for (entity, uinode, transform, view_visibility, clip, camera, image, atlas, style) in
         &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -368,8 +360,9 @@ pub fn extract_uinode_images(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+        let parent_width = ui_children
+            .get_parent(entity)
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =
@@ -445,6 +438,7 @@ fn clamp_radius(
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -453,27 +447,28 @@ pub fn extract_uinode_borders(
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            Option<&Parent>,
             &Style,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    ui_children: Extract<UiChildren>,
 ) {
     let image = AssetId::<Image>::default();
 
     for (
+        entity,
         uinode,
         global_transform,
         view_visibility,
         maybe_clip,
         maybe_camera,
-        maybe_parent,
         style,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
@@ -505,8 +500,9 @@ pub fn extract_uinode_borders(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = maybe_parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+        let parent_width = ui_children
+            .get_parent(entity)
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =
