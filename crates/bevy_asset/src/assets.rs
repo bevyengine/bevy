@@ -107,7 +107,53 @@ enum Entry<A: Asset> {
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: AssetPresence<A>,
+        generation: u32,
+    },
+}
+
+/// The current state of an asset's presence.
+#[derive(Default)]
+pub enum AssetPresence<A> {
+    /// The asset is not present (either has not been added yet, or was removed).
+    #[default]
+    None,
+    /// The asset is present and unlocked. This asset may be mutated.
+    Unlocked(A),
+}
+
+impl<A> AssetPresence<A> {
+    /// Takes the current value out, and leaves [`AssetPresence::None`] in its place.
+    pub fn take(&mut self) -> Self {
+        core::mem::take(self)
+    }
+
+    /// Gets a borrow to the stored asset, if there is an asset.
+    pub fn as_ref(&self) -> Option<&A> {
+        match self {
+            Self::None => None,
+            Self::Unlocked(asset) => Some(asset),
+        }
+    }
+
+    /// Gets a mutable borrow to the stored asset (if unlocked).
+    pub fn as_mut(&mut self) -> Option<&mut A> {
+        match self {
+            Self::None => None,
+            Self::Unlocked(asset) => Some(asset),
+        }
+    }
+
+    /// Returns whether the asset is missing.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    /// Returns whether the asset is present.
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Unlocked(_))
+    }
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -152,7 +198,7 @@ impl<A: Asset> DenseAssetStorage<A> {
                 if !exists {
                     self.len += 1;
                 }
-                *value = Some(asset);
+                *value = AssetPresence::Unlocked(asset);
                 Ok(exists)
             } else {
                 Err(InvalidGenerationError {
@@ -167,7 +213,7 @@ impl<A: Asset> DenseAssetStorage<A> {
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will recycle the id and allow new entries to be inserted.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> AssetPresence<A> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
             dense_storage.allocator.recycle(index);
@@ -177,7 +223,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
     /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
-    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> AssetPresence<A> {
         self.remove_internal(index, |_| {})
     }
 
@@ -185,15 +231,19 @@ impl<A: Asset> DenseAssetStorage<A> {
         &mut self,
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
-    ) -> Option<A> {
+    ) -> AssetPresence<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
-            Entry::None => return None,
+            Entry::None => return AssetPresence::None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    value.take().inspect(|_| self.len -= 1)
+                    let value = value.take();
+                    if value.is_some() {
+                        self.len -= 1;
+                    }
+                    value
                 } else {
-                    return None;
+                    return AssetPresence::None;
                 }
             }
         };
@@ -236,13 +286,13 @@ impl<A: Asset> DenseAssetStorage<A> {
             .next_index
             .load(core::sync::atomic::Ordering::Relaxed);
         self.storage.resize_with(new_len as usize, || Entry::Some {
-            value: None,
+            value: AssetPresence::None,
             generation: 0,
         });
         while let Ok(recycled) = self.allocator.recycled_receiver.try_recv() {
             let entry = &mut self.storage[recycled.index as usize];
             *entry = Entry::Some {
-                value: None,
+                value: AssetPresence::None,
                 generation: recycled.generation,
             };
         }
@@ -284,7 +334,10 @@ impl<A: Asset> DenseAssetStorage<A> {
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<Uuid, A>,
+    // Note the None variant of AssetPresence cannot be present inside the hashmap.
+    // We use `AssetPresence` here since locking assets requires taking the
+    // `AssetPresence` (and taking requires a default).
+    hash_map: HashMap<Uuid, AssetPresence<A>>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
@@ -353,8 +406,8 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
-        let result = self.hash_map.insert(uuid, asset);
+    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> bool {
+        let result = self.hash_map.insert(uuid, AssetPresence::Unlocked(asset));
         if result.is_some() {
             self.queued_events
                 .push(AssetEvent::Modified { id: uuid.into() });
@@ -362,7 +415,7 @@ impl<A: Asset> Assets<A> {
             self.queued_events
                 .push(AssetEvent::Added { id: uuid.into() });
         }
-        result
+        result.is_some()
     }
     pub(crate) fn insert_with_index(
         &mut self,
@@ -416,7 +469,7 @@ impl<A: Asset> Assets<A> {
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
         match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
-            AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
+            AssetId::Uuid { uuid } => self.hash_map.get(&uuid).and_then(|a| a.as_ref()),
         }
     }
 
@@ -427,7 +480,7 @@ impl<A: Asset> Assets<A> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
-            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid)?.as_mut(),
         };
         if result.is_some() {
             self.queued_events.push(AssetEvent::Modified { id });
@@ -437,7 +490,7 @@ impl<A: Asset> Assets<A> {
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> AssetPresence<A> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
         if result.is_some() {
@@ -448,12 +501,12 @@ impl<A: Asset> Assets<A> {
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> AssetPresence<A> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
-            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).unwrap_or(AssetPresence::None),
         }
     }
 
@@ -512,11 +565,13 @@ impl<A: Asset> Assets<A> {
                     (id, v)
                 }),
             })
-            .chain(
-                self.hash_map
-                    .iter()
-                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v)),
-            )
+            .chain(self.hash_map.iter().map(|(i, v)| {
+                (
+                    AssetId::Uuid { uuid: *i },
+                    v.as_ref()
+                        .expect("hash_map never stores AssetPresence::None"),
+                )
+            }))
     }
 
     /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
@@ -576,7 +631,7 @@ impl<A: Asset> Assets<A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, AssetPresence<A>>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
@@ -597,19 +652,21 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
                         marker: PhantomData,
                     };
                     self.queued_events.push(AssetEvent::Modified { id });
-                    if let Some(value) = value {
+                    if let Some(value) = value.as_mut() {
                         return Some((id, value));
                     }
                 }
             }
         }
-        if let Some((key, value)) = self.hash_map.next() {
+        for (key, value) in &mut self.hash_map {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
-            Some((id, value))
-        } else {
-            None
+            let Some(value) = value.as_mut() else {
+                continue;
+            };
+            return Some((id, value));
         }
+        None
     }
 }
 
