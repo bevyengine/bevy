@@ -1,6 +1,7 @@
 //! Shows how to modify texture assets after spawning.
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+use bevy_render::{render_asset::RenderAssetUsages, texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
@@ -47,13 +48,32 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_right = Bird::Normal;
     commands.spawn(Camera2dBundle::default());
 
+    let texture_left = asset_server.load_with_settings(
+        bird_left.get_texture_path(),
+        // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
+        // It's helpful to know it exists, however.
+        //
+        // `RenderAssetUsages` tell Bevy whether to keep the data around:
+        //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
+        //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
+        //   - or both.
+        // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
+        // and modify the mesh (via `ResMut<Assets<Image>>`).
+        //
+        // Since most games will not need to modify textures at runtime, many developers opt to pass
+        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
+        // RAM. For this example however, this would not work, as we need to inspect and modify the
+        // image at runtime.
+        |settings: &mut ImageLoaderSettings| settings.asset_usage = RenderAssetUsages::all(),
+    );
+
     commands.spawn((
         Name::new("Bird Left"),
         // This marker component ensures we can easily find either of the Birds by using With and
         // Without query filters.
         Left,
         SpriteBundle {
-            texture: asset_server.load(bird_left.get_texture_path()),
+            texture: texture_left,
             transform: Transform::from_xyz(-200.0, 0.0, 0.0),
             ..default()
         },
@@ -63,6 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Name::new("Bird Right"),
         SpriteBundle {
+            // In contrast to the above, here we rely on the default `RenderAssetUsages` loader
+            // setting.
             texture: asset_server.load(bird_right.get_texture_path()),
             transform: Transform::from_xyz(200.0, 0.0, 0.0),
             ..default()

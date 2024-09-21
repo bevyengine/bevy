@@ -67,15 +67,20 @@ fn setup(
             primitive: 0,
         }
         .from_asset(left_shape.get_model_path()),
-        // `RenderAssetUsages::all()` is already the default, so this line could be omitted.
-        // We leave it in for explicitness however. The `RenderAssetUsages` tell Bevy whether to
-        // keep the data around for the GPU, which corresponds to `RenderAssetUsages::RENDER_WORLD`,
-        // or for the CPU, which corresponds to `RenderAssetUsages::MAIN_WORLD`. 
+        // `RenderAssetUsages::all()` is already the default, so the line below could be omitted.
+        // It's helpful to know it exists, however.
+        //
+        // `RenderAssetUsages` tell Bevy whether to keep the data around:
+        //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
+        //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
+        //   - or both.
         // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
-        // and modify the mesh. Since most games will not need to modify meshes at runtime, many users
-        // opt to pass only `RENDER_WORLD`. That is more memory efficient, as we don't need to keep the mesh
-        // in the RAM. For this example however, this would not work, as we need to inspect and modify the mesh
-        // via `Res<Assets<Mesh>>` at runtime. That's the entire point of the example, after all!
+        // and modify the mesh (via `ResMut<Assets<Mesh>>`).
+        //
+        // Since most games will not need to modify meshes at runtime, many developers opt to pass
+        // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the mesh in
+        // RAM. For this example however, this would not work, as we need to inspect and modify the
+        // mesh at runtime.
         |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
     );
 
