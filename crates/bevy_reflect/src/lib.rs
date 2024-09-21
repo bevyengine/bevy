@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
@@ -473,7 +473,7 @@
 //!
 //! | Default | Dependencies                              |
 //! | :-----: | :---------------------------------------: |
-//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`] |
+//! | ❌      | [`bevy_math`], [`glam`], [`smallvec`]     |
 //!
 //! This feature makes it so that the appropriate reflection traits are implemented on all the types
 //! necessary for the [Bevy] game engine.
@@ -492,6 +492,18 @@
 //!
 //! This can be useful for generating documentation for scripting language interop or
 //! for displaying tooltips in an editor.
+//!
+//! ## `debug`
+//!
+//! | Default | Dependencies                                  |
+//! | :-----: | :-------------------------------------------: |
+//! | ✅      | `debug_stack`                                 |
+//!
+//! This feature enables useful debug features for reflection.
+//!
+//! This includes the `debug_stack` feature,
+//! which enables capturing the type stack when serializing or deserializing a type
+//! and displaying it in error messages.
 //!
 //! [Reflection]: https://en.wikipedia.org/wiki/Reflective_programming
 //! [Bevy]: https://bevyengine.org/
@@ -534,8 +546,10 @@ mod list;
 mod map;
 mod path;
 mod reflect;
+mod reflectable;
 mod remote;
 mod set;
+mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -562,8 +576,13 @@ pub mod attributes;
 mod enums;
 pub mod serde;
 pub mod std_traits;
+#[cfg(feature = "debug_stack")]
+mod type_info_stack;
 pub mod utility;
 
+/// The reflect prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
@@ -585,6 +604,7 @@ pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use reflectable::*;
 pub use remote::*;
 pub use set::*;
 pub use struct_trait::*;
@@ -596,6 +616,7 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+pub use short_name::ShortName;
 
 extern crate alloc;
 
@@ -617,6 +638,10 @@ pub mod __macro_exports {
     ///
     /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
     /// and manual implementations for all dynamic types (which simply do nothing).
+    #[diagnostic::on_unimplemented(
+        message = "`{Self}` does not implement `GetTypeRegistration` so cannot be registered for reflection",
+        note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+    )]
     pub trait RegisterForReflection {
         #[allow(unused_variables)]
         fn __register(registry: &mut TypeRegistry) {}
@@ -1611,7 +1636,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<i32>());
 
         // Struct
@@ -1632,7 +1657,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -1654,7 +1679,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Struct (dynamic field)
@@ -1684,7 +1709,7 @@ mod tests {
             foo: DynamicStruct::default(),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyDynamicStruct>());
 
         // Tuple Struct
@@ -1710,7 +1735,7 @@ mod tests {
         assert!(info.field_at(1).unwrap().type_info().unwrap().is::<f32>());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -1725,7 +1750,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.item_ty().path());
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -1742,7 +1767,7 @@ mod tests {
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.get_represented_type_info().unwrap();
+            let info = value.reflect_type_info();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -1758,7 +1783,7 @@ mod tests {
         assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyArray>());
 
         // Cow<'static, str>
@@ -1770,7 +1795,7 @@ mod tests {
         assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowStr>());
 
         // Cow<'static, [u8]>
@@ -1785,7 +1810,7 @@ mod tests {
         assert_eq!(std::any::type_name::<u8>(), info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowSlice>());
 
         // Map
@@ -1803,7 +1828,7 @@ mod tests {
         assert_eq!(f32::type_path(), info.value_ty().path());
 
         let value: &dyn Reflect = &MyMap::new();
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
         // Value
@@ -1815,7 +1840,7 @@ mod tests {
         assert_eq!(MyValue::type_path(), info.type_path());
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyValue>());
     }
 
@@ -2343,9 +2368,7 @@ bevy_reflect::tests::Test {
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    bevy_utils::get_short_name(std::any::type_name::<Self>())
-                })
+                CELL.get_or_insert::<Self, _>(|| ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {
@@ -2735,7 +2758,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
+        struct MyOuter<T: FromReflect + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub a: external_crate::TheirInner<T>,
             #[reflect(remote = MyInner<bool>)]
@@ -2783,7 +2806,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         #[derive(Debug)]
-        enum MyOuter<T: FromReflect + Typed + Debug + GetTypeRegistration> {
+        enum MyOuter<T: FromReflect + Reflectable + Debug> {
             Unit,
             Tuple(#[reflect(remote = MyInner<T>)] external_crate::TheirInner<T>),
             Struct {
@@ -2896,7 +2919,7 @@ bevy_reflect::tests::Test {
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
+        struct MyOuter<T: FromReflect + Reflectable> {
             #[reflect(remote = MyInner<T>)]
             pub inner: external_crate::TheirInner<T>,
         }
@@ -2940,12 +2963,7 @@ bevy_reflect::tests::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::Quat": (
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        w: 4.0,
-    ),
+    "glam::Quat": (1.0, 2.0, 3.0, 4.0),
 }"#;
 
             assert_eq!(expected, format!("\n{output}"));
@@ -2955,12 +2973,7 @@ bevy_reflect::tests::Test {
         fn quat_deserialization() {
             let data = r#"
 {
-    "glam::Quat": (
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        w: 4.0,
-    ),
+    "glam::Quat": (1.0, 2.0, 3.0, 4.0),
 }"#;
 
             let mut registry = TypeRegistry::default();
@@ -2999,11 +3012,7 @@ bevy_reflect::tests::Test {
             let output = to_string_pretty(&ser, config).unwrap();
             let expected = r#"
 {
-    "glam::Vec3": (
-        x: 12.0,
-        y: 3.0,
-        z: -6.9,
-    ),
+    "glam::Vec3": (12.0, 3.0, -6.9),
 }"#;
 
             assert_eq!(expected, format!("\n{output}"));
@@ -3013,11 +3022,7 @@ bevy_reflect::tests::Test {
         fn vec3_deserialization() {
             let data = r#"
 {
-    "glam::Vec3": (
-        x: 12.0,
-        y: 3.0,
-        z: -6.9,
-    ),
+    "glam::Vec3": (12.0, 3.0, -6.9),
 }"#;
 
             let mut registry = TypeRegistry::default();

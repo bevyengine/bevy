@@ -1,3 +1,5 @@
+//! Traits and type for interpolating between values.
+
 use crate::util;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_ecs::world::World;

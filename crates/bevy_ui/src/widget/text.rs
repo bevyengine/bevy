@@ -19,14 +19,14 @@ use bevy_text::{
     scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
     TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
-use bevy_utils::Entry;
+use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
 /// Text system flags
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
     needs_new_measure_func: bool,
@@ -47,12 +47,20 @@ pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
 
+impl TextMeasure {
+    /// Checks if the cosmic text buffer is needed for measuring the text.
+    pub fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+        height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
+    }
+}
+
 impl Measure for TextMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
         let MeasureArgs {
             width,
             height,
             available_width,
+            buffer,
             font_system,
             ..
         } = measure_args;
@@ -71,9 +79,18 @@ impl Measure for TextMeasure {
         height
             .map_or_else(
                 || match available_width {
-                    AvailableSpace::Definite(_) => self
-                        .info
-                        .compute_size(TextBounds::new_horizontal(x), font_system),
+                    AvailableSpace::Definite(_) => {
+                        if let Some(buffer) = buffer {
+                            self.info.compute_size(
+                                TextBounds::new_horizontal(x),
+                                buffer,
+                                font_system,
+                            )
+                        } else {
+                            error!("text measure failed, buffer is missing");
+                            Vec2::default()
+                        }
+                    }
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
@@ -86,6 +103,7 @@ impl Measure for TextMeasure {
 #[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure(
+    entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
     text: Ref<Text>,
@@ -96,6 +114,7 @@ fn create_text_measure(
     text_alignment: JustifyText,
 ) {
     match text_pipeline.create_text_measure(
+        entity,
         fonts,
         &text.sections,
         scale_factor,
@@ -133,7 +152,9 @@ fn create_text_measure(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
+#[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
+    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
@@ -141,6 +162,7 @@ pub fn measure_text_system(
     ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
+            Entity,
             Ref<Text>,
             &mut ContentSize,
             &mut TextFlags,
@@ -151,14 +173,14 @@ pub fn measure_text_system(
     >,
     mut text_pipeline: ResMut<TextPipeline>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
+    scale_factors_buffer.clear();
 
-    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
+    for (entity, text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
-        let scale_factor = match scale_factors.entry(camera_entity) {
+        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
@@ -176,6 +198,7 @@ pub fn measure_text_system(
         {
             let text_alignment = text.justify;
             create_text_measure(
+                entity,
                 &fonts,
                 scale_factor.into(),
                 text,
@@ -187,7 +210,7 @@ pub fn measure_text_system(
             );
         }
     }
-    *last_scale_factors = scale_factors;
+    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -203,7 +226,7 @@ fn queue_text(
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
-    mut text_layout_info: Mut<TextLayoutInfo>,
+    text_layout_info: Mut<TextLayoutInfo>,
     buffer: &mut CosmicBuffer,
 ) {
     // Skip the text node if it is waiting for a new measure func
@@ -219,7 +242,9 @@ fn queue_text(
             )
         };
 
+        let text_layout_info = text_layout_info.into_inner();
         match text_pipeline.queue_text(
+            text_layout_info,
             fonts,
             &text.sections,
             scale_factor.into(),
@@ -239,10 +264,11 @@ fn queue_text(
             Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(mut info) => {
-                info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                *text_layout_info = info;
+            Ok(()) => {
+                text_layout_info.size.x =
+                    scale_value(text_layout_info.size.x, inverse_scale_factor);
+                text_layout_info.size.y =
+                    scale_value(text_layout_info.size.y, inverse_scale_factor);
                 text_flags.needs_recompute = false;
             }
         }
@@ -260,6 +286,7 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
+    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
@@ -277,14 +304,14 @@ pub fn text_system(
         &mut CosmicBuffer,
     )>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
+    scale_factors_buffer.clear();
 
     for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
-        let scale_factor = match scale_factors.entry(camera_entity) {
+        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
@@ -317,5 +344,5 @@ pub fn text_system(
             );
         }
     }
-    *last_scale_factors = scale_factors;
+    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }

@@ -132,7 +132,7 @@
 //!
 //! [Why ambient cubes?]: #why-ambient-cubes
 
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -142,9 +142,10 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
 };
-use std::{num::NonZeroU32, ops::Deref};
+use std::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 
 use crate::{
@@ -166,6 +167,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Default, Reflect, Component, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].
@@ -306,7 +308,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_3d_binding =
-            texture_3d_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

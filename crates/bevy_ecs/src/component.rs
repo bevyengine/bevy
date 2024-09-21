@@ -3,9 +3,10 @@
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
+    bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
     entity::Entity,
-    storage::{SparseSetIndex, Storages},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
@@ -13,15 +14,18 @@ pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
-use std::cell::UnsafeCell;
+use bevy_utils::{HashMap, TypeIdMap};
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
+    sync::Arc,
 };
+use std::{cell::UnsafeCell, fmt::Debug};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -92,6 +96,141 @@ use std::{
 ///
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
+///
+/// # Required Components
+///
+/// Components can specify Required Components. If some [`Component`] `A` requires [`Component`] `B`,  then when `A` is inserted,
+/// `B` will _also_ be initialized and inserted (if it was not manually specified).
+///
+/// The [`Default`] constructor will be used to initialize the component, by default:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B)]
+/// struct A;
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct B(usize);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B with the Default constructor
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+///
+/// // This will _not_ implicitly insert B, because it was already provided
+/// world.spawn((A, B(11)));
+/// ```
+///
+/// Components can have more than one required component:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B, C)]
+/// struct A;
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// #[require(C)]
+/// struct B(usize);
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct C(u32);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B and C with their Default constructors
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+/// ```
+///
+/// You can also define a custom constructor:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B(init_b))]
+/// struct A;
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct B(usize);
+///
+/// fn init_b() -> B {
+///     B(10)
+/// }
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B with the init_b() constructor
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(10), world.entity(id).get::<B>().unwrap());
+/// ```
+///
+/// Required components are _recursive_. This means, if a Required Component has required components,
+/// those components will _also_ be inserted if they are missing:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B)]
+/// struct A;
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// #[require(C)]
+/// struct B(usize);
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct C(u32);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B and C with their Default constructors
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+/// ```
+///
+/// Note that cycles in the "component require tree" will result in stack overflows when attempting to
+/// insert a component.
+///
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
+/// at different levels of the inheritance tree:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct X(usize);
+///
+/// #[derive(Component, Default)]
+/// #[require(X(x1))]
+/// struct Y;
+///
+/// fn x1() -> X {
+///     X(1)
+/// }
+///
+/// #[derive(Component)]
+/// #[require(
+///     Y,
+///     X(x2),
+/// )]
+/// struct Z;
+///
+/// fn x2() -> X {
+///     X(2)
+/// }
+///
+/// # let mut world = World::default();
+/// // In this case, the x2 constructor is used for X
+/// let id = world.spawn(Z).id();
+/// assert_eq!(2, world.entity(id).get::<X>().unwrap().0);
+/// ```
+///
+/// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
+/// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
+/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+///
+/// From a user perspective, just think about this as the following:
+/// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
+/// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
 ///
 /// # Adding component's hooks
 ///
@@ -198,6 +337,14 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+
+    /// Registers required components.
+    fn register_required_components(
+        _components: &mut Components,
+        _storages: &mut Storages,
+        _required_components: &mut RequiredComponents,
+    ) {
+    }
 }
 
 /// The storage used for a specific component type.
@@ -408,6 +555,7 @@ pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
+    required_components: RequiredComponents,
 }
 
 impl ComponentInfo {
@@ -466,7 +614,8 @@ impl ComponentInfo {
         ComponentInfo {
             id,
             descriptor,
-            hooks: ComponentHooks::default(),
+            hooks: Default::default(),
+            required_components: Default::default(),
         }
     }
 
@@ -490,6 +639,12 @@ impl ComponentInfo {
     /// Provides a reference to the collection of hooks associated with this [`Component`]
     pub fn hooks(&self) -> &ComponentHooks {
         &self.hooks
+    }
+
+    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
+    /// needed by this component. This includes _recursive_ required components.
+    pub fn required_components(&self) -> &RequiredComponents {
+        &self.required_components
     }
 }
 
@@ -570,7 +725,7 @@ pub struct ComponentDescriptor {
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for ComponentDescriptor {
+impl Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
@@ -583,9 +738,9 @@ impl std::fmt::Debug for ComponentDescriptor {
 }
 
 impl ComponentDescriptor {
-    /// # SAFETY
+    /// # Safety
     ///
-    /// `x` must points to a valid value of type `T`.
+    /// `x` must point to a valid value of type `T`.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         // SAFETY: Contract is required to be upheld by the caller.
         unsafe {
@@ -692,22 +847,32 @@ impl Components {
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-
-        let Components {
-            indices,
-            components,
-            ..
-        } = self;
-        *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
+        let mut registered = false;
+        let id = {
+            let Components {
+                indices,
                 components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-            );
-            T::register_component_hooks(&mut components[index.index()].hooks);
-            index
-        })
+                ..
+            } = self;
+            let type_id = TypeId::of::<T>();
+            *indices.entry(type_id).or_insert_with(|| {
+                let id = Components::init_component_inner(
+                    components,
+                    storages,
+                    ComponentDescriptor::new::<T>(),
+                );
+                registered = true;
+                id
+            })
+        };
+        if registered {
+            let mut required_components = RequiredComponents::default();
+            T::register_required_components(self, storages, &mut required_components);
+            let info = &mut self.components[id.index()];
+            T::register_component_hooks(&mut info.hooks);
+            info.required_components = required_components;
+        }
+        id
     }
 
     /// Initializes a component described by `descriptor`.
@@ -1130,6 +1295,153 @@ impl<T: Component> FromWorld for InitComponentId<T> {
         Self {
             component_id: world.init_component::<T>(),
             marker: PhantomData,
+        }
+    }
+}
+
+/// A Required Component constructor. See [`Component`] for details.
+#[cfg(feature = "track_change_detection")]
+#[derive(Clone)]
+pub struct RequiredComponentConstructor(
+    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
+);
+
+/// A Required Component constructor. See [`Component`] for details.
+#[cfg(not(feature = "track_change_detection"))]
+#[derive(Clone)]
+pub struct RequiredComponentConstructor(
+    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
+);
+
+impl RequiredComponentConstructor {
+    /// # Safety
+    /// This is intended to only be called in the context of [`BundleInfo::write_components`] to initialized required components.
+    /// Calling it _anywhere else_ should be considered unsafe.
+    ///
+    /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
+    /// on this [`RequiredComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
+    /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
+    ///
+    /// Again, don't call this anywhere but [`BundleInfo::write_components`].
+    pub(crate) unsafe fn initialize(
+        &self,
+        table: &mut Table,
+        sparse_sets: &mut SparseSets,
+        change_tick: Tick,
+        table_row: TableRow,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+    ) {
+        (self.0)(
+            table,
+            sparse_sets,
+            change_tick,
+            table_row,
+            entity,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// The collection of metadata for components that are required for a given component.
+///
+/// For more information, see the "Required Components" section of [`Component`].
+#[derive(Default, Clone)]
+pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponentConstructor>);
+
+impl Debug for RequiredComponents {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RequiredComponents")
+            .field(&self.0.keys())
+            .finish()
+    }
+}
+
+impl RequiredComponents {
+    /// Registers a required component. If the component is already registered, the new registration
+    /// passed in the arguments will be ignored.
+    ///
+    /// # Safety
+    ///
+    /// `component_id` must match the type initialized by `constructor`.
+    /// `constructor` _must_ initialize a component for `component_id` in such a way that
+    /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
+    /// initialize the storage for `component_id` corresponding to the given entity.
+    pub unsafe fn register_dynamic(
+        &mut self,
+        component_id: ComponentId,
+        constructor: RequiredComponentConstructor,
+    ) {
+        self.0.entry(component_id).or_insert(constructor);
+    }
+
+    /// Registers a required component. If the component is already registered, the new registration
+    /// passed in the arguments will be ignored.
+    pub fn register<C: Component>(
+        &mut self,
+        components: &mut Components,
+        storages: &mut Storages,
+        constructor: fn() -> C,
+    ) {
+        let component_id = components.init_component::<C>(storages);
+        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
+            move |table,
+                  sparse_sets,
+                  change_tick,
+                  table_row,
+                  entity,
+                  #[cfg(feature = "track_change_detection")] caller| {
+                OwningPtr::make(constructor(), |ptr| {
+                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                    // pass in a valid table_row and entity requiring a C constructor
+                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                    unsafe {
+                        BundleInfo::initialize_required_component(
+                            table,
+                            sparse_sets,
+                            change_tick,
+                            table_row,
+                            entity,
+                            component_id,
+                            C::STORAGE_TYPE,
+                            ptr,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        );
+                    }
+                });
+            },
+        ));
+        // SAFETY:
+        // `component_id` matches the type initialized by the `erased` constructor above.
+        // `erased` initializes a component for `component_id` in such a way that
+        // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
+        // initialize the storage corresponding to the given entity.
+        unsafe { self.register_dynamic(component_id, erased) };
+    }
+
+    /// Iterates the ids of all required components. This includes recursive required components.
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.0.keys().copied()
+    }
+
+    /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
+    /// be logically treated as normal components, not "required components".
+    ///
+    /// [`Bundle`]: crate::bundle::Bundle
+    pub(crate) fn remove_explicit_components(&mut self, components: &[ComponentId]) {
+        for component in components {
+            self.0.remove(component);
+        }
+    }
+
+    // Merges `required_components` into this collection. This only inserts a required component
+    // if it _did not already exist_.
+    pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
+        for (id, constructor) in &required_components.0 {
+            self.0.entry(*id).or_insert_with(|| constructor.clone());
         }
     }
 }

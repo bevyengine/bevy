@@ -5,12 +5,12 @@ use std::fmt::Write;
 
 use bevy::{
     core_pipeline::{
-        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
+            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
         },
         fxaa::{Fxaa, Sensitivity},
-        smaa::{SmaaPreset, SmaaSettings},
+        smaa::{Smaa, SmaaPreset},
     },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -35,8 +35,8 @@ fn modify_aa(
         (
             Entity,
             Option<&mut Fxaa>,
-            Option<&mut SmaaSettings>,
-            Option<&TemporalAntiAliasSettings>,
+            Option<&mut Smaa>,
+            Option<&TemporalAntiAliasing>,
             &mut Msaa,
         ),
         With<Camera>,
@@ -49,16 +49,18 @@ fn modify_aa(
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .remove::<TemporalAntiAliasBundle>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
     }
@@ -79,10 +81,10 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
-
-        camera.insert(Fxaa::default());
+        camera = camera
+            .remove::<Smaa>()
+            .remove::<TemporalAntiAliasBundle>()
+            .insert(Fxaa::default());
     }
 
     // FXAA Settings
@@ -112,10 +114,10 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntiAliasBundle>();
-
-        camera.insert(SmaaSettings::default());
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<TemporalAntiAliasBundle>()
+            .insert(Smaa::default());
     }
 
     // SMAA Settings
@@ -137,16 +139,16 @@ fn modify_aa(
     // TAA
     if keys.just_pressed(KeyCode::Digit5) && taa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-
-        camera.insert(TemporalAntiAliasBundle::default());
+        camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .insert(TemporalAntiAliasBundle::default());
     }
 }
 
 fn modify_sharpening(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
+    mut query: Query<&mut ContrastAdaptiveSharpening>,
 ) {
     for mut cas in &mut query {
         if keys.just_pressed(KeyCode::Digit0) {
@@ -172,16 +174,16 @@ fn update_ui(
     camera: Query<
         (
             Option<&Fxaa>,
-            Option<&SmaaSettings>,
-            Option<&TemporalAntiAliasSettings>,
-            &ContrastAdaptiveSharpeningSettings,
+            Option<&Smaa>,
+            Option<&TemporalAntiAliasing>,
+            &ContrastAdaptiveSharpening,
             &Msaa,
         ),
         With<Camera>,
     >,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas_settings, msaa) = camera.single();
+    let (fxaa, smaa, taa, cas, msaa) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -234,14 +236,11 @@ fn update_ui(
     }
 
     ui.push_str("\n----------\n\n");
-    draw_selectable_menu_item(ui, "Sharpening", '0', cas_settings.enabled);
+    draw_selectable_menu_item(ui, "Sharpening", '0', cas.enabled);
 
-    if cas_settings.enabled {
-        ui.push_str(&format!(
-            "(-/+) Strength: {:.1}\n",
-            cas_settings.sharpening_strength
-        ));
-        draw_selectable_menu_item(ui, "Denoising", 'D', cas_settings.denoise);
+    if cas.enabled {
+        ui.push_str(&format!("(-/+) Strength: {:.1}\n", cas.sharpening_strength));
+        draw_selectable_menu_item(ui, "Denoising", 'D', cas.denoise);
     }
 }
 
@@ -315,7 +314,7 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        ContrastAdaptiveSharpeningSettings {
+        ContrastAdaptiveSharpening {
             enabled: false,
             ..default()
         },
@@ -325,7 +324,7 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -349,7 +348,7 @@ fn setup(
 /// Writes a simple menu item that can be on or off.
 fn draw_selectable_menu_item(ui: &mut String, label: &str, shortcut: char, enabled: bool) {
     let star = if enabled { "*" } else { "" };
-    let _ = writeln!(*ui, "({}) {}{}{}", shortcut, star, label, star);
+    let _ = writeln!(*ui, "({shortcut}) {star}{label}{star}");
 }
 
 /// Creates a colorful test pattern

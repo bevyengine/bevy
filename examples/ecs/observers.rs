@@ -1,6 +1,7 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
+    math::Isometry2d,
     prelude::*,
     utils::{HashMap, HashSet},
 };
@@ -148,7 +149,7 @@ fn on_remove_mine(
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = trigger.entity();
-    let Some(mut entity) = commands.get_entity(id) else {
+    let Some(entity) = commands.get_entity(id) else {
         return;
     };
     info!("Boom! {:?} exploded.", id.index());
@@ -165,7 +166,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
 fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
     for mine in &mines {
         gizmos.circle_2d(
-            mine.pos,
+            Isometry2d::from_translation(mine.pos),
             mine.size,
             Color::hsl((mine.size - 4.0) / 16.0 * 360.0, 1.0, 0.8),
         );
@@ -183,7 +184,7 @@ fn handle_click(
     if let Some(pos) = windows
         .single()
         .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
     {
         if mouse_button_input.just_pressed(MouseButton::Left) {

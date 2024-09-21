@@ -1,11 +1,14 @@
-#![allow(deprecated)]
 use std::path::PathBuf;
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Event;
+use bevy_ecs::{entity::Entity, event::Event};
+use bevy_input::{
+    gestures::*,
+    keyboard::{KeyboardFocusLost, KeyboardInput},
+    mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    touch::TouchInput,
+};
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -185,22 +188,6 @@ pub struct CursorLeft {
     pub window: Entity,
 }
 
-/// An event that is sent whenever a window receives a character from the OS or underlying system.
-#[deprecated(since = "0.14.0", note = "Use `KeyboardInput` instead.")]
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct ReceivedCharacter {
-    /// Window that received the character.
-    pub window: Entity,
-    /// Received character.
-    pub char: SmolStr,
-}
-
 /// A Input Method Editor event.
 ///
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
@@ -234,8 +221,7 @@ pub enum Ime {
     },
     /// Notifies when the IME was enabled.
     ///
-    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`,
-    /// and stop receiving events [`ReceivedCharacter`].
+    /// After this event, you will receive events `Ime::Preedit` and `Ime::Commit`.
     Enabled {
         /// Window that received the event.
         window: Entity,
@@ -411,5 +397,190 @@ impl AppLifecycle {
             Self::Idle | Self::Suspended => false,
             Self::Running | Self::WillSuspend | Self::WillResume => true,
         }
+    }
+}
+
+/// Wraps all `bevy_window` and `bevy_input` events in a common enum.
+///
+/// Read these events with `EventReader<WindowEvent>` if you need to
+/// access window events in the order they were received from the
+/// operating system. Otherwise, the event types are individually
+/// readable with `EventReader<E>` (e.g. `EventReader<KeyboardInput>`).
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+// FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+#[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
+pub enum WindowEvent {
+    AppLifecycle(AppLifecycle),
+    CursorEntered(CursorEntered),
+    CursorLeft(CursorLeft),
+    CursorMoved(CursorMoved),
+    FileDragAndDrop(FileDragAndDrop),
+    Ime(Ime),
+    RequestRedraw(RequestRedraw),
+    WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    WindowCloseRequested(WindowCloseRequested),
+    WindowCreated(WindowCreated),
+    WindowDestroyed(WindowDestroyed),
+    WindowFocused(WindowFocused),
+    WindowMoved(WindowMoved),
+    WindowOccluded(WindowOccluded),
+    WindowResized(WindowResized),
+    WindowScaleFactorChanged(WindowScaleFactorChanged),
+    WindowThemeChanged(WindowThemeChanged),
+
+    MouseButtonInput(MouseButtonInput),
+    MouseMotion(MouseMotion),
+    MouseWheel(MouseWheel),
+
+    PinchGesture(PinchGesture),
+    RotationGesture(RotationGesture),
+    DoubleTapGesture(DoubleTapGesture),
+    PanGesture(PanGesture),
+
+    TouchInput(TouchInput),
+
+    KeyboardInput(KeyboardInput),
+    KeyboardFocusLost(KeyboardFocusLost),
+}
+
+impl From<AppLifecycle> for WindowEvent {
+    fn from(e: AppLifecycle) -> Self {
+        Self::AppLifecycle(e)
+    }
+}
+impl From<CursorEntered> for WindowEvent {
+    fn from(e: CursorEntered) -> Self {
+        Self::CursorEntered(e)
+    }
+}
+impl From<CursorLeft> for WindowEvent {
+    fn from(e: CursorLeft) -> Self {
+        Self::CursorLeft(e)
+    }
+}
+impl From<CursorMoved> for WindowEvent {
+    fn from(e: CursorMoved) -> Self {
+        Self::CursorMoved(e)
+    }
+}
+impl From<FileDragAndDrop> for WindowEvent {
+    fn from(e: FileDragAndDrop) -> Self {
+        Self::FileDragAndDrop(e)
+    }
+}
+impl From<Ime> for WindowEvent {
+    fn from(e: Ime) -> Self {
+        Self::Ime(e)
+    }
+}
+impl From<RequestRedraw> for WindowEvent {
+    fn from(e: RequestRedraw) -> Self {
+        Self::RequestRedraw(e)
+    }
+}
+impl From<WindowBackendScaleFactorChanged> for WindowEvent {
+    fn from(e: WindowBackendScaleFactorChanged) -> Self {
+        Self::WindowBackendScaleFactorChanged(e)
+    }
+}
+impl From<WindowCloseRequested> for WindowEvent {
+    fn from(e: WindowCloseRequested) -> Self {
+        Self::WindowCloseRequested(e)
+    }
+}
+impl From<WindowCreated> for WindowEvent {
+    fn from(e: WindowCreated) -> Self {
+        Self::WindowCreated(e)
+    }
+}
+impl From<WindowDestroyed> for WindowEvent {
+    fn from(e: WindowDestroyed) -> Self {
+        Self::WindowDestroyed(e)
+    }
+}
+impl From<WindowFocused> for WindowEvent {
+    fn from(e: WindowFocused) -> Self {
+        Self::WindowFocused(e)
+    }
+}
+impl From<WindowMoved> for WindowEvent {
+    fn from(e: WindowMoved) -> Self {
+        Self::WindowMoved(e)
+    }
+}
+impl From<WindowOccluded> for WindowEvent {
+    fn from(e: WindowOccluded) -> Self {
+        Self::WindowOccluded(e)
+    }
+}
+impl From<WindowResized> for WindowEvent {
+    fn from(e: WindowResized) -> Self {
+        Self::WindowResized(e)
+    }
+}
+impl From<WindowScaleFactorChanged> for WindowEvent {
+    fn from(e: WindowScaleFactorChanged) -> Self {
+        Self::WindowScaleFactorChanged(e)
+    }
+}
+impl From<WindowThemeChanged> for WindowEvent {
+    fn from(e: WindowThemeChanged) -> Self {
+        Self::WindowThemeChanged(e)
+    }
+}
+impl From<MouseButtonInput> for WindowEvent {
+    fn from(e: MouseButtonInput) -> Self {
+        Self::MouseButtonInput(e)
+    }
+}
+impl From<MouseMotion> for WindowEvent {
+    fn from(e: MouseMotion) -> Self {
+        Self::MouseMotion(e)
+    }
+}
+impl From<MouseWheel> for WindowEvent {
+    fn from(e: MouseWheel) -> Self {
+        Self::MouseWheel(e)
+    }
+}
+impl From<PinchGesture> for WindowEvent {
+    fn from(e: PinchGesture) -> Self {
+        Self::PinchGesture(e)
+    }
+}
+impl From<RotationGesture> for WindowEvent {
+    fn from(e: RotationGesture) -> Self {
+        Self::RotationGesture(e)
+    }
+}
+impl From<DoubleTapGesture> for WindowEvent {
+    fn from(e: DoubleTapGesture) -> Self {
+        Self::DoubleTapGesture(e)
+    }
+}
+impl From<PanGesture> for WindowEvent {
+    fn from(e: PanGesture) -> Self {
+        Self::PanGesture(e)
+    }
+}
+impl From<TouchInput> for WindowEvent {
+    fn from(e: TouchInput) -> Self {
+        Self::TouchInput(e)
+    }
+}
+impl From<KeyboardInput> for WindowEvent {
+    fn from(e: KeyboardInput) -> Self {
+        Self::KeyboardInput(e)
+    }
+}
+impl From<KeyboardFocusLost> for WindowEvent {
+    fn from(e: KeyboardFocusLost) -> Self {
+        Self::KeyboardFocusLost(e)
     }
 }

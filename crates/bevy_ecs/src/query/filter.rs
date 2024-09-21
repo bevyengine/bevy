@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{Column, ComponentSparseSet, Table, TableRow},
+    storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -70,12 +70,17 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
+///
+/// # Safety
+///
+/// The [`WorldQuery`] implementation must not take any mutable access.
+/// This is the same safety requirement as [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
     label = "invalid `Query` filter",
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
-pub trait QueryFilter: WorldQuery {
+pub unsafe trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
     ///
@@ -201,7 +206,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 }
 
-impl<T: Component> QueryFilter for With<T> {
+// SAFETY: WorldQuery impl performs no access at all
+unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -311,7 +317,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 }
 
-impl<T: Component> QueryFilter for Without<T> {
+// SAFETY: WorldQuery impl performs no access at all
+unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -490,7 +497,8 @@ macro_rules! impl_or_query_filter {
             }
         }
 
-        impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+            unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -512,7 +520,8 @@ macro_rules! impl_tuple_query_filter {
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         $(#[$meta])*
-        impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -677,7 +686,9 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         table: &'w Table,
     ) {
         fetch.table_ticks = Some(
-            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+            table
+                .get_added_ticks_slice_for(component_id)
+                .debug_checked_unwrap()
                 .into(),
         );
     }
@@ -734,7 +745,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 }
 
-impl<T: Component> QueryFilter for Added<T> {
+// SAFETY: WorldQuery impl performs only read access on ticks
+unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -892,7 +904,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         table: &'w Table,
     ) {
         fetch.table_ticks = Some(
-            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+            table
+                .get_changed_ticks_slice_for(component_id)
+                .debug_checked_unwrap()
                 .into(),
         );
     }
@@ -949,7 +963,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 }
 
-impl<T: Component> QueryFilter for Changed<T> {
+// SAFETY: WorldQuery impl performs only read access on ticks
+unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline(always)]

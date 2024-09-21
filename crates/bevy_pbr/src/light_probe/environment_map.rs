@@ -48,9 +48,11 @@
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
+    system::lifetimeless::Read,
 };
 use bevy_math::Quat;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_instances::ExtractInstance,
@@ -65,7 +67,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage, Image},
 };
 
-use std::num::NonZeroU32;
+use std::num::NonZero;
 use std::ops::Deref;
 
 use crate::{
@@ -84,6 +86,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
+#[reflect(Component, Default)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -217,7 +220,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_cube_binding =
-            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

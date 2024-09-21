@@ -24,7 +24,10 @@ use super::{
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// both `D::IS_DENSE` and `F::IS_DENSE` are true or not.
+/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
+///
+/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
+/// any combination of their values can happen.
 ///
 /// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
 /// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
@@ -68,6 +71,9 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
+    // Represents whether this query iteration is dense or not. When this is true
+    // `matched_storage_ids` stores `TableId`s, otherwise it stores `ArchetypeId`s.
+    pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
@@ -117,7 +123,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Consider using `as_readonly` or `as_nop` instead which are safe functions.
     ///
-    /// # SAFETY
+    /// # Safety
     ///
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
@@ -194,10 +200,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
+        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
+        // of its static type parameters.
+        let is_dense = D::IS_DENSE && F::IS_DENSE;
+
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            is_dense,
             fetch_state,
             filter_state,
             component_access,
@@ -222,6 +233,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            // For dynamic queries the dense-ness is given by the query builder.
+            is_dense: builder.is_dense(),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),
@@ -450,7 +463,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                if !D::IS_DENSE || !F::IS_DENSE {
+                if !self.is_dense {
                     self.matched_storage_ids.push(StorageId {
                         archetype_id: archetype.id(),
                     });
@@ -459,7 +472,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                if D::IS_DENSE && F::IS_DENSE {
+                if self.is_dense {
                     self.matched_storage_ids.push(StorageId {
                         table_id: archetype.table_id(),
                     });
@@ -495,22 +508,46 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        self.component_access
-            .access
-            .component_reads()
-            .for_each(|id| {
+        // As a fast path, we can iterate directly over the components involved
+        // if the `access` isn't inverted.
+        #[allow(deprecated)]
+        let (component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.component_access.access.component_reads_and_writes();
+        let (component_writes, component_writes_inverted) =
+            self.component_access.access.component_writes();
+
+        if !component_reads_and_writes_inverted && !component_writes_inverted {
+            component_reads_and_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_read(id);
                 }
             });
-        self.component_access
-            .access
-            .component_writes()
-            .for_each(|id| {
+            component_writes.for_each(|id| {
                 if let Some(id) = archetype.get_archetype_component_id(id) {
                     access.add_component_write(id);
                 }
             });
+            return;
+        }
+
+        for (component_id, archetype_component_id) in
+            archetype.components_with_archetype_component_id()
+        {
+            if self
+                .component_access
+                .access
+                .has_component_read(component_id)
+            {
+                access.add_component_read(archetype_component_id);
+            }
+            if self
+                .component_access
+                .access
+                .has_component_write(component_id)
+            {
+                access.add_component_write(archetype_component_id);
+            }
+        }
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
@@ -560,6 +597,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
+            is_dense: self.is_dense,
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -653,12 +691,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
         }
 
+        // the join is dense of both the queries were dense.
+        let is_dense = self.is_dense && other.is_dense;
+
         // take the intersection of the matched ids
         let mut matched_tables = self.matched_tables.clone();
         let mut matched_archetypes = self.matched_archetypes.clone();
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
-        let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
+        let matched_storage_ids = if is_dense {
             matched_tables
                 .ones()
                 .map(|id| StorageId {
@@ -678,6 +719,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids,
+            is_dense,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -1156,14 +1198,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -1191,14 +1230,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.validate_world(world.id());
         // SAFETY: query is read only, world id is validated
         unsafe {
@@ -1216,14 +1252,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1316,7 +1349,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
-    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList: IntoIterator>(
+    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList>(
         &'s self,
         entities: EntityList,
         world: UnsafeWorldCell<'w>,
@@ -1324,7 +1357,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         this_run: Tick,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
     where
-        EntityList::Item: Borrow<Entity>,
+        EntityList: IntoIterator<Item: Borrow<Entity>>,
     {
         QueryManyIter::new(world, self, entities, last_run, this_run)
     }
@@ -1487,25 +1520,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        if D::IS_DENSE && F::IS_DENSE {
-                            let id = storage_id.table_id;
-                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_table_range(
-                                accum,
-                                &mut func,
-                                table,
-                                0..table.entity_count(),
-                            );
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_archetype_range(
-                                accum,
-                                &mut func,
-                                archetype,
-                                0..archetype.len(),
-                            );
-                        }
+                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
                     }
                 });
             };
@@ -1521,23 +1536,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if D::IS_DENSE && F::IS_DENSE {
-                            let id = storage_id.table_id;
-                            let table = world.storages().tables.get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_table_range(accum, &mut func, table, batch);
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
-                        }
+                        self.iter_unchecked_manual(world, last_run, this_run)
+                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };
 
             let storage_entity_count = |storage_id: StorageId| -> usize {
-                if D::IS_DENSE && F::IS_DENSE {
+                if self.is_dense {
                     tables[storage_id.table_id].entity_count()
                 } else {
                     archetypes[storage_id.archetype_id].len()
@@ -2040,6 +2046,53 @@ mod tests {
         world2.init_component::<B>();
 
         world.query::<(&A, &B)>().transmute::<&B>(&world2);
+    }
+
+    /// Regression test for issue #14528
+    #[test]
+    fn transmute_from_sparse_to_dense() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = world
+            .query_filtered::<&Dense, With<Sparse>>()
+            .transmute::<&Dense>(&world);
+
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 1);
+    }
+    #[test]
+    fn transmute_from_dense_to_sparse() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = world
+            .query::<&Dense>()
+            .transmute_filtered::<&Dense, With<Sparse>>(&world);
+
+        // Note: `transmute_filtered` is supposed to keep the same matched tables/archetypes,
+        // so it doesn't actually filter out those entities without `Sparse` and the iteration
+        // remains dense.
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 2);
     }
 
     #[test]

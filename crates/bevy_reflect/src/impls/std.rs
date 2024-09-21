@@ -1029,7 +1029,6 @@ macro_rules! impl_reflect_for_hashset {
 }
 
 impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::EntityHash);
 impl_type_path!(::bevy_utils::FixedState);
 
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
@@ -2444,11 +2443,11 @@ mod tests {
 
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
-        let a: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
-        let b: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let a: &dyn PartialReflect = &std::num::NonZero::<usize>::new(42).unwrap();
+        let b: &dyn PartialReflect = &std::num::NonZero::<usize>::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        let forty_two: std::num::NonZeroUsize = FromReflect::from_reflect(a).unwrap();
-        assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
+        let forty_two: std::num::NonZero<usize> = FromReflect::from_reflect(a).unwrap();
+        assert_eq!(forty_two, std::num::NonZero::<usize>::new(42).unwrap());
     }
 
     #[test]

@@ -279,7 +279,10 @@ impl PluginGroupBuilder {
     /// Adds the plugin [`Plugin`] at the end of this [`PluginGroupBuilder`]. If the plugin was
     /// already in the group, it is removed from its previous place.
     // This is not confusing, clippy!
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "This does not emulate the `+` operator, but is more akin to pushing to a stack."
+    )]
     pub fn add<T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
