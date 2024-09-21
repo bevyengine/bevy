@@ -23,8 +23,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 anyhow = "1"
-hyper = { version = "1", features = ["full"] }
-hyper-util = { version = "0.1", features = ["full"] }
+hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 smol = "2"
