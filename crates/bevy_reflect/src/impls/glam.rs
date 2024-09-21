@@ -380,7 +380,7 @@ mod tests {
         let output = to_string_pretty(&ser, config).unwrap();
         let expected = r#"
 {
-    "glam::EulerRot": "YXZ",
+    "glam::EulerRot": YXZ,
 }"#;
 
         assert_eq!(expected, format!("\n{output}"));
@@ -390,7 +390,7 @@ mod tests {
     fn euler_rot_deserialization() {
         let data = r#"
 {
-    "glam::EulerRot": "XZY",
+    "glam::EulerRot": XZY,
 }"#;
 
         let mut registry = TypeRegistry::default();
