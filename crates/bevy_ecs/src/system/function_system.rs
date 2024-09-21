@@ -340,6 +340,14 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
+    /// Validates that the data can be acquired
+    /// For systems this means they won't be executed.
+    ///
+    // SAFETY: Delegated to existing `SystemParam` implementations.
+    pub unsafe fn validate_param(&mut self, world: &mut World) {
+        Param::apply(&mut self.param_state, &self.meta, world);
+    }
+
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
     /// Otherwise, this returns false.
     #[inline]

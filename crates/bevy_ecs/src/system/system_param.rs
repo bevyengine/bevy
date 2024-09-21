@@ -618,8 +618,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         unsafe { world.storages() }
             .resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     #[inline]
@@ -738,8 +737,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         unsafe { world.storages() }
             .resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     #[inline]
@@ -1331,8 +1329,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     #[inline]
@@ -1448,8 +1445,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     #[inline]

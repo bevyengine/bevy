@@ -1497,8 +1497,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
@@ -1507,8 +1506,7 @@ impl World {
         self.storages
             .non_send_resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists and was added since the world's
