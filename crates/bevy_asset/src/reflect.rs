@@ -1,9 +1,10 @@
+use alloc::sync::Arc;
 use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
-use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
+use crate::{Asset, AssetId, Assets, Handle, MutableAssetError, UntypedAssetId, UntypedHandle};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
@@ -21,12 +22,15 @@ pub struct ReflectAsset {
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
-    get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedHandle) -> Option<&mut dyn Reflect>,
+    get_unchecked_mut: unsafe fn(
+        UnsafeWorldCell<'_>,
+        UntypedHandle,
+    ) -> Result<&mut dyn Reflect, MutableAssetError>,
     add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
     insert: fn(&mut World, UntypedHandle, &dyn PartialReflect),
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
-    remove: fn(&mut World, UntypedHandle) -> Option<Box<dyn Reflect>>,
+    remove: fn(&mut World, UntypedHandle) -> ReflectedAssetPresence,
 }
 
 impl ReflectAsset {
@@ -50,7 +54,7 @@ impl ReflectAsset {
         &self,
         world: &'w mut World,
         handle: UntypedHandle,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Result<&'w mut dyn Reflect, MutableAssetError> {
         // SAFETY: unique world access
         #[expect(
             unsafe_code,
@@ -96,7 +100,7 @@ impl ReflectAsset {
         &self,
         world: UnsafeWorldCell<'w>,
         handle: UntypedHandle,
-    ) -> Option<&'w mut dyn Reflect> {
+    ) -> Result<&'w mut dyn Reflect, MutableAssetError> {
         // SAFETY: requirements are deferred to the caller
         unsafe { (self.get_unchecked_mut)(world, handle) }
     }
@@ -111,7 +115,7 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::remove`]
-    pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> Option<Box<dyn Reflect>> {
+    pub fn remove(&self, world: &mut World, handle: UntypedHandle) -> ReflectedAssetPresence {
         (self.remove)(world, handle)
     }
 
@@ -172,9 +176,64 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value = assets.remove(&handle.typed_debug_checked());
-                value.map(|value| Box::new(value) as Box<dyn Reflect>)
+                match value {
+                    crate::AssetPresence::None => ReflectedAssetPresence::None,
+                    crate::AssetPresence::Unlocked(asset) => {
+                        ReflectedAssetPresence::Unlocked(Box::new(asset) as Box<dyn Reflect>)
+                    }
+                    crate::AssetPresence::Locked(asset_arc) => {
+                        ReflectedAssetPresence::Locked(asset_arc as Arc<dyn Reflect>)
+                    }
+                }
             },
         }
+    }
+}
+
+/// The reflected version of [`crate::AssetPresence`].
+#[derive(Default)]
+pub enum ReflectedAssetPresence {
+    /// The asset is not present (either has not been added yet, or was removed).
+    #[default]
+    None,
+    /// The asset is present and unlocked. This asset may be mutated.
+    Unlocked(Box<dyn Reflect>),
+    /// The asset is present, but is locked. The asset cannot be mutated, but can be passed to threads.
+    Locked(Arc<dyn Reflect>),
+}
+
+impl ReflectedAssetPresence {
+    /// Takes the current value out, and leaves [`crate::AssetPresence::None`] in its place.
+    pub fn take(&mut self) -> Self {
+        core::mem::take(self)
+    }
+
+    /// Gets a borrow to the stored asset, if there is an asset.
+    pub fn as_ref(&self) -> Option<&dyn Reflect> {
+        match self {
+            Self::None => None,
+            Self::Unlocked(box_reflect) => Some(box_reflect.as_ref()),
+            Self::Locked(arc_reflect) => Some(arc_reflect.as_ref()),
+        }
+    }
+
+    /// Gets a mutable borrow to the stored asset (if unlocked).
+    pub fn as_mut(&mut self) -> Result<&mut dyn Reflect, MutableAssetError> {
+        match self {
+            Self::None => Err(MutableAssetError::Missing),
+            Self::Unlocked(asset) => Ok(asset.as_mut()),
+            Self::Locked(_) => Err(MutableAssetError::Locked),
+        }
+    }
+
+    /// Returns whether the asset is missing.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    /// Returns whether the asset is present.
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Unlocked(_) | Self::Locked(_))
     }
 }
 
@@ -300,9 +359,9 @@ mod tests {
             .unwrap();
         assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
 
-        reflect_asset
+        assert!(reflect_asset
             .remove(app.world_mut(), fetched_handle)
-            .unwrap();
+            .is_some());
         assert_eq!(reflect_asset.len(app.world()), 0);
     }
 }
