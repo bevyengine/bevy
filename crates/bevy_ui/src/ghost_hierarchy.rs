@@ -32,16 +32,18 @@ pub struct GhostNode;
 pub struct UiRootNodes<'w, 's> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
+    all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
     pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
-        self.root_node_query.iter().chain(
-            self.root_ghost_node_query
-                .iter()
-                .flat_map(|root_ghost| self.ui_children.iter(root_ghost)),
-        )
+        self.root_node_query
+            .iter()
+            .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
+                self.all_nodes_query
+                    .iter_many(self.ui_children.iter(root_ghost))
+            }))
     }
 }
 
@@ -122,7 +124,8 @@ mod tests {
             parent.spawn((A(6), NodeBundle::default()));
             parent
                 .spawn((A(7), GhostNode))
-                .with_child((A(8), NodeBundle::default()));
+                .with_child((A(8), NodeBundle::default()))
+                .with_child(A(9));
         });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
