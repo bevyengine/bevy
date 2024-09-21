@@ -729,7 +729,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId).
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
@@ -737,7 +737,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId).
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<
