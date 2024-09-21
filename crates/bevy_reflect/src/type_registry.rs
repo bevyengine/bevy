@@ -478,11 +478,32 @@ impl Debug for TypeRegistration {
 }
 
 impl TypeRegistration {
+    /// Creates type registration information for `T`.
+    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
+        Self {
+            data: Default::default(),
+            type_info: T::type_info(),
+        }
+    }
+
     /// Returns the [`TypeId`] of the type.
-    ///
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
+    }
+
+    /// Returns a reference to the registration's [`TypeInfo`]
+    pub fn type_info(&self) -> &'static TypeInfo {
+        self.type_info
+    }
+
+    /// Inserts an instance of `T` into this registration's [type data].
+    ///
+    /// If another instance of `T` was previously inserted, it is replaced.
+    ///
+    /// [type data]: TypeData
+    pub fn insert<T: TypeData>(&mut self, data: T) {
+        self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
     /// Returns a reference to the value of type `T` in this registration's
@@ -559,28 +580,6 @@ impl TypeRegistration {
     /// [`contains`]: Self::contains
     pub fn contains_by_id(&self, type_id: TypeId) -> bool {
         self.data.contains_key(&type_id)
-    }
-
-    /// Returns a reference to the registration's [`TypeInfo`]
-    pub fn type_info(&self) -> &'static TypeInfo {
-        self.type_info
-    }
-
-    /// Inserts an instance of `T` into this registration's [type data].
-    ///
-    /// If another instance of `T` was previously inserted, it is replaced.
-    ///
-    /// [type data]: TypeData
-    pub fn insert<T: TypeData>(&mut self, data: T) {
-        self.data.insert(TypeId::of::<T>(), Box::new(data));
-    }
-
-    /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
-        Self {
-            data: Default::default(),
-            type_info: T::type_info(),
-        }
     }
 
     /// The total count of [type data] in this registration.
