@@ -1610,11 +1610,11 @@ impl ScheduleGraph {
         #[cfg(feature = "bevy_reflect")]
         {
             if self.settings.use_shortnames {
-                return bevy_reflect::ShortName(&name).to_string();
+                bevy_reflect::ShortName(&name).to_string()
             }
             else
             {
-                return name;
+                name
             }
         }
         #[cfg(not(feature = "bevy_reflect"))]
