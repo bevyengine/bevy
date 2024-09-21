@@ -4,9 +4,9 @@ use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     event::{Event, EventReader, EventWriter},
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query},
 };
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
@@ -1559,22 +1559,18 @@ impl GamepadRumbleRequest {
 
 #[cfg(test)]
 mod tests {
-    use crate::gamepad::GamepadConnection::{Connected, Disconnected};
-    use crate::gamepad::{
-        gamepad_connection_system, gamepad_event_processing_system,
-        Gamepad, GamepadAxisChangedEvent, GamepadButtonChangedEvent,
-        GamepadButtonStateChangedEvent, GamepadConnectionEvent, GamepadInfo, GamepadSettings,
-        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
-    };
-    use crate::{ButtonState, InputSystem};
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
-    use bevy_ecs::query::QueryState;
     use bevy_ecs::schedule::IntoSystemConfigs;
 
     use super::{
-        AxisSettings, AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError,
+        gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
+        AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
+        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+        GamepadConnection::{Connected, Disconnected},
+        GamepadConnectionEvent, GamepadInfo, GamepadSettings, RawGamepadAxisChangedEvent,
+        RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
 
     fn test_button_axis_settings_filter(
@@ -1936,7 +1932,8 @@ mod tests {
 
         pub fn send_gamepad_connection_event(&mut self, gamepad: Option<Entity>) -> Entity {
             let gamepad = gamepad.unwrap_or_else(|| self.app.world_mut().spawn_empty().id());
-            self.app.world_mut()
+            self.app
+                .world_mut()
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(
                     gamepad,
@@ -1948,105 +1945,176 @@ mod tests {
         }
 
         pub fn send_gamepad_disconnection_event(&mut self, gamepad: Entity) {
-            self.app.world_mut()
+            self.app
+                .world_mut()
                 .resource_mut::<Events<GamepadConnectionEvent>>()
-                .send(GamepadConnectionEvent::new(
-                    gamepad,
-                    Disconnected
-                ));
+                .send(GamepadConnectionEvent::new(gamepad, Disconnected));
         }
     }
 
     #[test]
     fn connection_event() {
         let mut ctx = TestContext::new();
-        assert_eq!(ctx.app.world_mut()
+        assert_eq!(
+            ctx.app
+                .world_mut()
                 .query::<&Gamepad>()
-                .iter(ctx.app.world()).len(), 0);
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
         ctx.send_gamepad_connection_event(None);
         ctx.update();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&Gamepad, &GamepadSettings)>()
-                       .iter(ctx.app.world()).len(), 1);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<(&Gamepad, &GamepadSettings)>()
+                .iter(ctx.app.world())
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn disconnection_event() {
         let mut ctx = TestContext::new();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<&Gamepad>()
-                       .iter(ctx.app.world()).len(), 0);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
         let entity = ctx.send_gamepad_connection_event(None);
         ctx.update();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&Gamepad, &GamepadSettings)>()
-                       .iter(ctx.app.world()).len(), 1);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<(&Gamepad, &GamepadSettings)>()
+                .iter(ctx.app.world())
+                .len(),
+            1
+        );
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&Gamepad)>()
-                       .get(ctx.app.world(), entity).is_err(), true);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .get(ctx.app.world(), entity)
+                .is_err(),
+            true
+        );
         // Settings should be kept
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&GamepadSettings)>()
-                       .get(ctx.app.world(), entity).is_ok(), true);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&GamepadSettings>()
+                .get(ctx.app.world(), entity)
+                .is_ok(),
+            true
+        );
 
         // Mistakenly sending a second disconnection event shouldn't break anything
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&Gamepad)>()
-                       .get(ctx.app.world(), entity).is_err(), true);
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&GamepadSettings)>()
-                       .get(ctx.app.world(), entity).is_ok(), true);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .get(ctx.app.world(), entity)
+                .is_err(),
+            true
+        );
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&GamepadSettings>()
+                .get(ctx.app.world(), entity)
+                .is_ok(),
+            true
+        );
     }
 
     #[test]
     fn connection_disconnection_frame_event() {
         let mut ctx = TestContext::new();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<&Gamepad>()
-                       .iter(ctx.app.world()).len(), 0);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
         let entity = ctx.send_gamepad_connection_event(None);
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&Gamepad)>()
-                       .get(ctx.app.world(), entity).is_err(), true);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .get(ctx.app.world(), entity)
+                .is_err(),
+            true
+        );
         // Settings should be kept
-        assert_eq!(ctx.app.world_mut()
-                       .query::<(&GamepadSettings)>()
-                       .get(ctx.app.world(), entity).is_ok(), true);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&GamepadSettings>()
+                .get(ctx.app.world(), entity)
+                .is_ok(),
+            true
+        );
     }
 
     #[test]
     fn reconnection_event() {
         let button_settings = ButtonSettings::new(0.7, 0.2).expect("correct parameters");
         let mut ctx = TestContext::new();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<&Gamepad>()
-                       .iter(ctx.app.world()).len(), 0);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
         let entity = ctx.send_gamepad_connection_event(None);
         ctx.update();
-        let mut settings = ctx.app.world_mut()
-            .query::<&mut GamepadSettings>().get_mut(ctx.app.world_mut(), entity).expect("be alive");
+        let mut settings = ctx
+            .app
+            .world_mut()
+            .query::<&mut GamepadSettings>()
+            .get_mut(ctx.app.world_mut(), entity)
+            .expect("be alive");
         assert_ne!(settings.default_button_settings, button_settings);
         settings.default_button_settings = button_settings.clone();
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
-        assert_eq!(ctx.app.world_mut()
-                       .query::<&Gamepad>()
-                       .iter(ctx.app.world()).len(), 0);
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
         ctx.send_gamepad_connection_event(Some(entity));
         ctx.update();
-        let settings = ctx.app.world_mut()
-            .query::<&GamepadSettings>().get(ctx.app.world(), entity).expect("be alive");
+        let settings = ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .expect("be alive");
         assert_eq!(settings.default_button_settings, button_settings);
     }
-/*
+    /*
     #[test]
     fn reconnection_same_frame_event() {
 
