@@ -549,8 +549,7 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
-mod short_names;
-pub use short_names::ShortName;
+mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -617,6 +616,7 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+pub use short_name::ShortName;
 
 extern crate alloc;
 
