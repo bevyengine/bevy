@@ -67,14 +67,15 @@ fn setup(
             primitive: 0,
         }
         .from_asset(left_shape.get_model_path()),
-        // This is the default loader setting, ensuring both `RENDER_WORLD` and `MAIN_WORLD` are
-        // enabled. It's provided explicitly here only by way of demonstration. Unless you have
-        // specific requirements, it's usually safe to use the default.
-        //
-        // When needing to access a `Mesh` asset via `Res<Assets<Mesh>>`, a common mistake is to
-        // use `RENDER_WORLD` by itself, which can cause the asset to be missing from the resource.
-        // (`RENDER_WORLD` without `MAIN_WORLD` will result in the asset being unloaded from the
-        // asset server after it's been sent to the GPU.)
+        // `RenderAssetUsages::all()` is already the default, so this line could be omitted.
+        // We leave it in for explicitness however. The `RenderAssetUsages` tell Bevy whether to
+        // keep the data around for the GPU, which corresponds to `RenderAssetUsages::RENDER_WORLD`,
+        // or for the CPU, which corresponds to `RenderAssetUsages::MAIN_WORLD`. 
+        // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
+        // and modify the mesh. Since most games will not need to modify meshes at runtime, many users
+        // opt to pass only `RENDER_WORLD`. That is more memory efficient, as we don't need to keep the mesh
+        // in the RAM. For this example however, this would not work, as we need to inspect and modify the mesh
+        // via `Res<Assets<Mesh>>` at runtime. That's the entire point of the example, after all!
         |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
     );
 
