@@ -1306,6 +1306,7 @@ pub enum GamepadConnection {
 /// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChangedEvent`] [`event`](Event).
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
+    mut raw_events: EventReader<RawGamepadEvent>,
     mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
     mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
@@ -1317,77 +1318,85 @@ pub fn gamepad_event_processing_system(
         gamepad.bypass_change_detection().digital.clear();
     }
 
-    for axis_event in raw_axis_events.read() {
-        let Ok((mut gamepad_axis, gamepad_settings)) = gamepads.get_mut(axis_event.gamepad) else {
-            continue;
-        };
-        let Some(filtered_value) = gamepad_settings
-            .get_axis_settings(axis_event.axis)
-            .filter(axis_event.value, gamepad_axis.get(axis_event.axis))
-        else {
-            continue;
-        };
+    for event in raw_events.read() {
+        match event {
+            // Connections require inserting/removing commands so they are done in a separate system
+            RawGamepadEvent::Connection(_) => {},
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent {
+                gamepad,
+                axis,
+                value,
+            }) => {
+                let (gamepad, axis, value) = (*gamepad, *axis, *value);
+                let Ok((mut gamepad_axis, gamepad_settings)) = gamepads.get_mut(gamepad) else {
+                    continue;
+                };
+                let Some(filtered_value) = gamepad_settings
+                    .get_axis_settings(axis)
+                    .filter(value, gamepad_axis.get(axis))
+                else {
+                    continue;
+                };
 
-        gamepad_axis
-            .analog
-            .set(axis_event.axis.into(), filtered_value);
-        filtered_events.send(GamepadAxisChangedEvent::new(
-            axis_event.gamepad,
-            axis_event.axis,
-            filtered_value,
-        ));
-    }
+                gamepad_axis.analog.set(axis.into(), filtered_value);
+                filtered_events.send(GamepadAxisChangedEvent::new(gamepad, axis, filtered_value));
+            }
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
+                gamepad,
+                button,
+                value,
+            }) => {
+                let (gamepad, button, value) = (*gamepad, *button, *value);
+                let Ok((mut gamepad_buttons, settings)) = gamepads.get_mut(gamepad) else {
+                    continue;
+                };
+                let Some(filtered_value) = settings
+                    .get_button_axis_settings(button)
+                    .filter(value, gamepad_buttons.get(button))
+                else {
+                    continue;
+                };
+                let button_settings = settings.get_button_settings(button);
+                gamepad_buttons.analog.set(button.into(), filtered_value);
 
-    for event in raw_button_events.read() {
-        let button = event.button;
-        let Ok((mut gamepad, settings)) = gamepads.get_mut(event.gamepad) else {
-            continue;
-        };
-        let Some(filtered_value) = settings
-            .get_button_axis_settings(button)
-            .filter(event.value, gamepad.get(button))
-        else {
-            continue;
-        };
-        let button_settings = settings.get_button_settings(button);
-        gamepad.analog.set(button.into(), filtered_value);
+                if button_settings.is_released(filtered_value) {
+                    // Check if button was previously pressed
+                    if gamepad_buttons.pressed(button) {
+                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                            gamepad,
+                            button,
+                            ButtonState::Released,
+                        ));
+                    }
+                    // We don't have to check if the button was previously pressed here
+                    // because that check is performed within Input<T>::release()
+                    gamepad_buttons.digital.release(button);
+                } else if button_settings.is_pressed(filtered_value) {
+                    // Check if button was previously not pressed
+                    if !gamepad_buttons.pressed(button) {
+                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                            gamepad,
+                            button,
+                            ButtonState::Pressed,
+                        ));
+                    }
+                    gamepad_buttons.digital.press(button);
+                };
 
-        if button_settings.is_released(filtered_value) {
-            // Check if button was previously pressed
-            if gamepad.pressed(button) {
-                processed_digital_events.send(GamepadButtonStateChangedEvent::new(
-                    event.gamepad,
+                let button_state = if gamepad_buttons.digital.pressed(button) {
+                    ButtonState::Pressed
+                } else {
+                    ButtonState::Released
+                };
+
+                processed_analog_events.send(GamepadButtonChangedEvent::new(
+                    gamepad,
                     button,
-                    ButtonState::Released,
+                    button_state,
+                    filtered_value,
                 ));
             }
-            // We don't have to check if the button was previously pressed here
-            // because that check is performed within Input<T>::release()
-            gamepad.digital.release(button);
-        } else if button_settings.is_pressed(filtered_value) {
-            // Check if button was previously not pressed
-            if !gamepad.pressed(button) {
-                processed_digital_events.send(GamepadButtonStateChangedEvent::new(
-                    event.gamepad,
-                    button,
-                    ButtonState::Pressed,
-                ));
-            }
-            gamepad.digital.press(button);
-        };
-
-        let button_state = if gamepad.digital.pressed(button) {
-            ButtonState::Pressed
-        } else {
-            ButtonState::Released
-        };
-
-        processed_analog_events.send(GamepadButtonChangedEvent::new(
-            event.gamepad,
-            button,
-            button_state,
-            filtered_value,
-        ));
+        }
     }
 }
 
