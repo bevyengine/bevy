@@ -76,18 +76,12 @@ where
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
     ) -> bool {
-        let mut valid = true;
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        valid &= unsafe { SystemState::<P>::validate_param(&state.state, world) };
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        valid &= unsafe {
-            Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world)
-        };
-        valid
+        // TODO: make `validate_param` work with multiple worlds
+        true
     }
 
     #[inline]
