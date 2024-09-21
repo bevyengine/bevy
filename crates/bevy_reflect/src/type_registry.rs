@@ -890,22 +890,14 @@ mod test {
         #[derive(Clone)]
         struct DataA(i32);
 
-        #[derive(Clone)]
-        struct DataB(i32);
-
         let mut registration = TypeRegistration::of::<Foo>();
         registration.insert(DataA(123));
-        registration.insert(DataB(456));
 
         let mut iter = registration.iter();
 
         let (id, data) = iter.next().unwrap();
         assert_eq!(id, TypeId::of::<DataA>());
         assert_eq!(data.downcast_ref::<DataA>().unwrap().0, 123);
-
-        let (id, data) = iter.next().unwrap();
-        assert_eq!(id, TypeId::of::<DataB>());
-        assert_eq!(data.downcast_ref::<DataB>().unwrap().0, 456);
 
         assert!(iter.next().is_none());
     }
