@@ -66,12 +66,13 @@ fn setup(
         }
         .from_asset(left_shape.get_model_path()),
         // This is the default loader setting, ensuring both `RENDER_WORLD` and `MAIN_WORLD` are
-        // enabled. It's provided explicitly here only by way of demonstration.
+        // enabled. It's provided explicitly here only by way of demonstration. Unless you have
+        // specific requirements, it's usually safe to use the default.
         //
-        // A common mistake is to use `RENDER_WORLD` by itself, which can cause a confusing lack of
-        // assets available in `Res<Assets<Mesh>>`. `RENDER_WORLD` alone will cause the asset to be
-        // unloaded from the asset server after it's been sent to the GPU. Unless you have a clear
-        // reason not to do so, it's best to use `RenderAssetUsages::all()`.
+        // When needing to access a `Mesh` asset via `Res<Assets<Mesh>>`, a common mistake is to
+        // use `RENDER_WORLD` by itself, which can cause the asset to be missing from the resource.
+        // (`RENDER_WORLD` without `MAIN_WORLD` will result in the asset being unloaded from the
+        // asset server after it's been sent to the GPU.)
         |settings: &mut GltfLoaderSettings| settings.load_meshes = RenderAssetUsages::all(),
     );
 
