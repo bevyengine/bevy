@@ -330,6 +330,18 @@ impl_reflect!(
     }
 );
 
-impl_reflect_value!(::glam::EulerRot(Debug, Default, Deserialize, Serialize));
+impl_reflect!(
+    #[reflect(Debug, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    enum EulerRot {
+        ZYX,
+        ZXY,
+        YXZ,
+        YZX,
+        XYZ,
+        XZY,
+    }
+);
+
 impl_reflect_value!(::glam::BVec3A(Debug, Default, Deserialize, Serialize));
 impl_reflect_value!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
