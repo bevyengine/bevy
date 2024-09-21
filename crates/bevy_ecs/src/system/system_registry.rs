@@ -345,7 +345,10 @@ impl World {
     ///
     /// This function only accepts ZST (zero-sized) systems to guarantee that any two systems of
     /// the same type must be equal. This means that closures that capture the environment, and
-    /// function pointers, are not accepted. If this limitation is an issue, consider using
+    /// function pointers, are not accepted.
+    ///
+    /// If you want to access values from the environment within a system, consider passing them in
+    /// as inputs via [`World::run_system_cached_with`]. If that's not an option, consider
     /// [`World::register_system`] instead.
     pub fn register_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
