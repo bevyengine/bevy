@@ -485,20 +485,24 @@ impl TypeRegistration {
         self.type_info.type_id()
     }
 
-    /// Returns a reference to the value of type `T` in this registration's type
-    /// data.
+    /// Returns a reference to the value of type `T` in this registration's
+    /// [type data].
     ///
     /// Returns `None` if no such value exists.
+    ///
+    /// [type data]: TypeData
     pub fn data<T: TypeData>(&self) -> Option<&T> {
         self.data
             .get(&TypeId::of::<T>())
             .and_then(|value| value.downcast_ref())
     }
 
-    /// Returns a mutable reference to the value of type `T` in this
-    /// registration's type data.
+    /// Returns a mutable reference to the value of type `T` in this registration's
+    /// [type data].
     ///
     /// Returns `None` if no such value exists.
+    ///
+    /// [type data]: TypeData
     pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
         self.data
             .get_mut(&TypeId::of::<T>())
@@ -530,9 +534,11 @@ impl TypeRegistration {
         self.type_info
     }
 
-    /// Inserts an instance of `T` into this registration's type data.
+    /// Inserts an instance of `T` into this registration's [type data].
     ///
     /// If another instance of `T` was previously inserted, it is replaced.
+    ///
+    /// [type data]: TypeData
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
