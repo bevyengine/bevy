@@ -1611,9 +1611,7 @@ impl ScheduleGraph {
         {
             if self.settings.use_shortnames {
                 bevy_reflect::ShortName(&name).to_string()
-            }
-            else
-            {
+            } else {
                 name
             }
         }
