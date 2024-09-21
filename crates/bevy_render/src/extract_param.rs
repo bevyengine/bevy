@@ -82,7 +82,7 @@ where
     ) -> bool {
         let mut valid = true;
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        valid &= unsafe { SystemState::<P>::validate_param(&state.state, system_meta, world) };
+        valid &= unsafe { SystemState::<P>::validate_param(&state.state, world) };
         // SAFETY: Delegated to existing `SystemParam` implementations.
         valid &= unsafe {
             Res::<MainWorld>::validate_param(&state.main_world_state, system_meta, world)

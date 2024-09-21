@@ -343,9 +343,14 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Validates that the data can be acquired
     /// For systems this means they won't be executed.
     ///
-    // SAFETY: Delegated to existing `SystemParam` implementations.
-    pub unsafe fn validate_param(&mut self, world: &mut World) {
-        Param::apply(&mut self.param_state, &self.meta, world);
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have read access to any world data
+    ///   registered in [`new`](SystemState::new).
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemState::new).
+    pub unsafe fn validate_param(&self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        Param::validate_param(&self.param_state, &self.meta, world)
     }
 
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
