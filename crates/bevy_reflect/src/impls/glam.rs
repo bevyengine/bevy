@@ -345,3 +345,70 @@ impl_reflect!(
 
 impl_reflect_value!(::glam::BVec3A(Debug, Default, Deserialize, Serialize));
 impl_reflect_value!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
+
+#[cfg(test)]
+mod tests {
+    use ron::{
+        ser::{to_string_pretty, PrettyConfig},
+        Deserializer,
+    };
+    use serde::de::DeserializeSeed;
+    use static_assertions::assert_impl_all;
+
+    use crate::{
+        prelude::*,
+        serde::{ReflectDeserializer, ReflectSerializer},
+        Enum, GetTypeRegistration, TypeRegistry,
+    };
+
+    use super::*;
+
+    assert_impl_all!(EulerRot: Enum);
+
+    #[test]
+    fn euler_rot_serialization() {
+        let v = EulerRot::YXZ;
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<EulerRot>();
+
+        let ser = ReflectSerializer::new(&v, &registry);
+
+        let config = PrettyConfig::default()
+            .new_line(String::from("\n"))
+            .indentor(String::from("    "));
+        let output = to_string_pretty(&ser, config).unwrap();
+        let expected = r#"
+{
+    "glam::EulerRot": "YXZ",
+}"#;
+
+        assert_eq!(expected, format!("\n{output}"));
+    }
+
+    #[test]
+    fn euler_rot_deserialization() {
+        let data = r#"
+{
+    "glam::EulerRot": "XZY",
+}"#;
+
+        let mut registry = TypeRegistry::default();
+        registry.add_registration(EulerRot::get_type_registration());
+
+        let de = ReflectDeserializer::new(&registry);
+
+        let mut deserializer =
+            Deserializer::from_str(data).expect("Failed to acquire deserializer");
+
+        let dynamic_struct = de
+            .deserialize(&mut deserializer)
+            .expect("Failed to deserialize");
+
+        let mut result = EulerRot::default();
+
+        result.apply(dynamic_struct.as_partial_reflect());
+
+        assert_eq!(result, EulerRot::XZY);
+    }
+}
