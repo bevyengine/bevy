@@ -124,9 +124,9 @@ fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bund
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// It's possible to register the same system multiple times, which will create multiple
-    /// registered systems. To avoid this behavior, consider using
-    /// [`World::register_system_cached`] instead.
+    /// It's possible to register multiple copies of the same system by calling this function
+    /// multiple times. If that's not what you want, consider using [`World::register_system_cached`]
+    /// instead.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
@@ -334,7 +334,8 @@ impl World {
 
     /// Registers a system or returns its cached [`SystemId`].
     ///
-    /// If you just want to run a system, see [`World::run_system_cached`].
+    /// If you want to run the system immediately and you don't need its `SystemId`, see
+    /// [`World::run_system_cached`].
     ///
     /// The first time this function is called for a particular system, it will register it and
     /// store its [`SystemId`] in a [`CachedSystemId`] resource for later. If you would rather
@@ -380,7 +381,7 @@ impl World {
     }
 
     /// Removes a cached system and its [`CachedSystemId`] resource.
-    /// 
+    ///
     /// See [`World::register_system_cached`] for more information.
     pub fn remove_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
@@ -393,7 +394,7 @@ impl World {
     }
 
     /// Runs a cached system, registering it if necessary.
-    /// 
+    ///
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
@@ -753,12 +754,13 @@ mod tests {
 
     #[test]
     fn cached_system() {
-        use crate::system::SystemId;
+        use crate::system::RegisteredSystemError;
 
         fn four() -> i32 {
             4
         }
 
+        let mut world = World::new();
         let old = world.register_system_cached(four);
         let new = world.register_system_cached(four);
         assert_eq!(old, new);
@@ -768,7 +770,10 @@ mod tests {
         assert_ne!(old, new);
 
         let output = world.run_system(old);
-        assert_eq!(output, Err(RegisteredSystemError::SystemIdNotRegistered(old)));
+        assert_eq!(
+            output,
+            Err(RegisteredSystemError::SystemIdNotRegistered(old)),
+        );
 
         let output = world.run_system(new);
         assert_eq!(output, Ok(four()));
