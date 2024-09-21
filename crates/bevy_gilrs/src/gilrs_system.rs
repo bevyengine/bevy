@@ -50,15 +50,15 @@ pub fn gilrs_event_system(
     let gilrs = gilrs.0.get();
     while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
-
-        //let gamepad = convert_gamepad_id(gilrs_event.id);
         match gilrs_event.event {
             EventType::Connected => {
-                // TODO: Reconnecting logic
                 let pad = gilrs.gamepad(gilrs_event.id);
-                let entity = commands.spawn_empty().id();
-                gamepads.id_to_entity.insert(gilrs_event.id, entity);
-                gamepads.entity_to_id.insert(entity, gilrs_event.id);
+                let entity = gamepads.get_entity(gilrs_event.id).unwrap_or_else(|| {
+                    let entity = commands.spawn_empty().id();
+                    gamepads.id_to_entity.insert(gilrs_event.id, entity);
+                    gamepads.entity_to_id.insert(entity, gilrs_event.id);
+                    entity
+                });
 
                 let info = GamepadInfo {
                     name: pad.name().into(),

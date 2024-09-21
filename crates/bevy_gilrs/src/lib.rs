@@ -40,8 +40,8 @@ pub struct Gamepads {
 
 impl Gamepads {
     /// Returns the [`Entity`] assigned to a connected [`GamepadId`].
-    pub fn get_entity(&self, gamepad_id: impl AsRef<gilrs::GamepadId>) -> Option<Entity> {
-        self.id_to_entity.get(gamepad_id.as_ref()).copied()
+    pub fn get_entity(&self, gamepad_id: gilrs::GamepadId) -> Option<Entity> {
+        self.id_to_entity.get(&gamepad_id).copied()
     }
 
     /// Returns the [`GamepadId`] assigned to a gamepad [`Entity`].
