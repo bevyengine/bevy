@@ -1,10 +1,12 @@
 //! This example illustrates how to wait for multiple assets to be loaded.
 
-use std::sync::Arc;
 use std::{
     f32::consts::PI,
     ops::Drop,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 use bevy::{gltf::Gltf, prelude::*, tasks::AsyncComputeTaskPool};

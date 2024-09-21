@@ -2,10 +2,9 @@
 
 use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
 use rand::{prelude::SliceRandom, Rng};
-use std::hash::{Hash, Hasher};
 use std::{
     env::VarError,
-    hash::DefaultHasher,
+    hash::{DefaultHasher, Hash, Hasher},
     io::{self, BufRead, BufReader},
     process::Stdio,
 };
