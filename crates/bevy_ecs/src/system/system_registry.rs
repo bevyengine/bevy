@@ -332,17 +332,32 @@ impl World {
         Ok(result)
     }
 
-    /// Registers a system and caches its [`SystemId`].
+    /// Registers a system or returns its cached [`SystemId`].
     ///
-    /// The first time this is called for a particular system, it will register that system and
-    /// store its [`SystemId`] in a [`CachedSystemId`] resource. Every subsequent call will
-    /// retrieve the cached ID instead of creating a new registered system.
+    /// If you just want to run a system, see [`World::run_system_cached`].
     ///
-    /// If you don't need to cache the `SystemId`, use [`World::register_system`] instead.
+    /// The first time this function is called for a particular system, it will register it and
+    /// store its [`SystemId`] in a [`CachedSystemId`] resource for later. If you would rather
+    /// manage the `SystemId` yourself, or register multiple copies of the same system, use
+    /// [`World::register_system`] instead.
+    ///
+    /// # Limitations
+    ///
+    /// This function only accepts ZST (zero-sized) systems to guarantee that any two systems of
+    /// the same type must be equal. This means that closures that capture the environment, and
+    /// function pointers, are not accepted. If this limitation is an issue, consider using
+    /// [`World::register_system`] instead.
     pub fn register_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
     ) -> SystemId<I, O> {
+        const {
+            assert!(
+                size_of::<S::System>() == 0,
+                "Non-ZST systems (e.g. capturing closures, function pointers) cannot be cached.",
+            );
+        }
+
         if !self.contains_resource::<CachedSystemId<S::System>>() {
             let id = self.register_system(system);
             self.insert_resource(CachedSystemId::<S::System>(id));
@@ -362,6 +377,8 @@ impl World {
     }
 
     /// Removes a cached system and its [`CachedSystemId`] resource.
+    /// 
+    /// See [`World::register_system_cached`] for more information.
     pub fn remove_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         _system: S,
@@ -372,7 +389,9 @@ impl World {
         self.remove_system(id.0)
     }
 
-    /// Runs a system, registering it and caching its [`SystemId`] if necessary.
+    /// Runs a cached system, registering it if necessary.
+    /// 
+    /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
         system: S,
@@ -380,8 +399,9 @@ impl World {
         self.run_system_cached_with(system, ())
     }
 
-    /// Runs a system with an input, registering the system and caching its [`SystemId`] if
-    /// necessary.
+    /// Runs a cached system with an input, registering it if necessary.
+    ///
+    /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached_with<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
         system: S,
@@ -473,7 +493,7 @@ impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
 /// The [`Command`] type for running a cached one-shot system from
 /// [`Commands`](crate::system::Commands).
 ///
-/// This command needs an already boxed system to register.
+/// See [`World::register_system_cached`] for more information.
 pub struct RunSystemCachedWith<S: System<Out = ()>> {
     system: S,
     input: S::In,
