@@ -3,6 +3,7 @@ use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
+use std::ops::Deref;
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -523,6 +524,29 @@ impl TypeRegistration {
             type_info: T::type_info(),
         }
     }
+
+    /// The total count of [type data] in this registration.
+    ///
+    /// [type data]: TypeData
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Returns true if this registration has no [type data].
+    ///
+    /// [type data]: TypeData
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Returns an iterator over all [type data] in this registration.
+    ///
+    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+    ///
+    /// [type data]: TypeData
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (TypeId, &dyn TypeData)> {
+        self.data.iter().map(|(id, data)| (*id, data.deref()))
+    }
 }
 
 impl Clone for TypeRegistration {
@@ -753,11 +777,8 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 #[cfg(test)]
 #[allow(unsafe_code)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr};
-    use bevy_ptr::{Ptr, PtrMut};
-
+    use super::*;
     use crate as bevy_reflect;
-    use crate::Reflect;
 
     #[test]
     fn test_reflect_from_ptr() {
@@ -772,7 +793,7 @@ mod test {
         // not required in this situation because we no nobody messed with the TypeRegistry,
         // but in the general case somebody could have replaced the ReflectFromPtr with an
         // instance for another type, so then we'd need to check that the type is the expected one
-        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
+        assert_eq!(reflect_from_ptr.type_id(), TypeId::of::<Foo>());
 
         let mut value = Foo { a: 1.0 };
         {
@@ -802,5 +823,33 @@ mod test {
                 _ => panic!("invalid reflection"),
             }
         }
+    }
+
+    #[test]
+    fn type_data_iter() {
+        #[derive(Reflect)]
+        struct Foo;
+
+        #[derive(Clone)]
+        struct DataA(i32);
+
+        #[derive(Clone)]
+        struct DataB(i32);
+
+        let mut registration = TypeRegistration::of::<Foo>();
+        registration.insert(DataA(123));
+        registration.insert(DataB(456));
+
+        let mut iter = registration.iter();
+
+        let (id, data) = iter.next().unwrap();
+        assert_eq!(id, TypeId::of::<DataA>());
+        assert_eq!(data.downcast_ref::<DataA>().unwrap().0, 123);
+
+        let (id, data) = iter.next().unwrap();
+        assert_eq!(id, TypeId::of::<DataB>());
+        assert_eq!(data.downcast_ref::<DataB>().unwrap().0, 456);
+
+        assert!(iter.next().is_none());
     }
 }
