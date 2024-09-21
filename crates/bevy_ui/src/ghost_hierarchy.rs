@@ -1,7 +1,7 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
+use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -30,23 +30,18 @@ pub struct GhostNode;
 /// A UI root node is either a [`Node`] without a [`Parent`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
 pub struct UiRootNodes<'w, 's> {
-    ghost_node_query: Query<'w, 's, &'static GhostNode>,
-    potential_root_node_query: Query<'w, 's, (Entity, Option<&'static Parent>), With<Node>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
+    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
+    ui_children: UiChildren<'w, 's>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
     pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
-        self.potential_root_node_query
-            .iter()
-            .filter(|(entity, parent)| {
-                parent.is_none()
-                    || self
-                        .parents_query
-                        .iter_ancestors(*entity)
-                        .all(|ancestor| self.ghost_node_query.contains(ancestor))
-            })
-            .map(|(entity, _)| entity)
+        self.root_node_query.iter().chain(
+            self.root_ghost_node_query
+                .iter()
+                .flat_map(|root_ghost| self.ui_children.iter(root_ghost)),
+        )
     }
 }
 
@@ -135,7 +130,7 @@ mod tests {
 
         let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
 
-        assert_eq!([&A(6), &A(8), &A(1)], result.as_slice());
+        assert_eq!([&A(1), &A(6), &A(8)], result.as_slice());
     }
 
     #[test]
