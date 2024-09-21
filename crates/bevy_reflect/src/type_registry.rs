@@ -3,7 +3,7 @@ use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -490,11 +490,27 @@ impl TypeRegistration {
     ///
     /// Returns `None` if no such value exists.
     ///
+    /// For a dynamic version of this method, see [`data_by_id`].
+    ///
     /// [type data]: TypeData
+    /// [`data_by_id`]: Self::data_by_id
     pub fn data<T: TypeData>(&self) -> Option<&T> {
         self.data
             .get(&TypeId::of::<T>())
             .and_then(|value| value.downcast_ref())
+    }
+
+    /// Returns a reference to the value with the given [`TypeId`] in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a static version of this method, see [`data`].
+    ///
+    /// [type data]: TypeData
+    /// [`data`]: Self::data
+    pub fn data_by_id(&self, type_id: TypeId) -> Option<&dyn TypeData> {
+        self.data.get(&type_id).map(Deref::deref)
     }
 
     /// Returns a mutable reference to the value of type `T` in this registration's
@@ -502,11 +518,27 @@ impl TypeRegistration {
     ///
     /// Returns `None` if no such value exists.
     ///
+    /// For a dynamic version of this method, see [`data_mut_by_id`].
+    ///
     /// [type data]: TypeData
+    /// [`data_mut_by_id`]: Self::data_mut_by_id
     pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
         self.data
             .get_mut(&TypeId::of::<T>())
             .and_then(|value| value.downcast_mut())
+    }
+
+    /// Returns a mutable reference to the value with the given [`TypeId`] in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a static version of this method, see [`data_mut`].
+    ///
+    /// [type data]: TypeData
+    /// [`data_mut`]: Self::data_mut
+    pub fn data_mut_by_id(&mut self, type_id: TypeId) -> Option<&mut dyn TypeData> {
+        self.data.get_mut(&type_id).map(DerefMut::deref_mut)
     }
 
     /// Returns true if this registration contains the given [type data].
