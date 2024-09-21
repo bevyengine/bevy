@@ -32,10 +32,7 @@ use std::{any::TypeId, path::Path, sync::Arc};
 use std::{future::Future, panic::AssertUnwindSafe};
 use thiserror::Error;
 
-#[allow(unused_imports, reason = "Needed for documentation links.")]
-use crate::io::{AssetReader, AssetWriter};
-
-/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
+/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
 /// retrieve their current load states.
 ///
 /// The general process to load an asset is:
@@ -75,7 +72,7 @@ pub enum AssetServerMode {
 }
 
 impl AssetServer {
-    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
         Self::new_with_loaders(
@@ -87,7 +84,7 @@ impl AssetServer {
         )
     }
 
-    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
         sources: AssetSources,
