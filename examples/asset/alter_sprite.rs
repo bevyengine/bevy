@@ -57,8 +57,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         //   - for the GPU (`RenderAssetUsages::RENDER_WORLD`),
         //   - for the CPU (`RenderAssetUsages::MAIN_WORLD`),
         //   - or both.
-        // `RENDER_WORLD` is necessary to render the mesh, `MAIN_WORLD` is necessary to inspect
-        // and modify the mesh (via `ResMut<Assets<Image>>`).
+        // `RENDER_WORLD` is necessary to render the image, `MAIN_WORLD` is necessary to inspect
+        // and modify the image (via `ResMut<Assets<Image>>`).
         //
         // Since most games will not need to modify textures at runtime, many developers opt to pass
         // only `RENDER_WORLD`. This is more memory efficient, as we don't need to keep the image in
