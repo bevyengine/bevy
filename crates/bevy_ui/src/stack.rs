@@ -1,9 +1,8 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::prelude::*;
 
-use crate::{Node, ZIndex};
+use crate::{Node, UiChildren, UiRootNodes, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -52,20 +51,20 @@ struct StackingContextEntry {
 pub(crate) fn ui_stack_system(
     mut cache: Local<StackingContextCache>,
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_nodes: UiRootNodes,
     zindex_query: Query<&ZIndex, With<Node>>,
-    children_query: Query<&Children>,
+    ui_children: UiChildren,
     mut update_query: Query<&mut Node>,
 ) {
     // Generate `StackingContext` tree
     let mut global_context = cache.pop();
     let mut total_entry_count: usize = 0;
 
-    for entity in &root_node_query {
+    for entity in root_nodes.iter() {
         insert_context_hierarchy(
             &mut cache,
             &zindex_query,
-            &children_query,
+            &ui_children,
             entity,
             &mut global_context,
             None,
@@ -90,7 +89,7 @@ pub(crate) fn ui_stack_system(
 fn insert_context_hierarchy(
     cache: &mut StackingContextCache,
     zindex_query: &Query<&ZIndex, With<Node>>,
-    children_query: &Query<&Children>,
+    ui_children: &UiChildren,
     entity: Entity,
     global_context: &mut StackingContext,
     parent_context: Option<&mut StackingContext>,
@@ -98,22 +97,16 @@ fn insert_context_hierarchy(
 ) {
     let mut new_context = cache.pop();
 
-    if let Ok(children) = children_query.get(entity) {
-        // Reserve space for all children. In practice, some may not get pushed since
-        // nodes with `ZIndex::Global` are pushed to the global (root) context.
-        new_context.entries.reserve_exact(children.len());
-
-        for entity in children {
-            insert_context_hierarchy(
-                cache,
-                zindex_query,
-                children_query,
-                *entity,
-                global_context,
-                Some(&mut new_context),
-                total_entry_count,
-            );
-        }
+    for entity in ui_children.iter_ui_children(entity) {
+        insert_context_hierarchy(
+            cache,
+            zindex_query,
+            ui_children,
+            entity,
+            global_context,
+            Some(&mut new_context),
+            total_entry_count,
+        );
     }
 
     // The node will be added either to global/parent based on its z-index type: global/local.
