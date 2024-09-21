@@ -311,7 +311,7 @@ fn setup_sticks(
                 });
                 // text
                 let style = TextStyle {
-                    font_size: 16.,
+                    font_size: 13.,
                     ..default()
                 };
                 parent.spawn((
@@ -392,7 +392,7 @@ fn setup_triggers(
                         text: Text::from_section(
                             format!("{:.3}", 0.),
                             TextStyle {
-                                font_size: 16.,
+                                font_size: 13.,
                                 ..default()
                             },
                         ),

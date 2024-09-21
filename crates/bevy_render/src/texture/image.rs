@@ -202,6 +202,23 @@ impl ImageSampler {
     pub fn nearest() -> ImageSampler {
         ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
     }
+
+    /// Initialize the descriptor if it is not already initialized.
+    ///
+    /// Descriptor is typically initialized by Bevy when the image is loaded,
+    /// so this is convenient shortcut for updating the descriptor.
+    pub fn get_or_init_descriptor(&mut self) -> &mut ImageSamplerDescriptor {
+        match self {
+            ImageSampler::Default => {
+                *self = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
+                match self {
+                    ImageSampler::Descriptor(descriptor) => descriptor,
+                    _ => unreachable!(),
+                }
+            }
+            ImageSampler::Descriptor(descriptor) => descriptor,
+        }
+    }
 }
 
 /// A rendering resource for the default image sampler which is set during renderer
@@ -649,7 +666,9 @@ impl Image {
     /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
     pub fn aspect_ratio(&self) -> AspectRatio {
-        AspectRatio::from_pixels(self.width(), self.height())
+        AspectRatio::try_from_pixels(self.width(), self.height()).expect(
+            "Failed to calculate aspect ratio: Image dimensions must be positive, non-zero values",
+        )
     }
 
     /// Returns the size of a 2D image as f32.

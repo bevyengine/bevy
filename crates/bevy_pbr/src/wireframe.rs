@@ -56,7 +56,7 @@ impl Plugin for WireframePlugin {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
@@ -69,7 +69,7 @@ pub struct Wireframe;
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct WireframeColor {
     pub color: Color,
 }
@@ -79,11 +79,11 @@ pub struct WireframeColor {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
@@ -154,7 +154,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Some(commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
     }

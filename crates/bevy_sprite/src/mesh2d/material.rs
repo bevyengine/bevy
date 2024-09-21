@@ -28,7 +28,6 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -419,7 +418,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &ExtractedView,
         &VisibleEntities,
@@ -434,7 +433,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &mut views {
+    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -581,23 +580,13 @@ impl<T: Material2d> PreparedMaterial2d<T> {
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type SourceAsset = M;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
-        SRes<Material2dPipeline<M>>,
-    );
+    type Param = (SRes<RenderDevice>, SRes<Material2dPipeline<M>>, M::Param);
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material2d_layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));

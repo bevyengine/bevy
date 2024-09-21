@@ -330,7 +330,7 @@ impl TaskPool {
         })
     }
 
-    #[allow(unsafe_code)]
+    #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,

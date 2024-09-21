@@ -48,8 +48,8 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = (t * TAU - FRAC_PI_2).sin() * HALF_CONTAINER_SIZE;
-        transform.translation.y = -(t * TAU - FRAC_PI_2).cos() * HALF_CONTAINER_SIZE;
+        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
     }
 }
 
@@ -58,8 +58,8 @@ struct Scale;
 
 impl UpdateTransform for Scale {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.scale.x = 1.0 + 0.5 * (t * TAU).cos().max(0.0);
-        transform.scale.y = 1.0 + 0.5 * (t * TAU + PI).cos().max(0.0);
+        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -68,7 +68,8 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, ((t * TAU).cos() * 45.0).to_radians());
+        transform.rotation =
+            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
     }
 }
 
@@ -166,7 +167,7 @@ fn spawn_text(
             "Bevy",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 120.0,
+                font_size: 100.0,
                 ..default()
             },
         ));

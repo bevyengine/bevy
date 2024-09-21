@@ -1,6 +1,6 @@
 use crate::io::AssetSourceId;
+use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::CowArc;
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::{
     fmt::{Debug, Display},

@@ -143,8 +143,8 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()
@@ -318,8 +318,8 @@ fn add_help_text(
         .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
+                left: Val::Px(12.0),
+                top: Val::Px(12.0),
                 ..default()
             },
             ..TextBundle::from_section(
@@ -344,7 +344,7 @@ fn add_text<'a>(
         label,
         TextStyle {
             font: font.clone(),
-            font_size: 18.0,
+            font_size: 15.0,
             color,
         },
     ))
@@ -362,7 +362,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
             color_grading,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -459,9 +459,9 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
+            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
             SelectedColorGradingOption::Section(section, option) => {
-                write!(f, "\"{}\" for \"{}\"", option, section)
+                write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
@@ -633,7 +633,7 @@ fn update_ui_state(
 
 /// Creates the help text at the top left of the window.
 fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {}", currently_selected_option)
+    format!("Press Left/Right to adjust {currently_selected_option}")
 }
 
 /// Processes keyboard input to change the value of the currently-selected color

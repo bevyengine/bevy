@@ -30,7 +30,13 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
@@ -43,7 +49,13 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
@@ -52,12 +64,24 @@ impl EmbeddedAssetRegistry {
         self.dir.insert_meta(asset_path, value);
     }
 
-    /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
-    // NOTE: unused_mut because embedded_watcher feature is the only mutable consumer of `let mut source`
-    #[allow(unused_mut)]
+    /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
+    /// running in a non-rust file). If no asset is stored with at `full_path` its a no-op.
+    /// It returning `Option` contains the originally stored `Data` or `None`.
+    pub fn remove_asset(&self, full_path: &Path) -> Option<super::memory::Data> {
+        self.dir.remove_asset(full_path)
+    }
+
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
+
+        #[cfg_attr(
+            not(feature = "embedded_watcher"),
+            expect(
+                unused_mut,
+                reason = "Variable is only mutated when `embedded_watcher` feature is enabled."
+            )
+        )]
         let mut source = AssetSource::build()
             .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }))
             .with_processed_reader(move || {
@@ -300,7 +324,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::_embedded_asset_path;
+    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.
@@ -403,5 +427,16 @@ mod tests {
         );
         // Really, should be "my_crate/src/the/asset.png"
         assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
+
+    #[test]
+    fn remove_embedded_asset() {
+        let reg = EmbeddedAssetRegistry::default();
+        let path = std::path::PathBuf::from("a/b/asset.png");
+        reg.insert_asset(path.clone(), &path, &[]);
+        assert!(reg.dir.get_asset(&path).is_some());
+        assert!(reg.remove_asset(&path).is_some());
+        assert!(reg.dir.get_asset(&path).is_none());
+        assert!(reg.remove_asset(&path).is_none());
     }
 }

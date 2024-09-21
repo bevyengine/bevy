@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "(0.0, 0.0)",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.9, 0.9, 0.9),
                     },
                 ),

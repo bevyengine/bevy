@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -34,13 +34,17 @@ pub use skybox::Skybox;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
+        #[allow(deprecated)]
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            TemporalAntiAliasSettings, TemporalAntiAliasing,
         };
     }
 }
 
+/// The core pipeline prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

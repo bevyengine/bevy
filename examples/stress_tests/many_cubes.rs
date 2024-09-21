@@ -87,8 +87,7 @@ impl FromStr for Layout {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
             _ => Err(format!(
-                "Unknown layout value: '{}', valid options: 'cube', 'sphere'",
-                s
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
             )),
         }
     }
@@ -163,26 +162,23 @@ fn setup(
                     fibonacci_spiral_on_sphere(golden_ratio, i, N_POINTS);
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
                 let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
-                let mut cube = commands.spawn(PbrBundle {
-                    mesh: mesh.clone(),
-                    material: materials.choose(&mut material_rng).unwrap().clone(),
-                    transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
-                        .looking_at(Vec3::ZERO, Vec3::Y)
-                        .mul_transform(*transform),
-                    ..default()
-                });
-                if args.no_frustum_culling {
-                    cube.insert(NoFrustumCulling);
-                }
-                if args.no_automatic_batching {
-                    cube.insert(NoAutomaticBatching);
-                }
+                commands
+                    .spawn(PbrBundle {
+                        mesh: mesh.clone(),
+                        material: materials.choose(&mut material_rng).unwrap().clone(),
+                        transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
+                            .looking_at(Vec3::ZERO, Vec3::Y)
+                            .mul_transform(*transform),
+                        ..default()
+                    })
+                    .insert_if(NoFrustumCulling, || args.no_frustum_culling)
+                    .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
             }
 
             // camera
             let mut camera = commands.spawn(Camera3dBundle::default());
             if args.gpu_culling {
-                camera.insert(GpuCulling);
+                camera = camera.insert(GpuCulling);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -365,7 +361,7 @@ fn init_meshes(args: &Args, assets: &mut Assets<Mesh>) -> Vec<(Handle<Mesh>, Tra
                 let mut vertices = [Vec2::ZERO; 3];
                 let dtheta = std::f32::consts::TAU / 3.0;
                 for (i, vertex) in vertices.iter_mut().enumerate() {
-                    let (s, c) = (i as f32 * dtheta).sin_cos();
+                    let (s, c) = ops::sin_cos(i as f32 * dtheta);
                     *vertex = Vec2::new(c, s) * radius;
                 }
                 (
@@ -443,7 +439,7 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        f64::acos(1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)),
     )
 }
 

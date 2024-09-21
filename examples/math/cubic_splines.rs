@@ -6,7 +6,7 @@ use bevy::{
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2},
+    math::{cubic_splines::*, vec2, Isometry2d},
     prelude::*,
 };
 
@@ -73,8 +73,8 @@ fn setup(mut commands: Commands) {
         R: Remove the last control point\n\
         S: Cycle the spline construction being used\n\
         C: Toggle cyclic curve construction";
-    let spline_mode_text = format!("Spline: {}", spline_mode);
-    let cycling_mode_text = format!("{}", cycling_mode);
+    let spline_mode_text = format!("Spline: {spline_mode}");
+    let cycling_mode_text = format!("{cycling_mode}");
     let style = TextStyle::default();
 
     commands
@@ -197,7 +197,11 @@ fn draw_control_points(
     mut gizmos: Gizmos,
 ) {
     for &(point, tangent) in &control_points.points_and_tangents {
-        gizmos.circle_2d(point, 10.0, Color::srgb(0.0, 1.0, 0.0));
+        gizmos.circle_2d(
+            Isometry2d::from_translation(point),
+            10.0,
+            Color::srgb(0.0, 1.0, 0.0),
+        );
 
         if matches!(*spline_mode, SplineMode::Hermite) {
             gizmos.arrow_2d(point, point + tangent, Color::srgb(1.0, 0.0, 0.0));
@@ -353,11 +357,10 @@ fn handle_mouse_press(
                 };
 
                 // Convert the starting point and end point (current mouse pos) into world coords:
-                let Some(point) = camera.viewport_to_world_2d(camera_transform, start) else {
+                let Ok(point) = camera.viewport_to_world_2d(camera_transform, start) else {
                     continue;
                 };
-                let Some(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos)
-                else {
+                let Ok(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
                     continue;
                 };
                 let tangent = end_point - point;
@@ -392,15 +395,23 @@ fn draw_edit_move(
 
     // Resources store data in viewport coordinates, so we need to convert to world coordinates
     // to display them:
-    let Some(start) = camera.viewport_to_world_2d(camera_transform, start) else {
+    let Ok(start) = camera.viewport_to_world_2d(camera_transform, start) else {
         return;
     };
-    let Some(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
+    let Ok(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
         return;
     };
 
-    gizmos.circle_2d(start, 10.0, Color::srgb(0.0, 1.0, 0.7));
-    gizmos.circle_2d(start, 7.0, Color::srgb(0.0, 1.0, 0.7));
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        10.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        7.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
     gizmos.arrow_2d(start, end, Color::srgb(1.0, 0.0, 0.7));
 }
 

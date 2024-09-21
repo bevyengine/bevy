@@ -80,7 +80,7 @@ use std::fmt;
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not have a type path",
+    message = "`{Self}` does not implement `TypePath` so cannot provide static type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait TypePath: 'static {
@@ -134,7 +134,7 @@ pub trait TypePath: 'static {
 ///
 /// [`Reflect`]: crate::Reflect
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be used as a dynamic type path",
+    message = "`{Self}` does not implement `TypePath` so cannot provide dynamic type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait DynamicTypePath {
