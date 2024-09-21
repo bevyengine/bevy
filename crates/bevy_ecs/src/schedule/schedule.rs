@@ -2015,6 +2015,7 @@ pub struct ScheduleBuildSettings {
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
+    #[cfg(feature = "bevy_reflect")]
     pub use_shortnames: bool,
     /// If set to true, report all system sets the conflicting systems are part of.
     ///
@@ -2036,6 +2037,7 @@ impl ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
             auto_insert_apply_deferred: true,
+            #[cfg(feature = "bevy_reflect")]
             use_shortnames: true,
             report_sets: true,
         }
