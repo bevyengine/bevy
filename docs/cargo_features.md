@@ -76,9 +76,9 @@ The default feature set enables most of the expected features of a game engine, 
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
-|spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
+|spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
 |symphonia-flac|FLAC audio format support (through symphonia)|
