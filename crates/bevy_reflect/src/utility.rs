@@ -48,7 +48,7 @@ mod sealed {
 /// ## Example
 ///
 /// ```
-/// # use core::any::Any;
+/// # use std::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo, TypePath, ApplyError};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
@@ -137,7 +137,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// Implementing [`TypeInfo`] with generics.
 ///
 /// ```
-/// # use core::any::Any;
+/// # use std::any::Any;
 /// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
@@ -185,7 +185,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///  Implementing [`TypePath`] with generics.
 ///
 /// ```
-/// # use core::any::Any;
+/// # use std::any::Any;
 /// # use bevy_reflect::TypePath;
 /// use bevy_reflect::utility::GenericTypePathCell;
 ///

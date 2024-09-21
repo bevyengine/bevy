@@ -34,7 +34,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use core::f32::consts::FRAC_PI_4;
+    /// # use std::f32::consts::FRAC_PI_4;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 1., GREEN);
@@ -154,7 +154,7 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use core::f32::consts::PI;
+    /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
     ///     // rotation rotates normal to point in the direction of `Vec3::NEG_ONE`

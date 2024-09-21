@@ -277,7 +277,7 @@ where
 /// # Examples
 ///
 /// ```
-/// use core::num::ParseIntError;
+/// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
 ///

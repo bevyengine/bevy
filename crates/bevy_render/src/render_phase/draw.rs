@@ -164,7 +164,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// # use bevy_render::render_phase::SetItemPipeline;
 /// # struct SetMeshViewBindGroup<const N: usize>;
 /// # struct SetMeshBindGroup<const N: usize>;
-/// # struct SetMaterialBindGroup<M, const N: usize>(core::marker::PhantomData<M>);
+/// # struct SetMaterialBindGroup<M, const N: usize>(std::marker::PhantomData<M>);
 /// # struct DrawMesh;
 /// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,

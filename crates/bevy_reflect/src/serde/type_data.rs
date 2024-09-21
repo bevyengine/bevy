@@ -26,7 +26,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use core::any::TypeId;
+    /// # use std::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
@@ -66,7 +66,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use core::any::TypeId;
+    /// # use std::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {

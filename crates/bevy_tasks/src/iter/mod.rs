@@ -3,7 +3,7 @@ use crate::TaskPool;
 mod adapters;
 pub use adapters::*;
 
-/// [`ParallelIterator`] closely emulates the `core::iter::Iterator`
+/// [`ParallelIterator`] closely emulates the `std::iter::Iterator`
 /// interface. However, it uses `bevy_task` to compute batches in parallel.
 ///
 /// Note that the overhead of [`ParallelIterator`] is high relative to some

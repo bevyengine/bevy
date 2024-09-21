@@ -203,7 +203,7 @@ impl AssetServer {
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
 
-    /// Returns the registered [`AssetLoader`] associated with the given [`core::any::type_name`], if it exists.
+    /// Returns the registered [`AssetLoader`] associated with the given [`std::any::type_name`], if it exists.
     pub async fn get_asset_loader_with_type_name(
         &self,
         type_name: &str,
@@ -1568,7 +1568,7 @@ pub struct MissingAssetLoaderForExtensionError {
     extensions: Vec<String>,
 }
 
-/// An error that occurs when an [`AssetLoader`] is not registered for a given [`core::any::type_name`].
+/// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
 pub struct MissingAssetLoaderForTypeNameError {

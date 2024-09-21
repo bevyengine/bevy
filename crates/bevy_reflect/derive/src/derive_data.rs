@@ -903,14 +903,14 @@ impl<'a> EnumVariant<'a> {
 /// ```ignore  (bevy_reflect is not accessible from this crate)
 /// # use syn::parse_quote;
 /// # use bevy_reflect_derive::ReflectTypePath;
-/// let path: syn::Path = parse_quote!(::core::marker::PhantomData)?;
+/// let path: syn::Path = parse_quote!(::std::marker::PhantomData)?;
 ///
 /// let type_path = ReflectTypePath::External {
 ///     path,
 ///     custom_path: None,
 /// };
 ///
-/// // Equivalent to "core::marker".
+/// // Equivalent to "std::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
@@ -1107,7 +1107,7 @@ impl<'a> ReflectTypePath<'a> {
 
     /// Returns a [`StringExpr`] representing the "type path" of the type.
     ///
-    /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
+    /// For `Option<PhantomData>`, this is `"std::option::Option<std::marker::PhantomData>"`.
     pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
             Self::Primitive(ident) => StringExpr::from(ident),
@@ -1183,7 +1183,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// For non-customised [internal] paths this is created from [`module_path`].
     ///
-    /// For `Option<PhantomData>`, this is `"core::option"`.
+    /// For `Option<PhantomData>`, this is `"std::option"`.
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous

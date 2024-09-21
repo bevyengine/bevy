@@ -2,7 +2,7 @@
 ///
 /// The short name of a type is its full name as returned by
 /// [`core::any::type_name`], but with the prefix of all paths removed. For
-/// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
+/// example, the short name of `std::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
 ///
 /// Shortening is performed lazily without allocation.

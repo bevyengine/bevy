@@ -210,7 +210,7 @@ use smallvec::SmallVec;
 /// }
 ///
 /// // This function statically checks that `T` implements `Debug`.
-/// fn assert_debug<T: core::fmt::Debug>() {}
+/// fn assert_debug<T: std::fmt::Debug>() {}
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
@@ -253,7 +253,7 @@ use smallvec::SmallVec;
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, query::QueryData};
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// #[derive(QueryData)]
 /// pub struct GenericQuery<T> {
 ///     id: Entity,

@@ -16,7 +16,7 @@ use core::{
 ///
 /// ```
 /// # use bevy_reflect::{Reflect, Typed, TypeInfo};
-/// use core::ops::RangeInclusive;
+/// use std::ops::RangeInclusive;
 /// #[derive(Reflect)]
 /// struct Slider {
 ///   #[reflect(@RangeInclusive::<f32>::new(0.0, 1.0))]
@@ -153,7 +153,7 @@ macro_rules! impl_custom_attribute_methods {
         }
 
         #[allow(rustdoc::redundant_explicit_links)]
-        /// Gets a custom attribute by its [`TypeId`](core::any::TypeId).
+        /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).
         pub fn get_attribute_by_id(&$self, id: ::core::any::TypeId) -> Option<&dyn $crate::Reflect> {

@@ -711,7 +711,7 @@ where
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```
-/// use core::num::ParseIntError;
+/// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
 ///

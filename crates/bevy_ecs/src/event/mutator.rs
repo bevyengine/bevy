@@ -67,7 +67,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// # Example
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use core::sync::atomic::{AtomicUsize, Ordering};
+    /// # use std::sync::atomic::{AtomicUsize, Ordering};
     ///
     /// #[derive(Event)]
     /// struct MyEvent {

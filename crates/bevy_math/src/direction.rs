@@ -15,7 +15,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub enum InvalidDirectionError {
     /// The length of the direction vector is zero or very close to zero.
     Zero,
-    /// The length of the direction vector is `core::f32::INFINITY`.
+    /// The length of the direction vector is `std::f32::INFINITY`.
     Infinite,
     /// The length of the direction vector is `NaN`.
     NaN,

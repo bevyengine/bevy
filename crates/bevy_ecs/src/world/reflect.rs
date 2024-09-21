@@ -30,7 +30,7 @@ impl World {
     /// ```
     /// use bevy_ecs::prelude::*;
     /// use bevy_reflect::Reflect;
-    /// use core::any::TypeId;
+    /// use std::any::TypeId;
     ///
     /// // define a `Component` and derive `Reflect` for it
     /// #[derive(Component, Reflect)]

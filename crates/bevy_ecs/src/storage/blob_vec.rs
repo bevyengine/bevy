@@ -45,7 +45,7 @@ impl BlobVec {
     ///
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
-    /// [`needs_drop`]: core::mem::needs_drop
+    /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn new(
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,

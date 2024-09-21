@@ -127,7 +127,7 @@ impl TypeRegistry {
     /// # Example
     ///
     /// ```
-    /// # use core::any::TypeId;
+    /// # use std::any::TypeId;
     /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
     /// #[derive(Reflect, Default)]
     /// #[reflect(Default)]
@@ -652,7 +652,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// ```
 /// use bevy_reflect::{TypeRegistry, Reflect, ReflectFromPtr};
 /// use bevy_ptr::Ptr;
-/// use core::ptr::NonNull;
+/// use std::ptr::NonNull;
 ///
 /// #[derive(Reflect)]
 /// struct Reflected(String);
@@ -663,7 +663,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let mut value = Reflected("Hello world!".to_string());
 /// let value = Ptr::from(&value);
 ///
-/// let reflect_data = type_registry.get(core::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect(value) };

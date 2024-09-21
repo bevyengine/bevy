@@ -282,7 +282,7 @@ use core::{
 /// use bevy_ecs::component::Component;
 ///
 /// // `Duration` is defined in the `std` crate.
-/// use core::time::Duration;
+/// use std::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
 /// // both foreign items, defined in an external crate. However, nothing prevents to define a new
@@ -303,7 +303,7 @@ use core::{
 ///
 /// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail
-/// # use core::cell::RefCell;
+/// # use std::cell::RefCell;
 /// # use bevy_ecs::component::Component;
 /// #[derive(Component)]
 /// struct NotSync {
@@ -313,7 +313,7 @@ use core::{
 ///
 /// This will compile since the `RefCell` is wrapped with `SyncCell`.
 /// ```
-/// # use core::cell::RefCell;
+/// # use std::cell::RefCell;
 /// # use bevy_ecs::component::Component;
 /// use bevy_utils::synccell::SyncCell;
 ///
@@ -1229,7 +1229,7 @@ impl ComponentTicks {
 
     /// Manually sets the change tick.
     ///
-    /// This is normally done automatically via the [`DerefMut`](core::ops::DerefMut) implementation
+    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
     /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///

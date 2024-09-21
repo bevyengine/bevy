@@ -286,7 +286,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// ```
@@ -295,7 +295,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
 /// let iso2 = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
@@ -306,7 +306,7 @@ impl UlpsEq for Isometry2d {
 /// ```
 /// # use approx::assert_relative_eq;
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// let point = Vec3::new(4.0, 4.0, 4.0);
@@ -322,7 +322,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// # let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// # let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
@@ -336,7 +336,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let sphere_iso = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
 /// let cuboid_iso = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));

@@ -28,8 +28,8 @@ use bevy_utils::HashSet;
 /// impl Internable for Value {
 ///     // ...
 /// # fn leak(&self) -> &'static Self { Box::leak(Box::new(Value(self.0))) }
-/// # fn ref_eq(&self, other: &Self) -> bool { core::ptr::eq(self, other ) }
-/// # fn ref_hash<H: core::hash::Hasher>(&self, state: &mut H) { core::ptr::hash(self, state); }
+/// # fn ref_eq(&self, other: &Self) -> bool { std::ptr::eq(self, other ) }
+/// # fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) { std::ptr::hash(self, state); }
 /// }
 /// let interner_1 = Interner::new();
 /// let interner_2 = Interner::new();

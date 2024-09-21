@@ -98,7 +98,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// If you want to add `PhantomData` to your `Bundle` you have to mark it with `#[bundle(ignore)]`.
 /// ```
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// use bevy_ecs::{component::Component, bundle::Bundle};
 ///
 /// #[derive(Component)]

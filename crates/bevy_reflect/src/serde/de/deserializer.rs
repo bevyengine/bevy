@@ -177,7 +177,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 /// # Example
 ///
 /// ```
-/// # use core::any::TypeId;
+/// # use std::any::TypeId;
 /// # use serde::de::DeserializeSeed;
 /// # use bevy_reflect::prelude::*;
 /// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::TypedReflectDeserializer};

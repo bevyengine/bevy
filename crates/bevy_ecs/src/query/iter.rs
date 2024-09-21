@@ -393,7 +393,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Examples
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// # use core::{ops::{Deref, DerefMut}, iter::Sum};
+    /// # use std::{ops::{Deref, DerefMut}, iter::Sum};
     /// #
     /// # #[derive(Component)]
     /// # struct PartMarker;
@@ -647,7 +647,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Example
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use core::ops::Deref;
+    /// # use std::ops::Deref;
     /// #
     /// # impl Deref for PartValue {
     /// #     type Target = f32;
@@ -811,7 +811,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Example
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use core::ops::Deref;
+    /// # use std::ops::Deref;
     /// #
     /// # #[derive(Component)]
     /// # struct PartMarker;

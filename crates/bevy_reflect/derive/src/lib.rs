@@ -155,7 +155,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
-///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
+///   `(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result`.
 /// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
@@ -427,7 +427,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Derives the `TypePath` trait, providing a stable alternative to [`core::any::type_name`].
+/// Derives the `TypePath` trait, providing a stable alternative to [`std::any::type_name`].
 ///
 /// # Container Attributes
 ///
@@ -479,7 +479,7 @@ pub fn derive_type_path(input: TokenStream) -> TokenStream {
 /// # Example
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// # use core::any::TypeId;
+/// # use std::any::TypeId;
 /// # use bevy_reflect_derive::{Reflect, reflect_trait};
 /// #[reflect_trait] // Generates `ReflectMyTrait`
 /// trait MyTrait {
@@ -597,7 +597,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
 /// This also means keeping your wrapper definitions up-to-date with the remote types.
 ///
-/// [transmuted]: core::mem::transmute
+/// [transmuted]: std::mem::transmute
 #[proc_macro_attribute]
 pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
     remote::reflect_remote(args, input)

@@ -165,7 +165,7 @@ impl ComponentSparseSet {
     /// set.
     ///
     /// # Safety
-    /// The `value` pointer must point to a valid address that matches the [`Layout`](core::alloc::Layout)
+    /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
     pub(crate) unsafe fn insert(
         &mut self,

@@ -44,7 +44,7 @@ use quote::format_ident;
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// use bevy_derive::Deref;
 ///
 /// #[derive(Deref)]
@@ -75,7 +75,7 @@ use quote::format_ident;
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]
@@ -92,9 +92,9 @@ use quote::format_ident;
 /// assert_eq!("Hello", *foo);
 /// ```
 ///
-/// [`Deref`]: core::ops::Deref
+/// [`Deref`]: std::ops::Deref
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
-/// [`DerefMut`]: core::ops::DerefMut
+/// [`DerefMut`]: std::ops::DerefMut
 /// [derive]: crate::derive_deref_mut
 #[proc_macro_derive(Deref, attributes(deref))]
 pub fn derive_deref(input: TokenStream) -> TokenStream {
@@ -129,7 +129,7 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]
@@ -162,7 +162,7 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// Using a multi-field struct:
 ///
 /// ```
-/// # use core::marker::PhantomData;
+/// # use std::marker::PhantomData;
 /// use bevy_derive::{Deref, DerefMut};
 ///
 /// #[derive(Deref, DerefMut)]
@@ -180,9 +180,9 @@ pub fn derive_deref(input: TokenStream) -> TokenStream {
 /// assert_eq!("Hello World!", *foo);
 /// ```
 ///
-/// [`DerefMut`]: core::ops::DerefMut
+/// [`DerefMut`]: std::ops::DerefMut
 /// [newtype]: https://doc.rust-lang.org/rust-by-example/generics/new_types.html
-/// [`Deref`]: core::ops::Deref
+/// [`Deref`]: std::ops::Deref
 /// [derive]: crate::derive_deref
 #[proc_macro_derive(DerefMut, attributes(deref))]
 pub fn derive_deref_mut(input: TokenStream) -> TokenStream {

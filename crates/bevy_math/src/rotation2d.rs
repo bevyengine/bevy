@@ -19,7 +19,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ```
 /// # use approx::assert_relative_eq;
 /// # use bevy_math::{Rot2, Vec2};
-/// use core::f32::consts::PI;
+/// use std::f32::consts::PI;
 ///
 /// // Create rotations from radians or degrees
 /// let rotation1 = Rot2::radians(PI / 2.0);
@@ -112,7 +112,7 @@ impl Rot2 {
     /// ```
     /// # use bevy_math::Rot2;
     /// # use approx::assert_relative_eq;
-    /// # use core::f32::consts::{FRAC_PI_2, PI};
+    /// # use std::f32::consts::{FRAC_PI_2, PI};
     ///
     /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
     /// let rot2 = Rot2::radians(-FRAC_PI_2);

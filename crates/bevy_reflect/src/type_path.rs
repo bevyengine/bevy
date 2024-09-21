@@ -2,7 +2,7 @@ use core::fmt;
 
 /// A static accessor to type paths and names.
 ///
-/// The engine uses this trait over [`core::any::type_name`] for stability and flexibility.
+/// The engine uses this trait over [`std::any::type_name`] for stability and flexibility.
 ///
 /// This trait is automatically implemented by the `#[derive(Reflect)]` macro
 /// and allows type path information to be processed without an instance of that type.
@@ -16,7 +16,7 @@ use core::fmt;
 /// Certain parts of the engine, e.g. [(de)serialization], rely on type paths as identifiers
 /// for matching dynamic values to concrete types.
 ///
-/// Using [`core::any::type_name`], a scene containing `my_crate::foo::MyComponent` would break,
+/// Using [`std::any::type_name`], a scene containing `my_crate::foo::MyComponent` would break,
 /// failing to deserialize if the component was moved from the `foo` module to the `bar` module,
 /// becoming `my_crate::bar::MyComponent`.
 /// This trait, through attributes when deriving itself or [`Reflect`], can ensure breaking changes are avoidable.
@@ -88,7 +88,7 @@ pub trait TypePath: 'static {
     ///
     /// Generic parameter types are also fully expanded.
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option::Option<alloc::vec::Vec<usize>>"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option::Option<std::vec::Vec<usize>>"`.
     fn type_path() -> &'static str;
 
     /// Returns a short, pretty-print enabled path to the type.
@@ -120,7 +120,7 @@ pub trait TypePath: 'static {
 
     /// Returns the path to the module the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn module_path() -> Option<&'static str> {

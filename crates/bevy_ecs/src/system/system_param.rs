@@ -79,7 +79,7 @@ use core::{
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// use core::marker::PhantomData;
+/// use std::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
@@ -525,7 +525,7 @@ impl_param_set!();
 ///
 /// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail
-/// # use core::cell::RefCell;
+/// # use std::cell::RefCell;
 /// # use bevy_ecs::system::Resource;
 ///
 /// #[derive(Resource)]
@@ -536,7 +536,7 @@ impl_param_set!();
 ///
 /// This will compile since the `RefCell` is wrapped with `SyncCell`.
 /// ```
-/// # use core::cell::RefCell;
+/// # use std::cell::RefCell;
 /// # use bevy_ecs::system::Resource;
 /// use bevy_utils::synccell::SyncCell;
 ///
@@ -1762,7 +1762,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
 ///     // Use the lifetimes in this type, or they will be unbound.
-///     phantom: core::marker::PhantomData<&'w &'s ()>
+///     phantom: std::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
 /// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);

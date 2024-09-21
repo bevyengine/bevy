@@ -710,12 +710,12 @@ impl App {
     ///         a + b
     ///     })
     ///     // Registering an existing function with its type name
-    ///     .register_function_with_name(core::any::type_name_of_val(&mul), mul)
+    ///     .register_function_with_name(std::any::type_name_of_val(&mul), mul)
     ///     // Registering an existing function with a custom name
     ///     .register_function_with_name("my_crate::mul", mul)
     ///     // Be careful not to register anonymous functions with their type name.
     ///     // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
-    ///     .register_function_with_name(core::any::type_name_of_val(&div), div);
+    ///     .register_function_with_name(std::any::type_name_of_val(&div), div);
     /// ```
     ///
     /// Names must be unique.
@@ -732,7 +732,7 @@ impl App {
     ///     .register_function_with_name("my_function", two);
     /// ```
     ///
-    /// [type name]: core::any::type_name
+    /// [type name]: std::any::type_name
     /// [`register_function`]: Self::register_function
     /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
     /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name

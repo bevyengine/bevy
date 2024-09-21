@@ -2268,7 +2268,7 @@ impl World {
     /// // to react to changes made in the previous loop iteration.
     /// fn update_loop(
     ///     world: &mut World,
-    ///     mut update_fn: impl FnMut(&mut World) -> core::ops::ControlFlow<()>,
+    ///     mut update_fn: impl FnMut(&mut World) -> std::ops::ControlFlow<()>,
     /// ) {
     ///     let mut last_change_tick = world.last_change_tick();
     ///
@@ -2327,12 +2327,12 @@ impl World {
     /// #             assert_eq!(num_updates, 5);
     /// #             assert!(!c.is_added());
     /// #             c.0 = 4;
-    /// #             return core::ops::ControlFlow::Break(());
+    /// #             return std::ops::ControlFlow::Break(());
     /// #         }
     /// #         _ => unreachable!(),
     /// #     }
     /// #     num_updates += 1;
-    /// #     core::ops::ControlFlow::Continue(())
+    /// #     std::ops::ControlFlow::Continue(())
     /// # });
     /// # assert_eq!(num_updates, 5);
     /// # assert_eq!(world.resource::<Count>().0, 4);
@@ -2510,7 +2510,7 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use std::collections::HashMap;
-    /// # use core::any::TypeId;
+    /// # use std::any::TypeId;
     /// # use bevy_ptr::Ptr;
     /// # #[derive(Resource)]
     /// # struct A(u32);
@@ -2588,7 +2588,7 @@ impl World {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::change_detection::MutUntyped;
     /// # use std::collections::HashMap;
-    /// # use core::any::TypeId;
+    /// # use std::any::TypeId;
     /// # #[derive(Resource)]
     /// # struct A(u32);
     /// # #[derive(Resource)]

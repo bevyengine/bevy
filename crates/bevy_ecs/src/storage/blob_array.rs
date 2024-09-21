@@ -34,7 +34,7 @@ impl BlobArray {
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
-    /// [`needs_drop`]: core::mem::needs_drop
+    /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn with_capacity(
         item_layout: Layout,
         drop_fn: Option<unsafe fn(OwningPtr<'_>)>,
