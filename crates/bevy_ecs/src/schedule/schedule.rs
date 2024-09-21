@@ -1607,8 +1607,11 @@ impl ScheduleGraph {
                 }
             }
         };
-        if self.settings.use_shortnames {
-            name = bevy_reflect::ShortName(&name).to_string();
+        #[cfg(feature = "bevy_reflect")]
+        {
+            if self.settings.use_shortnames {
+                name = bevy_reflect::ShortName(&name).to_string();
+            }
         }
         name
     }
