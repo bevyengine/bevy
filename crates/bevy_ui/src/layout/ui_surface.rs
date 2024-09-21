@@ -145,7 +145,7 @@ If this is intentional, consider adding a GhostNode component to this entity."
         }
     }
 
-    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node in the taffy layout.
+    /// Set the ui root node entities as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
         camera_id: Entity,
