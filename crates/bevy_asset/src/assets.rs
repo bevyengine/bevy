@@ -295,23 +295,21 @@ impl<A: Asset> DenseAssetStorage<A> {
     ) -> Result<bool, InvalidGenerationError> {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
-        if let Entry::Some { value, generation } = entry {
-            if *generation == index.generation {
-                let exists = value.is_some();
-                if !exists {
-                    self.len += 1;
-                }
-                *value = AssetPresence::Unlocked(asset);
-                Ok(exists)
-            } else {
-                Err(InvalidGenerationError {
-                    index,
-                    current_generation: *generation,
-                })
-            }
-        } else {
+        let Entry::Some { value, generation } = entry else {
             unreachable!("entries should always be valid after a flush");
+        };
+        if *generation != index.generation {
+            return Err(InvalidGenerationError {
+                index,
+                current_generation: *generation,
+            });
         }
+        let exists = value.is_some();
+        if !exists {
+            self.len += 1;
+        }
+        *value = AssetPresence::Unlocked(asset);
+        Ok(exists)
     }
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
