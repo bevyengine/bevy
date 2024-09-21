@@ -505,6 +505,26 @@ impl TypeRegistration {
             .and_then(|value| value.downcast_mut())
     }
 
+    /// Returns true if this registration contains the given [type data].
+    ///
+    /// For a dynamic version of this method, see [`contains_by_id`].
+    ///
+    /// [type data]: TypeData
+    /// [`contains_by_id`]: Self::contains_by_id
+    pub fn contains<T: TypeData>(&self) -> bool {
+        self.data.contains_key(&TypeId::of::<T>())
+    }
+
+    /// Returns true if this registration contains the given [type data] with [`TypeId`].
+    ///
+    /// For a static version of this method, see [`contains`].
+    ///
+    /// [type data]: TypeData
+    /// [`contains`]: Self::contains
+    pub fn contains_by_id(&self, type_id: TypeId) -> bool {
+        self.data.contains_key(&type_id)
+    }
+
     /// Returns a reference to the registration's [`TypeInfo`]
     pub fn type_info(&self) -> &'static TypeInfo {
         self.type_info
