@@ -110,7 +110,7 @@ fn setup(
         AnimationTargetId::from_names(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
-        VariableCurve::linear(
+        VariableCurve::linear::<RotationKeyframes>(
             [0.0, 1.0, 2.0, 3.0, 4.0],
             [
                 Quat::IDENTITY,
