@@ -357,7 +357,7 @@ impl World {
     ) -> SystemId<I, O> {
         const {
             assert!(
-                size_of::<S::System>() == 0,
+                size_of::<S>() == 0,
                 "Non-ZST systems (e.g. capturing closures, function pointers) cannot be cached.",
             );
         }
@@ -766,7 +766,7 @@ mod tests {
         assert_eq!(old, new);
 
         let result = world.remove_system_cached(four);
-        assert!(matches!(result, Ok(_)));
+        assert!(result.is_ok());
         let new = world.register_system_cached(four);
         assert_ne!(old, new);
 
