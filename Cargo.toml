@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.79.0"
+rust-version = "1.81.0"
 
 [workspace]
 exclude = [
@@ -68,6 +68,8 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
+  "bevy_sprite_picking_backend",
+  "bevy_ui_picking_backend",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -87,6 +89,12 @@ default = [
   "webgl2",
   "sysinfo_plugin",
 ]
+
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = ["bevy_picking"]
+
+# Provides an implementation for picking ui
+bevy_ui_picking_backend = ["bevy_picking"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -142,6 +150,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -154,6 +163,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_ui_picking_backend",
 ]
 
 # winit window and input backend
@@ -167,6 +177,9 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
+spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -1088,7 +1101,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1367,6 +1380,28 @@ category = "Application"
 wasm = false
 
 # Assets
+[[example]]
+name = "alter_mesh"
+path = "examples/asset/alter_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_mesh]
+name = "Alter Mesh"
+description = "Shows how to modify the underlying asset of a Mesh after spawning."
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "alter_sprite"
+path = "examples/asset/alter_sprite.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_sprite]
+name = "Alter Sprite"
+description = "Shows how to modify texture assets after spawning."
+category = "Assets"
+wasm = false
+
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
@@ -2431,6 +2466,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
@@ -2920,6 +2966,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice_flip_and_tile"
+path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice_flip_and_tile]
+name = "UI Texture Slice Flipping and Tiling"
+description = "Illustrates how to flip and tile images with 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_texture_atlas_slice"
 path = "examples/ui/ui_texture_atlas_slice.rs"
 doc-scrape-examples = true
@@ -3235,6 +3292,28 @@ description = "A first-person camera that uses a world model and a view model wi
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "camera_orbit"
+path = "examples/camera/camera_orbit.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_orbit]
+name = "Camera Orbit"
+description = "Shows how to orbit a static scene using pitch, yaw, and roll."
+category = "Camera"
+wasm = true
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
@@ -3425,12 +3504,36 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
+required-features = ["bevy_sprite_picking_backend"]
+
+[[example]]
+name = "animation_masks"
+path = "examples/animation/animation_masks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_masks]
+name = "Animation Masks"
+description = "Demonstrates animation masks"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "pcss"
+path = "examples/3d/pcss.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pcss]
+name = "Percentage-closer soft shadows"
+description = "Demonstrates percentage-closer soft shadows (PCSS)"
+category = "3D Rendering"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"

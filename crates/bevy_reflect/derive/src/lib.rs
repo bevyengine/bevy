@@ -16,6 +16,7 @@
 
 extern crate proc_macro;
 
+mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
 mod derive_data;
@@ -24,15 +25,19 @@ mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
+mod ident;
 mod impls;
+mod meta;
 mod reflect_value;
 mod registration;
 mod remote;
+mod result_sifter;
 mod serialization;
+mod string_expr;
 mod struct_utility;
 mod trait_reflection;
 mod type_path;
-mod utility;
+mod where_clause_options;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ContainerAttributes;

@@ -450,26 +450,26 @@ pub struct ReserveEntitiesIterator<'a> {
     meta: &'a [EntityMeta],
 
     // Reserved indices formerly in the freelist to hand out.
-    index_iter: std::slice::Iter<'a, u32>,
+    freelist_indices: std::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
-    index_range: std::ops::Range<u32>,
+    new_indices: std::ops::Range<u32>,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.index_iter
+        self.freelist_indices
             .next()
             .map(|&index| {
                 Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
             })
-            .or_else(|| self.index_range.next().map(Entity::from_raw))
+            .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.index_iter.len() + self.index_range.len();
+        let len = self.freelist_indices.len() + self.new_indices.len();
         (len, Some(len))
     }
 }
@@ -553,12 +553,14 @@ impl Entities {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self
-            .free_cursor
-            // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-            // and use AtomicIsize instead (see note on `IdCursor`).
-            .fetch_sub(IdCursor::try_from(count).unwrap(), Ordering::Relaxed);
-        let range_start = range_end - IdCursor::try_from(count).unwrap();
+        let range_end = self.free_cursor.fetch_sub(
+            IdCursor::try_from(count)
+                .expect("64-bit atomic operations are not supported on this platform."),
+            Ordering::Relaxed,
+        );
+        let range_start = range_end
+            - IdCursor::try_from(count)
+                .expect("64-bit atomic operations are not supported on this platform.");
 
         let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
 
@@ -587,8 +589,8 @@ impl Entities {
 
         ReserveEntitiesIterator {
             meta: &self.meta[..],
-            index_iter: self.pending[freelist_range].iter(),
-            index_range: new_id_start..new_id_end,
+            freelist_indices: self.pending[freelist_range].iter(),
+            new_indices: new_id_start..new_id_end,
         }
     }
 
@@ -745,9 +747,9 @@ impl Entities {
         self.verify_flushed();
 
         let freelist_size = *self.free_cursor.get_mut();
-        // Unwrap: these conversions can only fail on platforms that don't support 64-bit atomics
-        // and use AtomicIsize instead (see note on `IdCursor`).
-        let shortfall = IdCursor::try_from(additional).unwrap() - freelist_size;
+        let shortfall = IdCursor::try_from(additional)
+            .expect("64-bit atomic operations are not supported on this platform.")
+            - freelist_size;
         if shortfall > 0 {
             self.meta.reserve(shortfall as usize);
         }
@@ -1004,7 +1006,6 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {

@@ -371,7 +371,7 @@ mod ui {
                         parent.spawn(TextBundle::from_section(
                             "Play",
                             TextStyle {
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
@@ -403,7 +403,7 @@ mod ui {
                         parent.spawn(TextBundle::from_section(
                             "Tutorial",
                             TextStyle {
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
@@ -504,7 +504,7 @@ mod ui {
                         parent.spawn(TextBundle::from_section(
                             "Paused",
                             TextStyle {
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
@@ -536,7 +536,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "TURBO MODE",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.9, 0.3, 0.1),
                         ..default()
                     },
@@ -547,7 +547,7 @@ mod ui {
     pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
-                blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+                blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
                 ..LinearRgba::from(sprite.color)
             };
 
@@ -578,7 +578,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Move the bevy logo with the arrow keys",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
@@ -586,7 +586,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Press T to enter TURBO MODE",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
@@ -595,7 +595,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Press SPACE to pause",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
@@ -604,7 +604,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Press ESCAPE to return to the menu",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
@@ -635,7 +635,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Press SPACE to resume",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
@@ -644,7 +644,7 @@ mod ui {
                 parent.spawn(TextBundle::from_section(
                     "Press ESCAPE to return to the menu",
                     TextStyle {
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },

@@ -123,7 +123,7 @@ fn setup(
     // padding label text style
     let text_style: TextStyle = TextStyle {
         font: font.clone(),
-        font_size: 50.0,
+        font_size: 42.0,
         ..default()
     };
 
@@ -172,7 +172,7 @@ fn setup(
     // label text style
     let sampling_label_style = TextStyle {
         font,
-        font_size: 30.0,
+        font_size: 25.0,
         ..default()
     };
 

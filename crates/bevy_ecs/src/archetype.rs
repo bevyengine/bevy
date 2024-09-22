@@ -499,6 +499,16 @@ impl Archetype {
         self.components.len()
     }
 
+    /// Gets an iterator of all of the components in the archetype, along with
+    /// their archetype component ID.
+    pub(crate) fn components_with_archetype_component_id(
+        &self,
+    ) -> impl Iterator<Item = (ComponentId, ArchetypeComponentId)> + '_ {
+        self.components
+            .iter()
+            .map(|(component_id, info)| (*component_id, info.archetype_component_id))
+    }
+
     /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
     /// archetypal relationships.
     #[inline]
@@ -766,7 +776,7 @@ pub struct Archetypes {
     /// find the archetype id by the archetype's components
     by_components: HashMap<ArchetypeComponents, ArchetypeId>,
     /// find all the archetypes that contain a component
-    by_component: ComponentIndex,
+    pub(crate) by_component: ComponentIndex,
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].

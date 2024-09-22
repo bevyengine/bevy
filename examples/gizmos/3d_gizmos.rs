@@ -104,7 +104,7 @@ fn draw_example_collection(
                 half_size: Vec2::splat(1.0),
             },
             Isometry3d::new(
-                Vec3::ONE * 4.0 + Vec2::from(time.elapsed_seconds().sin_cos()).extend(0.0),
+                Vec3::ONE * 4.0 + Vec2::from(ops::sin_cos(time.elapsed_seconds())).extend(0.0),
                 Quat::from_rotation_x(PI / 2. + time.elapsed_seconds()),
             ),
             GREEN,
@@ -118,7 +118,7 @@ fn draw_example_collection(
     );
     gizmos.rect(
         Isometry3d::new(
-            Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
+            Vec3::new(ops::cos(time.elapsed_seconds()) * 2.5, 1., 0.),
             Quat::from_rotation_y(PI / 2.),
         ),
         Vec2::splat(2.),
@@ -133,9 +133,9 @@ fn draw_example_collection(
 
     let domain = Interval::EVERYWHERE;
     let curve = function_curve(domain, |t| {
-        (Vec2::from((t * 10.0).sin_cos())).extend(t - 6.0)
+        (Vec2::from(ops::sin_cos(t * 10.0))).extend(t - 6.0)
     });
-    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 100.0) as usize;
+    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 100.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| t * 5.0)
@@ -160,7 +160,7 @@ fn draw_example_collection(
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
-            Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.),
+            Vec3::new(-3., ops::sin(time.elapsed_seconds() * 3.), 0.),
             BLUE,
         );
     }

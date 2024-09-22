@@ -1,12 +1,11 @@
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_utils::OnDrop;
 use std::{
     alloc::{handle_alloc_error, Layout},
     cell::UnsafeCell,
     num::NonZero,
     ptr::NonNull,
 };
-
-use bevy_ptr::{OwningPtr, Ptr, PtrMut};
-use bevy_utils::OnDrop;
 
 /// A flat, type-erased data storage type
 ///
@@ -91,12 +90,6 @@ impl BlobVec {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
-    }
-
-    /// Returns the total number of elements the vector can hold without reallocating.
-    #[inline]
-    pub fn capacity(&self) -> usize {
-        self.capacity
     }
 
     /// Returns the [`Layout`] of the element type stored in the vector.
@@ -271,26 +264,12 @@ impl BlobVec {
         self.initialize_unchecked(index, value);
     }
 
-    /// Forces the length of the vector to `len`.
-    ///
-    /// # Safety
-    /// `len` must be <= `capacity`. if length is decreased, "out of bounds" items must be dropped.
-    /// Newly added items must be immediately populated with valid values and length must be
-    /// increased. For better unwind safety, call [`BlobVec::set_len`] _after_ populating a new
-    /// value.
-    #[inline]
-    pub unsafe fn set_len(&mut self, len: usize) {
-        debug_assert!(len <= self.capacity());
-        self.len = len;
-    }
-
     /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
     /// the last item in the [`BlobVec`] to `index` (if `index` is not the last item). It is the
     /// caller's responsibility to drop the returned pointer, if that is desirable.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that `index` is less than `self.len()`.
-    #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         debug_assert!(index < self.len());
@@ -316,28 +295,6 @@ impl BlobVec {
         // SAFETY: The removed element is unreachable by this vector so it's safe to promote the
         // `PtrMut` to an `OwningPtr`.
         unsafe { p.promote() }
-    }
-
-    /// Removes the value at `index` and copies the value stored into `ptr`.
-    /// Does not do any bounds checking on `index`.
-    /// The removed element is replaced by the last element of the `BlobVec`.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < `self.len()`
-    /// and that `self[index]` has been properly initialized.
-    #[inline]
-    pub unsafe fn swap_remove_unchecked(&mut self, index: usize, ptr: PtrMut<'_>) {
-        debug_assert!(index < self.len());
-        let last = self.get_unchecked_mut(self.len - 1).as_ptr();
-        let target = self.get_unchecked_mut(index).as_ptr();
-        // Copy the item at the index into the provided ptr
-        std::ptr::copy_nonoverlapping::<u8>(target, ptr.as_ptr(), self.item_layout.size());
-        // Recompress the storage by moving the previous last element into the
-        // now-free row overwriting the previous data. The removed row may be the last
-        // one so a non-overlapping copy must not be used here.
-        std::ptr::copy::<u8>(last, target, self.item_layout.size());
-        // Invalidate the data stored in the last row, as it has been moved
-        self.len -= 1;
     }
 
     /// Removes the value at `index` and drops it.
@@ -438,14 +395,6 @@ impl BlobVec {
             }
         }
     }
-
-    /// Get the `drop` argument that was passed to `BlobVec::new`.
-    ///
-    /// Callers can use this if they have a type-erased pointer of the correct
-    /// type to add to this [`BlobVec`], which they just want to drop instead.
-    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.drop
-    }
 }
 
 impl Drop for BlobVec {
@@ -463,7 +412,7 @@ impl Drop for BlobVec {
 }
 
 /// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
-fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
+pub(super) fn array_layout(layout: &Layout, n: usize) -> Option<Layout> {
     let (array_layout, offset) = repeat_layout(layout, n)?;
     debug_assert_eq!(layout.size(), offset);
     Some(array_layout)
@@ -486,6 +435,40 @@ fn repeat_layout(layout: &Layout, n: usize) -> Option<(Layout, usize)> {
             Layout::from_size_align_unchecked(alloc_size, layout.align()),
             padded_size,
         ))
+    }
+}
+
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+pub(super) unsafe fn array_layout_unchecked(layout: &Layout, n: usize) -> Layout {
+    let (array_layout, offset) = repeat_layout_unchecked(layout, n);
+    debug_assert_eq!(layout.size(), offset);
+    array_layout
+}
+
+// TODO: replace with `Layout::repeat` if/when it stabilizes
+/// From <https://doc.rust-lang.org/beta/src/core/alloc/layout.rs.html>
+/// # Safety
+/// The caller must ensure that:
+/// - The resulting [`Layout`] is valid, by ensuring that `(layout.size() + padding_needed_for(layout, layout.align())) * n` doesn't overflow.
+unsafe fn repeat_layout_unchecked(layout: &Layout, n: usize) -> (Layout, usize) {
+    // This cannot overflow. Quoting from the invariant of Layout:
+    // > `size`, when rounded up to the nearest multiple of `align`,
+    // > must not overflow (i.e., the rounded value must be less than
+    // > `usize::MAX`)
+    let padded_size = layout.size() + padding_needed_for(layout, layout.align());
+    // This may overflow in release builds, that's why this function is unsafe.
+    let alloc_size = padded_size * n;
+
+    // SAFETY: self.align is already known to be valid and alloc_size has been
+    // padded already.
+    unsafe {
+        (
+            Layout::from_size_align_unchecked(alloc_size, layout.align()),
+            padded_size,
+        )
     }
 }
 
@@ -522,10 +505,14 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, rc::Rc};
 
+    /// # Safety
+    ///
+    /// The pointer `x` must point to a valid value of type `T` and it must be safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+        // SAFETY: It is guaranteed by the caller that `x` points to a
+        //         valid value of type `T` and it is safe to drop this value.
         unsafe {
             x.drop_as::<T>();
         }
@@ -571,7 +558,7 @@ mod tests {
         }
 
         assert_eq!(blob_vec.len(), 1_000);
-        assert_eq!(blob_vec.capacity(), 1_024);
+        assert_eq!(blob_vec.capacity, 1_024);
     }
 
     #[derive(Debug, Eq, PartialEq, Clone)]
@@ -595,7 +582,7 @@ mod tests {
             let drop = drop_ptr::<Foo>;
             // SAFETY: drop is able to drop a value of its `item_layout`
             let mut blob_vec = unsafe { BlobVec::new(item_layout, Some(drop), 2) };
-            assert_eq!(blob_vec.capacity(), 2);
+            assert_eq!(blob_vec.capacity, 2);
             // SAFETY: the following code only deals with values of type `Foo`, which satisfies the safety requirement of `push`, `get_mut` and `swap_remove` that the
             // values have a layout compatible to the blob vec's `item_layout`.
             // Every index is in range.
@@ -616,7 +603,7 @@ mod tests {
                 };
                 push::<Foo>(&mut blob_vec, foo2.clone());
                 assert_eq!(blob_vec.len(), 2);
-                assert_eq!(blob_vec.capacity(), 2);
+                assert_eq!(blob_vec.capacity, 2);
                 assert_eq!(get_mut::<Foo>(&mut blob_vec, 0), &foo1);
                 assert_eq!(get_mut::<Foo>(&mut blob_vec, 1), &foo2);
 
@@ -631,19 +618,19 @@ mod tests {
 
                 push(&mut blob_vec, foo3.clone());
                 assert_eq!(blob_vec.len(), 3);
-                assert_eq!(blob_vec.capacity(), 4);
+                assert_eq!(blob_vec.capacity, 4);
 
                 let last_index = blob_vec.len() - 1;
                 let value = swap_remove::<Foo>(&mut blob_vec, last_index);
                 assert_eq!(foo3, value);
 
                 assert_eq!(blob_vec.len(), 2);
-                assert_eq!(blob_vec.capacity(), 4);
+                assert_eq!(blob_vec.capacity, 4);
 
                 let value = swap_remove::<Foo>(&mut blob_vec, 0);
                 assert_eq!(foo1, value);
                 assert_eq!(blob_vec.len(), 1);
-                assert_eq!(blob_vec.capacity(), 4);
+                assert_eq!(blob_vec.capacity, 4);
 
                 foo2.a = 8;
                 assert_eq!(get_mut::<Foo>(&mut blob_vec, 0), &foo2);
@@ -667,14 +654,12 @@ mod tests {
         // SAFETY: no drop is correct drop for `()`.
         let mut blob_vec = unsafe { BlobVec::new(Layout::new::<()>(), None, 0) };
 
-        assert_eq!(usize::MAX, blob_vec.capacity(), "Self-check");
+        assert_eq!(usize::MAX, blob_vec.capacity, "Self-check");
 
         // SAFETY: Because `()` is a ZST trivial drop type, and because `BlobVec` capacity
         //   is always `usize::MAX` for ZSTs, we can arbitrarily set the length
         //   and still be sound.
-        unsafe {
-            blob_vec.set_len(usize::MAX);
-        }
+        blob_vec.len = usize::MAX;
 
         // SAFETY: `BlobVec` was initialized for `()`, so it is safe to push `()` to it.
         unsafe {
@@ -691,7 +676,7 @@ mod tests {
         // SAFETY: no drop is correct drop for `u32`.
         let mut blob_vec = unsafe { BlobVec::new(Layout::new::<u32>(), None, 0) };
 
-        assert_eq!(0, blob_vec.capacity(), "Self-check");
+        assert_eq!(0, blob_vec.capacity, "Self-check");
 
         OwningPtr::make(17u32, |ptr| {
             // SAFETY: we push the value of correct type.
