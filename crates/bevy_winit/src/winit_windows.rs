@@ -495,10 +495,13 @@ impl core::fmt::Display for DisplayInfo {
             self.monitor_name.as_deref().unwrap_or("")
         )?;
         write!(f, "  Scale factor: {}", self.scale_factor.unwrap_or(0.))?;
+        let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
+        let hertz = millihertz / 1000;
+        let extra_millihertz = millihertz % 1000;
         write!(
             f,
-            "  Refresh rate (mHz): {}",
-            self.refresh_rate_millihertz.unwrap_or(0)
+            "  Refresh rate (Hz): {}.{:03}",
+            hertz, extra_millihertz
         )?;
         Ok(())
     }
