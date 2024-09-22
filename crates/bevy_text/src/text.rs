@@ -7,7 +7,7 @@ use bevy_utils::default;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 
-use crate::Font;
+use crate::{font, Font};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -124,6 +124,12 @@ impl Text {
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak_behavior = BreakLineOn::NoWrap;
+        self
+    }
+
+    /// Returns this [`Text`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.font_smoothing = font_smoothing;
         self
     }
 }
