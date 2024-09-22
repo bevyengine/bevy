@@ -37,7 +37,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view, camera, view_depth_texture, view_prepass_textures): QueryItem<'w, Self::ViewQuery>,
+        (view, camera, view_depth_texture, view_prepass_textures): QueryItem<
+            'w,
+            '_,
+            Self::ViewQuery,
+        >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_deferred_phases), Some(alpha_mask_deferred_phases)) = (

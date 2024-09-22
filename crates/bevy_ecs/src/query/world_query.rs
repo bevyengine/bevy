@@ -40,10 +40,10 @@ pub unsafe trait WorldQuery {
     /// For `QueryData` this will be the item returned by the query.
     /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
     /// or a tuple of such things.
-    type Item<'a>;
+    type Item<'w, 's>;
 
     /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](WorldQuery::Item)
-    type Fetch<'a>: Clone;
+    type Fetch<'w, 's>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
     /// so it is best to move as much data / computation here as possible to reduce the cost of
@@ -51,10 +51,14 @@ pub unsafe trait WorldQuery {
     type State: Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query items.
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's>;
 
     /// This function manually implements subtyping for the query fetches.
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
+    fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+        fetch: Self::Fetch<'wlong, 's>,
+    ) -> Self::Fetch<'wshort, 's>;
 
     /// Creates a new instance of this fetch.
     ///
@@ -62,12 +66,12 @@ pub unsafe trait WorldQuery {
     ///
     /// - `state` must have been initialized (via [`WorldQuery::init_state`]) using the same `world` passed
     ///   in to this function.
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
-    ) -> Self::Fetch<'w>;
+    ) -> Self::Fetch<'w, 's>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
     /// all of the matched components. This is used to select a more efficient "table iterator"
@@ -85,9 +89,9 @@ pub unsafe trait WorldQuery {
     /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_archetype<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
+    unsafe fn set_archetype<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     );
@@ -99,7 +103,11 @@ pub unsafe trait WorldQuery {
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
+        state: &'s Self::State,
+        table: &'w Table,
+    );
 
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
@@ -116,11 +124,11 @@ pub unsafe trait WorldQuery {
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
+    unsafe fn fetch<'w, 's>(
+        fetch: &mut Self::Fetch<'w, 's>,
         entity: Entity,
         table_row: TableRow,
-    ) -> Self::Item<'w>;
+    ) -> Self::Item<'w, 's>;
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     ///
@@ -158,18 +166,18 @@ macro_rules! impl_tuple_world_query {
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
-            type Fetch<'w> = ($($name::Fetch<'w>,)*);
-            type Item<'w> = ($($name::Item<'w>,)*);
+            type Fetch<'w, 's> = ($($name::Fetch<'w, 's>,)*);
+            type Item<'w, 's> = ($($name::Item<'w, 's>,)*);
             type State = ($($name::State,)*);
 
-            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+            fn shrink<'wlong: 'wshort, 'wshort, 's>(item: Self::Item<'wlong, 's>) -> Self::Item<'wshort, 's> {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
                 )*)
             }
 
-            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+            fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(fetch: Self::Fetch<'wlong, 's>) -> Self::Fetch<'wshort, 's> {
                 let ($($name,)*) = fetch;
                 ($(
                     $name::shrink_fetch($name),
@@ -178,7 +186,7 @@ macro_rules! impl_tuple_world_query {
 
             #[inline]
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w, 's>(_world: UnsafeWorldCell<'w>, state: &'s Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w, 's> {
                 let ($($name,)*) = state;
                 // SAFETY: The invariants are uphold by the caller.
                 ($(unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },)*)
@@ -187,9 +195,9 @@ macro_rules! impl_tuple_world_query {
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
 
             #[inline]
-            unsafe fn set_archetype<'w>(
-                _fetch: &mut Self::Fetch<'w>,
-                _state: &Self::State,
+            unsafe fn set_archetype<'w, 's>(
+                _fetch: &mut Self::Fetch<'w, 's>,
+                _state: &'s Self::State,
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
@@ -200,7 +208,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w, 's>, _state: &'s Self::State, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 // SAFETY: The invariants are uphold by the caller.
@@ -209,11 +217,11 @@ macro_rules! impl_tuple_world_query {
 
             #[inline(always)]
             #[allow(clippy::unused_unit)]
-            unsafe fn fetch<'w>(
-                _fetch: &mut Self::Fetch<'w>,
+            unsafe fn fetch<'w, 's>(
+                _fetch: &mut Self::Fetch<'w, 's>,
                 _entity: Entity,
                 _table_row: TableRow
-            ) -> Self::Item<'w> {
+            ) -> Self::Item<'w, 's> {
                 let ($($name,)*) = _fetch;
                 // SAFETY: The invariants are uphold by the caller.
                 ($(unsafe { $name::fetch($name, _entity, _table_row) },)*)

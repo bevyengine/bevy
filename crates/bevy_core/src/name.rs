@@ -131,7 +131,7 @@ pub struct NameOrEntity {
     pub entity: Entity,
 }
 
-impl<'a> std::fmt::Display for NameOrEntityItem<'a> {
+impl<'w, 's> std::fmt::Display for NameOrEntityItem<'w, 's> {
     #[inline(always)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {

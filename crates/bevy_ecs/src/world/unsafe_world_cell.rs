@@ -893,7 +893,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no mutable references to the queried data exist at the same time
     pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'w>> {
+    ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: World is only used to access query data and initialize query state
         let state = unsafe {
             let world = self.world().world();

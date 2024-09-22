@@ -162,7 +162,7 @@ impl<'w> EntityRef<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'w, 'static> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
@@ -170,7 +170,7 @@ impl<'w> EntityRef<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'w>> {
+    ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
     }
@@ -374,7 +374,7 @@ impl<'w> EntityMut<'w> {
     /// # Panics
     ///
     /// If the entity does not have the components required by the query `Q`.
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
@@ -382,7 +382,7 @@ impl<'w> EntityMut<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'_>> {
+    ) -> Option<Q::Item<'_, 'static>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
     }
@@ -690,7 +690,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity does not have the components required by the query `Q`.
     #[inline]
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
         EntityRef::from(self).components::<Q>()
     }
 
@@ -699,7 +699,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'_>> {
+    ) -> Option<Q::Item<'_, 'static>> {
         EntityRef::from(self).get_components::<Q>()
     }
 

@@ -43,7 +43,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             type QueryFilter = #filter;
             type Out = Self;
 
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
                 Some(item.clone())
             }
         }

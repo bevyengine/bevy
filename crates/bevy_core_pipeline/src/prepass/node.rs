@@ -53,7 +53,7 @@ impl ViewNode for PrepassNode {
             skybox_prepass_pipeline,
             skybox_prepass_bind_group,
             view_prev_uniform_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_prepass_phases), Some(alpha_mask_prepass_phases)) = (

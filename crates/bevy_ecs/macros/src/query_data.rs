@@ -95,6 +95,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let user_generics_with_world = {
         let mut generics = ast.generics;
         generics.params.insert(0, parse_quote!('__w));
+        generics.params.insert(0, parse_quote!('__s));
         generics
     };
     let (user_impl_generics_with_world, user_ty_generics_with_world, user_where_clauses_with_world) =
