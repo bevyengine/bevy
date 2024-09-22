@@ -2298,6 +2298,7 @@ mod tests {
 }
 
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
 /// rendered to this camera's [`bevy_render::camera::RenderTarget`].
 ///

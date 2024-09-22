@@ -555,6 +555,7 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
 }
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
+///
 /// This is essentially a performance-optimized `(Entity, &mut World)` tuple,
 /// which caches the [`EntityLocation`] to reduce duplicate lookups.
 ///

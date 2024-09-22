@@ -201,6 +201,7 @@ impl Render {
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
+///
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`] for more details.

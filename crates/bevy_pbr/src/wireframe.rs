@@ -60,6 +60,7 @@ impl Plugin for WireframePlugin {
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe`] component,
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///

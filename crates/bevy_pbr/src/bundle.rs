@@ -51,6 +51,7 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
 }
 
 /// Collection of mesh entities visible for 3D lighting.
+///
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by [`crate::SimulationLightSystems`].
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]

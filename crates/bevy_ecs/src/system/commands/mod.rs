@@ -1732,6 +1732,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1762,6 +1763,7 @@ fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
