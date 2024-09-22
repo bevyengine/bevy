@@ -112,6 +112,12 @@ fn setup() {
         // This exposes "set" operations on your type, such as getting / inserting by value.
         // Set is automatically implemented for relevant core types like HashSet<T>
         ReflectRef::Set(_) => {}
+        // `Function` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "function" operations on your type, such as calling it with arguments.
+        // This trait is automatically implemented for types like DynamicFunction.
+        // This variant only exists if the `reflect_functions` feature is enabled.
+        #[cfg(feature = "reflect_functions")]
+        ReflectRef::Function(_) => {}
         // `Value` types do not implement any of the other traits above. They are simply a Reflect
         // implementation. Value is implemented for core types like i32, usize, f32, and
         // String.

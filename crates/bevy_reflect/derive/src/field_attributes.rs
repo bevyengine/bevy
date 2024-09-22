@@ -4,8 +4,8 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::attribute_parser::terminated_parser;
 use crate::custom_attributes::CustomAttributes;
-use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
 use quote::ToTokens;
 use syn::parse::ParseStream;

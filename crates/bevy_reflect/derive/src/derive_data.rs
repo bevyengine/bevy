@@ -3,15 +3,17 @@ use proc_macro2::Span;
 
 use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
 use crate::field_attributes::FieldAttributes;
+use crate::result_sifter::ResultSifter;
+use crate::string_expr::StringExpr;
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{StringExpr, WhereClauseOptions};
+use crate::where_clause_options::WhereClauseOptions;
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
 use crate::remote::RemoteType;
 use crate::serialization::SerializationDataDef;
 use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+    REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
 use syn::punctuated::Punctuated;
@@ -399,7 +401,7 @@ impl<'a> ReflectDerive<'a> {
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
-        let sifter: utility::ResultSifter<StructField<'a>> = fields
+        let sifter: ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
             .map(
@@ -423,10 +425,7 @@ impl<'a> ReflectDerive<'a> {
                     })
                 },
             )
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -434,7 +433,7 @@ impl<'a> ReflectDerive<'a> {
     fn collect_enum_variants(
         variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
-        let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
+        let sifter: ResultSifter<EnumVariant<'a>> = variants
             .iter()
             .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
@@ -452,10 +451,7 @@ impl<'a> ReflectDerive<'a> {
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -467,7 +463,7 @@ impl<'a> ReflectMeta<'a> {
             attrs,
             type_path,
             remote_ty: None,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
+            bevy_reflect_path: crate::meta::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }

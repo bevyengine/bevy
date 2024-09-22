@@ -68,6 +68,8 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
+  "bevy_sprite_picking_backend",
+  "bevy_ui_picking_backend",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -86,6 +88,12 @@ default = [
   "webgl2",
   "sysinfo_plugin",
 ]
+
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = ["bevy_picking"]
+
+# Provides an implementation for picking ui
+bevy_ui_picking_backend = ["bevy_picking"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -141,6 +149,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -153,6 +162,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_ui_picking_backend",
 ]
 
 # winit window and input backend
@@ -163,6 +173,9 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
+spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -3456,12 +3469,14 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "animation_masks"

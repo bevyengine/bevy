@@ -2,7 +2,7 @@
 
 use crate::derive_data::ReflectMeta;
 use crate::serialization::SerializationDataDef;
-use crate::utility::WhereClauseOptions;
+use crate::where_clause_options::WhereClauseOptions;
 use quote::quote;
 use syn::Type;
 

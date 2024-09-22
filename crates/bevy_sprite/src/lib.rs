@@ -11,7 +11,7 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
 mod sprite;
@@ -134,7 +134,7 @@ impl Plugin for SpritePlugin {
                 ),
             );
 
-        #[cfg(feature = "bevy_picking")]
+        #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(picking_backend::SpritePickingBackend);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
