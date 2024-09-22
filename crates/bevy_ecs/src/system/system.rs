@@ -60,7 +60,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in [`SystemMeta::archetype_component_access`](super::function_system::SystemMeta::archetype_component_access). There must be no conflicting
+    ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
@@ -104,7 +104,7 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in [`SystemMeta::archetype_component_access`](super::function_system::SystemMeta::archetype_component_access). There must be no conflicting
+    ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
