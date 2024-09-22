@@ -146,7 +146,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
-  "bevy_sprite_picking_backend"
+  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
