@@ -35,6 +35,7 @@ bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 
 # other
 erased-serde = "0.4"
+disqualified = "1.0"
 downcast-rs = "1.2"
 thiserror = "1.0"
 serde = "1"
