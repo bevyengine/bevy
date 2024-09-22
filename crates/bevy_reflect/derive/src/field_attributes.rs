@@ -5,7 +5,8 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::{
-    custom_attributes::CustomAttributes, utility::terminated_parser, REFLECT_ATTRIBUTE_NAME,
+    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
+    REFLECT_ATTRIBUTE_NAME,
 };
 use quote::ToTokens;
 use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};

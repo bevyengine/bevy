@@ -1,6 +1,6 @@
 use crate::{
     impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
-    utility::WhereClauseOptions,
+    where_clause_options::WhereClauseOptions,
     ReflectMeta,
 };
 use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};

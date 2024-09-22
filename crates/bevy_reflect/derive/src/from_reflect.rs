@@ -3,7 +3,8 @@ use crate::{
     derive_data::ReflectEnum,
     enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
-    utility::{ident_or_index, WhereClauseOptions},
+    ident::ident_or_index,
+    where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};

@@ -1,8 +1,9 @@
 use crate::{
     derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
-    from_reflect, impls,
+    from_reflect,
+    ident::ident_or_index,
+    impls,
     impls::impl_assertions,
-    utility::ident_or_index,
     ReflectDerive, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME,
 };
 use bevy_macro_utils::fq_std::FQOption;

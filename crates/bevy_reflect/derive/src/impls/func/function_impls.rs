@@ -3,7 +3,7 @@ use crate::{
     impls::func::{
         from_arg::impl_from_arg, get_ownership::impl_get_ownership, into_return::impl_into_return,
     },
-    utility::WhereClauseOptions,
+    where_clause_options::WhereClauseOptions,
 };
 use quote::quote;
 

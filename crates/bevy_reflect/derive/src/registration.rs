@@ -1,7 +1,8 @@
 //! Contains code related specifically to Bevy's type registration.
 
 use crate::{
-    derive_data::ReflectMeta, serialization::SerializationDataDef, utility::WhereClauseOptions,
+    derive_data::ReflectMeta, serialization::SerializationDataDef,
+    where_clause_options::WhereClauseOptions,
 };
 use quote::quote;
 use syn::Type;

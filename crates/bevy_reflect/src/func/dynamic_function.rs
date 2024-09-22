@@ -1,9 +1,17 @@
-use crate::func::{
-    args::{ArgInfo, ArgList},
-    info::FunctionInfo,
-    DynamicFunctionMut, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
+use crate::{
+    self as bevy_reflect,
+    __macro_exports::RegisterForReflection,
+    func::{
+        args::{ArgInfo, ArgList},
+        info::FunctionInfo,
+        DynamicFunctionMut, Function, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
+    },
+    serde::Serializable,
+    ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, sync::Arc};
+use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
 
 /// A dynamic representation of a function.
@@ -137,6 +145,108 @@ impl<'env> DynamicFunction<'env> {
     }
 }
 
+impl Function for DynamicFunction<'static> {
+    fn info(&self) -> &FunctionInfo {
+        self.info()
+    }
+
+    fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+        self.call(args)
+    }
+
+    fn clone_dynamic(&self) -> DynamicFunction<'static> {
+        self.clone()
+    }
+}
+
+impl PartialReflect for DynamicFunction<'static> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        None
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
+    }
+
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        None
+    }
+
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        match value.reflect_ref() {
+            ReflectRef::Function(func) => {
+                *self = func.clone_dynamic();
+                Ok(())
+            }
+            _ => Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: Self::type_path().into(),
+            }),
+        }
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Function
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Function(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Function(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Function(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new(self.clone())
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        None
+    }
+
+    fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
+        None
+    }
+
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        Debug::fmt(self, f)
+    }
+
+    fn serializable(&self) -> Option<Serializable> {
+        None
+    }
+
+    fn is_dynamic(&self) -> bool {
+        true
+    }
+}
+
+impl MaybeTyped for DynamicFunction<'static> {}
+impl RegisterForReflection for DynamicFunction<'static> {}
+
+impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
+
 /// Outputs the function's signature.
 ///
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
@@ -188,6 +298,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::IntoReturn;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -229,5 +340,49 @@ mod tests {
             .unwrap();
 
         assert_eq!(clone_value, "Hello, world!");
+    }
+
+    #[test]
+    fn should_apply_function() {
+        let mut func: Box<dyn Function> = Box::new((|a: i32, b: i32| a + b).into_function());
+        func.apply(&((|a: i32, b: i32| a * b).into_function()));
+
+        let args = ArgList::new().push_owned(5_i32).push_owned(5_i32);
+        let result = func.reflect_call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 25);
+    }
+
+    #[test]
+    fn should_allow_recursive_dynamic_function() {
+        let factorial = DynamicFunction::new(
+            |mut args| {
+                let curr = args.pop::<i32>()?;
+                if curr == 0 {
+                    return Ok(1_i32.into_return());
+                }
+
+                let arg = args.pop_arg()?;
+                let this = arg.value();
+
+                match this.reflect_ref() {
+                    ReflectRef::Function(func) => {
+                        let result = func.reflect_call(
+                            ArgList::new()
+                                .push_ref(this.as_partial_reflect())
+                                .push_owned(curr - 1),
+                        );
+                        let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
+                        Ok((curr * value).into_return())
+                    }
+                    _ => panic!("expected function"),
+                }
+            },
+            // The `FunctionInfo` doesn't really matter for this test
+            FunctionInfo::anonymous(),
+        );
+
+        let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
+        let value = factorial.call(args).unwrap().unwrap_owned();
+        assert_eq!(value.try_take::<i32>().unwrap(), 120);
     }
 }

@@ -4,16 +4,18 @@ use proc_macro2::Span;
 use crate::{
     container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
     field_attributes::FieldAttributes,
+    remote::RemoteType,
+    result_sifter::ResultSifter,
+    serialization::SerializationDataDef,
+    string_expr::StringExpr,
     type_path::parse_path_no_leading_colon,
-    utility::{StringExpr, WhereClauseOptions},
+    where_clause_options::WhereClauseOptions,
+    REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+    TYPE_PATH_ATTRIBUTE_NAME,
 };
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
-use crate::{
-    remote::RemoteType, serialization::SerializationDataDef, utility, REFLECT_ATTRIBUTE_NAME,
-    REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
-};
 use syn::{
     parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
     GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
@@ -397,7 +399,7 @@ impl<'a> ReflectDerive<'a> {
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
-        let sifter: utility::ResultSifter<StructField<'a>> = fields
+        let sifter: ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
             .map(
@@ -421,10 +423,7 @@ impl<'a> ReflectDerive<'a> {
                     })
                 },
             )
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -432,7 +431,7 @@ impl<'a> ReflectDerive<'a> {
     fn collect_enum_variants(
         variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
-        let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
+        let sifter: ResultSifter<EnumVariant<'a>> = variants
             .iter()
             .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
@@ -450,10 +449,7 @@ impl<'a> ReflectDerive<'a> {
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -465,7 +461,7 @@ impl<'a> ReflectMeta<'a> {
             attrs,
             type_path,
             remote_ty: None,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
+            bevy_reflect_path: crate::meta::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }

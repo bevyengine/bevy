@@ -471,6 +471,42 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "functions")]
+    mod functions {
+        use super::*;
+        use crate::func::{DynamicFunction, IntoFunction};
+
+        #[test]
+        fn should_not_serialize_function() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct MyStruct {
+                func: DynamicFunction<'static>,
+            }
+
+            let value: Box<dyn Reflect> = Box::new(MyStruct {
+                func: String::new.into_function(),
+            });
+
+            let registry = TypeRegistry::new();
+            let serializer = ReflectSerializer::new(value.as_partial_reflect(), &registry);
+
+            let error = ron::ser::to_string(&serializer).unwrap_err();
+
+            #[cfg(feature = "debug_stack")]
+            assert_eq!(
+                error,
+                ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string())
+            );
+
+            #[cfg(not(feature = "debug_stack"))]
+            assert_eq!(
+                error,
+                ron::Error::Message("functions cannot be serialized".to_string())
+            );
+        }
+    }
+
     #[cfg(feature = "debug_stack")]
     mod debug_stack {
         use super::*;
