@@ -27,7 +27,7 @@ use crate::{error_codes, BrpError, BrpResult};
 /// ID.
 ///
 /// The server responds with a [`BrpGetResponse`].
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpGetParams {
     /// The ID of the entity from which components are to be requested.
     pub entity: Entity,
@@ -45,7 +45,7 @@ pub struct BrpGetParams {
 /// and component values that match.
 ///
 /// The server responds with a [`BrpQueryResponse`].
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpQueryParams {
     /// The components to select.
     pub data: BrpQuery,
@@ -60,7 +60,7 @@ pub struct BrpQueryParams {
 /// with its ID.
 ///
 /// The server responds with a [`BrpSpawnResponse`].
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpSpawnParams {
     /// A map from each component's *full path* to its serialized value.
     ///
@@ -75,7 +75,7 @@ pub struct BrpSpawnParams {
 /// `bevy/destroy`: Given an ID, despawns the entity with that ID.
 ///
 /// The server responds with an okay.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpDestroyParams {
     /// The ID of the entity to despawn.
     pub entity: Entity,
@@ -84,7 +84,7 @@ pub struct BrpDestroyParams {
 /// `bevy/remove`: Deletes one or more components from an entity.
 ///
 /// The server responds with a null.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpRemoveParams {
     /// The ID of the entity from which components are to be removed.
     pub entity: Entity,
@@ -101,7 +101,7 @@ pub struct BrpRemoveParams {
 /// `bevy/insert`: Adds one or more components to an entity.
 ///
 /// The server responds with a null.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpInsertParams {
     /// The ID of the entity that components are to be added to.
     pub entity: Entity,
@@ -119,7 +119,7 @@ pub struct BrpInsertParams {
 /// `bevy/reparent`: Assign a new parent to one or more entities.
 ///
 /// The server responds with a null.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpReparentParams {
     /// The IDs of the entities that are to become the new children of the
     /// `parent`.
@@ -137,14 +137,14 @@ pub struct BrpReparentParams {
 /// system (no params provided), or those on an entity (params provided).
 ///
 /// The server responds with a [`BrpListResponse`]
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
 }
 
 /// Describes the data that is to be fetched in a query.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpQuery {
     /// The *full path* of the type name of each component that is to be
     /// fetched.
@@ -164,7 +164,7 @@ pub struct BrpQuery {
 
 /// Additional constraints that can be placed on a query to include or exclude
 /// certain entities.
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpQueryFilter {
     /// The *full path* of the type name of each component that may not be
     /// present on the entity for it to be included in the results.
@@ -180,7 +180,7 @@ pub struct BrpQueryFilter {
 /// A response from the world to the client that specifies a single entity.
 ///
 /// This is sent in response to `bevy/spawn`.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpSpawnResponse {
     /// The ID of the entity in question.
     pub entity: Entity,
@@ -196,7 +196,7 @@ pub type BrpListResponse = Vec<String>;
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// One query match result: a single entity paired with the requested components.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpQueryRow {
     /// The ID of the entity that matched.
     pub entity: Entity,

@@ -305,11 +305,11 @@ pub struct RemotePlugin {
 }
 
 /// A resource containing the IP address that Bevy will host on.
-#[derive(Resource)]
+#[derive(Debug, Resource)]
 pub struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
-#[derive(Resource, Reflect)]
+#[derive(Debug, Resource, Reflect)]
 pub struct HostPort(pub u16);
 
 /// The type of a function that implements a remote method (`bevy/get`, `bevy/query`, etc.)
@@ -324,7 +324,7 @@ pub type RemoteMethod = SystemId<Option<Value>, BrpResult>;
 /// Holds all implementations of methods known to the server.
 ///
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
-#[derive(Resource, Default)]
+#[derive(Debug, Resource, Default)]
 pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
@@ -345,7 +345,7 @@ pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 ///     }
 /// }
 /// ```
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
     /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
     pub jsonrpc: String,
@@ -365,7 +365,7 @@ pub struct BrpRequest {
 }
 
 /// A response according to BRP.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpResponse {
     /// This field is mandatory and must be set to `"2.0"`.
     pub jsonrpc: &'static str,
@@ -391,7 +391,7 @@ impl BrpResponse {
 }
 
 /// A result/error payload present in every response.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum BrpPayload {
     /// `Ok` variant
@@ -410,7 +410,7 @@ impl From<BrpResult> for BrpPayload {
 }
 
 /// An error a request might return.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpError {
     /// Defines the general type of the error.
     pub code: i16,
@@ -511,7 +511,7 @@ pub type BrpResult = Result<Value, BrpError>;
 /// The requests may occur on their own or in batches.
 /// Actual parsing is deferred for the sake of proper
 /// error reporting.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum BrpBatch {
     /// Multiple requests with deferred parsing.
@@ -523,7 +523,7 @@ pub enum BrpBatch {
 /// A message from the Bevy Remote Protocol server thread to the main world.
 ///
 /// This is placed in the [`BrpMailbox`].
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BrpMessage {
     /// The request method.
     pub method: String,
@@ -541,7 +541,7 @@ pub struct BrpMessage {
 ///
 /// Every frame, the `process_remote_requests` system drains this mailbox and
 /// processes the messages within.
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
 impl RemotePlugin {
