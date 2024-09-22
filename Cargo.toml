@@ -1393,6 +1393,28 @@ wasm = false
 
 # Assets
 [[example]]
+name = "alter_mesh"
+path = "examples/asset/alter_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_mesh]
+name = "Alter Mesh"
+description = "Shows how to modify the underlying asset of a Mesh after spawning."
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "alter_sprite"
+path = "examples/asset/alter_sprite.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_sprite]
+name = "Alter Sprite"
+description = "Shows how to modify texture assets after spawning."
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 doc-scrape-examples = true
