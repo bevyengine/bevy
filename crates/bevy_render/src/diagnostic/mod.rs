@@ -28,13 +28,20 @@ use super::{RenderDevice, RenderQueue};
 ///
 ///     It won't do anything unless [`RenderDiagnosticsPlugin`] is present,
 ///     so you're free to omit `#[cfg]` clauses.
+///
 ///     ```ignore
 ///     let diagnostics = render_context.diagnostic_recorder();
 ///     ```
-///  2. Begin the span inside a command encoder, or a render/compute pass encoder. ```ignore let
-///     time_span = diagnostics.time_span(render_context.command_encoder(), "shadows"); ```
-///  3. End the span, providing the same encoder. ```ignore
-///     time_span.end(render_context.command_encoder()); ```
+/// 2. Begin the span inside a command encoder, or a render/compute pass encoder.
+///
+///    ```ignore
+///    let time_span = diagnostics.time_span(render_context.command_encoder(), "shadows");
+///    ```
+/// 3. End the span, providing the same encoder.
+///
+///    ```ignore
+///    time_span.end(render_context.command_encoder());
+///    ```
 ///
 /// # Supported platforms
 /// Timestamp queries and pipeline statistics are currently supported only on Vulkan and DX12.

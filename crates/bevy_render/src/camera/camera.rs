@@ -318,7 +318,7 @@ impl Camera {
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
     /// will be the size of that custom viewport. Otherwise it will default to the full logical size
     /// of the current [`RenderTarget`].
-    ///  For logic that requires the full logical size of the
+    /// For logic that requires the full logical size of the
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
     /// Returns `None` if either:

@@ -196,7 +196,7 @@ impl Deref for BindGroup {
 /// }
 /// ```
 ///
-///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
+/// As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
 /// # use bevy_render::{render_resource::AsBindGroup, texture::Image};
 /// # use bevy_color::LinearRgba;

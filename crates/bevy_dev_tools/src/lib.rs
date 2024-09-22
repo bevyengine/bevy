@@ -45,8 +45,8 @@ pub mod states;
 ///
 /// `features = ["bevy_dev_tools"]`
 ///
-///  Note: The third method is not recommended, as it requires you to remove the feature before
-///  creating a build for release to the public.
+/// Note: The third method is not recommended, as it requires you to remove the feature before
+/// creating a build for release to the public.
 #[derive(Default)]
 pub struct DevToolsPlugin;
 

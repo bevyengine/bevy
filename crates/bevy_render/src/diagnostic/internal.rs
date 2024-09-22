@@ -575,8 +575,8 @@ pub struct RenderDiagnostic {
 /// Stores render diagnostics before they can be synced with the main app.
 ///
 /// This mutex is locked twice per frame:
-///  1. in `PreUpdate`, during [`sync_diagnostics`],
-///  2. after rendering has finished and statistics have been downloaded from GPU.
+/// 1. in `PreUpdate`, during [`sync_diagnostics`],
+/// 2. after rendering has finished and statistics have been downloaded from GPU.
 #[derive(Debug, Default, Clone, Resource)]
 pub struct RenderDiagnosticsMutex(pub(crate) Arc<Mutex<Option<RenderDiagnostics>>>);
 

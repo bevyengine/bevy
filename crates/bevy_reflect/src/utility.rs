@@ -184,7 +184,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// # }
 /// ```
 ///
-///  Implementing [`TypePath`] with generics.
+/// Implementing [`TypePath`] with generics.
 ///
 /// ```
 /// # use std::any::Any;

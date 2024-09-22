@@ -1153,7 +1153,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// are [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
     /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
     ///
-    ///  For combinations of size `K` of query taking `N` inputs, you will get:
+    /// For combinations of size `K` of query taking `N` inputs, you will get:
     /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
@@ -1193,7 +1193,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// are [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
     /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
     ///
-    ///  For combinations of size `K` of query taking `N` inputs, you will get:
+    /// For combinations of size `K` of query taking `N` inputs, you will get:
     /// - if `K == N`: one combination of all query results
     /// - if `K < N`: all possible `K`-sized combinations of query results, without repetition
     /// - if `K > N`: empty set (no `K`-sized combinations exist)
