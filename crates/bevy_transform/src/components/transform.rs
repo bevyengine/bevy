@@ -70,9 +70,8 @@ use std::ops::Mul;
 /// [`TransformPropagate`]: crate::TransformSystem::TransformPropagate
 /// [`PostUpdate`]: bevy_app::PostUpdate
 /// [`Parent`]: bevy_hierarchy::Parent
-/// [`transform example`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-/// [`transforms folder`]: https://github.com/bevyengine/bevy/tree/latest/examples/transforms
-/// [`parenting example`]: https://bevyengine.org/examples/3d-rendering/parenting/
+/// [`transform example`]: https://bevyengine.org/examples/transforms/transform
+/// [`parenting example`]: https://bevyengine.org/examples/3d-rendering/parenting
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -101,7 +100,7 @@ pub struct Transform {
     ///
     /// See the [`scale`] example for usage.
     ///
-    /// [`scale`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/scale.rs
+    /// [`scale`]: https://bevyengine.org/examples/transforms/scale
     pub scale: Vec3,
 }
 
@@ -338,9 +337,9 @@ impl Transform {
     ///
     /// # Examples
     ///
-    /// - [`3d_rotation`]
+    /// - [`3d-rotation`]
     ///
-    /// [`3d_rotation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/3d_rotation.rs
+    /// [`3d-rotation`]: https://bevyengine.org/examples/transforms/3d-rotation
     #[inline]
     pub fn rotate(&mut self, rotation: Quat) {
         self.rotation = rotation * self.rotation;

@@ -62,9 +62,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// [`TransformPropagate`]: crate::TransformSystem::TransformPropagate
 /// [`PostUpdate`]: bevy_app::PostUpdate
 /// [`Parent`]: bevy_hierarchy::Parent
-/// [`transform example`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-/// [`transforms folder`]: https://github.com/bevyengine/bevy/tree/latest/examples/transforms
-/// [`parenting example`]: https://bevyengine.org/examples/3d/parenting/
+/// [`transform example`]: https://bevyengine.org/examples/transforms/transform
+/// [`parenting example`]: https://bevyengine.org/examples/3d-rendering/parenting
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
