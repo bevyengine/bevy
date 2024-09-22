@@ -27,13 +27,11 @@ pub(crate) fn get_reflect_ident(name: &str) -> Ident {
 /// is declared as a tuple struct.
 ///
 /// ```
-/// # fn main() {
 /// struct Foo { field: &'static str }
 /// struct Bar(&'static str);
 /// let Foo { field } = Foo { field: "hi" };
 /// let Bar { 0: field } = Bar { 0: "hello" };
 /// let Bar(field) = Bar("hello"); // more common syntax
-/// # }
 /// ```
 ///
 /// This function helps field access in context where you are declaring either
