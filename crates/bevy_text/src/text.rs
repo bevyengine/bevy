@@ -280,6 +280,8 @@ pub enum BreakLineOn {
 pub enum FontSmoothing {
     /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
     ///
+    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated look.
+    ///
     /// **Note:** Due to limitations of the underlying text rendering library,
     /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
     None,
