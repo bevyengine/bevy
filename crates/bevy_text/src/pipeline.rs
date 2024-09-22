@@ -244,7 +244,7 @@ impl TextPipeline {
                             textures,
                             font_system,
                             swash_cache,
-                            &layout_glyph,
+                            layout_glyph,
                             font_smoothing,
                         )
                     })?;
