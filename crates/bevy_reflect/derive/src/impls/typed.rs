@@ -1,5 +1,5 @@
 use crate::derive_data::{ReflectMeta, ReflectTypePath};
-use crate::string_expression::StringExpression;
+use crate::string_expr::StringExpr;
 use crate::where_clause_options::WhereClauseOptions;
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
@@ -79,9 +79,9 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
         )
     };
 
-    let type_ident = wrap_in_option(type_path.type_ident().map(StringExpression::into_borrowed));
-    let module_path = wrap_in_option(type_path.module_path().map(StringExpression::into_borrowed));
-    let crate_name = wrap_in_option(type_path.crate_name().map(StringExpression::into_borrowed));
+    let type_ident = wrap_in_option(type_path.type_ident().map(StringExpr::into_borrowed));
+    let module_path = wrap_in_option(type_path.module_path().map(StringExpr::into_borrowed));
+    let crate_name = wrap_in_option(type_path.crate_name().map(StringExpr::into_borrowed));
 
     let primitive_assert = if let ReflectTypePath::Primitive(_) = type_path {
         Some(quote! {

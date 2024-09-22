@@ -4,7 +4,7 @@ use syn::{spanned::Spanned, LitStr};
 
 /// Contains tokens representing different kinds of string.
 #[derive(Clone)]
-pub(crate) enum StringExpression {
+pub(crate) enum StringExpr {
     /// A string that is valid at compile time.
     ///
     /// This is either a string literal like `"mystring"`,
@@ -17,13 +17,13 @@ pub(crate) enum StringExpression {
     Owned(TokenStream),
 }
 
-impl<T: ToString + Spanned> From<T> for StringExpression {
+impl<T: ToString + Spanned> From<T> for StringExpr {
     fn from(value: T) -> Self {
         Self::from_lit(&LitStr::new(&value.to_string(), value.span()))
     }
 }
 
-impl StringExpression {
+impl StringExpr {
     /// Creates a [constant] [`StringExpression`] from a [`struct@LitStr`].
     ///
     /// [constant]: StringExpression::Const
@@ -65,7 +65,7 @@ impl StringExpression {
     /// Appends a [`StringExpression`] to another.
     ///
     /// If both expressions are [`StringExpression::Const`] this will use [`concat`] to merge them.
-    pub fn appended_by(mut self, other: StringExpression) -> Self {
+    pub fn appended_by(mut self, other: StringExpr) -> Self {
         if let Self::Const(tokens) = self {
             if let Self::Const(more) = other {
                 return Self::Const(quote! {
@@ -83,14 +83,14 @@ impl StringExpression {
     }
 }
 
-impl Default for StringExpression {
+impl Default for StringExpr {
     fn default() -> Self {
-        StringExpression::from_str("")
+        StringExpr::from_str("")
     }
 }
 
-impl FromIterator<StringExpression> for StringExpression {
-    fn from_iter<T: IntoIterator<Item = StringExpression>>(iter: T) -> Self {
+impl FromIterator<StringExpr> for StringExpr {
+    fn from_iter<T: IntoIterator<Item = StringExpr>>(iter: T) -> Self {
         let mut iter = iter.into_iter();
         match iter.next() {
             Some(mut expr) => {

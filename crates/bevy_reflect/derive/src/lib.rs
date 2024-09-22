@@ -33,7 +33,7 @@ mod registration;
 mod remote;
 mod result_sifter;
 mod serialization;
-mod string_expression;
+mod string_expr;
 mod struct_utility;
 mod trait_reflection;
 mod type_path;

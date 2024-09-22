@@ -4,7 +4,7 @@ use proc_macro2::Span;
 use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
 use crate::field_attributes::FieldAttributes;
 use crate::result_sifter::ResultSifter;
-use crate::string_expression::StringExpression;
+use crate::string_expr::StringExpr;
 use crate::type_path::parse_path_no_leading_colon;
 use crate::where_clause_options::WhereClauseOptions;
 use quote::{quote, ToTokens};
@@ -944,8 +944,8 @@ pub(crate) enum ReflectTypePath<'a> {
     )]
     Anonymous {
         qualified_type: Type,
-        long_type_path: StringExpression,
-        short_type_path: StringExpression,
+        long_type_path: StringExpr,
+        short_type_path: StringExpr,
     },
 }
 
@@ -1056,14 +1056,14 @@ impl<'a> ReflectTypePath<'a> {
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn crate_name(&self) -> Option<StringExpression> {
+    pub fn crate_name(&self) -> Option<StringExpr> {
         if let Some(path) = self.get_path() {
             let crate_name = &path.segments.first().unwrap().ident;
-            return Some(StringExpression::from(crate_name));
+            return Some(StringExpr::from(crate_name));
         }
 
         match self {
-            Self::Internal { .. } => Some(StringExpression::Borrowed(quote! {
+            Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
                 ::core::module_path!()
                     .split(':')
                     .next()
@@ -1081,15 +1081,15 @@ impl<'a> ReflectTypePath<'a> {
     /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpression`]s.
     fn reduce_generics(
         generics: &Generics,
-        mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpression,
-    ) -> StringExpression {
+        mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
+    ) -> StringExpr {
         let mut params = generics.params.iter().filter_map(|param| match param {
             GenericParam::Type(type_param) => Some(ty_generic_fn(type_param)),
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;
                 let ty = &const_param.ty;
 
-                Some(StringExpression::Owned(quote! {
+                Some(StringExpr::Owned(quote! {
                     <#ty as ::std::string::ToString>::to_string(&#ident)
                 }))
             }
@@ -1099,16 +1099,16 @@ impl<'a> ReflectTypePath<'a> {
         params
             .next()
             .into_iter()
-            .chain(params.flat_map(|x| [StringExpression::from_str(", "), x]))
+            .chain(params.flat_map(|x| [StringExpr::from_str(", "), x]))
             .collect()
     }
 
     /// Returns a [`StringExpression`] representing the "type path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
-    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpression {
+    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
-            Self::Primitive(ident) => StringExpression::from(ident),
+            Self::Primitive(ident) => StringExpr::from(ident),
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
             Self::Internal { generics, .. } | Self::External { generics, .. } => {
                 let ident = self.type_ident().unwrap();
@@ -1118,26 +1118,22 @@ impl<'a> ReflectTypePath<'a> {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {
-                            StringExpression::Borrowed(quote! {
+                            StringExpr::Borrowed(quote! {
                                 <#ident as #bevy_reflect_path::TypePath>::type_path()
                             })
                         },
                     );
 
-                    StringExpression::from_iter([
+                    StringExpr::from_iter([
                         module_path,
-                        StringExpression::from_str("::"),
+                        StringExpr::from_str("::"),
                         ident,
-                        StringExpression::from_str("<"),
+                        StringExpr::from_str("<"),
                         generics,
-                        StringExpression::from_str(">"),
+                        StringExpr::from_str(">"),
                     ])
                 } else {
-                    StringExpression::from_iter([
-                        module_path,
-                        StringExpression::from_str("::"),
-                        ident,
-                    ])
+                    StringExpr::from_iter([module_path, StringExpr::from_str("::"), ident])
                 }
             }
         }
@@ -1146,12 +1142,12 @@ impl<'a> ReflectTypePath<'a> {
     /// Returns a [`StringExpression`] representing the "short path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"Option<PhantomData>"`.
-    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpression {
+    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
             Self::Anonymous {
                 short_type_path, ..
             } => short_type_path.clone(),
-            Self::Primitive(ident) => StringExpression::from(ident),
+            Self::Primitive(ident) => StringExpr::from(ident),
             Self::External { generics, .. } | Self::Internal { generics, .. } => {
                 let ident = self.type_ident().unwrap();
 
@@ -1159,17 +1155,17 @@ impl<'a> ReflectTypePath<'a> {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {
-                            StringExpression::Borrowed(quote! {
+                            StringExpr::Borrowed(quote! {
                                 <#ident as #bevy_reflect_path::TypePath>::short_type_path()
                             })
                         },
                     );
 
-                    StringExpression::from_iter([
+                    StringExpr::from_iter([
                         ident,
-                        StringExpression::from_str("<"),
+                        StringExpr::from_str("<"),
                         generics,
-                        StringExpression::from_str(">"),
+                        StringExpr::from_str(">"),
                     ])
                 } else {
                     ident
@@ -1190,7 +1186,7 @@ impl<'a> ReflectTypePath<'a> {
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn module_path(&self) -> Option<StringExpression> {
+    pub fn module_path(&self) -> Option<StringExpr> {
         if let Some(path) = self.get_path() {
             let path_string = path
                 .segments
@@ -1201,11 +1197,11 @@ impl<'a> ReflectTypePath<'a> {
                 .unwrap();
 
             let path_lit = LitStr::new(&path_string, path.span());
-            return Some(StringExpression::from_lit(&path_lit));
+            return Some(StringExpr::from_lit(&path_lit));
         }
 
         match self {
-            Self::Internal { .. } => Some(StringExpression::Const(quote! {
+            Self::Internal { .. } => Some(StringExpr::Const(quote! {
                 ::core::module_path!()
             })),
             Self::External { .. } => unreachable!(),
@@ -1222,8 +1218,8 @@ impl<'a> ReflectTypePath<'a> {
     /// For `Option<PhantomData>`, this is `"Option"`.
     ///
     /// [anonymous]: ReflectTypePath::Anonymous
-    pub fn type_ident(&self) -> Option<StringExpression> {
-        self.get_ident().map(StringExpression::from)
+    pub fn type_ident(&self) -> Option<StringExpr> {
+        self.get_ident().map(StringExpr::from)
     }
 
     /// Returns the true type regardless of whether a custom path is specified.
