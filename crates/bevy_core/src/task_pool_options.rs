@@ -1,16 +1,15 @@
-use bevy_ecs::prelude::Resource;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TaskPoolThreadAssignmentPolicy {
     /// Force using at least this many threads
     pub min_threads: usize,
     /// Under no circumstance use more than this many threads for this pool
     pub max_threads: usize,
-    /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
+    /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
 }
@@ -33,13 +32,13 @@ impl TaskPoolThreadAssignmentPolicy {
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
 /// set up [`TaskPoolPlugin`](super::TaskPoolPlugin)
-#[derive(Clone, Resource)]
+#[derive(Clone, Debug)]
 pub struct TaskPoolOptions {
-    /// If the number of physical cores is less than min_total_threads, force using
-    /// min_total_threads
+    /// If the number of physical cores is less than `min_total_threads`, force using
+    /// `min_total_threads`
     pub min_total_threads: usize,
-    /// If the number of physical cores is greater than max_total_threads, force using
-    /// max_total_threads
+    /// If the number of physical cores is greater than `max_total_threads`, force using
+    /// `max_total_threads`
     pub max_total_threads: usize,
 
     /// Used to determine number of IO threads to allocate
@@ -55,7 +54,7 @@ impl Default for TaskPoolOptions {
         TaskPoolOptions {
             // By default, use however many cores are available on the system
             min_total_threads: 1,
-            max_total_threads: std::usize::MAX,
+            max_total_threads: usize::MAX,
 
             // Use 25% of cores for IO, at least 1, no more than 4
             io: TaskPoolThreadAssignmentPolicy {
@@ -74,7 +73,7 @@ impl Default for TaskPoolOptions {
             // Use all remaining cores for compute (at least 1)
             compute: TaskPoolThreadAssignmentPolicy {
                 min_threads: 1,
-                max_threads: std::usize::MAX,
+                max_threads: usize::MAX,
                 percent: 1.0, // This 1.0 here means "whatever is left over"
             },
         }
@@ -108,7 +107,7 @@ impl TaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            IoTaskPool::init(|| {
+            IoTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string())
@@ -125,7 +124,7 @@ impl TaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            AsyncComputeTaskPool::init(|| {
+            AsyncComputeTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string())
@@ -142,7 +141,7 @@ impl TaskPoolOptions {
 
             trace!("Compute Threads: {}", compute_threads);
 
-            ComputeTaskPool::init(|| {
+            ComputeTaskPool::get_or_init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string())

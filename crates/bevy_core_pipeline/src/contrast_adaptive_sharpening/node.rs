@@ -1,34 +1,33 @@
 use std::sync::Mutex;
 
-use crate::contrast_adaptive_sharpening::ViewCASPipeline;
+use crate::contrast_adaptive_sharpening::ViewCasPipeline;
 use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryState;
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferId, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
+        BindGroup, BindGroupEntries, BufferId, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 
-use super::{CASPipeline, CASUniform};
+use super::{CasPipeline, CasUniform};
 
-pub struct CASNode {
+pub struct CasNode {
     query: QueryState<
         (
             &'static ViewTarget,
-            &'static ViewCASPipeline,
-            &'static DynamicUniformIndex<CASUniform>,
+            &'static ViewCasPipeline,
+            &'static DynamicUniformIndex<CasUniform>,
         ),
         With<ExtractedView>,
     >,
     cached_bind_group: Mutex<Option<(BufferId, TextureViewId, BindGroup)>>,
 }
 
-impl FromWorld for CASNode {
+impl FromWorld for CasNode {
     fn from_world(world: &mut World) -> Self {
         Self {
             query: QueryState::new(world),
@@ -37,7 +36,7 @@ impl FromWorld for CASNode {
     }
 }
 
-impl Node for CASNode {
+impl Node for CasNode {
     fn update(&mut self, world: &mut World) {
         self.query.update_archetypes(world);
     }
@@ -50,15 +49,22 @@ impl Node for CASNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let sharpening_pipeline = world.resource::<CASPipeline>();
-        let uniforms = world.resource::<ComponentUniforms<CASUniform>>();
+        let sharpening_pipeline = world.resource::<CasPipeline>();
+        let uniforms = world.resource::<ComponentUniforms<CasUniform>>();
 
-        let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity) else { return Ok(()) };
+        let Ok((target, pipeline, uniform_index)) = self.query.get_manual(world, view_entity)
+        else {
+            return Ok(());
+        };
 
         let uniforms_id = uniforms.buffer().unwrap().id();
-        let Some(uniforms) = uniforms.binding() else { return Ok(()) };
+        let Some(uniforms) = uniforms.binding() else {
+            return Ok(());
+        };
 
-        let pipeline = pipeline_cache.get_render_pipeline(pipeline.0).unwrap();
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline.0) else {
+            return Ok(());
+        };
 
         let view_target = target.post_process_write();
         let source = view_target.source;
@@ -72,29 +78,15 @@ impl Node for CASNode {
                 bind_group
             }
             cached_bind_group => {
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: Some("cas_bind_group"),
-                            layout: &sharpening_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(view_target.source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(
-                                        &sharpening_pipeline.sampler,
-                                    ),
-                                },
-                                BindGroupEntry {
-                                    binding: 2,
-                                    resource: uniforms,
-                                },
-                            ],
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    "cas_bind_group",
+                    &sharpening_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((
+                        view_target.source,
+                        &sharpening_pipeline.sampler,
+                        uniforms,
+                    )),
+                );
 
                 let (_, _, bind_group) =
                     cached_bind_group.insert((uniforms_id, source.id(), bind_group));
@@ -110,6 +102,8 @@ impl Node for CASNode {
                 ops: Operations::default(),
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context

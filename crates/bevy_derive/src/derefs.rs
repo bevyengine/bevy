@@ -68,9 +68,11 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
             let mut selected_field: Option<(Member, &Type)> = None;
             for (index, field) in data_struct.fields.iter().enumerate() {
                 for attr in &field.attrs {
-                    if !attr.meta.require_path_only()?.is_ident(DEREF_ATTR) {
+                    if !attr.meta.path().is_ident(DEREF_ATTR) {
                         continue;
                     }
+
+                    attr.meta.require_path_only()?;
 
                     if selected_field.is_some() {
                         return Err(syn::Error::new_spanned(

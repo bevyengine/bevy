@@ -1,381 +1,521 @@
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 //! This crate adds an immediate mode drawing api to Bevy for visual debugging.
 //!
 //! # Example
 //! ```
 //! # use bevy_gizmos::prelude::*;
-//! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
+//! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
-//!     gizmos.line(Vec3::ZERO, Vec3::X, Color::GREEN);
+//!     gizmos.line(Vec3::ZERO, Vec3::X, GREEN);
 //! }
 //! # bevy_ecs::system::assert_is_system(system);
 //! ```
 //!
-//! See the documentation on [`Gizmos`](crate::gizmos::Gizmos) for more examples.
+//! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
-use std::mem;
+/// System set label for the systems handling the rendering of gizmos.
+#[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
+pub enum GizmoRenderSystem {
+    /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
+    #[cfg(feature = "bevy_sprite")]
+    QueueLineGizmos2d,
+    /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
+    #[cfg(feature = "bevy_pbr")]
+    QueueLineGizmos3d,
+}
 
-use bevy_app::{Last, Plugin, Update};
-use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
-use bevy_core::cast_slice;
+#[cfg(feature = "bevy_render")]
+pub mod aabb;
+pub mod arcs;
+pub mod arrows;
+pub mod circles;
+pub mod config;
+pub mod cross;
+pub mod curves;
+pub mod gizmos;
+pub mod grid;
+pub mod primitives;
+pub mod rounded_box;
+
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+pub mod light;
+
+#[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
+mod pipeline_2d;
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+mod pipeline_3d;
+
+/// The gizmos prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[cfg(feature = "bevy_render")]
+    pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
+    #[doc(hidden)]
+    pub use crate::{
+        config::{
+            DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
+            GizmoLineJoint, GizmoLineStyle,
+        },
+        gizmos::Gizmos,
+        primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
+        AppGizmoBuilder,
+    };
+
+    #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+    pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
+}
+
+#[cfg(feature = "bevy_render")]
 use bevy_ecs::{
-    change_detection::DetectChanges,
-    component::Component,
-    entity::Entity,
-    query::{ROQueryItem, Without},
-    reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    query::ROQueryItem,
     system::{
         lifetimeless::{Read, SRes},
-        Commands, Query, Res, ResMut, Resource, SystemParamItem,
+        Commands, SystemParamItem,
     },
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath, TypeUuid};
+
+use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_color::LinearRgba;
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::component::Component;
+use bevy_ecs::{
+    schedule::{IntoSystemConfigs, SystemSet},
+    system::{Res, ResMut, Resource},
+};
+use bevy_math::Vec3;
+use bevy_reflect::TypePath;
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite"),
+))]
+use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
+#[cfg(feature = "bevy_render")]
 use bevy_render::{
-    color::Color,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, Buffer, BufferBindingType, BufferInitDescriptor,
-        BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout,
-        VertexFormat, VertexStepMode,
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        ShaderType, VertexFormat,
     },
     renderer::RenderDevice,
-    view::RenderLayers,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
 
-pub mod gizmos;
+use bevy_time::Fixed;
+use bevy_utils::TypeIdMap;
+#[cfg(feature = "bevy_render")]
+use bytemuck::cast_slice;
+use config::{
+    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
+};
+use gizmos::{GizmoStorage, Swap};
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+use light::LightGizmoPlugin;
+use std::{any::TypeId, mem};
 
-#[cfg(feature = "bevy_sprite")]
-mod pipeline_2d;
-#[cfg(feature = "bevy_pbr")]
-mod pipeline_3d;
-
-use gizmos::{GizmoStorage, Gizmos};
-
-/// The `bevy_gizmos` prelude.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{gizmos::Gizmos, AabbGizmo, AabbGizmoConfig, GizmoConfig};
-}
-
-const LINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
+#[cfg(feature = "bevy_render")]
+const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
+#[cfg(feature = "bevy_render")]
+const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+///
+/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
+#[derive(Default)]
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "bevy_render")]
+        {
+            use bevy_asset::load_internal_asset;
+            load_internal_asset!(app, LINE_SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
+            load_internal_asset!(
+                app,
+                LINE_JOINT_SHADER_HANDLE,
+                "line_joints.wgsl",
+                Shader::from_wgsl
+            );
+        }
 
-        app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-            .add_asset::<LineGizmo>()
-            .add_plugins(RenderAssetPlugin::<LineGizmo>::default())
+        app.register_type::<GizmoConfig>()
+            .register_type::<GizmoConfigStore>()
+            .init_asset::<LineGizmo>()
             .init_resource::<LineGizmoHandles>()
-            .init_resource::<GizmoConfig>()
-            .init_resource::<GizmoStorage>()
-            .add_systems(Last, update_gizmo_meshes)
+            // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
+            .init_gizmo_group::<DefaultGizmoConfigGroup>();
+
+        #[cfg(feature = "bevy_render")]
+        app.add_plugins(aabb::AabbGizmoPlugin)
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
+
+        #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+        app.add_plugins(LightGizmoPlugin);
+
+        #[cfg(feature = "bevy_render")]
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(
+                Render,
+                prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
+            );
+
+            render_app.add_systems(ExtractSchedule, extract_gizmo_data);
+
+            #[cfg(feature = "bevy_sprite")]
+            if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
+                app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
+            } else {
+                bevy_utils::tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
+            }
+            #[cfg(feature = "bevy_pbr")]
+            if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
+                app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+            } else {
+                bevy_utils::tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
+            }
+        } else {
+            bevy_utils::tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
+        }
+    }
+
+    #[cfg(feature = "bevy_render")]
+    fn finish(&self, app: &mut App) {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        let render_device = render_app.world().resource::<RenderDevice>();
+        let line_layout = render_device.create_bind_group_layout(
+            "LineGizmoUniform layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::VERTEX,
+                uniform_buffer::<LineGizmoUniform>(true),
+            ),
+        );
+
+        render_app.insert_resource(LineGizmoUniformBindgroupLayout {
+            layout: line_layout,
+        });
+    }
+}
+
+/// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
+pub trait AppGizmoBuilder {
+    /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
+    ///
+    /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
+    fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
+
+    /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].
+    ///
+    /// This method should be preferred over [`AppGizmoBuilder::init_gizmo_group`] if and only if you need to configure fields upon initialization.
+    fn insert_gizmo_config<Config: GizmoConfigGroup>(
+        &mut self,
+        group: Config,
+        config: GizmoConfig,
+    ) -> &mut Self;
+}
+
+impl AppGizmoBuilder for App {
+    fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self {
+        if self.world().contains_resource::<GizmoStorage<Config, ()>>() {
+            return self;
+        }
+
+        self.world_mut()
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .register::<Config>();
+
+        let mut handles = self
+            .world_mut()
+            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
+
+        handles.list.insert(TypeId::of::<Config>(), None);
+        handles.strip.insert(TypeId::of::<Config>(), None);
+
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
+
+        self.init_resource::<GizmoStorage<Config, ()>>()
+            .init_resource::<GizmoStorage<Config, Fixed>>()
+            .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
-                Update,
+                RunFixedMainLoop,
+                start_gizmo_context::<Config, Fixed>
+                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
+            )
+            .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
+            .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
+            .add_systems(
+                RunFixedMainLoop,
+                end_gizmo_context::<Config, Fixed>
+                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
+            )
+            .add_systems(
+                Last,
                 (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfig>| config.aabb.draw_all),
+                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
+                    update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
                 ),
             );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
-
-        render_app
-            .add_systems(ExtractSchedule, extract_gizmo_data)
-            .add_systems(Render, queue_line_gizmo_bind_group.in_set(RenderSet::Queue));
-
-        #[cfg(feature = "bevy_sprite")]
-        app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
-        #[cfg(feature = "bevy_pbr")]
-        app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
+        self
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+    fn insert_gizmo_config<Config: GizmoConfigGroup>(
+        &mut self,
+        group: Config,
+        config: GizmoConfig,
+    ) -> &mut Self {
+        self.init_gizmo_group::<Config>();
 
-        let render_device = render_app.world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(LineGizmoUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("LineGizmoUniform layout"),
-        });
+        self.world_mut()
+            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .insert(config, group);
 
-        render_app.insert_resource(LineGizmoUniformBindgroupLayout { layout });
+        self
     }
 }
 
-/// A [`Resource`] that stores configuration for gizmos.
-#[derive(Resource, Clone)]
-pub struct GizmoConfig {
-    /// Set to `false` to stop drawing gizmos.
-    ///
-    /// Defaults to `true`.
-    pub enabled: bool,
-    /// Line width specified in pixels.
-    ///
-    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
-    ///
-    /// Defaults to `2.0`.
-    pub line_width: f32,
-    /// Apply perspective to gizmo lines.
-    ///
-    /// This setting only affects 3D, non-orhographic cameras.
-    ///
-    /// Defaults to `false`.
-    pub line_perspective: bool,
-    /// How closer to the camera than real geometry the line should be.
-    ///
-    /// Value between -1 and 1 (inclusive).
-    /// * 0 means that there is no change to the line position when rendering
-    /// * 1 means it is furthest away from camera as possible
-    /// * -1 means that it will always render in front of other things.
-    ///
-    /// This is typically useful if you are drawing wireframes on top of polygons
-    /// and your wireframe is z-fighting (flickering on/off) with your main model.
-    /// You would set this value to a negative number close to 0.0.
-    pub depth_bias: f32,
-    /// Configuration for the [`AabbGizmo`].
-    pub aabb: AabbGizmoConfig,
-    /// Describes which rendering layers gizmos will be rendered to.
-    ///
-    /// Gizmos will only be rendered to cameras with intersecting layers.
-    pub render_layers: RenderLayers,
+/// Holds handles to the line gizmos for each gizmo configuration group
+// As `TypeIdMap` iteration order depends on the order of insertions and deletions, this uses
+// `Option<Handle>` to be able to reserve the slot when creating the gizmo configuration group.
+// That way iteration order is stable across executions and depends on the order of configuration
+// group creation.
+#[derive(Resource, Default)]
+struct LineGizmoHandles {
+    list: TypeIdMap<Option<Handle<LineGizmo>>>,
+    strip: TypeIdMap<Option<Handle<LineGizmo>>>,
 }
 
-impl Default for GizmoConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            line_width: 2.,
-            line_perspective: false,
-            depth_bias: 0.,
-            aabb: Default::default(),
-            render_layers: Default::default(),
+/// Start a new gizmo clearing context.
+///
+/// Internally this pushes the parent default context into a swap buffer.
+/// Gizmo contexts should be handled like a stack, so if you push a new context,
+/// you must pop the context before the parent context ends.
+pub fn start_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    default.swap(&mut *swap);
+}
+
+/// End this gizmo clearing context.
+///
+/// Pop the default gizmos context out of the [`Swap<Clear>`] gizmo storage.
+///
+/// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
+pub fn end_gizmo_context<Config, Clear>(
+    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<GizmoStorage<Config, ()>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    default.clear();
+    default.swap(&mut *swap);
+}
+
+/// Collect the requested gizmos into a specific clear context.
+pub fn collect_requested_gizmos<Config, Clear>(
+    mut update: ResMut<GizmoStorage<Config, ()>>,
+    mut context: ResMut<GizmoStorage<Config, Clear>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    context.append_storage(&update);
+    update.clear();
+}
+
+/// Clear out the contextual gizmos.
+pub fn clear_gizmo_context<Config, Clear>(mut context: ResMut<GizmoStorage<Config, Clear>>)
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    context.clear();
+}
+
+/// Propagate the contextual gizmo into the `Update` storage for rendering.
+///
+/// This should be before [`UpdateGizmoMeshes`].
+pub fn propagate_gizmos<Config, Clear>(
+    mut update_storage: ResMut<GizmoStorage<Config, ()>>,
+    contextual_storage: Res<GizmoStorage<Config, Clear>>,
+) where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    update_storage.append_storage(&*contextual_storage);
+}
+
+/// System set for updating the rendering meshes for drawing gizmos.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct UpdateGizmoMeshes;
+
+/// Prepare gizmos for rendering.
+///
+/// This also clears the default `GizmoStorage`.
+fn update_gizmo_meshes<Config: GizmoConfigGroup>(
+    mut line_gizmos: ResMut<Assets<LineGizmo>>,
+    mut handles: ResMut<LineGizmoHandles>,
+    mut storage: ResMut<GizmoStorage<Config, ()>>,
+    config_store: Res<GizmoConfigStore>,
+) {
+    if storage.list_positions.is_empty() {
+        handles.list.insert(TypeId::of::<Config>(), None);
+    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<Config>()) {
+        if let Some(handle) = handle {
+            let list = line_gizmos.get_mut(handle.id()).unwrap();
+
+            list.positions = mem::take(&mut storage.list_positions);
+            list.colors = mem::take(&mut storage.list_colors);
+        } else {
+            let list = LineGizmo {
+                strip: false,
+                config_ty: TypeId::of::<Config>(),
+                positions: mem::take(&mut storage.list_positions),
+                colors: mem::take(&mut storage.list_colors),
+                joints: GizmoLineJoint::None,
+            };
+
+            *handle = Some(line_gizmos.add(list));
+        }
+    }
+
+    let (config, _) = config_store.config::<Config>();
+    if storage.strip_positions.is_empty() {
+        handles.strip.insert(TypeId::of::<Config>(), None);
+    } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<Config>()) {
+        if let Some(handle) = handle {
+            let strip = line_gizmos.get_mut(handle.id()).unwrap();
+
+            strip.positions = mem::take(&mut storage.strip_positions);
+            strip.colors = mem::take(&mut storage.strip_colors);
+            strip.joints = config.line_joints;
+        } else {
+            let strip = LineGizmo {
+                strip: true,
+                joints: config.line_joints,
+                config_ty: TypeId::of::<Config>(),
+                positions: mem::take(&mut storage.strip_positions),
+                colors: mem::take(&mut storage.strip_colors),
+            };
+
+            *handle = Some(line_gizmos.add(strip));
         }
     }
 }
 
-/// Configuration for drawing the [`Aabb`] component on entities.
-#[derive(Clone, Default)]
-pub struct AabbGizmoConfig {
-    /// Draws all bounding boxes in the scene when set to `true`.
-    ///
-    /// To draw a specific entity's bounding box, you can add the [`AabbGizmo`] component.
-    ///
-    /// Defaults to `false`.
-    pub draw_all: bool,
-    /// The default color for bounding box gizmos.
-    ///
-    /// A random color is chosen per box if `None`.
-    ///
-    /// Defaults to `None`.
-    pub default_color: Option<Color>,
-}
-
-/// Add this [`Component`] to an entity to draw its [`Aabb`] component.
-#[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default)]
-pub struct AabbGizmo {
-    /// The color of the box.
-    ///
-    /// The default color from the [`GizmoConfig`] resource is used if `None`,
-    pub color: Option<Color>,
-}
-
-fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &AabbGizmo)>,
-    config: Res<GizmoConfig>,
-    mut gizmos: Gizmos,
-) {
-    for (entity, &aabb, &transform, gizmo) in &query {
-        let color = gizmo
-            .color
-            .or(config.aabb.default_color)
-            .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
-    }
-}
-
-fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<AabbGizmo>>,
-    config: Res<GizmoConfig>,
-    mut gizmos: Gizmos,
-) {
-    for (entity, &aabb, &transform) in &query {
-        let color = config
-            .aabb
-            .default_color
-            .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
-    }
-}
-
-fn color_from_entity(entity: Entity) -> Color {
-    use bevy_utils::RandomState;
-    const U64_TO_DEGREES: f32 = 360.0 / u64::MAX as f32;
-    const STATE: RandomState =
-        RandomState::with_seeds(5952553601252303067, 16866614500153072625, 0, 0);
-
-    let hash = STATE.hash_one(entity);
-    let hue = hash as f32 * U64_TO_DEGREES;
-    Color::hsl(hue, 1., 0.5)
-}
-
-fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
-    transform
-        * GlobalTransform::from(
-            Transform::from_translation(aabb.center.into())
-                .with_scale((aabb.half_extents * 2.).into()),
-        )
-}
-
-#[derive(Resource, Default)]
-struct LineGizmoHandles {
-    list: Option<Handle<LineGizmo>>,
-    strip: Option<Handle<LineGizmo>>,
-}
-
-fn update_gizmo_meshes(
-    mut line_gizmos: ResMut<Assets<LineGizmo>>,
-    mut handles: ResMut<LineGizmoHandles>,
-    mut storage: ResMut<GizmoStorage>,
-) {
-    if storage.list_positions.is_empty() {
-        handles.list = None;
-    } else if let Some(handle) = handles.list.as_ref() {
-        let list = line_gizmos.get_mut(handle).unwrap();
-
-        list.positions = mem::take(&mut storage.list_positions);
-        list.colors = mem::take(&mut storage.list_colors);
-    } else {
-        let mut list = LineGizmo {
-            strip: false,
-            ..Default::default()
-        };
-
-        list.positions = mem::take(&mut storage.list_positions);
-        list.colors = mem::take(&mut storage.list_colors);
-
-        handles.list = Some(line_gizmos.add(list));
-    }
-
-    if storage.strip_positions.is_empty() {
-        handles.strip = None;
-    } else if let Some(handle) = handles.strip.as_ref() {
-        let strip = line_gizmos.get_mut(handle).unwrap();
-
-        strip.positions = mem::take(&mut storage.strip_positions);
-        strip.colors = mem::take(&mut storage.strip_colors);
-    } else {
-        let mut strip = LineGizmo {
-            strip: true,
-            ..Default::default()
-        };
-
-        strip.positions = mem::take(&mut storage.strip_positions);
-        strip.colors = mem::take(&mut storage.strip_colors);
-
-        handles.strip = Some(line_gizmos.add(strip));
-    }
-}
-
+#[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
-    config: Extract<Res<GizmoConfig>>,
+    config: Extract<Res<GizmoConfigStore>>,
 ) {
-    if config.is_changed() {
-        commands.insert_resource(config.clone());
-    }
+    for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
+        let Some((config, _)) = config.get_config_dyn(group_type_id) else {
+            continue;
+        };
 
-    if !config.enabled {
-        return;
-    }
+        if !config.enabled {
+            continue;
+        }
 
-    for handle in [&handles.list, &handles.strip].into_iter().flatten() {
+        let Some(handle) = handle else {
+            continue;
+        };
+
+        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
+            resolution
+        } else {
+            0
+        };
+
         commands.spawn((
             LineGizmoUniform {
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
+                joints_resolution,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            handle.clone_weak(),
+            (*handle).clone_weak(),
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
+            config::GizmoMeshConfig::from(config),
         ));
     }
 }
 
+#[cfg(feature = "bevy_render")]
 #[derive(Component, ShaderType, Clone, Copy)]
 struct LineGizmoUniform {
     line_width: f32,
     depth_bias: f32,
+    // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
+    joints_resolution: u32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: bevy_math::Vec2,
+    _padding: f32,
 }
 
-#[derive(Debug, Default, Clone, TypeUuid, TypePath)]
-#[uuid = "02b99cbf-bb26-4713-829a-aee8e08dedc0"]
-struct LineGizmo {
-    positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
+/// A gizmo asset that represents a line.
+#[derive(Asset, Debug, Clone, TypePath)]
+pub struct LineGizmo {
+    /// Positions of the gizmo's vertices
+    pub positions: Vec<Vec3>,
+    /// Colors of the gizmo's vertices
+    pub colors: Vec<LinearRgba>,
     /// Whether this gizmo's topology is a line-strip or line-list
-    strip: bool,
+    pub strip: bool,
+    /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
+    pub joints: GizmoLineJoint,
+    /// The type of the gizmo's configuration group
+    pub config_ty: TypeId,
 }
 
+#[cfg(feature = "bevy_render")]
 #[derive(Debug, Clone)]
 struct GpuLineGizmo {
     position_buffer: Buffer,
     color_buffer: Buffer,
     vertex_count: u32,
     strip: bool,
+    joints: GizmoLineJoint,
 }
 
-impl RenderAsset for LineGizmo {
-    type ExtractedAsset = LineGizmo;
-
-    type PreparedAsset = GpuLineGizmo;
-
+#[cfg(feature = "bevy_render")]
+impl RenderAsset for GpuLineGizmo {
+    type SourceAsset = LineGizmo;
     type Param = SRes<RenderDevice>;
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        self.clone()
-    }
-
     fn prepare_asset(
-        line_gizmo: Self::ExtractedAsset,
+        gizmo: Self::SourceAsset,
         render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let position_buffer_data = cast_slice(&line_gizmo.positions);
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let position_buffer_data = cast_slice(&gizmo.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),
             contents: position_buffer_data,
         });
 
-        let color_buffer_data = cast_slice(&line_gizmo.colors);
+        let color_buffer_data = cast_slice(&gizmo.colors);
         let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
@@ -385,23 +525,27 @@ impl RenderAsset for LineGizmo {
         Ok(GpuLineGizmo {
             position_buffer,
             color_buffer,
-            vertex_count: line_gizmo.positions.len() as u32,
-            strip: line_gizmo.strip,
+            vertex_count: gizmo.positions.len() as u32,
+            strip: gizmo.strip,
+            joints: gizmo.joints,
         })
     }
 }
 
+#[cfg(feature = "bevy_render")]
 #[derive(Resource)]
 struct LineGizmoUniformBindgroupLayout {
     layout: BindGroupLayout,
 }
 
+#[cfg(feature = "bevy_render")]
 #[derive(Resource)]
 struct LineGizmoUniformBindgroup {
     bindgroup: BindGroup,
 }
 
-fn queue_line_gizmo_bind_group(
+#[cfg(feature = "bevy_render")]
+fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
@@ -409,32 +553,34 @@ fn queue_line_gizmo_bind_group(
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
-            bindgroup: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("LineGizmoUniform bindgroup"),
-                layout: &line_gizmo_uniform_layout.layout,
-            }),
+            bindgroup: render_device.create_bind_group(
+                "LineGizmoUniform bindgroup",
+                &line_gizmo_uniform_layout.layout,
+                &BindGroupEntries::single(binding),
+            ),
         });
     }
 }
 
+#[cfg(feature = "bevy_render")]
 struct SetLineGizmoBindGroup<const I: usize>;
+#[cfg(feature = "bevy_render")]
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I> {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
     type Param = SRes<LineGizmoUniformBindgroup>;
+    type ViewQuery = ();
+    type ItemQuery = Read<DynamicUniformIndex<LineGizmoUniform>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        uniform_index: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        uniform_index: Option<ROQueryItem<'w, Self::ItemQuery>>,
         bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        let Some(uniform_index) = uniform_index else {
+            return RenderCommandResult::Skip;
+        };
         pass.set_bind_group(
             I,
             &bind_group.into_inner().bindgroup,
@@ -444,27 +590,37 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
     }
 }
 
+#[cfg(feature = "bevy_render")]
 struct DrawLineGizmo;
+#[cfg(feature = "bevy_render")]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<LineGizmo>>;
-    type Param = SRes<RenderAssets<LineGizmo>>;
+    type Param = SRes<RenderAssets<GpuLineGizmo>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<LineGizmo>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
+        let Some(handle) = handle else {
+            return RenderCommandResult::Skip;
         };
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+            return RenderCommandResult::Skip;
+        };
+
+        if line_gizmo.vertex_count < 2 {
+            return RenderCommandResult::Success;
+        }
 
         let instances = if line_gizmo.strip {
             let item_size = VertexFormat::Float32x3.size();
             let buffer_size = line_gizmo.position_buffer.size() - item_size;
+
             pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
             pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
 
@@ -487,6 +643,77 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     }
 }
 
+#[cfg(feature = "bevy_render")]
+struct DrawLineJointGizmo;
+#[cfg(feature = "bevy_render")]
+impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
+    type Param = SRes<RenderAssets<GpuLineGizmo>>;
+    type ViewQuery = ();
+    type ItemQuery = Read<Handle<LineGizmo>>;
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        line_gizmos: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(handle) = handle else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+            return RenderCommandResult::Skip;
+        };
+
+        if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {
+            return RenderCommandResult::Success;
+        };
+
+        if line_gizmo.joints == GizmoLineJoint::None {
+            return RenderCommandResult::Success;
+        };
+
+        let instances = {
+            let item_size = VertexFormat::Float32x3.size();
+            // position_a
+            let buffer_size_a = line_gizmo.position_buffer.size() - item_size * 2;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size_a));
+            // position_b
+            let buffer_size_b = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(
+                1,
+                line_gizmo.position_buffer.slice(item_size..buffer_size_b),
+            );
+            // position_c
+            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(item_size * 2..));
+
+            // color
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            // This corresponds to the color of position_b, hence starts from `item_size`
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
+
+            u32::max(line_gizmo.vertex_count, 2) - 2
+        };
+
+        let vertices = match line_gizmo.joints {
+            GizmoLineJoint::None => unreachable!(),
+            GizmoLineJoint::Miter => 6,
+            GizmoLineJoint::Round(resolution) => resolution * 3,
+            GizmoLineJoint::Bevel => 3,
+        };
+
+        pass.draw(0..vertices, 0..instances);
+
+        RenderCommandResult::Success
+    }
+}
+
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -539,4 +766,44 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
 
         vec![position_layout, color_layout]
     }
+}
+
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
+fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
+    use VertexFormat::*;
+    let mut position_layout = VertexBufferLayout {
+        array_stride: Float32x3.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x3,
+            offset: 0,
+            shader_location: 0,
+        }],
+    };
+
+    let color_layout = VertexBufferLayout {
+        array_stride: Float32x4.size(),
+        step_mode: VertexStepMode::Instance,
+        attributes: vec![VertexAttribute {
+            format: Float32x4,
+            offset: 0,
+            shader_location: 3,
+        }],
+    };
+
+    vec![
+        position_layout.clone(),
+        {
+            position_layout.attributes[0].shader_location = 1;
+            position_layout.clone()
+        },
+        {
+            position_layout.attributes[0].shader_location = 2;
+            position_layout
+        },
+        color_layout.clone(),
+    ]
 }

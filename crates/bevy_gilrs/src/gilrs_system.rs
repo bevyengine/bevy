@@ -1,6 +1,11 @@
-use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
+use crate::{
+    converter::{convert_axis, convert_button, convert_gamepad_id},
+    Gilrs,
+};
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::system::{NonSend, NonSendMut, Res};
+#[cfg(target_arch = "wasm32")]
+use bevy_ecs::system::NonSendMut;
+use bevy_ecs::system::{Res, ResMut};
 use bevy_input::gamepad::{
     GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
     GamepadSettings,
@@ -8,35 +13,38 @@ use bevy_input::gamepad::{
 use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
 use bevy_input::prelude::{GamepadAxis, GamepadButton};
 use bevy_input::Axis;
-use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    gilrs: NonSend<Gilrs>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    mut events: EventWriter<GamepadEvent>,
 ) {
-    for (id, gamepad) in gilrs.gamepads() {
+    for (id, gamepad) in gilrs.0.get().gamepads() {
         let info = GamepadInfo {
             name: gamepad.name().into(),
         };
 
-        connection_events.send(GamepadConnectionEvent {
-            gamepad: convert_gamepad_id(id),
-            connection: GamepadConnection::Connected(info),
-        });
+        events.send(
+            GamepadConnectionEvent {
+                gamepad: convert_gamepad_id(id),
+                connection: GamepadConnection::Connected(info),
+            }
+            .into(),
+        );
     }
 }
 
 pub fn gilrs_event_system(
-    mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut events: EventWriter<GamepadEvent>,
+    mut gamepad_buttons: ResMut<Axis<GamepadButton>>,
     gamepad_axis: Res<Axis<GamepadAxis>>,
-    gamepad_buttons: Res<Axis<GamepadButton>>,
     gamepad_settings: Res<GamepadSettings>,
 ) {
-    while let Some(gilrs_event) = gilrs
-        .next_event()
-        .filter_ev(&axis_dpad_to_button, &mut gilrs)
-    {
+    let gilrs = gilrs.0.get();
+    while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
 
         let gamepad = convert_gamepad_id(gilrs_event.id);
@@ -51,8 +59,11 @@ pub fn gilrs_event_system(
                     GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
                 );
             }
-            EventType::Disconnected => events
-                .send(GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into()),
+            EventType::Disconnected => {
+                events.send(
+                    GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into(),
+                );
+            }
             EventType::ButtonChanged(gilrs_button, raw_value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
                     let button = GamepadButton::new(gamepad, button_type);
@@ -65,6 +76,9 @@ pub fn gilrs_event_system(
                             GamepadButtonChangedEvent::new(gamepad, button_type, filtered_value)
                                 .into(),
                         );
+                        // Update the current value prematurely so that `old_value` is correct in
+                        // future iterations of the loop.
+                        gamepad_buttons.set(button, filtered_value);
                     }
                 }
             }

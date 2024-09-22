@@ -1,5 +1,3 @@
-#![allow(clippy::doc_markdown)]
-
 use std::marker::PhantomData;
 
 use super::Buffer;
@@ -10,6 +8,8 @@ use encase::{
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
 
+use super::IntoBinding;
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
 /// Storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts of data.
@@ -17,14 +17,17 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 ///
 /// Storage buffers can store runtime-sized arrays, but only if they are the last field in a structure.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::StorageBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](StorageBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Storage buffers must conform to [std430 alignment/padding requirements], which
 /// is automatically enforced by this structure.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicStorageBuffer`]
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -113,8 +116,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.changed = true;
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
@@ -137,23 +140,36 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
 /// of data. Note however that WebGL2 does not support storage buffers, so consider alternative options in this case. Dynamic
 /// storage buffers support multiple separate bindings at dynamic byte offsets and so have a
-/// [`push`](crate::render_resource::DynamicStorageBuffer::push) method.
+/// [`push`](DynamicStorageBuffer::push) method.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicStorageBuffer::write_buffer)
+/// The contained data is stored in system RAM. [`write_buffer`](DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
 /// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
-/// these requirements. Each item [`push`](crate::render_resource::DynamicStorageBuffer::push)ed into this structure
+/// these requirements. Each item [`push`](DynamicStorageBuffer::push)ed into this structure
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`StorageBuffer`]
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -234,7 +250,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
@@ -250,5 +266,12 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicStorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

@@ -1,5 +1,6 @@
 use crate::{
     mesh::Mesh,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
 };
@@ -8,9 +9,9 @@ use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Children;
 use bevy_math::Vec3;
-use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use std::{iter, mem};
+use std::iter;
 use thiserror::Error;
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
@@ -67,6 +68,7 @@ impl MorphTargetImage {
     pub fn new(
         targets: impl ExactSizeIterator<Item = impl Iterator<Item = MorphAttributes>>,
         vertex_count: usize,
+        asset_usage: RenderAssetUsages,
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
@@ -74,12 +76,15 @@ impl MorphTargetImage {
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
         let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
-        let Some((Rect(width, height), padding)) = lowest_2d(component_count , max) else {
-            return Err(MorphBuildError::TooManyAttributes { vertex_count, component_count });
+        let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
+            return Err(MorphBuildError::TooManyAttributes {
+                vertex_count,
+                component_count,
+            });
         };
         let data = targets
             .flat_map(|mut attributes| {
-                let layer_byte_count = (padding + component_count) as usize * mem::size_of::<f32>();
+                let layer_byte_count = (padding + component_count) as usize * size_of::<f32>();
                 let mut buffer = Vec::with_capacity(layer_byte_count);
                 for _ in 0..vertex_count {
                     let Some(to_add) = attributes.next() else {
@@ -88,7 +93,7 @@ impl MorphTargetImage {
                     buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * mem::size_of::<f32>()));
+                buffer.extend(iter::repeat(0).take(padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })
@@ -98,7 +103,13 @@ impl MorphTargetImage {
             height,
             depth_or_array_layers: target_count as u32,
         };
-        let image = Image::new(extents, TextureDimension::D3, data, TextureFormat::R32Float);
+        let image = Image::new(
+            extents,
+            TextureDimension::D3,
+            data,
+            TextureFormat::R32Float,
+            asset_usage,
+        );
         Ok(MorphTargetImage(image))
     }
 }
@@ -111,13 +122,13 @@ impl MorphTargetImage {
 /// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
 /// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
 /// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).   
+/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
 ///
 /// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component)]
+#[reflect(Debug, Component, Default)]
 pub struct MorphWeights {
     weights: Vec<f32>,
     /// The first mesh primitive assigned to these weights
@@ -162,7 +173,7 @@ impl MorphWeights {
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component)]
+#[reflect(Debug, Component, Default)]
 pub struct MeshMorphWeights {
     weights: Vec<f32>,
 }

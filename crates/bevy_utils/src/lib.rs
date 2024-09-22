@@ -1,64 +1,94 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![expect(
+    unsafe_code,
+    reason = "Some utilities, such as futures and cells, require unsafe code."
+)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
-#![allow(clippy::type_complexity)]
-#![warn(missing_docs)]
-#![warn(clippy::undocumented_unsafe_blocks)]
 
-#[allow(missing_docs)]
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+/// The utilities prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::default;
 }
 
 pub mod futures;
-pub mod label;
-mod short_names;
-pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod float_ord;
+mod object_safe;
+pub use object_safe::assert_object_safe;
+mod once;
+mod parallel_queue;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use default::default;
-pub use float_ord::*;
 pub use hashbrown;
-pub use instant::{Duration, Instant};
-pub use petgraph;
-pub use thiserror;
+pub use parallel_queue::*;
 pub use tracing;
-pub use uuid::Uuid;
+pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
-use hashbrown::hash_map::RawEntryMut;
-use std::{
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
+use core::{
+    any::TypeId,
     fmt::Debug,
-    future::Future,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::Deref,
-    pin::Pin,
 };
+use hashbrown::hash_map::RawEntryMut;
+
+#[cfg(not(target_arch = "wasm32"))]
+mod conditional_send {
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
+    /// futures aren't Send.
+    pub trait ConditionalSend: Send {}
+    impl<T: Send> ConditionalSend for T {}
+}
+
+#[cfg(target_arch = "wasm32")]
+#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
+mod conditional_send {
+    pub trait ConditionalSend {}
+    impl<T> ConditionalSend for T {}
+}
+
+pub use conditional_send::*;
+
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
+/// futures aren't Send.
+pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
+impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-#[cfg(not(target_arch = "wasm32"))]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
-
-#[allow(missing_docs)]
-#[cfg(target_arch = "wasm32")]
-pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+#[cfg(feature = "alloc")]
+pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, BuildHasherDefault<AHasher>>;
+pub type Entry<'a, K, V, S = BuildHasherDefault<AHasher>> = hashbrown::hash_map::Entry<'a, K, V, S>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
-impl std::hash::BuildHasher for FixedState {
+impl BuildHasher for FixedState {
     type Hasher = AHasher;
 
     #[inline]
@@ -77,30 +107,44 @@ impl std::hash::BuildHasher for FixedState {
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashMap`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, BuildHasherDefault<AHasher>>;
 
 /// A stable hash map implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashMap<K, V, FixedState>"
+)]
 pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
 /// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+///
+/// Within the same execution of the program iteration order of different
+/// `HashSet`s only depends on the order of insertions and deletions,
+/// but it will not be stable between multiple executions of the program.
 pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 
 /// A stable hash set implementing aHash, a high speed keyed hashing algorithm
 /// intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashSet`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// Unlike [`HashMap`] the iteration order stability extends between executions
+/// using the same Bevy version on the same device.
 ///
 /// aHash is designed for performance and is NOT cryptographically secure.
+#[deprecated(
+    note = "Will be required to use the hash library of your choice. Alias for: hashbrown::HashSet<K, FixedState>"
+)]
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
@@ -117,11 +161,8 @@ pub struct Hashed<V, H = FixedState> {
 impl<V: Hash, H: BuildHasher + Default> Hashed<V, H> {
     /// Pre-hashes the given value using the [`BuildHasher`] configured in the [`Hashed`] type.
     pub fn new(value: V) -> Self {
-        let builder = H::default();
-        let mut hasher = builder.build_hasher();
-        value.hash(&mut hasher);
         Self {
-            hash: hasher.finish(),
+            hash: H::default().hash_one(&value),
             value,
             marker: PhantomData,
         }
@@ -160,7 +201,7 @@ impl<V: PartialEq, H> PartialEq for Hashed<V, H> {
 }
 
 impl<V: Debug, H> Debug for Hashed<V, H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Hashed")
             .field("hash", &self.hash)
             .field("value", &self.value)
@@ -182,7 +223,7 @@ impl<V: Clone, H> Clone for Hashed<V, H> {
 impl<V: Eq, H> Eq for Hashed<V, H> {}
 
 /// A [`BuildHasher`] that results in a [`PassHasher`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PassHash;
 
 impl BuildHasher for PassHash {
@@ -201,6 +242,11 @@ pub struct PassHasher {
 }
 
 impl Hasher for PassHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+
     fn write(&mut self, _bytes: &[u8]) {
         panic!("can only hash u64 using PassHasher");
     }
@@ -209,14 +255,10 @@ impl Hasher for PassHasher {
     fn write_u64(&mut self, i: u64) {
         self.hash = i;
     }
-
-    #[inline]
-    fn finish(&self) -> u64 {
-        self.hash
-    }
 }
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.
+/// Iteration order only depends on the order of insertions and deletions.
 pub type PreHashMap<K, V> = hashbrown::HashMap<Hashed<K>, V, PassHash>;
 
 /// Extension methods intended to add functionality to [`PreHashMap`].
@@ -240,6 +282,46 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
                 value
             }
         }
+    }
+}
+
+/// A specialized hashmap type with Key of [`TypeId`]
+/// Iteration order only depends on the order of insertions and deletions.
+pub type TypeIdMap<V> = hashbrown::HashMap<TypeId, V, NoOpHash>;
+
+/// [`BuildHasher`] for types that already contain a high-quality hash.
+#[derive(Clone, Default)]
+pub struct NoOpHash;
+
+impl BuildHasher for NoOpHash {
+    type Hasher = NoOpHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        NoOpHasher(0)
+    }
+}
+
+#[doc(hidden)]
+pub struct NoOpHasher(u64);
+
+// This is for types that already contain a high-quality hash and want to skip
+// re-hashing that hash.
+impl Hasher for NoOpHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        // This should never be called by consumers. Prefer to call `write_u64` instead.
+        // Don't break applications (slower fallback, just check in test):
+        self.0 = bytes.iter().fold(self.0, |hash, b| {
+            hash.rotate_left(8).wrapping_add(*b as u64)
+        });
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.0 = i;
     }
 }
 
@@ -298,6 +380,30 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
+/// Calls the [`tracing::info!`] macro on a value.
+pub fn info<T: Debug>(data: T) {
+    tracing::info!("{:?}", data);
+}
+
+/// Calls the [`tracing::debug!`] macro on a value.
+pub fn dbg<T: Debug>(data: T) {
+    tracing::debug!("{:?}", data);
+}
+
+/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+pub fn warn<E: Debug>(result: Result<(), E>) {
+    if let Err(warn) = result {
+        tracing::warn!("{:?}", warn);
+    }
+}
+
+/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+pub fn error<E: Debug>(result: Result<(), E>) {
+    if let Err(error) = result {
+        tracing::error!("{:?}", error);
+    }
+}
+
 /// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
 #[macro_export]
 macro_rules! detailed_trace {
@@ -305,5 +411,48 @@ macro_rules! detailed_trace {
         if cfg!(detailed_trace) {
             bevy_utils::tracing::trace!($($tts)*);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    // Check that the HashMaps are Clone if the key/values are Clone
+    assert_impl_all!(PreHashMap::<u64, usize>: Clone);
+
+    #[test]
+    fn fast_typeid_hash() {
+        struct Hasher;
+
+        impl core::hash::Hasher for Hasher {
+            fn finish(&self) -> u64 {
+                0
+            }
+            fn write(&mut self, _: &[u8]) {
+                panic!("Hashing of std::any::TypeId changed");
+            }
+            fn write_u64(&mut self, _: u64) {}
+        }
+
+        Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn stable_hash_within_same_program_execution() {
+        use alloc::vec::Vec;
+
+        let mut map_1 = HashMap::new();
+        let mut map_2 = HashMap::new();
+        for i in 1..10 {
+            map_1.insert(i, i);
+            map_2.insert(i, i);
+        }
+        assert_eq!(
+            map_1.iter().collect::<Vec<_>>(),
+            map_2.iter().collect::<Vec<_>>()
+        );
     }
 }

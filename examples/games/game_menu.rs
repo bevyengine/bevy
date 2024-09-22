@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -34,10 +34,10 @@ fn main() {
         .insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         // Declare the game state, whose starting value is determined by the `Default` trait
-        .add_state::<GameState>()
+        .init_state::<GameState>()
         .add_systems(Startup, setup)
         // Adds the plugins for each state
-        .add_plugins((splash::SplashPlugin, menu::MenuPlugin, game::GamePlugin))
+        .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
         .run();
 }
 
@@ -51,19 +51,15 @@ mod splash {
     use super::{despawn_screen, GameState};
 
     // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
-    pub struct SplashPlugin;
-
-    impl Plugin for SplashPlugin {
-        fn build(&self, app: &mut App) {
-            // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
-            app
-                // When entering the state, spawn everything needed for this screen
-                .add_systems(OnEnter(GameState::Splash), splash_setup)
-                // While in this state, run the `countdown` system
-                .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
-                // When exiting the state, despawn everything that was spawned for this screen
-                .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
-        }
+    pub fn splash_plugin(app: &mut App) {
+        // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
+        app
+            // When entering the state, spawn everything needed for this screen
+            .add_systems(OnEnter(GameState::Splash), splash_setup)
+            // While in this state, run the `countdown` system
+            .add_systems(Update, countdown.run_if(in_state(GameState::Splash)))
+            // When exiting the state, despawn everything that was spawned for this screen
+            .add_systems(OnExit(GameState::Splash), despawn_screen::<OnSplashScreen>);
     }
 
     // Tag component used to tag entities added on the splash screen
@@ -84,6 +80,7 @@ mod splash {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -118,20 +115,19 @@ mod splash {
 }
 
 mod game {
-    use bevy::prelude::*;
+    use bevy::{
+        color::palettes::basic::{BLUE, LIME},
+        prelude::*,
+    };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
-    pub struct GamePlugin;
-
-    impl Plugin for GamePlugin {
-        fn build(&self, app: &mut App) {
-            app.add_systems(OnEnter(GameState::Game), game_setup)
-                .add_systems(Update, game.run_if(in_state(GameState::Game)))
-                .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
-        }
+    pub fn game_plugin(app: &mut App) {
+        app.add_systems(OnEnter(GameState::Game), game_setup)
+            .add_systems(Update, game.run_if(in_state(GameState::Game)))
+            .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
     }
 
     // Tag component used to tag entities added on the game screen
@@ -183,7 +179,7 @@ mod game {
                             TextBundle::from_section(
                                 "Will be back to the menu shortly...",
                                 TextStyle {
-                                    font_size: 80.0,
+                                    font_size: 67.0,
                                     color: TEXT_COLOR,
                                     ..default()
                                 },
@@ -198,15 +194,15 @@ mod game {
                                 TextSection::new(
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
-                                        font_size: 60.0,
-                                        color: Color::BLUE,
+                                        font_size: 50.0,
+                                        color: BLUE.into(),
                                         ..default()
                                     },
                                 ),
                                 TextSection::new(
                                     " - ",
                                     TextStyle {
-                                        font_size: 60.0,
+                                        font_size: 50.0,
                                         color: TEXT_COLOR,
                                         ..default()
                                     },
@@ -214,8 +210,8 @@ mod game {
                                 TextSection::new(
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
-                                        font_size: 60.0,
-                                        color: Color::GREEN,
+                                        font_size: 50.0,
+                                        color: LIME.into(),
                                         ..default()
                                     },
                                 ),
@@ -244,7 +240,7 @@ mod game {
 }
 
 mod menu {
-    use bevy::{app::AppExit, prelude::*};
+    use bevy::{app::AppExit, color::palettes::css::CRIMSON, prelude::*};
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
@@ -252,57 +248,50 @@ mod menu {
     // - a main menu with "New Game", "Settings", "Quit"
     // - a settings menu with two submenus and a back button
     // - two settings screen with a setting that can be set and a back button
-    pub struct MenuPlugin;
-
-    impl Plugin for MenuPlugin {
-        fn build(&self, app: &mut App) {
-            app
-                // At start, the menu is not enabled. This will be changed in `menu_setup` when
-                // entering the `GameState::Menu` state.
-                // Current screen in the menu is handled by an independent state from `GameState`
-                .add_state::<MenuState>()
-                .add_systems(OnEnter(GameState::Menu), menu_setup)
-                // Systems to handle the main menu screen
-                .add_systems(OnEnter(MenuState::Main), main_menu_setup)
-                .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
-                // Systems to handle the settings menu screen
-                .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
-                .add_systems(
-                    OnExit(MenuState::Settings),
-                    despawn_screen::<OnSettingsMenuScreen>,
-                )
-                // Systems to handle the display settings screen
-                .add_systems(
-                    OnEnter(MenuState::SettingsDisplay),
-                    display_settings_menu_setup,
-                )
-                .add_systems(
-                    Update,
-                    (
-                        setting_button::<DisplayQuality>
-                            .run_if(in_state(MenuState::SettingsDisplay)),
-                    ),
-                )
-                .add_systems(
-                    OnExit(MenuState::SettingsDisplay),
-                    despawn_screen::<OnDisplaySettingsMenuScreen>,
-                )
-                // Systems to handle the sound settings screen
-                .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
-                .add_systems(
-                    Update,
-                    setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
-                )
-                .add_systems(
-                    OnExit(MenuState::SettingsSound),
-                    despawn_screen::<OnSoundSettingsMenuScreen>,
-                )
-                // Common systems to all screens that handles buttons behavior
-                .add_systems(
-                    Update,
-                    (menu_action, button_system).run_if(in_state(GameState::Menu)),
-                );
-        }
+    pub fn menu_plugin(app: &mut App) {
+        app
+            // At start, the menu is not enabled. This will be changed in `menu_setup` when
+            // entering the `GameState::Menu` state.
+            // Current screen in the menu is handled by an independent state from `GameState`
+            .init_state::<MenuState>()
+            .add_systems(OnEnter(GameState::Menu), menu_setup)
+            // Systems to handle the main menu screen
+            .add_systems(OnEnter(MenuState::Main), main_menu_setup)
+            .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
+            // Systems to handle the settings menu screen
+            .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
+            .add_systems(
+                OnExit(MenuState::Settings),
+                despawn_screen::<OnSettingsMenuScreen>,
+            )
+            // Systems to handle the display settings screen
+            .add_systems(
+                OnEnter(MenuState::SettingsDisplay),
+                display_settings_menu_setup,
+            )
+            .add_systems(
+                Update,
+                (setting_button::<DisplayQuality>.run_if(in_state(MenuState::SettingsDisplay)),),
+            )
+            .add_systems(
+                OnExit(MenuState::SettingsDisplay),
+                despawn_screen::<OnDisplaySettingsMenuScreen>,
+            )
+            // Systems to handle the sound settings screen
+            .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
+            .add_systems(
+                Update,
+                setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
+            )
+            .add_systems(
+                OnExit(MenuState::SettingsSound),
+                despawn_screen::<OnSoundSettingsMenuScreen>,
+            )
+            // Common systems to all screens that handles buttons behavior
+            .add_systems(
+                Update,
+                (menu_action, button_system).run_if(in_state(GameState::Menu)),
+            );
     }
 
     // State used for the current menu screen
@@ -332,10 +321,10 @@ mod menu {
     #[derive(Component)]
     struct OnSoundSettingsMenuScreen;
 
-    const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-    const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-    const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
-    const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+    const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+    const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+    const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
+    const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     // Tag component used to mark which setting is currently selected
     #[derive(Component)]
@@ -360,8 +349,8 @@ mod menu {
             (Changed<Interaction>, With<Button>),
         >,
     ) {
-        for (interaction, mut color, selected) in &mut interaction_query {
-            *color = match (*interaction, selected) {
+        for (interaction, mut background_color, selected) in &mut interaction_query {
+            *background_color = match (*interaction, selected) {
                 (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
                 (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
                 (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
@@ -380,8 +369,8 @@ mod menu {
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
-                let (previous_button, mut previous_color) = selected_query.single_mut();
-                *previous_color = NORMAL_BUTTON.into();
+                let (previous_button, mut previous_button_color) = selected_query.single_mut();
+                *previous_button_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
                 *setting = *button_setting;
@@ -396,7 +385,7 @@ mod menu {
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
         let button_style = Style {
-            width: Val::Px(250.0),
+            width: Val::Px(300.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
@@ -409,11 +398,10 @@ mod menu {
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            right: Val::Auto,
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -423,6 +411,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -439,7 +428,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -448,7 +437,7 @@ mod menu {
                             TextBundle::from_section(
                                 "Bevy Game Menu UI",
                                 TextStyle {
-                                    font_size: 80.0,
+                                    font_size: 67.0,
                                     color: TEXT_COLOR,
                                     ..default()
                                 },
@@ -538,7 +527,7 @@ mod menu {
         };
 
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -548,6 +537,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -564,7 +554,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -603,7 +593,7 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -613,6 +603,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -629,7 +620,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -641,7 +632,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {
@@ -656,16 +647,19 @@ mod menu {
                                     DisplayQuality::Medium,
                                     DisplayQuality::High,
                                 ] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            width: Val::Px(150.0),
-                                            height: Val::Px(65.0),
-                                            ..button_style.clone()
+                                    let mut entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(150.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(quality_setting).with_children(|parent| {
+                                        quality_setting,
+                                    ));
+                                    entity.with_children(|parent| {
                                         parent.spawn(TextBundle::from_section(
                                             format!("{quality_setting:?}"),
                                             button_text_style.clone(),
@@ -703,7 +697,7 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -713,6 +707,7 @@ mod menu {
                 NodeBundle {
                     style: Style {
                         width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -729,7 +724,7 @@ mod menu {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::CRIMSON.into(),
+                        background_color: CRIMSON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
@@ -739,7 +734,7 @@ mod menu {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: Color::CRIMSON.into(),
+                                background_color: CRIMSON.into(),
                                 ..default()
                             })
                             .with_children(|parent| {
@@ -748,16 +743,18 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn(ButtonBundle {
-                                        style: Style {
-                                            width: Val::Px(30.0),
-                                            height: Val::Px(65.0),
-                                            ..button_style.clone()
+                                    let entity = parent.spawn((
+                                        ButtonBundle {
+                                            style: Style {
+                                                width: Val::Px(30.0),
+                                                height: Val::Px(65.0),
+                                                ..button_style.clone()
+                                            },
+                                            background_color: NORMAL_BUTTON.into(),
+                                            ..default()
                                         },
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    });
-                                    entity.insert(Volume(volume_setting));
+                                        Volume(volume_setting),
+                                    ));
                                     if *volume == Volume(volume_setting) {
                                         entity.insert(SelectedOption);
                                     }
@@ -791,7 +788,9 @@ mod menu {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Pressed {
                 match menu_button_action {
-                    MenuButtonAction::Quit => app_exit_events.send(AppExit),
+                    MenuButtonAction::Quit => {
+                        app_exit_events.send(AppExit::Success);
+                    }
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game);
                         menu_state.set(MenuState::Disabled);

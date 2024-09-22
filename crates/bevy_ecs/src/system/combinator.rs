@@ -1,12 +1,11 @@
-use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
-
-use bevy_ptr::UnsafeCellDeref;
+use std::{borrow::Cow, marker::PhantomData};
 
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     prelude::World,
     query::Access,
+    schedule::InternedSystemSet,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -50,7 +49,7 @@ use super::{ReadOnlySystem, System};
 /// # let mut world = World::new();
 /// # world.init_resource::<RanFlag>();
 /// #
-/// # let mut app = Schedule::new();
+/// # let mut app = Schedule::default();
 /// app.add_systems(my_system.run_if(Xor::new(
 ///     IntoSystem::into_system(resource_equals(A(1))),
 ///     IntoSystem::into_system(resource_equals(B(1))),
@@ -82,6 +81,11 @@ use super::{ReadOnlySystem, System};
 /// # assert!(world.resource::<RanFlag>().0);
 /// # world.resource_mut::<RanFlag>().0 = false;
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not combine systems `{A}` and `{B}`",
+    label = "invalid system combination",
+    note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
+)]
 pub trait Combine<A: System, B: System> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In;
@@ -141,10 +145,6 @@ where
         self.name.clone()
     }
 
-    fn type_id(&self) -> std::any::TypeId {
-        std::any::TypeId::of::<Self>()
-    }
-
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
     }
@@ -161,6 +161,10 @@ where
         self.a.is_exclusive() || self.b.is_exclusive()
     }
 
+    fn has_deferred(&self) -> bool {
+        self.a.has_deferred() || self.b.has_deferred()
+    }
+
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
         Func::combine(
             input,
@@ -170,29 +174,34 @@ where
             // in parallel, so their world accesses will not conflict with each other.
             // Additionally, `update_archetype_component_access` has been called,
             // which forwards to the implementations for `self.a` and `self.b`.
-            |input| self.a.run_unsafe(input, world),
-            |input| self.b.run_unsafe(input, world),
+            |input| unsafe { self.a.run_unsafe(input, world) },
+            // SAFETY: See the comment above.
+            |input| unsafe { self.b.run_unsafe(input, world) },
         )
     }
 
-    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
-        // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
-        // is explicitly allowed in the docs for `UnsafeCell`.
-        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
             // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
-            |input| self.a.run(input, unsafe { world.deref_mut() }),
+            |input| self.a.run(input, unsafe { world.world_mut() }),
             #[allow(clippy::undocumented_unsafe_blocks)]
-            |input| self.b.run(input, unsafe { world.deref_mut() }),
+            |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -217,6 +226,12 @@ where
         self.b.check_change_tick(change_tick);
     }
 
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        let mut default_sets = self.a.default_system_sets();
+        default_sets.append(&mut self.b.default_system_sets());
+        default_sets
+    }
+
     fn get_last_run(&self) -> Tick {
         self.a.get_last_run()
     }
@@ -224,12 +239,6 @@ where
     fn set_last_run(&mut self, last_run: Tick) {
         self.a.set_last_run(last_run);
         self.b.set_last_run(last_run);
-    }
-
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
-        let mut default_sets = self.a.default_system_sets();
-        default_sets.append(&mut self.b.default_system_sets());
-        default_sets
     }
 }
 

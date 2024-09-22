@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn file_drag_and_drop_system(mut events: EventReader<FileDragAndDrop>) {
-    for event in events.iter() {
+    for event in events.read() {
         info!("{:?}", event);
     }
 }

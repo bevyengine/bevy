@@ -1,8 +1,14 @@
-#![allow(clippy::type_complexity)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 extern crate proc_macro;
 
-mod app_plugin;
 mod bevy_main;
 mod derefs;
 mod enum_variant_meta;
@@ -10,12 +16,6 @@ mod enum_variant_meta;
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
-
-/// Generates a dynamic plugin entry point function for the given `Plugin` type.
-#[proc_macro_derive(DynamicPlugin)]
-pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
-    app_plugin::derive_dynamic_plugin(input)
-}
 
 /// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
 ///
@@ -201,12 +201,13 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 
 /// Generates an impl of the `AppLabel` trait.
 ///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[app_label(ignore_fields)]`.
-#[proc_macro_derive(AppLabel, attributes(app_label))]
+/// This does not work for unions.
+#[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
     let mut trait_path = BevyManifest::default().get_path("bevy_app");
+    let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("AppLabel").into());
-    derive_label(input, &trait_path, "app_label")
+    dyn_eq_path.segments.push(format_ident!("DynEq").into());
+    derive_label(input, "AppLabel", &trait_path, &dyn_eq_path)
 }

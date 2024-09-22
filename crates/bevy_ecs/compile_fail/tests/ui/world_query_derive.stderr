@@ -1,0 +1,49 @@
+error[E0277]: the trait bound `&'static mut Foo: ReadOnlyQueryData` is not satisfied
+  --> tests/ui/world_query_derive.rs:10:8
+   |
+10 |     a: &'static mut Foo,
+   |        ^^^^^^^^^^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `&'static mut Foo`
+   |
+   = help: the following other types implement trait `ReadOnlyQueryData`:
+             MutableUnmarked
+             MutableMarkedReadOnly
+             NestedMutableUnmarked
+             bevy_ecs::change_detection::Ref<'__w, T>
+             Has<T>
+             AnyOf<()>
+             AnyOf<(F0,)>
+             AnyOf<(F0, F1)>
+           and 37 others
+note: required by a bound in `_::assert_readonly`
+  --> tests/ui/world_query_derive.rs:7:10
+   |
+7  | #[derive(QueryData)]
+   |          ^^^^^^^^^ required by this bound in `assert_readonly`
+   = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `MutableMarked: ReadOnlyQueryData` is not satisfied
+  --> tests/ui/world_query_derive.rs:22:8
+   |
+22 |     a: MutableMarked,
+   |        ^^^^^^^^^^^^^ the trait `ReadOnlyQueryData` is not implemented for `MutableMarked`
+   |
+   = help: the following other types implement trait `ReadOnlyQueryData`:
+             MutableUnmarked
+             MutableMarkedReadOnly
+             NestedMutableUnmarked
+             bevy_ecs::change_detection::Ref<'__w, T>
+             Has<T>
+             AnyOf<()>
+             AnyOf<(F0,)>
+             AnyOf<(F0, F1)>
+           and 37 others
+note: required by a bound in `_::assert_readonly`
+  --> tests/ui/world_query_derive.rs:19:10
+   |
+19 | #[derive(QueryData)]
+   |          ^^^^^^^^^ required by this bound in `assert_readonly`
+   = note: this error originates in the derive macro `QueryData` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

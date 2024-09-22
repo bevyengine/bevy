@@ -4,7 +4,12 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use std::mem;
+
+use bevy::{
+    input::keyboard::{Key, KeyboardInput},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -15,7 +20,6 @@ fn main() {
             (
                 toggle_ime,
                 listen_ime_events,
-                listen_received_character_events,
                 listen_keyboard_input_events,
                 bubbling_text,
             ),
@@ -26,63 +30,30 @@ fn main() {
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
+    // The default font has a limited number of glyphs, so use the full version for
+    // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands.spawn(
         TextBundle::from_sections([
+            TextSection::from("Click to toggle IME. Press return to start a new line.\n\n"),
+            TextSection::from("IME Enabled: "),
+            TextSection::from("false\n"),
+            TextSection::from("IME Active:  "),
+            TextSection::from("false\n"),
+            TextSection::from("IME Buffer:  "),
             TextSection {
-                value: "IME Enabled: ".to_string(),
+                value: "\n".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 20.0,
-                    color: Color::WHITE,
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    color: Color::WHITE,
-                },
-            },
-            TextSection {
-                value: "IME Active: ".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 20.0,
-                    color: Color::WHITE,
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    color: Color::WHITE,
-                },
-            },
-            TextSection {
-                value: "click to toggle IME, press return to start a new line\n\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 18.0,
-                    color: Color::WHITE,
-                },
-            },
-            TextSection {
-                value: "".to_string(),
-                style: TextStyle {
-                    font,
-                    font_size: 25.0,
-                    color: Color::WHITE,
+                    font: font.clone(),
+                    ..default()
                 },
             },
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -91,9 +62,9 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::from_section(
             "".to_string(),
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font,
                 font_size: 100.0,
-                color: Color::WHITE,
+                ..default()
             },
         ),
         ..default()
@@ -101,7 +72,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn toggle_ime(
-    input: Res<Input<MouseButton>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
     mut text: Query<&mut Text, With<Node>>,
 ) {
@@ -112,7 +83,7 @@ fn toggle_ime(
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();
-        text.sections[1].value = format!("{}\n", window.ime_enabled);
+        text.sections[2].value = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -120,9 +91,6 @@ fn toggle_ime(
 struct Bubble {
     timer: Timer,
 }
-
-#[derive(Component)]
-struct ImePreedit;
 
 fn bubbling_text(
     mut commands: Commands,
@@ -142,57 +110,65 @@ fn listen_ime_events(
     mut status_text: Query<&mut Text, With<Node>>,
     mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
+                status_text.single_mut().sections[6].value = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().sections[5].value = "".to_string();
+                status_text.single_mut().sections[6].value = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
                 edit_text.single_mut().sections[0].value.push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().sections[3].value = "true\n".to_string();
+                status_text.single_mut().sections[4].value = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().sections[3].value = "false\n".to_string();
+                status_text.single_mut().sections[4].value = "false\n".to_string();
             }
             _ => (),
         }
     }
 }
 
-fn listen_received_character_events(
-    mut events: EventReader<ReceivedCharacter>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
-) {
-    for event in events.iter() {
-        edit_text.single_mut().sections[0].value.push(event.char);
-    }
-}
-
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
-    for event in events.iter() {
-        match event.key_code {
-            Some(KeyCode::Return) => {
-                let (entity, text) = edit_text.single();
-                commands.entity(entity).insert(Bubble {
-                    timer: Timer::from_seconds(5.0, TimerMode::Once),
-                });
+    for event in events.read() {
+        // Only trigger changes when the key is first pressed.
+        if !event.state.is_pressed() {
+            continue;
+        }
 
-                commands.spawn(Text2dBundle {
-                    text: Text::from_section("".to_string(), text.sections[0].style.clone()),
-                    ..default()
-                });
+        match &event.logical_key {
+            Key::Enter => {
+                let mut text = edit_text.single_mut();
+                if text.sections[0].value.is_empty() {
+                    continue;
+                }
+                let old_value = mem::take(&mut text.sections[0].value);
+
+                commands.spawn((
+                    Text2dBundle {
+                        text: Text::from_section(old_value, text.sections[0].style.clone()),
+                        ..default()
+                    },
+                    Bubble {
+                        timer: Timer::from_seconds(5.0, TimerMode::Once),
+                    },
+                ));
             }
-            Some(KeyCode::Back) => {
-                edit_text.single_mut().1.sections[0].value.pop();
+            Key::Space => {
+                edit_text.single_mut().sections[0].value.push(' ');
+            }
+            Key::Backspace => {
+                edit_text.single_mut().sections[0].value.pop();
+            }
+            Key::Character(character) => {
+                edit_text.single_mut().sections[0].value.push_str(character);
             }
             _ => continue,
         }

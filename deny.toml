@@ -1,60 +1,78 @@
+[graph]
+all-features = true
+
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "deny"
-yanked = "deny"
-notice = "deny"
-ignore = [
-]
+version = 2
+ignore = []
 
 [licenses]
-unlicensed = "deny"
-copyleft = "deny"
+version = 2
 allow = [
-    "MIT",
-    "MIT-0",
-    "Apache-2.0",
-    "BSD-3-Clause",
-    "ISC",
-    "Zlib",
-    "0BSD",
-    "BSD-2-Clause",
-    "CC0-1.0",
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  "Unlicense",
+  "Zlib",
 ]
+
 exceptions = [
-    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
+  { name = "unicode-ident", allow = [
+    "Unicode-DFS-2016",
+  ] },
+  { name = "symphonia", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-bundle-flac", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-bundle-mp3", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-aac", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-adpcm", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-pcm", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-vorbis", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-core", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-isomp4", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-riff", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-metadata", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-utils-xiph", allow = [
+    "MPL-2.0",
+  ] },
 ]
-default = "deny"
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "warn"
 wildcards = "deny"
-highlight = "all"
-# Certain crates/versions that will be skipped when doing duplicate detection.
-skip = [
-    { name = "ahash", version = "0.7" },
-    { name = "bitflags", version = "1.3" },
-    { name = "core-foundation-sys", version = "0.6" },
-    { name = "jni", version = "0.19" },
-    { name = "hashbrown", version = "0.12"},
-    { name = "libloading", version = "0.7"},
-    { name = "miniz_oxide", version = "0.6"},
-    { name = "nix", version = "0.24" },
-    { name = "redox_syscall", version = "0.2" },
-    { name = "regex-syntax", version = "0.6"},
-    { name = "syn", version = "1.0"},
-    { name = "windows", version = "0.44"},
-    { name = "windows", version = "0.46"},
-    { name = "windows-sys", version = "0.45" },
-    { name = "windows-targets", version = "0.42"},
-    { name = "windows_aarch64_gnullvm", version = "0.42"},
-    { name = "windows_aarch64_msvc", version = "0.42"},
-    { name = "windows_i686_gnu", version = "0.42"},
-    { name = "windows_i686_msvc", version = "0.42"},
-    { name = "windows_x86_64_gnu", version = "0.42"},
-    { name = "windows_x86_64_gnullvm", version = "0.42"},
-    { name = "windows_x86_64_msvc", version = "0.42"},
+# Certain crates that we don't want multiple versions of in the dependency tree
+deny = [
+  { name = "ahash", deny-multiple-versions = true },
+  { name = "android-activity", deny-multiple-versions = true },
+  { name = "glam", deny-multiple-versions = true },
+  { name = "raw-window-handle", deny-multiple-versions = true },
 ]
 
 [sources]

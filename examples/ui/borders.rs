@@ -1,6 +1,6 @@
 //! Example demonstrating bordered UI nodes
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -14,20 +14,59 @@ fn setup(mut commands: Commands) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                flex_basis: Val::Percent(100.0),
                 margin: UiRect::all(Val::Px(25.0)),
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
                 align_content: AlignContent::FlexStart,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
             ..Default::default()
         })
         .id();
 
+    let root_rounded = commands
+        .spawn(NodeBundle {
+            style: Style {
+                margin: UiRect::all(Val::Px(25.0)),
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                align_content: AlignContent::FlexStart,
+                ..Default::default()
+            },
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            ..Default::default()
+        })
+        .id();
+
+    // labels for the different border edges
+    let border_labels = [
+        "None",
+        "All",
+        "Left",
+        "Right",
+        "Top",
+        "Bottom",
+        "Horizontal",
+        "Vertical",
+        "Top Left",
+        "Bottom Left",
+        "Top Right",
+        "Bottom Right",
+        "Top Bottom Right",
+        "Top Bottom Left",
+        "Top Left Right",
+        "Bottom Left Right",
+    ];
+
     // all the different combinations of border edges
+    // these correspond to the labels above
     let borders = [
         UiRect::default(),
         UiRect::all(Val::Px(10.)),
@@ -83,7 +122,7 @@ fn setup(mut commands: Commands) {
         },
     ];
 
-    for i in 0..64 {
+    for (label, border) in border_labels.into_iter().zip(borders) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -91,27 +130,194 @@ fn setup(mut commands: Commands) {
                     height: Val::Px(10.),
                     ..Default::default()
                 },
-                background_color: Color::YELLOW.into(),
+                background_color: YELLOW.into(),
                 ..Default::default()
             })
             .id();
-        let bordered_node = commands
-            .spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(50.),
-                    height: Val::Px(50.),
-                    border: borders[i % borders.len()],
-                    margin: UiRect::all(Val::Px(2.)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
+        let border_node = commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(50.),
+                        height: Val::Px(50.),
+                        border,
+                        margin: UiRect::all(Val::Px(20.)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    background_color: MAROON.into(),
+                    border_color: RED.into(),
                     ..Default::default()
                 },
-                background_color: Color::BLUE.into(),
-                border_color: Color::WHITE.with_a(0.5).into(),
-                ..Default::default()
-            })
+                Outline {
+                    width: Val::Px(6.),
+                    offset: Val::Px(6.),
+                    color: Color::WHITE,
+                },
+            ))
             .add_child(inner_spot)
             .id();
-        commands.entity(root).add_child(bordered_node);
+        let label_node = commands
+            .spawn(TextBundle::from_section(
+                label,
+                TextStyle {
+                    font_size: 9.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        let container = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .add_children(&[border_node, label_node])
+            .id();
+        commands.entity(root).add_child(container);
     }
+
+    for (label, border) in border_labels.into_iter().zip(borders) {
+        let inner_spot = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    width: Val::Px(10.),
+                    height: Val::Px(10.),
+                    ..Default::default()
+                },
+                border_radius: BorderRadius::MAX,
+                background_color: YELLOW.into(),
+                ..Default::default()
+            })
+            .id();
+        let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+        let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
+        let border_radius = BorderRadius::px(
+            border_size(border.left, border.top),
+            border_size(border.right, border.top),
+            border_size(border.right, border.bottom),
+            border_size(border.left, border.bottom),
+        );
+        let border_node = commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Px(50.),
+                        height: Val::Px(50.),
+                        border,
+                        margin: UiRect::all(Val::Px(20.)),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..Default::default()
+                    },
+                    background_color: MAROON.into(),
+                    border_color: RED.into(),
+                    border_radius,
+                    ..Default::default()
+                },
+                Outline {
+                    width: Val::Px(6.),
+                    offset: Val::Px(6.),
+                    color: Color::WHITE,
+                },
+            ))
+            .add_child(inner_spot)
+            .id();
+        let label_node = commands
+            .spawn(TextBundle::from_section(
+                label,
+                TextStyle {
+                    font_size: 9.0,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        let container = commands
+            .spawn(NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .add_children(&[border_node, label_node])
+            .id();
+        commands.entity(root_rounded).add_child(container);
+    }
+
+    let border_label = commands
+        .spawn(NodeBundle {
+            style: Style {
+                margin: UiRect {
+                    left: Val::Px(25.0),
+                    right: Val::Px(25.0),
+                    top: Val::Px(25.0),
+                    bottom: Val::Px(0.0),
+                },
+                ..Default::default()
+            },
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            ..Default::default()
+        })
+        .with_children(|builder| {
+            builder.spawn(TextBundle::from_section(
+                "Borders",
+                TextStyle {
+                    font_size: 20.0,
+                    ..Default::default()
+                },
+            ));
+        })
+        .id();
+
+    let border_rounded_label = commands
+        .spawn(NodeBundle {
+            style: Style {
+                margin: UiRect {
+                    left: Val::Px(25.0),
+                    right: Val::Px(25.0),
+                    top: Val::Px(25.0),
+                    bottom: Val::Px(0.0),
+                },
+                ..Default::default()
+            },
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            ..Default::default()
+        })
+        .with_children(|builder| {
+            builder.spawn(TextBundle::from_section(
+                "Borders Rounded",
+                TextStyle {
+                    font_size: 20.0,
+                    ..Default::default()
+                },
+            ));
+        })
+        .id();
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                margin: UiRect::all(Val::Px(25.0)),
+                flex_direction: FlexDirection::Column,
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                align_content: AlignContent::FlexStart,
+                ..Default::default()
+            },
+            background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            ..Default::default()
+        })
+        .add_child(border_label)
+        .add_child(root)
+        .add_child(border_rounded_label)
+        .add_child(root_rounded);
 }

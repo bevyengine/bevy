@@ -1,32 +1,12 @@
-// If using this WGSL snippet as an #import, the following should be in scope:
-//
-// - the `morph_weights` uniform of type `MorphWeights`
-// - the `morph_targets` 3d texture
-//
-// They are defined in `mesh_types.wgsl` and `mesh_bindings.wgsl`.
-
 #define_import_path bevy_pbr::morph
 
 #ifdef MORPH_TARGETS
 
-#import bevy_pbr::mesh_types MorphWeights
+#import bevy_pbr::mesh_types::MorphWeights;
 
-#ifdef MESH_BINDGROUP_1
-
-@group(1) @binding(2)
-var<uniform> morph_weights: MorphWeights;
-@group(1) @binding(3)
-var morph_targets: texture_3d<f32>;
-
-#else
-
-@group(2) @binding(2)
-var<uniform> morph_weights: MorphWeights;
-@group(2) @binding(3)
-var morph_targets: texture_3d<f32>;
-
-#endif
-
+@group(1) @binding(2) var<uniform> morph_weights: MorphWeights;
+@group(1) @binding(3) var morph_targets: texture_3d<f32>;
+@group(1) @binding(7) var<uniform> prev_morph_weights: MorphWeights;
 
 // NOTE: Those are the "hardcoded" values found in `MorphAttributes` struct
 // in crates/bevy_render/src/mesh/morph/visitors.rs
@@ -49,6 +29,10 @@ fn component_texture_coord(vertex_index: u32, component_offset: u32) -> vec2<u32
 fn weight_at(weight_index: u32) -> f32 {
     let i = weight_index;
     return morph_weights.weights[i / 4u][i % 4u];
+}
+fn prev_weight_at(weight_index: u32) -> f32 {
+    let i = weight_index;
+    return prev_morph_weights.weights[i / 4u][i % 4u];
 }
 fn morph_pixel(vertex: u32, component: u32, weight: u32) -> f32 {
     let coord = component_texture_coord(vertex, component);

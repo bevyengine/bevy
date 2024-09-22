@@ -15,13 +15,13 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::Children;
-use bevy_render::prelude::Camera;
+use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
-    for child in children.iter() {
+    for child in children {
         if let Ok(text) = texts.get(*child) {
             let values = text
                 .sections
@@ -31,7 +31,7 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
             name = Some(values.join(" "));
         }
     }
-    name.map(|v| v.into_boxed_str())
+    name.map(String::into_boxed_str)
 }
 
 fn calc_bounds(
@@ -41,7 +41,7 @@ fn calc_bounds(
     if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
             if node.is_changed() || transform.is_changed() {
-                if let Some(translation) =
+                if let Ok(translation) =
                     camera.world_to_viewport(camera_transform, transform.translation())
                 {
                     let bounds = Rect::new(
@@ -78,7 +78,7 @@ fn button_changed(
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -107,7 +107,7 @@ fn image_changed(
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -124,20 +124,20 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::LabelText);
+            accessible.set_role(Role::Label);
             if let Some(name) = name {
                 accessible.set_name(name);
             } else {
                 accessible.clear_name();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::LabelText);
+            let mut node = NodeBuilder::new(Role::Label);
             if let Some(name) = name {
                 node.set_name(name);
             }
             commands
                 .entity(entity)
-                .insert(AccessibilityNode::from(node));
+                .try_insert(AccessibilityNode::from(node));
         }
     }
 }
@@ -150,7 +150,11 @@ impl Plugin for AccessibilityPlugin {
         app.add_systems(
             PostUpdate,
             (
-                calc_bounds.after(bevy_transform::TransformSystem::TransformPropagate),
+                calc_bounds
+                    .after(bevy_transform::TransformSystem::TransformPropagate)
+                    .after(CameraUpdateSystem)
+                    // the listed systems do not affect calculated size
+                    .ambiguous_with(crate::ui_stack_system),
                 button_changed,
                 image_changed,
                 label_changed,
