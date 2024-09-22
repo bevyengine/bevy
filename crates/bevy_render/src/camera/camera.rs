@@ -633,7 +633,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -659,7 +659,7 @@ impl From<Handle<Image>> for RenderTarget {
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
