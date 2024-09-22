@@ -240,6 +240,25 @@ impl<'a, A> TryFrom<&'a mut AssetPresence<A>> for AssetPresenceMut<'a, A> {
     }
 }
 
+impl<'a, A> AsRef<A> for AssetPresenceMut<'a, A> {
+    fn as_ref(&self) -> &A {
+        match self {
+            Self::Unlocked(asset) => asset,
+            Self::Locked(asset_arc) => asset_arc.as_ref(),
+        }
+    }
+}
+
+impl<'a, A> AssetPresenceMut<'a, A> {
+    /// Gets a mutable borrow to the asset. Returns [`None`] if the asset is locked.
+    pub fn as_mut(&mut self) -> Option<&mut A> {
+        match self {
+            Self::Unlocked(asset) => Some(*asset),
+            Self::Locked(_) => None,
+        }
+    }
+}
+
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
 struct DenseAssetStorage<A: Asset> {
     storage: Vec<Entry<A>>,
