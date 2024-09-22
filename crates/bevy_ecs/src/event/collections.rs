@@ -8,8 +8,10 @@ use bevy_ecs::{
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::detailed_trace;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.

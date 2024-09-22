@@ -1,15 +1,12 @@
-use crate::prelude::Mut;
-use crate::reflect::AppTypeRegistry;
-use crate::system::{EntityCommands, Resource};
-use crate::world::Command;
 use crate::{
     entity::Entity,
-    reflect::{ReflectBundle, ReflectComponent},
-    world::World,
+    prelude::Mut,
+    reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
+    system::{EntityCommands, Resource},
+    world::{Command, World},
 };
 use bevy_reflect::{PartialReflect, TypeRegistry};
-use std::borrow::Cow;
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
@@ -86,7 +83,6 @@ pub trait ReflectCommandExt {
     ///         .spawn_empty()
     ///         .insert_reflect(prefab.data.clone_value());
     /// }
-    ///
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
 
@@ -161,7 +157,6 @@ pub trait ReflectCommandExt {
     ///     commands.entity(prefab.entity)
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
-    ///
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
@@ -351,10 +346,15 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{AppTypeRegistry, ReflectComponent};
-    use crate::reflect::{ReflectBundle, ReflectCommandExt};
-    use crate::system::{Commands, SystemState};
-    use crate::{self as bevy_ecs, bundle::Bundle, component::Component, world::World};
+    use crate::{
+        self as bevy_ecs,
+        bundle::Bundle,
+        component::Component,
+        prelude::{AppTypeRegistry, ReflectComponent},
+        reflect::{ReflectBundle, ReflectCommandExt},
+        system::{Commands, SystemState},
+        world::World,
+    };
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 

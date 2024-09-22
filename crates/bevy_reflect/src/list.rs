@@ -1,14 +1,15 @@
-use std::any::Any;
-use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use std::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::type_info::impl_type_methods;
-use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
+    FromReflect, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].

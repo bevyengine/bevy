@@ -4,9 +4,11 @@ use crate::{
     StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::fmt::Formatter;
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
-use std::hash::Hash;
+use std::{
+    any::{Any, TypeId},
+    fmt::Debug,
+    hash::Hash,
+};
 use thiserror::Error;
 
 /// A static accessor to compile-time type information.

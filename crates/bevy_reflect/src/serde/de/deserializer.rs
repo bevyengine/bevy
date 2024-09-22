@@ -1,17 +1,16 @@
-use crate::serde::de::arrays::ArrayVisitor;
-use crate::serde::de::enums::EnumVisitor;
-use crate::serde::de::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
-use crate::serde::de::lists::ListVisitor;
-use crate::serde::de::maps::MapVisitor;
-use crate::serde::de::options::OptionVisitor;
-use crate::serde::de::sets::SetVisitor;
-use crate::serde::de::structs::StructVisitor;
-use crate::serde::de::tuple_structs::TupleStructVisitor;
-use crate::serde::de::tuples::TupleVisitor;
-use crate::serde::TypeRegistrationDeserializer;
-use crate::{PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry};
+use crate::{
+    serde::{
+        de::{
+            arrays::ArrayVisitor, enums::EnumVisitor, error_utils::make_custom_error,
+            lists::ListVisitor, maps::MapVisitor, options::OptionVisitor, sets::SetVisitor,
+            structs::StructVisitor, tuple_structs::TupleStructVisitor, tuples::TupleVisitor,
+        },
+        TypeRegistrationDeserializer,
+    },
+    PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry,
+};
 use core::fmt::Formatter;
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 use std::fmt;

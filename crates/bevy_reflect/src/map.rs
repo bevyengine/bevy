@@ -3,10 +3,9 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -571,8 +570,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicMap;
-    use super::Map;
+    use super::{DynamicMap, Map};
 
     #[test]
     fn test_into_iter() {

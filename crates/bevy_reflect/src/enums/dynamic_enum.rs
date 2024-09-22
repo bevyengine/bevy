@@ -84,7 +84,6 @@ impl DynamicEnum {
     ///
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new<I: Into<String>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
         Self {
             represented_type: None,
@@ -101,7 +100,6 @@ impl DynamicEnum {
     /// * `variant_index`: The index of the variant to set
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new_with_index<I: Into<String>, V: Into<DynamicVariant>>(
         variant_index: usize,
         variant_name: I,

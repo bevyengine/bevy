@@ -1,18 +1,18 @@
-use crate::serde::ser::arrays::ArraySerializer;
-use crate::serde::ser::enums::EnumSerializer;
-use crate::serde::ser::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
-use crate::serde::ser::lists::ListSerializer;
-use crate::serde::ser::maps::MapSerializer;
-use crate::serde::ser::sets::SetSerializer;
-use crate::serde::ser::structs::StructSerializer;
-use crate::serde::ser::tuple_structs::TupleStructSerializer;
-use crate::serde::ser::tuples::TupleSerializer;
-use crate::serde::Serializable;
-use crate::{PartialReflect, ReflectRef, TypeRegistry};
-use serde::ser::SerializeMap;
-use serde::Serialize;
+use crate::{
+    serde::{
+        ser::{
+            arrays::ArraySerializer, enums::EnumSerializer, error_utils::make_custom_error,
+            lists::ListSerializer, maps::MapSerializer, sets::SetSerializer,
+            structs::StructSerializer, tuple_structs::TupleStructSerializer,
+            tuples::TupleSerializer,
+        },
+        Serializable,
+    },
+    PartialReflect, ReflectRef, TypeRegistry,
+};
+use serde::{ser::SerializeMap, Serialize};
 
 /// A general purpose serializer for reflected types.
 ///

@@ -1,7 +1,10 @@
-use crate::serde::de::error_utils::make_custom_error;
-use crate::serde::de::registration_utils::try_get_registration;
-use crate::serde::TypedReflectDeserializer;
-use crate::{DynamicEnum, DynamicTuple, EnumInfo, TypeRegistry, VariantInfo};
+use crate::{
+    serde::{
+        de::{error_utils::make_custom_error, registration_utils::try_get_registration},
+        TypedReflectDeserializer,
+    },
+    DynamicEnum, DynamicTuple, EnumInfo, TypeRegistry, VariantInfo,
+};
 use core::fmt::Formatter;
 use serde::de::{DeserializeSeed, Error, Visitor};
 use std::fmt;

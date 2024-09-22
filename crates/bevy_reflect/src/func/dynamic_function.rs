@@ -1,12 +1,12 @@
-use crate as bevy_reflect;
-use crate::__macro_exports::RegisterForReflection;
-use crate::func::args::{ArgInfo, ArgList};
-use crate::func::info::FunctionInfo;
-use crate::func::{
-    DynamicFunctionMut, Function, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
-};
-use crate::serde::Serializable;
 use crate::{
+    self as bevy_reflect,
+    __macro_exports::RegisterForReflection,
+    func::{
+        args::{ArgInfo, ArgList},
+        info::FunctionInfo,
+        DynamicFunctionMut, Function, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
+    },
+    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };

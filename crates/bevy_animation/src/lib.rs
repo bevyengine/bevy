@@ -12,19 +12,20 @@ pub mod graph;
 pub mod transition;
 mod util;
 
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
-use std::iter;
-use std::ops::{Add, Mul};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    hash::{Hash, Hasher},
+    iter,
+    ops::{Add, Mul},
+};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
 use bevy_math::{FloatExt, FloatPow, Quat, Vec3};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};

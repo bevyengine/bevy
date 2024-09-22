@@ -6,9 +6,7 @@ use crate::{
 use async_lock::RwLockReadGuardArc;
 use bevy_utils::tracing::trace;
 use futures_io::{AsyncRead, AsyncSeek};
-use std::io::SeekFrom;
-use std::task::Poll;
-use std::{path::Path, pin::Pin, sync::Arc};
+use std::{io::SeekFrom, path::Path, pin::Pin, sync::Arc, task::Poll};
 
 use super::ErasedAssetReader;
 

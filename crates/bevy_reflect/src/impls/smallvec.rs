@@ -3,11 +3,11 @@ use smallvec::{Array as SmallArray, SmallVec};
 
 use std::any::Any;
 
-use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>

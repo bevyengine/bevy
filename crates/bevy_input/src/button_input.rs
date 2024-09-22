@@ -153,8 +153,8 @@ use std::hash::Hash;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+/// [`ResMut`]: bevy_ecs::system::ResMut
+/// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {

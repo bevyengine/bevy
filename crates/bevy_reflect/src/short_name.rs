@@ -10,7 +10,6 @@
     feature = "alloc",
     doc = r#" To get a [`String`] from this type, use the [`to_string`](`alloc::string::ToString::to_string`) method."#
 )]
-///
 /// # Examples
 ///
 /// ```rust

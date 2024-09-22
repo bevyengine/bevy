@@ -1,26 +1,24 @@
 use core::fmt;
 use proc_macro2::Span;
 
-use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
-use crate::field_attributes::FieldAttributes;
-use crate::result_sifter::ResultSifter;
-use crate::string_expr::StringExpr;
-use crate::type_path::parse_path_no_leading_colon;
-use crate::where_clause_options::WhereClauseOptions;
-use quote::{quote, ToTokens};
-use syn::token::Comma;
-
-use crate::remote::RemoteType;
-use crate::serialization::SerializationDataDef;
 use crate::{
+    container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
+    field_attributes::FieldAttributes,
+    remote::RemoteType,
+    result_sifter::ResultSifter,
+    serialization::SerializationDataDef,
+    string_expr::StringExpr,
+    type_path::parse_path_no_leading_colon,
+    where_clause_options::WhereClauseOptions,
     REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
+
+use quote::{quote, ToTokens};
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput, Field,
+    Fields, GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam,
+    Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -912,7 +910,6 @@ impl<'a> EnumVariant<'a> {
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
-///
 pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),

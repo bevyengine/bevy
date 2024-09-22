@@ -1,7 +1,6 @@
 use std::ops::DerefMut;
 
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{

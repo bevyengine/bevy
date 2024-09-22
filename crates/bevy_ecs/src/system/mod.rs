@@ -343,8 +343,6 @@ mod tests {
     use bevy_utils::default;
     use std::any::TypeId;
 
-    use crate::prelude::EntityRef;
-    use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -352,7 +350,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -363,7 +361,7 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
-        world::{FromWorld, World},
+        world::{EntityMut, FromWorld, World},
     };
 
     #[derive(Resource, PartialEq, Debug)]

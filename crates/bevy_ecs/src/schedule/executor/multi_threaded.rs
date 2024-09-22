@@ -4,10 +4,9 @@ use std::{
 };
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-use bevy_utils::default;
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
+use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use std::panic::AssertUnwindSafe;
 
 use concurrent_queue::ConcurrentQueue;

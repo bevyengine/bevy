@@ -71,7 +71,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///     .build_system(single_parameter_system);
 ///
 /// world.run_system_once(system);
-///```
+/// ```
 ///
 /// # Safety
 ///
@@ -348,9 +348,11 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::entity::Entities;
-    use crate::prelude::{Component, Query};
-    use crate::system::{Local, RunSystemOnce};
+    use crate::{
+        entity::Entities,
+        prelude::{Component, Query},
+        system::{Local, RunSystemOnce},
+    };
 
     use super::*;
 

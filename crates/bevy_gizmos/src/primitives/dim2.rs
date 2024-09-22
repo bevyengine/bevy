@@ -5,12 +5,14 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-    CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
-    RegularPolygon, Rhombus, Segment2d, Triangle2d,
+use bevy_math::{
+    primitives::{
+        Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
+        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
+        RegularPolygon, Rhombus, Segment2d, Triangle2d,
+    },
+    Dir2, Isometry2d, Rot2, Vec2,
 };
-use bevy_math::{Dir2, Isometry2d, Rot2, Vec2};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 

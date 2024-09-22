@@ -1,6 +1,8 @@
 use core::fmt::{Debug, Display, Formatter};
-use serde::de::{Error, Visitor};
-use serde::Deserialize;
+use serde::{
+    de::{Error, Visitor},
+    Deserialize,
+};
 use std::fmt;
 
 /// A debug struct used for error messages that displays a list of expected values.

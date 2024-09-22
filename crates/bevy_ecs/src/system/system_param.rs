@@ -1,6 +1,4 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
-use crate::query::AccessConflicts;
-use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -8,15 +6,15 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
-        ReadOnlyQueryData,
+        Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
+        QueryState, ReadOnlyQueryData,
     },
+    storage::SparseSetIndex,
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
-pub use bevy_ecs_macros::Resource;
-pub use bevy_ecs_macros::SystemParam;
+pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 #[cfg(feature = "track_change_detection")]
@@ -69,7 +67,7 @@ use std::{
 /// #    eventwriter:
 /// EventWriter<'w, SomeEvent>
 /// # }
-///```
+/// ```
 /// ## `PhantomData`
 ///
 /// [`PhantomData`] is a special type of `SystemParam` that does nothing.
@@ -467,7 +465,7 @@ fn assert_component_access_compatibility(
 /// )),)
 ///     .build_state(&mut world)
 ///     .build_system(buildable_system);
-///world.run_system_once(system);
+/// world.run_system_once(system);
 ///
 /// fn buildable_system(mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>) {
 ///     // The first parameter is built from the first builder,
@@ -1770,7 +1768,6 @@ pub mod lifetimeless {
 /// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
 /// # }
 /// ```
-///
 pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
 
 impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {

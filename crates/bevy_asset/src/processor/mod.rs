@@ -58,13 +58,15 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{debug, error, trace, warn};
+use bevy_utils::{
+    tracing::{debug, error, trace, warn},
+    HashMap, HashSet,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;

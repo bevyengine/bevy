@@ -7,10 +7,15 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
-use crate::entity::EntityHashMap;
-use crate::observer::entity_observer::ObservedBy;
-use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
-use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+use crate::{
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    entity::EntityHashMap,
+    observer::entity_observer::ObservedBy,
+    prelude::*,
+    system::IntoObserverSystem,
+    world::{DeferredWorld, *},
+};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
 use std::{fmt::Debug, marker::PhantomData};
@@ -485,11 +490,11 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+    use crate::{
+        observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
+        prelude::*,
+        traversal::Traversal,
     };
-    use crate::prelude::*;
-    use crate::traversal::Traversal;
 
     #[derive(Component)]
     struct A;
