@@ -1,4 +1,4 @@
-use std::{iter, marker::PhantomData, mem::size_of};
+use std::{iter, marker::PhantomData};
 
 use crate::{
     render_resource::Buffer,
@@ -123,7 +123,7 @@ impl<T: NoUninit> RawBufferVec<T> {
     }
 
     /// Creates a [`Buffer`] on the [`RenderDevice`] with size
-    /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
+    /// at least `size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
     /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
     /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s
@@ -302,7 +302,7 @@ where
     }
 
     /// Creates a [`Buffer`] on the [`RenderDevice`] with size
-    /// at least `std::mem::size_of::<T>() * capacity`, unless such a buffer already exists.
+    /// at least `size_of::<T>() * capacity`, unless such a buffer already exists.
     ///
     /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
     /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s

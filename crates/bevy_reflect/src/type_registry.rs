@@ -579,7 +579,7 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
+    get_serializable: fn(value: &dyn Reflect) -> Serializable,
 }
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {

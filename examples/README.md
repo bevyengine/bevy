@@ -220,6 +220,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning.
+[Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
