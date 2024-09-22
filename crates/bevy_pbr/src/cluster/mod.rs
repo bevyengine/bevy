@@ -505,12 +505,23 @@ impl Default for GpuClusterableObjectsUniform {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
-    (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
-) -> core::cmp::Ordering {
+    (entity_1, shadows_enabled_1, is_volumetric_light_1, is_spot_light_1): (
+        &Entity,
+        &bool,
+        &bool,
+        &bool,
+    ),
+    (entity_2, shadows_enabled_2, is_volumetric_light_2, is_spot_light_2): (
+        &Entity,
+        &bool,
+        &bool,
+        &bool,
+    ),
+) -> std::cmp::Ordering {
     is_spot_light_1
         .cmp(is_spot_light_2) // pointlights before spot lights
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
+        .then_with(|| is_volumetric_light_2.cmp(is_volumetric_light_1)) // volumetric lights before non-volumetric lights
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 

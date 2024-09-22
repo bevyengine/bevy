@@ -1,6 +1,7 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
 
 use bevy::{
+    color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
     pbr::{FogVolumeBundle, VolumetricFog, VolumetricLight},
@@ -59,6 +60,44 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ambient_intensity: 0.0,
             ..default()
         });
+
+    // Add the point light
+    commands
+        .spawn(PointLightBundle {
+            point_light: PointLight {
+                shadows_enabled: true,
+                range: 50.0,
+                color: RED.into(),
+                intensity: 1000.0,
+                ..default()
+            },
+            transform: Transform::from_xyz(-0.3493744, 1.900556, 1.0452124),
+            ..default()
+        })
+        .insert(VolumetricLight);
+
+    // Add the spot light
+    let mut spotlight_transform = Transform::from_xyz(-1.7817883, 3.901562, -2.7141085);
+    spotlight_transform.rotate(Quat::from_xyzw(
+        -0.83497995,
+        0.1066196,
+        -0.17422977,
+        0.5109645,
+    ));
+    commands
+        .spawn(SpotLightBundle {
+            transform: spotlight_transform,
+            spot_light: SpotLight {
+                intensity: 5000.0, // lumens
+                color: Color::WHITE,
+                shadows_enabled: true,
+                inner_angle: 0.76,
+                outer_angle: 0.94,
+                ..default()
+            },
+            ..default()
+        })
+        .insert(VolumetricLight);
 
     // Add the fog volume.
     commands.spawn(FogVolumeBundle {

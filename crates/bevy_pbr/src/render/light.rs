@@ -45,6 +45,7 @@ pub struct ExtractedPointLight {
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    pub volumetric: bool,
 }
 
 #[derive(Component, Debug)]
@@ -69,6 +70,7 @@ bitflags::bitflags! {
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = 1 << 0;
         const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
+        const VOLUMETRIC                 = 1 << 2;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -195,6 +197,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &CubemapFrusta,
+            Option<&VolumetricLight>,
         )>,
     >,
     spot_lights: Extract<
@@ -204,6 +207,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
+            Option<&VolumetricLight>,
         )>,
     >,
     directional_lights: Extract<
@@ -245,8 +249,14 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        let Ok((point_light, cubemap_visible_entities, transform, view_visibility, frusta)) =
-            point_lights.get(entity)
+        let Ok((
+            point_light,
+            cubemap_visible_entities,
+            transform,
+            view_visibility,
+            frusta,
+            volumetric_light,
+        )) = point_lights.get(entity)
         else {
             continue;
         };
@@ -274,6 +284,7 @@ pub fn extract_lights(
                 * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
+            volumetric: volumetric_light.is_some(),
         };
         point_lights_values.push((
             entity,
@@ -289,8 +300,14 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, view_visibility, frustum)) =
-            spot_lights.get(entity)
+        if let Ok((
+            spot_light,
+            visible_entities,
+            transform,
+            view_visibility,
+            frustum,
+            volumetric_light,
+        )) = spot_lights.get(entity)
         {
             if !view_visibility.get() {
                 continue;
@@ -325,6 +342,7 @@ pub fn extract_lights(
                             * core::f32::consts::SQRT_2,
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                        volumetric: volumetric_light.is_some(),
                     },
                     render_visible_entities,
                     *frustum,
@@ -621,6 +639,14 @@ pub fn prepare_lights(
         .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
+    let point_light_volumetric_enabled_count = point_lights
+        .iter()
+        .filter(|(_, light, _)| {
+            (light.volumetric || light.shadows_enabled) && light.spot_light_angles.is_none()
+        })
+        .count()
+        .min(max_texture_cubes);
+
     let point_light_shadow_maps_count = point_lights
         .iter()
         .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
@@ -641,6 +667,12 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
+    let spot_light_volumetric_enabled_count = point_lights
+        .iter()
+        .filter(|(_, light, _)| (light.volumetric) && light.spot_light_angles.is_some())
+        .count()
+        .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
+
     let spot_light_shadow_maps_count = point_lights
         .iter()
         .filter(|(_, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
@@ -657,11 +689,13 @@ pub fn prepare_lights(
             (
                 entity_1,
                 &light_1.shadows_enabled,
+                &light_1.volumetric,
                 &light_1.spot_light_angles.is_some(),
             ),
             (
                 entity_2,
                 &light_2.shadows_enabled,
+                &light_2.volumetric,
                 &light_2.spot_light_angles.is_some(),
             ),
         )
@@ -706,6 +740,15 @@ pub fn prepare_lights(
             1.0,
             light.shadow_map_near_z,
         );
+        if light.shadows_enabled
+            && light.volumetric
+            && (index < point_light_volumetric_enabled_count
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_volumetric_enabled_count
+                        < spot_light_volumetric_enabled_count))
+        {
+            flags |= PointLightFlags::VOLUMETRIC;
+        }
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {

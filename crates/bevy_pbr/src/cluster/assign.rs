@@ -17,7 +17,7 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     ClusterConfig, ClusterFarZMode, Clusters, GlobalVisibleClusterableObjects, PointLight,
-    SpotLight, ViewClusterBindings, VisibleClusterableObjects,
+    SpotLight, ViewClusterBindings, VisibleClusterableObjects, VolumetricLight,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
 
@@ -34,6 +34,7 @@ pub(crate) struct ClusterableObjectAssignmentData {
     transform: GlobalTransform,
     range: f32,
     shadows_enabled: bool,
+    volumetric: bool,
     spot_light_angle: Option<f32>,
     render_layers: RenderLayers,
 }
@@ -67,6 +68,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &PointLight,
         Option<&RenderLayers>,
+        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     spot_lights_query: Query<(
@@ -74,6 +76,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &SpotLight,
         Option<&RenderLayers>,
+        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
@@ -93,11 +96,12 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, point_light, maybe_layers, _visibility)| {
+                |(entity, transform, point_light, maybe_layers, volumetric, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: GlobalTransform::from_translation(transform.translation()),
                         shadows_enabled: point_light.shadows_enabled,
+                        volumetric: volumetric.is_some(),
                         range: point_light.range,
                         spot_light_angle: None,
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -110,11 +114,12 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, spot_light, maybe_layers, _visibility)| {
+                |(entity, transform, spot_light, maybe_layers, volumetric, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: *transform,
                         shadows_enabled: spot_light.shadows_enabled,
+                        volumetric: volumetric.is_some(),
                         range: spot_light.range,
                         spot_light_angle: Some(spot_light.outer_angle),
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -137,11 +142,13 @@ pub(crate) fn assign_objects_to_clusters(
                 (
                     &clusterable_object_1.entity,
                     &clusterable_object_1.shadows_enabled,
+                    &clusterable_object_1.volumetric,
                     &clusterable_object_1.spot_light_angle.is_some(),
                 ),
                 (
                     &clusterable_object_2.entity,
                     &clusterable_object_2.shadows_enabled,
+                    &clusterable_object_2.volumetric,
                     &clusterable_object_2.spot_light_angle.is_some(),
                 ),
             )
