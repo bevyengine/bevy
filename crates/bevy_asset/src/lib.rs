@@ -564,7 +564,15 @@ impl AssetApp for App {
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
             )
-            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                PreUpdate,
+                (
+                    Assets::<A>::track_assets.in_set(TrackAssets),
+                    Assets::<A>::try_unlocking_locked_assets
+                        .run_if(Assets::<A>::has_locked_assets_condition)
+                        .in_set(TryUnlockAssets),
+                ),
+            )
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -595,6 +603,10 @@ impl AssetApp for App {
 /// A system set that holds all "track asset" operations.
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
+
+/// A system set that holds all [`Assets::try_unlocking_locked_assets`] operations.
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+pub struct TryUnlockAssets;
 
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///

@@ -4,8 +4,9 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     prelude::EventWriter,
-    system::{Res, ResMut, Resource},
+    system::{Local, Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::{HashMap, HashSet};
@@ -784,6 +785,26 @@ impl<A: Asset> Assets<A> {
             assets.queued_events.push(AssetEvent::Unused { id });
             assets.remove_dropped(id);
         }
+    }
+
+    /// A system that attempts to unlock any currently locked assets.
+    pub fn try_unlocking_locked_assets(
+        mut assets: ResMut<Self>,
+        // Use a local so that we avoid reallocating every frame.
+        mut locked_assets: Local<HashSet<AssetId<A>>>,
+    ) {
+        locked_assets.extend(assets.locked_ids());
+        for id in locked_assets.drain() {
+            if let Ok(()) = assets.bypass_change_detection().try_unlock(id) {
+                // Only mark the assets as changed if we were successful in unlocking.
+                assets.set_changed();
+            }
+        }
+    }
+
+    /// A run condition to check whether there are any locked assets.
+    pub(crate) fn has_locked_assets_condition(assets: Res<Self>) -> bool {
+        !assets.locked_assets.is_empty()
     }
 
     /// A system that applies accumulated asset change events to the [`Events`] resource.
