@@ -11,7 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, ReadOnlyQueryData},
+    query::{DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::Resource,
@@ -891,7 +891,9 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
-    pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
+    pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+        &self,
+    ) -> Option<Q::Item<'w>> {
         // SAFETY: World is only used to access query data and initialize query state
         let state = unsafe {
             let world = self.world().world();
@@ -927,7 +929,8 @@ impl<'w> UnsafeEntityCell<'w> {
             // Table corresponds to archetype. State is the same state used to init fetch above.
             unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
-            unsafe { Some(Q::fetch(&mut fetch, self.id(), location.table_row)) }
+            let item = unsafe { Q::fetch(&mut fetch, self.id(), location.table_row) };
+            Some(Q::release_state(item))
         } else {
             None
         }

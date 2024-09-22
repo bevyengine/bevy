@@ -15,7 +15,7 @@ use std::{
     ops::Range,
 };
 
-use super::{QueryData, QueryFilter, ReadOnlyQueryData};
+use super::{QueryData, QueryFilter, ReadOnlyQueryData, ReleaseStateQueryData};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -484,7 +484,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + ReleaseStateQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -516,7 +516,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         };
         let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
+            .map(|(key, entity)| (L::release_state(key), NeutralOrd(entity)))
             .collect();
         keyed_query.sort();
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
@@ -576,7 +576,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort_unstable<
+        L: ReadOnlyQueryData<Item<'w>: Ord> + ReleaseStateQueryData + 'w,
+    >(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -608,7 +610,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         };
         let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
+            .map(|(key, entity)| (L::release_state(key), NeutralOrd(entity)))
             .collect();
         keyed_query.sort_unstable();
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
@@ -675,7 +677,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_by<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
     ) -> QuerySortedIter<
@@ -707,7 +709,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
+        let mut keyed_query: Vec<_> = query_lens.map(<(L, Entity)>::release_state).collect();
         keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:
@@ -741,7 +743,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable_by<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
     ) -> QuerySortedIter<
@@ -773,7 +775,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
+        let mut keyed_query: Vec<_> = query_lens.map(<(L, Entity)>::release_state).collect();
         keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:
@@ -867,7 +869,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
     ) -> QuerySortedIter<
@@ -902,7 +904,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
+        let mut keyed_query: Vec<_> = query_lens.map(<(L, Entity)>::release_state).collect();
         keyed_query.sort_by_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:
@@ -936,7 +938,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
     ) -> QuerySortedIter<
@@ -971,7 +973,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
+        let mut keyed_query: Vec<_> = query_lens.map(<(L, Entity)>::release_state).collect();
         keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:
@@ -1006,7 +1008,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     ///
-    pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_cached_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
     ) -> QuerySortedIter<
@@ -1041,7 +1043,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
+        let mut keyed_query: Vec<_> = query_lens.map(<(L, Entity)>::release_state).collect();
         keyed_query.sort_by_cached_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
         // SAFETY:

@@ -291,6 +291,12 @@ pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
 pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
+/// A [`QueryData`] that does not borrow from its [`QueryState`](crate::query::QueryState).
+pub trait ReleaseStateQueryData: QueryData {
+    /// Releases the borrow from the query state by converting an item to have a `'static` state lifetime.
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_>;
+}
+
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
@@ -360,6 +366,12 @@ unsafe impl QueryData for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+impl ReleaseStateQueryData for Entity {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
@@ -436,6 +448,12 @@ unsafe impl QueryData for EntityLocation {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
+
+impl ReleaseStateQueryData for EntityLocation {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
 
 /// SAFETY:
 /// `fetch` accesses all components in a readonly way.
@@ -520,6 +538,12 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
+impl ReleaseStateQueryData for EntityRef<'_> {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
+
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl<'a> WorldQuery for EntityMut<'a> {
     type Item<'w> = EntityMut<'w>;
@@ -595,6 +619,12 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
 unsafe impl<'a> QueryData for EntityMut<'a> {
     type ReadOnly = EntityRef<'a>;
+}
+
+impl ReleaseStateQueryData for EntityMut<'_> {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
 }
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
@@ -1057,6 +1087,12 @@ unsafe impl QueryData for &Archetype {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
+impl ReleaseStateQueryData for &Archetype {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
+
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
     // T::STORAGE_TYPE = StorageType::Table
@@ -1210,6 +1246,12 @@ unsafe impl<T: Component> QueryData for &T {
 
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
+
+impl<T: Component> ReleaseStateQueryData for &T {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
 
 #[doc(hidden)]
 pub struct RefFetch<'w, T> {
@@ -1410,6 +1452,12 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
+impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
+
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
     // T::STORAGE_TYPE = StorageType::Table
@@ -1606,6 +1654,12 @@ unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
+impl<T: Component> ReleaseStateQueryData for &mut T {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
+
 /// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
 ///
 /// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
@@ -1709,6 +1763,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
 unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
     type ReadOnly = Ref<'__w, T>;
+}
+
+impl<T: Component> ReleaseStateQueryData for Mut<'_, T> {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
 }
 
 #[doc(hidden)]
@@ -2000,6 +2060,12 @@ unsafe impl<T: Component> QueryData for Has<T> {
 /// SAFETY: [`Has`] is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
+impl<T: Component> ReleaseStateQueryData for Has<T> {
+    fn release_state(item: Self::Item<'_>) -> Self::Item<'_> {
+        item
+    }
+}
+
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
 /// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
@@ -2008,7 +2074,7 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
-    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $item: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
@@ -2021,11 +2087,17 @@ macro_rules! impl_tuple_query_data {
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
+        #[allow(clippy::unused_unit)]
+        impl<$($name: ReleaseStateQueryData),*> ReleaseStateQueryData for ($($name,)*) {
+            fn release_state(($($item,)*): Self::Item<'_>) -> Self::Item<'_> {
+                ($($name::release_state($item),)*)
+            }
+        }
     };
 }
 
 macro_rules! impl_anytuple_fetch {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(($name: ident, $state: ident, $item: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
@@ -2157,6 +2229,13 @@ macro_rules! impl_anytuple_fetch {
 
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
+
+        #[allow(clippy::unused_unit)]
+        impl<$($name: ReleaseStateQueryData),*> ReleaseStateQueryData for AnyOf<($($name,)*)> {
+            fn release_state(($($item,)*): Self::Item<'_>) -> Self::Item<'_> {
+                ($($item.map(|$item| $name::release_state($item)),)*)
+            }
+        }
     };
 }
 
@@ -2166,9 +2245,9 @@ all_tuples!(
     0,
     15,
     F,
-    S
+    i
 );
-all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
+all_tuples!(impl_anytuple_fetch, 0, 15, F, S, i);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
@@ -2244,6 +2323,10 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
+impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
+    fn release_state(_item: Self::Item<'_>) -> Self::Item<'_> {}
+}
+
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
@@ -2311,6 +2394,10 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
 
 /// SAFETY: `PhantomData` never accesses any world data.
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
+
+impl<T: ?Sized> ReleaseStateQueryData for PhantomData<T> {
+    fn release_state(_item: Self::Item<'_>) -> Self::Item<'_> {}
+}
 
 #[cfg(test)]
 mod tests {
