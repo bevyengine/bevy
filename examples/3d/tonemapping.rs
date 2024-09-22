@@ -230,7 +230,7 @@ fn drag_drop_image(
     };
 
     for mat_h in &image_mat {
-        if let Some(mat) = materials.get_mut(mat_h) {
+        if let Ok(mat) = materials.get_mut(mat_h) {
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions
