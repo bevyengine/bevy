@@ -7,7 +7,7 @@ use bevy_utils::default;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 
-use crate::{font, Font};
+use crate::Font;
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
