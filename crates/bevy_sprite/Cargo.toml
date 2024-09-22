@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["bevy_sprite_picking_backend"]
-bevy_sprite_picking_backend = ["bevy_window"]
+bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
 webgl = []
 webgpu = []
 

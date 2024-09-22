@@ -90,10 +90,10 @@ default = [
 ]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = []
+bevy_sprite_picking_backend = ["bevy_picking"]
 
 # Provides an implementation for picking ui
-bevy_ui_picking_backend = []
+bevy_ui_picking_backend = ["bevy_picking"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
