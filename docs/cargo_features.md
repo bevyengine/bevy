@@ -23,6 +23,8 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
+|bevy_sprite_picking_backend|Provides a picking implementation|
+|bevy_ui_picking_backend|Provides a picking implementation|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
