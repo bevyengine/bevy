@@ -18,8 +18,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// * To get the absolute transform of an entity, you should get its [`GlobalTransform`],
 ///   after [`TransformPropagate`] or [`PostUpdate`] to avoid a 1 frame lag.
 ///   * You can use [`compute_transform`] to get the global `translation`, `rotation` and `scale`.
-/// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
-///   [`Transform`] instead, the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
+/// * [`GlobalTransform`] is fully managed by bevy and should not be mutated directly.
+///   Use [`Transform`] instead, and the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
 ///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee
 ///     an entity has both components.
 ///
