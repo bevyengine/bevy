@@ -765,7 +765,8 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_eq!(old, new);
 
-        world.remove_system_cached(four);
+        let result = world.remove_system_cached(four);
+        assert!(matches!(result, Ok(_)));
         let new = world.register_system_cached(four);
         assert_ne!(old, new);
 
@@ -774,13 +775,10 @@ mod tests {
             output,
             Err(RegisteredSystemError::SystemIdNotRegistered(x)) if x == old,
         ));
-
         let output = world.run_system(new);
         assert!(matches!(output, Ok(x) if x == four()));
-
         let output = world.run_system_cached(four);
         assert!(matches!(output, Ok(x) if x == four()));
-
         let output = world.run_system_cached_with(four, ());
         assert!(matches!(output, Ok(x) if x == four()));
     }
