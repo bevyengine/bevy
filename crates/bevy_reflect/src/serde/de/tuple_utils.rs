@@ -1,5 +1,5 @@
 use crate::serde::de::error_utils::make_custom_error;
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::{SerializationData, TypedReflectDeserializer};
 use crate::{
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
@@ -90,9 +90,11 @@ where
             continue;
         }
 
+        let field_info = info.field_at::<V::Error>(index)?;
+
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new_internal(
-                try_get_registration(*info.field_at(index)?.ty(), registry)?,
+                try_get_registration_data(*field_info.ty(), field_info.type_info(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;

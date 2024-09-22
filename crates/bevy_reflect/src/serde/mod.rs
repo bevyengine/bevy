@@ -8,7 +8,9 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct, PartialReflect, Struct};
+    use crate::{
+        self as bevy_reflect, DynamicList, DynamicTupleStruct, List, PartialReflect, Struct,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         type_registry::TypeRegistry,
@@ -180,6 +182,46 @@ mod tests {
         let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(expected
+            .reflect_partial_eq(result.as_partial_reflect())
+            .unwrap());
+    }
+
+    #[test]
+    fn should_roundtrip_type_containing_proxied_dynamic() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct TestStruct {
+            a: i32,
+            b: DynamicStruct,
+            c: DynamicList,
+        }
+
+        #[derive(Reflect)]
+        struct OtherStruct {
+            d: f32,
+        }
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<TestStruct>();
+        registry.register::<OtherStruct>();
+        registry.register::<Vec<i32>>();
+
+        let value = TestStruct {
+            a: 123,
+            b: OtherStruct { d: 456.0 }.clone_dynamic(),
+            c: vec![1, 2, 3].clone_dynamic(),
+        };
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:{"bevy_reflect::serde::tests::OtherStruct":(d:456.0)},c:{"alloc::vec::Vec<i32>":[1,2,3]})}"#;
+        let result = ron::ser::to_string(&serializer).unwrap();
+        assert_eq!(expected, result);
+
+        let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+
+        let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        assert!(value
             .reflect_partial_eq(result.as_partial_reflect())
             .unwrap());
     }

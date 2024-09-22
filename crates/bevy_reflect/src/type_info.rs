@@ -316,6 +316,7 @@ impl TypeInfo {
     impl_cast_method!(as_tuple: Tuple => TupleInfo);
     impl_cast_method!(as_list: List => ListInfo);
     impl_cast_method!(as_array: Array => ArrayInfo);
+    impl_cast_method!(as_set: Set => SetInfo);
     impl_cast_method!(as_map: Map => MapInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
     impl_cast_method!(as_value: Value => ValueInfo);
@@ -460,6 +461,22 @@ impl Hash for Type {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.type_id.hash(state);
+    }
+}
+
+/// A dynamic accessor to get the [`Type`] of a type.
+///
+/// This is automatically implemented for all types that implement [`TypePath`].
+pub trait GetType {
+    /// The underlying Rust [type].
+    ///
+    /// [type]: Type
+    fn ty(&self) -> Type;
+}
+
+impl<T: TypePath + ?Sized> GetType for T {
+    fn ty(&self) -> Type {
+        Type::of::<T>()
     }
 }
 

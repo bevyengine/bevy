@@ -1,6 +1,6 @@
 use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::{SerializationData, TypedReflectSerializer};
-use crate::{Struct, TypeInfo, TypeRegistry};
+use crate::{Struct, TypeRegistry};
 use serde::ser::SerializeStruct;
 use serde::Serialize;
 
@@ -34,14 +34,7 @@ impl<'a> Serialize for StructSerializer<'a> {
                 ))
             })?;
 
-        let struct_info = match type_info {
-            TypeInfo::Struct(struct_info) => struct_info,
-            info => {
-                return Err(make_custom_error(format_args!(
-                    "expected struct type but received {info:?}"
-                )));
-            }
-        };
+        let struct_info = type_info.as_struct().map_err(make_custom_error)?;
 
         let serialization_data = self
             .registry
@@ -60,10 +53,13 @@ impl<'a> Serialize for StructSerializer<'a> {
             {
                 continue;
             }
+
+            let info = struct_info.field_at(index).unwrap().type_info();
+
             let key = struct_info.field_at(index).unwrap().name();
             state.serialize_field(
                 key,
-                &TypedReflectSerializer::new_internal(value, self.registry),
+                &TypedReflectSerializer::new_internal(value, info, self.registry),
             )?;
         }
         state.end()

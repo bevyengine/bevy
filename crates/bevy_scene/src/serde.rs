@@ -175,19 +175,19 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
                 .iter()
                 .map(|entry| {
                     (
-                        entry.get_represented_type_info().unwrap().type_path(),
+                        entry.get_represented_type_info().unwrap(),
                         entry.as_partial_reflect(),
                     )
                 })
                 .collect::<Vec<_>>();
-            entries.sort_by_key(|(type_path, _partial_reflect)| *type_path);
+            entries.sort_by_key(|(type_info, _partial_reflect)| type_info.type_path());
             entries
         };
 
-        for (type_path, partial_reflect) in sorted_entries {
+        for (type_info, partial_reflect) in sorted_entries {
             state.serialize_entry(
-                type_path,
-                &TypedReflectSerializer::new(partial_reflect, self.registry),
+                type_info.type_path(),
+                &TypedReflectSerializer::new(partial_reflect, type_info, self.registry),
             )?;
         }
         state.end()

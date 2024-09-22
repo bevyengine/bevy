@@ -6,6 +6,7 @@ use crate::serde::de::error_utils::TYPE_INFO_STACK;
 use crate::serde::de::lists::ListVisitor;
 use crate::serde::de::maps::MapVisitor;
 use crate::serde::de::options::OptionVisitor;
+use crate::serde::de::registration_utils::RegistrationData;
 use crate::serde::de::sets::SetVisitor;
 use crate::serde::de::structs::StructVisitor;
 use crate::serde::de::tuple_structs::TupleStructVisitor;
@@ -132,10 +133,10 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
                     .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
                     .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
 
-                let value = map.next_value_seed(TypedReflectDeserializer {
-                    registration,
-                    registry: self.registry,
-                })?;
+                let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
+                    RegistrationData::Concrete(registration),
+                    self.registry,
+                ))?;
 
                 if map.next_key::<IgnoredAny>()?.is_some() {
                     return Err(Error::invalid_length(2, &"a single entry"));
@@ -228,30 +229,24 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 pub struct TypedReflectDeserializer<'a> {
-    registration: &'a TypeRegistration,
+    data: RegistrationData<'a>,
     registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+        TYPE_INFO_STACK.set(crate::type_stack::TypeStack::new());
 
         Self {
-            registration,
+            data: RegistrationData::Concrete(registration),
             registry,
         }
     }
 
     /// An internal constructor for creating a deserializer without resetting the type info stack.
-    pub(super) fn new_internal(
-        registration: &'a TypeRegistration,
-        registry: &'a TypeRegistry,
-    ) -> Self {
-        Self {
-            registration,
-            registry,
-        }
+    pub(super) fn new_internal(data: RegistrationData<'a>, registry: &'a TypeRegistry) -> Self {
+        Self { data, registry }
     }
 }
 
@@ -263,41 +258,41 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         let deserialize_internal = || -> Result<Self::Value, D::Error> {
-            let type_path = self.registration.type_info().type_path();
+            let RegistrationData::Concrete(registration) = self.data else {
+                return ReflectDeserializer::new(self.registry).deserialize(deserializer);
+            };
+
+            let type_path = registration.type_info().type_path();
 
             // Handle both Value case and types that have a custom `ReflectDeserialize`
-            if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
+            if let Some(deserialize_reflect) = registration.data::<ReflectDeserialize>() {
                 let value = deserialize_reflect.deserialize(deserializer)?;
                 return Ok(value.into_partial_reflect());
             }
 
-            match self.registration.type_info() {
+            match registration.type_info() {
                 TypeInfo::Struct(struct_info) => {
                     let mut dynamic_struct = deserializer.deserialize_struct(
                         struct_info.type_path_table().ident().unwrap(),
                         struct_info.field_names(),
-                        StructVisitor::new(struct_info, self.registration, self.registry),
+                        StructVisitor::new(struct_info, registration, self.registry),
                     )?;
-                    dynamic_struct.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_struct.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_struct))
                 }
                 TypeInfo::TupleStruct(tuple_struct_info) => {
                     let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
                         tuple_struct_info.type_path_table().ident().unwrap(),
                         tuple_struct_info.field_len(),
-                        TupleStructVisitor::new(
-                            tuple_struct_info,
-                            self.registration,
-                            self.registry,
-                        ),
+                        TupleStructVisitor::new(tuple_struct_info, registration, self.registry),
                     )?;
-                    dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_tuple_struct.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_tuple_struct))
                 }
                 TypeInfo::List(list_info) => {
                     let mut dynamic_list =
                         deserializer.deserialize_seq(ListVisitor::new(list_info, self.registry))?;
-                    dynamic_list.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_list.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_list))
                 }
                 TypeInfo::Array(array_info) => {
@@ -305,27 +300,27 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         array_info.capacity(),
                         ArrayVisitor::new(array_info, self.registry),
                     )?;
-                    dynamic_array.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_array.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_array))
                 }
                 TypeInfo::Map(map_info) => {
                     let mut dynamic_map =
                         deserializer.deserialize_map(MapVisitor::new(map_info, self.registry))?;
-                    dynamic_map.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_map.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_map))
                 }
                 TypeInfo::Set(set_info) => {
                     let mut dynamic_set =
                         deserializer.deserialize_seq(SetVisitor::new(set_info, self.registry))?;
-                    dynamic_set.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_set.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_set))
                 }
                 TypeInfo::Tuple(tuple_info) => {
                     let mut dynamic_tuple = deserializer.deserialize_tuple(
                         tuple_info.field_len(),
-                        TupleVisitor::new(tuple_info, self.registration, self.registry),
+                        TupleVisitor::new(tuple_info, registration, self.registry),
                     )?;
-                    dynamic_tuple.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_tuple.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_tuple))
                 }
                 TypeInfo::Enum(enum_info) => {
@@ -339,10 +334,10 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         deserializer.deserialize_enum(
                             enum_info.type_path_table().ident().unwrap(),
                             enum_info.variant_names(),
-                            EnumVisitor::new(enum_info, self.registration, self.registry),
+                            EnumVisitor::new(enum_info, registration, self.registry),
                         )?
                     };
-                    dynamic_enum.set_represented_type(Some(self.registration.type_info()));
+                    dynamic_enum.set_represented_type(Some(registration.type_info()));
                     Ok(Box::new(dynamic_enum))
                 }
                 TypeInfo::Value(_) => {
@@ -355,12 +350,19 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         };
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(self.registration.type_info()));
+        TYPE_INFO_STACK.with_borrow_mut(|stack| match self.data {
+            RegistrationData::Concrete(registration) => {
+                stack.push(*registration.type_info().ty());
+            }
+            RegistrationData::Dynamic(ty) => {
+                stack.push(ty);
+            }
+        });
 
         let output = deserialize_internal();
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+        TYPE_INFO_STACK.with_borrow_mut(crate::type_stack::TypeStack::pop);
 
         output
     }

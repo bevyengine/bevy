@@ -276,7 +276,7 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
-        let reflect_deserializer = TypedReflectDeserializer::new_internal(registration, &registry);
+        let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -520,6 +520,7 @@ mod tests {
     #[cfg(feature = "debug_stack")]
     mod debug_stack {
         use super::*;
+        use crate::DynamicStruct;
 
         #[test]
         fn should_report_context_in_errors() {
@@ -555,6 +556,45 @@ mod tests {
                 error,
                 ron::Error::Message(
                     "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `bevy_reflect::serde::de::tests::debug_stack::Foo` -> `bevy_reflect::serde::de::tests::debug_stack::Bar` -> `bevy_reflect::serde::de::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
+                )
+            );
+        }
+
+        #[test]
+        fn should_report_context_in_errors_with_dynamic_types() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct Foo {
+                bar: DynamicStruct,
+            }
+
+            #[derive(Reflect)]
+            struct Bar {
+                some_other_field: Option<u32>,
+                baz: Baz,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: Vec<RangeInclusive<f32>>,
+            }
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<Foo>();
+            registry.register::<Bar>();
+            registry.register::<Baz>();
+            registry.register::<RangeInclusive<f32>>();
+
+            let input = r#"{"bevy_reflect::serde::de::tests::debug_stack::Foo":(bar:{"bevy_reflect::serde::de::tests::debug_stack::Bar":(some_other_field:Some(123),baz:(value:[(start:0.0,end:1.0)]))})}"#;
+            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let error = reflect_deserializer
+                .deserialize(&mut deserializer)
+                .unwrap_err();
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `bevy_reflect::serde::de::tests::debug_stack::Foo` -> `bevy_reflect::DynamicStruct` -> `bevy_reflect::serde::de::tests::debug_stack::Bar` -> `bevy_reflect::serde::de::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
                 )
             );
         }
