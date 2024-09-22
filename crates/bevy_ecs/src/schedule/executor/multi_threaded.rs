@@ -520,7 +520,7 @@ impl ExecutorState {
     ///   the system's conditions: this includes conditions for the system
     ///   itself, and conditions for any of the system's sets.
     /// * `update_archetype_component` must have been called with `world`
-    ///   for each run condition in `conditions`.
+    ///   for the system as well as system and system set's run conditions.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
