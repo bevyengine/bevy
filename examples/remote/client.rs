@@ -3,7 +3,10 @@
 
 use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
-use bevy::remote::{DEFAULT_ADDR, DEFAULT_PORT};
+use bevy::remote::{
+    builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams},
+    BrpRequest, DEFAULT_ADDR, DEFAULT_PORT,
+};
 
 /// Struct containing the command-line arguments that can be passed to this example.
 /// The components are passed by their full type names positionally, while `host`
@@ -40,17 +43,25 @@ fn main() -> AnyhowResult<()> {
     let host_part = format!("{}:{}", args.host, args.port);
     let url = format!("http://{}/", host_part);
 
+    let req = BrpRequest {
+        jsonrpc: String::from("2.0"),
+        method: String::from("bevy/query"),
+        id: Some(ureq::json!(1)),
+        params: Some(
+            serde_json::to_value(BrpQueryParams {
+                data: BrpQuery {
+                    components: args.components,
+                    option: Vec::default(),
+                    has: Vec::default(),
+                },
+                filter: BrpQueryFilter::default(),
+            })
+            .expect("Unable to convert query parameters to a valid JSON value"),
+        ),
+    };
+
     let res = ureq::post(&url)
-        .send_json(ureq::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "bevy/query",
-            "params": {
-                "data": {
-                    "components": args.components
-                }
-            }
-        }))?
+        .send_json(req)?
         .into_json::<serde_json::Value>()?;
 
     println!("{:#}", res);

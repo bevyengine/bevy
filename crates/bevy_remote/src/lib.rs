@@ -355,12 +355,14 @@ pub struct BrpRequest {
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Value>,
 
     /// The parameters, specific to each method.
     ///
     /// These are passed as the first argument to the method handler.
     /// Sometimes params can be omitted.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<Value>,
 }
 
