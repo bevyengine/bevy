@@ -17,7 +17,7 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
@@ -194,7 +194,7 @@ impl Plugin for UiPlugin {
 
         build_ui_render(app);
 
-        #[cfg(feature = "bevy_picking")]
+        #[cfg(feature = "bevy_ui_picking_backend")]
         app.add_plugins(picking_backend::UiPickingBackend);
     }
 
