@@ -334,6 +334,7 @@ pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 ///
 /// ```json
 /// {
+///     "jsonrpc": "2.0",
 ///     "method": "bevy/get",
 ///     "id": 0,
 ///     "params": {
@@ -346,6 +347,9 @@ pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 /// ```
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
+    /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
+    pub jsonrpc: String,
+
     /// The action to be performed. Parsing is deferred for the sake of error reporting.
     pub method: Option<Value>,
 
@@ -813,6 +817,17 @@ async fn process_single_request(
             ));
         }
     };
+
+    if request.jsonrpc != "2.0" {
+        return Ok(BrpResponse::new(
+            request.id,
+            Err(BrpError {
+                code: error_codes::INVALID_REQUEST,
+                message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
+                data: None,
+            }),
+        ));
+    }
 
     // Having parsed the request, we can parse the method.
     let method = match request.method {
