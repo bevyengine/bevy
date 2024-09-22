@@ -1,11 +1,11 @@
-use alloc::{rc::Rc, sync::Arc};
+use alloc::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
-use crate::{executor::LocalExecutor, Task};
+use spin::RwLock;
 
-thread_local! {
-    static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-}
+use crate::{executor::Executor, Task};
+
+static GLOBAL_EXECUTOR: Executor<'static> = Executor::new();
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -114,13 +114,13 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = &LocalExecutor::new();
+        let executor = &Executor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor: &'env Executor<'env> = unsafe { mem::transmute(executor) };
 
-        let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        let results: RefCell<Vec<Arc<RwLock<Option<T>>>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
+        let results: &'env RefCell<Vec<Arc<RwLock<Option<T>>>>> =
             unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
@@ -141,7 +141,7 @@ impl TaskPool {
         let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| result.borrow_mut().take().unwrap())
+            .map(|result| result.write().take().unwrap())
             .collect()
     }
 
@@ -151,29 +151,27 @@ impl TaskPool {
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
-        T: 'static,
+        T: Send + 'static,
     {
         #[cfg(target_arch = "wasm32")]
         return Task::wrap_future(future);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            LOCAL_EXECUTOR.with(|executor| {
-                let task = executor.spawn(future);
-                // Loop until all tasks are done
-                while executor.try_tick() {}
+            let task = GLOBAL_EXECUTOR.spawn(future);
+            // Loop until all tasks are done
+            while GLOBAL_EXECUTOR.try_tick() {}
 
-                Task::new(task)
-            })
+            Task::new(task)
         }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
-    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
-        T: 'static,
+        T: Send + 'static,
     {
         self.spawn(future)
     }
@@ -191,9 +189,9 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&LocalExecutor) -> R,
+        F: FnOnce(&Executor) -> R,
     {
-        LOCAL_EXECUTOR.with(f)
+        (f)(&GLOBAL_EXECUTOR)
     }
 }
 
@@ -202,16 +200,16 @@ impl TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope LocalExecutor<'scope>,
+    executor: &'scope Executor<'scope>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
+    results: &'env RefCell<Vec<Arc<RwLock<Option<T>>>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
+impl<'scope, 'env, T: Send + Sync + 'env> Scope<'scope, 'env, T> {
     /// Spawns a scoped future onto the executor. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -219,7 +217,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
+    pub fn spawn<Fut: Future<Output = T> + Send + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -230,7 +228,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// On the single threaded task pool, it just calls [`Scope::spawn_on_scope`].
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_external<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
+    pub fn spawn_on_external<Fut: Future<Output = T> + Send + 'scope>(&self, f: Fut) {
         self.spawn_on_scope(f);
     }
 
@@ -239,12 +237,12 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     /// returned as a part of [`TaskPool::scope`]'s return value.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope>(&self, f: Fut) {
-        let result = Rc::new(RefCell::new(None));
+    pub fn spawn_on_scope<Fut: Future<Output = T> + Send + 'scope>(&self, f: Fut) {
+        let result = Arc::new(RwLock::new(None));
         self.results.borrow_mut().push(result.clone());
         let f = async move {
             let temp_result = f.await;
-            result.borrow_mut().replace(temp_result);
+            result.write().replace(temp_result);
         };
         self.executor.spawn(f).detach();
     }
