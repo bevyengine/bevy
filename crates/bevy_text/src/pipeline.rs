@@ -210,18 +210,24 @@ impl TextPipeline {
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
             .try_for_each(|(layout_glyph, line_y)| {
-                let mut layout_glyph = layout_glyph.clone();
+                let mut temp_glyph;
 
-                if font_smoothing == FontSmoothing::None {
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
-                    layout_glyph.x = layout_glyph.x.round();
-                    layout_glyph.y = layout_glyph.y.round();
-                    layout_glyph.w = layout_glyph.w.round();
-                    layout_glyph.x_offset = layout_glyph.x_offset.round();
-                    layout_glyph.y_offset = layout_glyph.y_offset.round();
-                    layout_glyph.line_height_opt = layout_glyph.line_height_opt.map(f32::round);
-                }
+                    temp_glyph = layout_glyph.clone();
+                    temp_glyph.x = temp_glyph.x.round();
+                    temp_glyph.y = temp_glyph.y.round();
+                    temp_glyph.w = temp_glyph.w.round();
+                    temp_glyph.x_offset = temp_glyph.x_offset.round();
+                    temp_glyph.y_offset = temp_glyph.y_offset.round();
+                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+
+                    &temp_glyph
+                } else {
+                    layout_glyph
+                };
+
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
