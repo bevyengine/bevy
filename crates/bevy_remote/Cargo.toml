@@ -26,9 +26,12 @@ anyhow = "1"
 hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
+http-body-util = "0.1"
+
+# dependencies that will not compile on wasm
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 smol = "2"
 smol-hyper = "0.1"
-http-body-util = "0.1"
 
 [lints]
 workspace = true

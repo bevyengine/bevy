@@ -3328,7 +3328,7 @@ doc-scrape-examples = true
 name = "server"
 description = "A Bevy app that you can connect to with the BRP and edit"
 category = "Remote Protocol"
-wasm = true
+wasm = false
 
 [[example]]
 name = "anisotropy"

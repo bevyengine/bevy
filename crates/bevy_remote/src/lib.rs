@@ -243,6 +243,8 @@
 //!
 //! [the `serde` documentation]: https://serde.rs/
 
+#![cfg(not(target_family = "wasm"))]
+
 use std::{
     net::{IpAddr, Ipv4Addr},
     sync::RwLock,
