@@ -9,8 +9,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "bevy-support", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Describes the absolute transform (translation, rotation, scale) of an entity in space,
-/// relative to the main reference frame.
+/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace
+/// coordinates.
 ///
 /// ## Usage
 ///
@@ -22,21 +22,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///   Use [`Transform`] instead, and the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
 ///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee
 ///     an entity has both components.
-///
-/// ## `translation`, `rotation` and `scale`
-///
-/// [`GlobalTransform`] represents:
-/// - The position of an entity in space, defined as a `translation` from the origin,
-///   [`Vec3::ZERO`]. The unit doesn't have a predefined meaning, but the convention
-///   is usually to consider `1.0` equivalent to 1 meter.
-/// - The `rotation` of an entity in space, [`Quat::IDENTITY`] representing the rotation
-///   where [`Vec3::Z`] is forward and [`Vec3::Y`] is up.
-/// - The `scale` of an entity, `1.0` representing the "size values" of the entity
-///   matching the main reference frame coordinates.
-///   It can be seen as a ratio of the main reference frame length unit to
-///   the entity's length unit.
-///   For example if the scale is `1.0` for a `Mesh`, its vertices position attribute
-///   have the same unit than the values used inside `translation`.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
