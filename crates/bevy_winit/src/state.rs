@@ -497,8 +497,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
             #[cfg(target_os = "android")]
             {
-                // Get windows that are cached but without raw handles. Those window were already created, but got their
-                // handle wrapper removed when the app was suspended.
+                // Get windows that are cached but without raw handles. Those window were already
+                // created, but got their handle wrapper removed when the app was
+                // suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(&self.world()) {
@@ -539,8 +540,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.bevy_window_events.send(self.lifecycle);
         }
 
-        // This is recorded before running app.update(), to run the next cycle after a correct timeout.
-        // If the cycle takes more than the wait timeout, it will be re-executed immediately.
+        // This is recorded before running app.update(), to run the next cycle after a correct
+        // timeout. If the cycle takes more than the wait timeout, it will be re-executed
+        // immediately.
         let begin_frame_time = Instant::now();
 
         if should_update {
@@ -551,8 +553,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // Not redrawing, but the timeout elapsed.
             //
             // Additional condition for Windows OS.
-            // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
-            // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
+            // If no windows are visible, redraw calls will never succeed, which results in no app
+            // update calls being performed. This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
                 self.update_cursors(event_loop);
@@ -561,7 +563,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
-            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+            // Running the app may have changed the WinitSettings resource, so we have to re-extract
+            // it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
             update_mode = config.update_mode(focused);
@@ -612,7 +615,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 }
             }
             UpdateMode::Reactive { wait, .. } => {
-                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
+                // Set the next timeout, starting from the instant before running app.update() to
+                // avoid frame delays
                 if let Some(next) = begin_frame_time.checked_add(wait) {
                     if self.wait_elapsed {
                         event_loop.set_control_flow(ControlFlow::WaitUntil(next));
@@ -846,7 +850,8 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         error!("winit event loop returned an error: {err}");
     }
 
-    // If everything is working correctly then the event loop only exits after it's sent an exit code.
+    // If everything is working correctly then the event loop only exits after it's sent an exit
+    // code.
     runner_state.app_exit.unwrap_or_else(|| {
         error!("Failed to receive a app exit code! This is a bug");
         AppExit::error()

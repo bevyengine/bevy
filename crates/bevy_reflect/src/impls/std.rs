@@ -1582,7 +1582,8 @@ impl PartialReflect for Cow<'static, str> {
         } else {
             return Err(ApplyError::MismatchedTypes {
                 from_type: value.reflect_type_path().into(),
-                // If we invoke the reflect_type_path on self directly the borrow checker complains that the lifetime of self must outlive 'static
+                // If we invoke the reflect_type_path on self directly the borrow checker complains
+                // that the lifetime of self must outlive 'static
                 to_type: Self::type_path().into(),
             });
         }
@@ -1685,7 +1686,8 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
+        // into_owned() is not unnecessary here because it avoids cloning whenever you have a
+        // Cow::Owned already
         #[allow(clippy::unnecessary_to_owned)]
         self.into_owned()
             .into_iter()

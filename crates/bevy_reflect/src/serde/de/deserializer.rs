@@ -31,8 +31,8 @@ use std::fmt;
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
-/// this `Box` will contain the expected type.
+/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type
+/// data, this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.
@@ -164,8 +164,8 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
-/// this `Box` will contain the expected type.
+/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type
+/// data, this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
 /// Otherwise, this `Box` will contain the dynamic equivalent.

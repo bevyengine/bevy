@@ -55,7 +55,8 @@ pub struct StateTransition;
 /// Event sent when any state transition of `S` happens.
 /// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
-/// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
+/// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`],
+/// [`OnTransition`], or [`OnExit`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Event)]
 pub struct StateTransitionEvent<S: States> {
     /// The state being exited.
@@ -135,8 +136,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
         Some(entered) => {
             match current_state {
                 // If the [`State<S>`] resource exists, and the state is not the one we are
-                // entering - we need to set the new value, compute dependant states, send transition events
-                // and register transition schedules.
+                // entering - we need to set the new value, compute dependant states, send
+                // transition events and register transition schedules.
                 Some(mut state_resource) => {
                     let exited = match *state_resource == entered {
                         true => entered.clone(),
@@ -151,7 +152,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     });
                 }
                 None => {
-                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
+                    // If the [`State<S>`] resource does not exist, we create it, compute dependant
+                    // states, send a transition event and register the `OnEnter` schedule.
                     commands.insert_resource(State(entered.clone()));
 
                     event.send(StateTransitionEvent {
@@ -162,7 +164,8 @@ pub(crate) fn internal_apply_state_transition<S: States>(
             };
         }
         None => {
-            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
+            // We first remove the [`State<S>`] resource, and if one existed we compute dependant
+            // states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = current_state {
                 commands.remove_resource::<State<S>>();
 

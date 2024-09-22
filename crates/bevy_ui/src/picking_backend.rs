@@ -146,7 +146,8 @@ pub fn ui_picking(
             continue;
         }
 
-        // Intersect with the calculated clip rect to find the bounds of the visible region of the node
+        // Intersect with the calculated clip rect to find the bounds of the visible region of the
+        // node
         let visible_rect = node
             .calculated_clip
             .map(|clip| node_rect.intersect(clip.clip))

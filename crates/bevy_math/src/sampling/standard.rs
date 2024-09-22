@@ -1,3 +1,5 @@
+//! Local implementations of [`Standard`] [`Distribution`] for Bevy math types.
+//!
 //! This module holds local implementations of the [`Distribution`] trait for [`Standard`], which
 //! allow certain Bevy math types (those whose values can be randomly generated without additional
 //! input other than an [`Rng`]) to be produced using [`rand`]'s APIs. It also holds [`FromRng`],

@@ -3,8 +3,9 @@
 //!
 //! This is commonly useful for working on related components or resources,
 //! where we want to have unique types for querying purposes but want them all to work the same way.
-//! This is particularly powerful when combined with user-defined traits to add more functionality to these related types.
-//! Remember to insert a specialized copy of the system into the schedule for each type that you want to operate on!
+//! This is particularly powerful when combined with user-defined traits to add more functionality
+//! to these related types. Remember to insert a specialized copy of the system into the schedule
+//! for each type that you want to operate on!
 //!
 //! For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>

@@ -149,7 +149,9 @@ fn build_over_map(
     }
 }
 
-/// Build an unsorted set of hovered entities, accounting for depth, layer, and [`Pickable`]. Note
+/// Build an unsorted set of hovered entities, accounting for depth, layer, and [`Pickable`].
+///
+/// Note
 /// that unlike the pointer map, this uses [`Pickable`] to determine if lower entities receive hover
 /// focus. Often, only a single entity per pointer will be hovered.
 fn build_hover_map(

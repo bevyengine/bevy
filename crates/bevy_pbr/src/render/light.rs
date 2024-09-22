@@ -149,7 +149,8 @@ pub struct ShadowSamplers {
     pub directional_light_linear_sampler: Sampler,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
+// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by
+// the asset system
 impl FromWorld for ShadowSamplers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
@@ -254,7 +255,8 @@ pub fn extract_lights(
             continue;
         }
         // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+        // However, since exclusive access to the main world in extract is ill-advised, we just
+        // clone here.
         let render_cubemap_visible_entities = cubemap_visible_entities.clone();
         let extracted_point_light = ExtractedPointLight {
             color: point_light.color.into(),
@@ -296,7 +298,8 @@ pub fn extract_lights(
                 continue;
             }
             // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+            // However, since exclusive access to the main world in extract is ill-advised, we just
+            // clone here.
             let render_visible_entities = visible_entities.clone();
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -306,11 +309,12 @@ pub fn extract_lights(
                 (
                     ExtractedPointLight {
                         color: spot_light.color.into(),
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens
+                        // per steradian for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
                         // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the
+                        // same 4*PI divisor in both cases so that toggling
+                        // between point light and spot light keeps lit areas lit equally,
                         // which seems least surprising for users
                         intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
                         range: spot_light.range,
@@ -384,9 +388,9 @@ pub(crate) struct CubeMapFace {
 // Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
 // See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
 //
-// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
-// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
-// left-handed y-up cubemap coordinates.
+// For each cubemap face, we take care to specify the appropriate target/up axis such that the
+// rendered texture using Bevy's right-handed y-up coordinate space matches the expected cubemap
+// face in left-handed y-up cubemap coordinates.
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // +X
     CubeMapFace {
@@ -647,10 +651,13 @@ pub fn prepare_lights(
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
     // Sort lights by
-    // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
-    // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
-    //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
-    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
+    // - point-light vs spot-light, so that we can iterate point lights and spot lights in
+    //   contiguous blocks in the fragment shader,
+    // - then those with shadows enabled first, so that the index can be used to render at most
+    //   `point_light_shadow_maps_count` point light shadows and `spot_light_shadow_maps_count` spot
+    //   light shadow maps,
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the
+    //   light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
         clusterable_object_order(
             (
@@ -667,13 +674,12 @@ pub fn prepare_lights(
     });
 
     // Sort lights by
-    // - those with volumetric (and shadows) enabled first, so that the
-    //   volumetric lighting pass can quickly find the volumetric lights;
-    // - then those with shadows enabled second, so that the index can be used
-    //   to render at most `directional_light_shadow_maps_count` directional light
-    //   shadows
-    // - then by entity as a stable key to ensure that a consistent set of
-    //   lights are chosen if the light count limit is exceeded.
+    // - those with volumetric (and shadows) enabled first, so that the volumetric lighting pass can
+    //   quickly find the volumetric lights;
+    // - then those with shadows enabled second, so that the index can be used to render at most
+    //   `directional_light_shadow_maps_count` directional light shadows
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the
+    //   light count limit is exceeded.
     directional_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         directional_light_order(
             (entity_1, &light_1.volumetric, &light_1.shadows_enabled),
@@ -725,7 +731,8 @@ pub fn prepare_lights(
             }
             None => {
                 (
-                    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+                    // For point lights: the lower-right 2x2 values of the projection matrix [2][2]
+                    // [2][3] [3][2] [3][3]
                     Vec4::new(
                         cube_face_projection.z_axis.z,
                         cube_face_projection.z_axis.w,
@@ -885,14 +892,16 @@ pub fn prepare_lights(
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len().min(MAX_DIRECTIONAL_LIGHTS)
                 as u32,
-            // spotlight shadow maps are stored in the directional light array, starting at num_directional_cascades_enabled.
-            // the spot lights themselves start in the light array at point_light_count. so to go from light
-            // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
+            // spotlight shadow maps are stored in the directional light array, starting at
+            // num_directional_cascades_enabled. the spot lights themselves start in the
+            // light array at point_light_count. so to go from light index to shadow map
+            // index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
         };
 
-        // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
+        // TODO: this should select lights based on relevance to the view instead of the first ones
+        // that show up in a query
         for &(light_entity, light, (point_light_frusta, _)) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first

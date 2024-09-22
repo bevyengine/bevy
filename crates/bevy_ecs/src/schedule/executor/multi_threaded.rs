@@ -80,7 +80,8 @@ struct SystemResult {
 
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
 pub struct MultiThreadedExecutor {
-    /// The running state, protected by a mutex so that a reference to the executor can be shared across tasks.
+    /// The running state, protected by a mutex so that a reference to the executor can be shared
+    /// across tasks.
     state: Mutex<ExecutorState>,
     /// Queue of system completion events.
     system_completion: ConcurrentQueue<SystemResult>,
@@ -223,8 +224,9 @@ impl SystemExecutor for MultiThreadedExecutor {
             |scope| {
                 let context = Context { environment, scope };
 
-                // The first tick won't need to process finished systems, but we still need to run the loop in
-                // tick_executor() in case a system completes while the first tick still holds the mutex.
+                // The first tick won't need to process finished systems, but we still need to run
+                // the loop in tick_executor() in case a system completes while the
+                // first tick still holds the mutex.
                 context.tick_executor();
             },
         );
@@ -296,17 +298,19 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
     }
 
     fn tick_executor(&self) {
-        // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
-        // If this thread acquires the lock, the exector runs after the push() and they are processed.
-        // If this thread does not acquire the lock, then the is_empty() check on the other thread runs
-        // after the lock is released, which is after try_lock() failed, which is after the push()
-        // on this thread, so the is_empty() check will see the new events and loop.
+        // Ensure that the executor handles any events pushed to the system_completion queue by this
+        // thread. If this thread acquires the lock, the exector runs after the push() and
+        // they are processed. If this thread does not acquire the lock, then the is_empty()
+        // check on the other thread runs after the lock is released, which is after
+        // try_lock() failed, which is after the push() on this thread, so the is_empty()
+        // check will see the new events and loop.
         loop {
             let Some((conditions, mut guard)) = self.try_lock() else {
                 return;
             };
             guard.tick(self, conditions);
-            // Make sure we drop the guard before checking system_completion.is_empty(), or we could lose events.
+            // Make sure we drop the guard before checking system_completion.is_empty(), or we could
+            // lose events.
             drop(guard);
             if self.environment.executor.system_completion.is_empty() {
                 return;
@@ -370,10 +374,10 @@ impl ExecutorState {
     }
 
     /// # Safety
-    /// - Caller must ensure that `self.ready_systems` does not contain any systems that
-    ///   have been mutably borrowed (such as the systems currently running).
-    /// - `world_cell` must have permission to access all world data (not counting
-    ///   any world data that is claimed by systems currently running on this executor).
+    /// - Caller must ensure that `self.ready_systems` does not contain any systems that have been
+    ///   mutably borrowed (such as the systems currently running).
+    /// - `world_cell` must have permission to access all world data (not counting any world data
+    ///   that is claimed by systems currently running on this executor).
     unsafe fn spawn_system_tasks(&mut self, context: &Context, conditions: &mut Conditions) {
         if self.exclusive_running {
             return;
@@ -383,7 +387,8 @@ impl ExecutorState {
         let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
 
         // Skipping systems may cause their dependents to become ready immediately.
-        // If that happens, we need to run again immediately or we may fail to spawn those dependents.
+        // If that happens, we need to run again immediately or we may fail to spawn those
+        // dependents.
         let mut check_for_new_ready_systems = true;
         while check_for_new_ready_systems {
             check_for_new_ready_systems = false;
@@ -413,7 +418,8 @@ impl ExecutorState {
 
                 // SAFETY: `can_run` returned true, which means that:
                 // - It must have called `update_archetype_component_access` for each run condition.
-                // - There can be no systems running whose accesses would conflict with any conditions.
+                // - There can be no systems running whose accesses would conflict with any
+                //   conditions.
                 if unsafe {
                     !self.should_run(
                         system_index,
@@ -443,8 +449,10 @@ impl ExecutorState {
 
                 // SAFETY:
                 // - Caller ensured no other reference to this system exists.
-                // - `can_run` has been called, which calls `update_archetype_component_access` with this system.
-                // - `can_run` returned true, so no systems with conflicting world access are running.
+                // - `can_run` has been called, which calls `update_archetype_component_access` with
+                //   this system.
+                // - `can_run` returned true, so no systems with conflicting world access are
+                //   running.
                 unsafe {
                     self.spawn_system_task(context, system_index);
                 }
@@ -514,11 +522,11 @@ impl ExecutorState {
     }
 
     /// # Safety
-    /// * `world` must have permission to read any world data required by
-    ///   the system's conditions: this includes conditions for the system
-    ///   itself, and conditions for any of the system's sets.
-    /// * `update_archetype_component` must have been called with `world`
-    ///   for each run condition in `conditions`.
+    /// * `world` must have permission to read any world data required by the system's conditions:
+    ///   this includes conditions for the system itself, and conditions for any of the system's
+    ///   sets.
+    /// * `update_archetype_component` must have been called with `world` for each run condition in
+    ///   `conditions`.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
@@ -534,8 +542,8 @@ impl ExecutorState {
 
             // Evaluate the system set's conditions.
             // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the conditions.
+            // - The caller ensures that `world` has permission to read any data required by the
+            //   conditions.
             // - `update_archetype_component_access` has been called for each run condition.
             let set_conditions_met = unsafe {
                 evaluate_and_fold_conditions(&mut conditions.set_conditions[set_idx], world)
@@ -552,8 +560,8 @@ impl ExecutorState {
 
         // Evaluate the system's conditions.
         // SAFETY:
-        // - The caller ensures that `world` has permission to read any data
-        //   required by the conditions.
+        // - The caller ensures that `world` has permission to read any data required by the
+        //   conditions.
         // - `update_archetype_component_access` has been called for each run condition.
         let system_conditions_met = unsafe {
             evaluate_and_fold_conditions(&mut conditions.system_conditions[system_index], world)
@@ -570,10 +578,9 @@ impl ExecutorState {
 
     /// # Safety
     /// - Caller must not alias systems that are running.
-    /// - `world` must have permission to access the world data
-    ///   used by the specified system.
-    /// - `update_archetype_component_access` must have been called with `world`
-    ///   on the system associated with `system_index`.
+    /// - `world` must have permission to access the world data used by the specified system.
+    /// - `update_archetype_component_access` must have been called with `world` on the system
+    ///   associated with `system_index`.
     unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
@@ -717,10 +724,9 @@ fn apply_deferred(
 }
 
 /// # Safety
-/// - `world` must have permission to read any world data
-///   required by `conditions`.
-/// - `update_archetype_component_access` must have been called
-///   with `world` for each condition in `conditions`.
+/// - `world` must have permission to read any world data required by `conditions`.
+/// - `update_archetype_component_access` must have been called with `world` for each condition in
+///   `conditions`.
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,

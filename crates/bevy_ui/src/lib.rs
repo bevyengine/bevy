@@ -8,8 +8,8 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
-//! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
+//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`],
+//! [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`] This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
 pub mod node_bundles;
@@ -109,8 +109,8 @@ impl Default for UiScale {
     }
 }
 
-// Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is enabled.
-// See https://github.com/bevyengine/bevy/pull/11391 for more details.
+// Marks systems that can be ambiguous with [`widget::text_system`] if the `bevy_text` feature is
+// enabled. See https://github.com/bevyengine/bevy/pull/11391 for more details.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithTextSystem;
 

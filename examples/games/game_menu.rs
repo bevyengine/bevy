@@ -50,9 +50,11 @@ mod splash {
 
     use super::{despawn_screen, GameState};
 
-    // This plugin will display a splash screen with Bevy logo for 1 second before switching to the menu
+    // This plugin will display a splash screen with Bevy logo for 1 second before switching to the
+    // menu
     pub fn splash_plugin(app: &mut App) {
-        // As this plugin is managing the splash screen, it will focus on the state `GameState::Splash`
+        // As this plugin is managing the splash screen, it will focus on the state
+        // `GameState::Splash`
         app
             // When entering the state, spawn everything needed for this screen
             .add_systems(OnEnter(GameState::Splash), splash_setup)
@@ -164,8 +166,9 @@ mod game {
                         style: Style {
                             // This will display its children in a column, from top to bottom
                             flex_direction: FlexDirection::Column,
-                            // `align_items` will align children on the cross axis. Here the main axis is
-                            // vertical (column), so the cross axis is horizontal. This will center the
+                            // `align_items` will align children on the cross axis. Here the main
+                            // axis is vertical (column), so the cross
+                            // axis is horizontal. This will center the
                             // children
                             align_items: AlignItems::Center,
                             ..default()
@@ -624,8 +627,9 @@ mod menu {
                         ..default()
                     })
                     .with_children(|parent| {
-                        // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
-                        // use the default value, `FlexDirection::Row`, from left to right.
+                        // Create a new `NodeBundle`, this time not setting its `flex_direction`. It
+                        // will use the default value, `FlexDirection::Row`,
+                        // from left to right.
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
@@ -812,7 +816,8 @@ mod menu {
     }
 }
 
-// Generic system that takes a component as a parameter, and will despawn all entities with that component
+// Generic system that takes a component as a parameter, and will despawn all entities with that
+// component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();

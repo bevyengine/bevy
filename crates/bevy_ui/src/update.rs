@@ -43,7 +43,8 @@ fn update_clipping(
         return;
     };
 
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited
+    // clip with a default rect (which is empty)
     if style.display == Display::None {
         maybe_inherited_clip = Some(Rect::default());
     }
@@ -62,7 +63,8 @@ fn update_clipping(
             commands.entity(entity).remove::<CalculatedClip>();
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
-        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
+        // No previous calculated clip, add a new CalculatedClip component with the inherited
+        // clipping rect
         commands.entity(entity).try_insert(CalculatedClip {
             clip: inherited_clip,
         });

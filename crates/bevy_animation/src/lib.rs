@@ -111,7 +111,7 @@ pub struct VariableCurve {
     ///
     /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
     /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    ///     `keyframe_value` and `tangent_out`
+    ///   `keyframe_value` and `tangent_out`
     pub keyframes: Keyframes,
     /// Interpolation method to use between keyframes.
     pub interpolation: Interpolation,
@@ -135,16 +135,17 @@ impl VariableCurve {
         let last_keyframe = self.keyframe_timestamps.len() - 1;
 
         // We want to find the index of the keyframe before the current time
-        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be
+        // interpolated.
         let step_start = match search_result {
-            // An exact match was found, and it is the last keyframe (or something has gone terribly wrong).
-            // This means that the curve is finished.
+            // An exact match was found, and it is the last keyframe (or something has gone terribly
+            // wrong). This means that the curve is finished.
             Ok(n) if n >= last_keyframe => return None,
             // An exact match was found, and it is not the last keyframe.
             Ok(i) => i,
             // No exact match was found, and the seek_time is before the start of the animation.
-            // This occurs because the binary search returns the index of where we could insert a value
-            // without disrupting the order of the vector.
+            // This occurs because the binary search returns the index of where we could insert a
+            // value without disrupting the order of the vector.
             // If the value is less than the first element, the index will be 0.
             Err(0) => return None,
             // No exact match was found, and it was after the last keyframe.
@@ -174,7 +175,8 @@ impl VariableCurve {
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
         // We want to find the index of the keyframe before the current time
-        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be
+        // interpolated.
         match search_result {
             // An exact match was found
             Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
@@ -283,7 +285,8 @@ impl AnimationClip {
     }
 
     #[inline]
-    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the
+    /// [`AnimationTargetId`].
     pub fn curves_mut(&mut self) -> &mut AnimationCurves {
         &mut self.curves
     }
@@ -374,7 +377,8 @@ pub struct ActiveAnimation {
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
     /// Number of times the animation has completed.
-    /// If the animation is playing in reverse, this increments when the animation passes the start.
+    /// If the animation is playing in reverse, this increments when the animation passes the
+    /// start.
     completions: u32,
     paused: bool,
 }
@@ -396,7 +400,8 @@ impl Default for ActiveAnimation {
 }
 
 impl ActiveAnimation {
-    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Check if the animation has finished, based on its repetition behavior and the number of
+    /// times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     #[inline]

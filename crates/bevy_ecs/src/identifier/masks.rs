@@ -2,8 +2,9 @@ use std::num::NonZero;
 
 use super::kinds::IdKind;
 
-/// Mask for extracting the value portion of a 32-bit high segment. This
-/// yields 31-bits of total value, as the final bit (the most significant)
+/// Mask for extracting the value portion of a 32-bit high segment.
+///
+/// This yields 31-bits of total value, as the final bit (the most significant)
 /// is reserved as a flag bit. Can be negated to extract the flag bit.
 pub(crate) const HIGH_MASK: u32 = 0x7FFF_FFFF;
 

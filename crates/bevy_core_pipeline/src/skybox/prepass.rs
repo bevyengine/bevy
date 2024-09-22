@@ -131,7 +131,9 @@ pub fn prepare_skybox_prepass_pipelines(
     }
 }
 
-/// Creates the required bind groups for the [`SkyboxPrepassPipeline`]. This binds the view uniforms
+/// Creates the required bind groups for the [`SkyboxPrepassPipeline`].
+///
+/// This binds the view uniforms
 /// from the CPU for access in the prepass shader on the GPU, allowing us to compute camera motion
 /// between frames. This is then stored in the [`SkyboxPrepassBindGroup`] component on the camera.
 pub fn prepare_skybox_prepass_bind_groups(

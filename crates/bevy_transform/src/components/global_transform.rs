@@ -9,22 +9,25 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "bevy-support", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
+/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace
+/// coordinates.
 ///
-/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by manipulating
-/// its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
+/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by
+/// manipulating its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
+/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a
+///   [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
-/// if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to
+/// world space coordinates, if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
-/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
-/// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
+/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the
+/// [`Transform`] of each ancestor entity which has a Transform. This is done automatically by
+/// Bevy-internal systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
@@ -213,7 +216,8 @@ impl GlobalTransform {
         (self.0.matrix3 * extents).length()
     }
 
-    /// Transforms the given point from local space to global space, applying shear, scale, rotation and translation.
+    /// Transforms the given point from local space to global space, applying shear, scale, rotation
+    /// and translation.
     ///
     /// It can be used like this:
     ///
@@ -235,7 +239,9 @@ impl GlobalTransform {
     /// assert_eq!(local_point, Vec3::new(1., 2., 3.))
     /// ```
     ///
-    /// To apply shear, scale, and rotation *without* applying translation, different functions are available:
+    /// To apply shear, scale, and rotation *without* applying translation, different functions are
+    /// available:
+    ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform};
     /// # use bevy_math::prelude::Vec3;
@@ -243,7 +249,8 @@ impl GlobalTransform {
     /// let local_direction = Vec3::new(1., 2., 3.);
     /// let global_direction = global_transform.affine().transform_vector3(local_direction);
     /// assert_eq!(global_direction, Vec3::new(1., 2., 3.));
-    /// let roundtripped_local_direction = global_transform.affine().inverse().transform_vector3(global_direction);
+    /// let roundtripped_local_direction =
+    /// global_transform.affine().inverse().transform_vector3(global_direction);
     /// assert_eq!(roundtripped_local_direction, local_direction);
     /// ```
     #[inline]

@@ -2,13 +2,17 @@ use thiserror::Error;
 
 use crate::entity::Entity;
 
-/// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
+/// Error when retrieving a specific [`Entity`]'s query result from [`Query`] or [`QueryState`].
+///
+/// [`Query`]: crate::system::Query
+/// [`QueryState`]: crate::query::QueryState
 // TODO: return the type_name as part of this error
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Error)]
 pub enum QueryEntityError {
     /// The given [`Entity`]'s components do not match the query.
     ///
-    /// Either it does not have a requested component, or it has a component which the query filters out.
+    /// Either it does not have a requested component, or it has a component which the query
+    /// filters out.
     #[error("The components of entity {0:?} do not match the query")]
     QueryDoesNotMatch(Entity),
     /// The given [`Entity`] does not exist.
@@ -21,8 +25,12 @@ pub enum QueryEntityError {
     AliasedMutability(Entity),
 }
 
-/// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
-/// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
+/// Error when evaluating a [`Query`] or [`QueryState`] via [`get_single`] or [`get_single_mut`].
+///
+/// [`Query`]: crate::system::Query
+/// [`QueryState`]: crate::query::QueryState
+/// [`get_single`]: crate::system::Query::get_single
+/// [`get_single_mut`]: crate::system::Query::get_single_mut
 #[derive(Debug, Error)]
 pub enum QuerySingleError {
     /// No entity fits the query.

@@ -93,13 +93,13 @@ impl From<Circle> for Mesh {
 
 /// Specifies how to generate UV-mappings for the [`CircularSector`] and [`CircularSegment`] shapes.
 ///
-/// Currently the only variant is `Mask`, which is good for showing a portion of a texture that includes
-/// the entire circle, particularly the same texture will be displayed with different fractions of a
-/// complete circle.
+/// Currently the only variant is `Mask`, which is good for showing a portion of a texture that
+/// includes the entire circle, particularly the same texture will be displayed with different
+/// fractions of a complete circle.
 ///
-/// It's expected that more will be added in the future, such as a variant that causes the texture to be
-/// scaled to fit the bounding box of the shape, which would be good for packed textures only including the
-/// portion of the circle that is needed to display.
+/// It's expected that more will be added in the future, such as a variant that causes the texture
+/// to be scaled to fit the bounding box of the shape, which would be good for packed textures only
+/// including the portion of the circle that is needed to display.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum CircularMeshUvMode {
@@ -191,8 +191,9 @@ impl MeshBuilder for CircularSectorMeshBuilder {
 
             // Compute the vertex
             let vertex = self.sector.radius() * Vec2::from_angle(angle);
-            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
-            // We accomplish the Y axis flip by negating the angle.
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y
+            // axis, and rescaling and centering it at (0.5, 0.5). We accomplish the Y
+            // axis flip by negating the angle.
             let uv =
                 Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
 
@@ -337,8 +338,9 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
 
             // Compute the vertex
             let vertex = self.segment.radius() * Vec2::from_angle(angle);
-            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y axis, and rescaling and centering it at (0.5, 0.5).
-            // We accomplish the Y axis flip by negating the angle.
+            // Compute the UV coordinate by taking the modified angle's unit vector, negating the Y
+            // axis, and rescaling and centering it at (0.5, 0.5). We accomplish the Y
+            // axis flip by negating the angle.
             let uv =
                 Vec2::from_angle(-(angle + uv_angle)).mul_add(Vec2::splat(0.5), Vec2::splat(0.5));
 
@@ -461,7 +463,8 @@ impl Default for EllipseMeshBuilder {
 }
 
 impl EllipseMeshBuilder {
-    /// Creates a new [`EllipseMeshBuilder`] from a given half width and half height and a vertex count.
+    /// Creates a new [`EllipseMeshBuilder`] from a given half width and half height and a vertex
+    /// count.
     #[inline]
     pub const fn new(half_width: f32, half_height: f32, resolution: u32) -> Self {
         Self {
@@ -564,7 +567,8 @@ impl Default for AnnulusMeshBuilder {
 }
 
 impl AnnulusMeshBuilder {
-    /// Create an [`AnnulusMeshBuilder`] with the given inner radius, outer radius, and angular vertex count.
+    /// Create an [`AnnulusMeshBuilder`] with the given inner radius, outer radius, and angular
+    /// vertex count.
     #[inline]
     pub fn new(inner_radius: f32, outer_radius: f32, resolution: u32) -> Self {
         Self {
@@ -866,8 +870,9 @@ impl Default for Capsule2dMeshBuilder {
 }
 
 impl Capsule2dMeshBuilder {
-    /// Creates a new [`Capsule2dMeshBuilder`] from a given radius, length, and the number of vertices
-    /// used for one hemicircle. The total number of vertices for the capsule mesh will be two times the resolution.
+    /// Creates a new [`Capsule2dMeshBuilder`] from a given radius, length, and the number of
+    /// vertices used for one hemicircle. The total number of vertices for the capsule mesh will
+    /// be two times the resolution.
     #[inline]
     pub fn new(radius: f32, length: f32, resolution: u32) -> Self {
         Self {

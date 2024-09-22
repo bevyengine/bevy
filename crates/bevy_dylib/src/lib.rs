@@ -18,19 +18,19 @@
 //!
 //! ## The recommended way
 //!
-//! The easiest way to enable dynamic linking is to use the `--features bevy/dynamic_linking` flag when
-//! using the `cargo run` command:
+//! The easiest way to enable dynamic linking is to use the `--features bevy/dynamic_linking` flag
+//! when using the `cargo run` command:
 //!
 //! `cargo run --features bevy/dynamic_linking`
 //!
 //! ## The unrecommended way
 //!
-//! It is also possible to enable the `dynamic_linking` feature inside of the `Cargo.toml` file. This is
-//! unrecommended because it requires you to remove this feature every time you want to create a
-//! release build to avoid having to ship additional files with your game.
+//! It is also possible to enable the `dynamic_linking` feature inside of the `Cargo.toml` file.
+//! This is unrecommended because it requires you to remove this feature every time you want to
+//! create a release build to avoid having to ship additional files with your game.
 //!
-//! To enable dynamic linking inside of the `Cargo.toml` file add the `dynamic_linking` feature to the
-//! bevy dependency:
+//! To enable dynamic linking inside of the `Cargo.toml` file add the `dynamic_linking` feature to
+//! the bevy dependency:
 //!
 //! `features = ["dynamic_linking"]`
 //!

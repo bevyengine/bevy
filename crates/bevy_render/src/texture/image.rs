@@ -170,7 +170,8 @@ impl ImageFormat {
 #[reflect_value(Default)]
 pub struct Image {
     pub data: Vec<u8>,
-    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
+    // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or
+    // add accessors
     pub texture_descriptor: wgpu::TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
@@ -178,9 +179,12 @@ pub struct Image {
     pub asset_usage: RenderAssetUsages,
 }
 
-/// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
-/// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
+/// Used in [`Image`], this determines what image sampler to use when rendering.
+///
+/// The default
+/// setting, [`ImageSampler::Default`], will read the sampler from the
+/// [`ImagePlugin`](super::ImagePlugin) at setup. Setting this to [`ImageSampler::Descriptor`] will
+/// override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
     /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
@@ -224,8 +228,8 @@ impl ImageSampler {
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
-/// image sampler.
+/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the
+/// default image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);
 
@@ -376,7 +380,8 @@ impl Default for ImageSamplerDescriptor {
 }
 
 impl ImageSamplerDescriptor {
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min
+    /// and mag filters
     #[inline]
     pub fn linear() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -387,7 +392,8 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest)
+    /// min and mag filters
     #[inline]
     pub fn nearest() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -924,7 +930,8 @@ impl TextureFormatPixelInfo for TextureFormat {
 }
 
 /// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
+/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the
+/// texture's size.
 #[derive(Debug, Clone)]
 pub struct GpuImage {
     pub texture: Texture,

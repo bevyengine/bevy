@@ -1,7 +1,7 @@
 //! Additional [`Gizmos`] Functions -- Rounded cuboids and rectangles
 //!
-//! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
-//! and assorted support items.
+//! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and
+//! [`Gizmos::rounded_cuboid`]. and assorted support items.
 
 use std::f32::consts::FRAC_PI_2;
 
@@ -210,17 +210,17 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - `isometry` defines the translation and rotation of the rectangle.
     ///              - the translation specifies the center of the rectangle
-    ///              - defines orientation of the rectangle, by default we
-    ///                assume the rectangle is contained in a plane parallel
-    ///                to the XY plane.
-    /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
+    ///              - defines orientation of the rectangle, by default we assume the rectangle is
+    ///                contained in a plane parallel to the XY plane.
+    /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a
+    ///   bounding box.
     /// - `color`: color of the rectangle
     ///
     /// # Builder methods
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
-    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with
+    ///   the `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -265,16 +265,17 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - `isometry` defines the translation and rotation of the rectangle.
     ///              - the translation specifies the center of the rectangle
-    ///              - defines orientation of the rectangle, by default we
-    ///                assume the rectangle aligned with all axes.
-    /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
+    ///              - defines orientation of the rectangle, by default we assume the rectangle
+    ///                aligned with all axes.
+    /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a
+    ///   bounding box.
     /// - `color`: color of the rectangle
     ///
     /// # Builder methods
     ///
     /// - The corner radius can be adjusted with the `.corner_radius(...)` method.
-    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    /// - The resolution of the arcs at each corner (i.e. the level of detail) can be adjusted with
+    ///   the `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -322,16 +323,17 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// - `isometry` defines the translation and rotation of the cuboid.
     ///              - the translation specifies the center of the cuboid
-    ///              - defines orientation of the cuboid, by default we
-    ///                assume the cuboid aligned with all axes.
-    /// - `size`: defines the size of the cuboid. This refers to the 'outer size', similar to a bounding box.
+    ///              - defines orientation of the cuboid, by default we assume the cuboid aligned
+    ///                with all axes.
+    /// - `size`: defines the size of the cuboid. This refers to the 'outer size', similar to a
+    ///   bounding box.
     /// - `color`: color of the cuboid
     ///
     /// # Builder methods
     ///
     /// - The edge radius can be adjusted with the `.edge_radius(...)` method.
-    /// - The resolution of the arcs at each edge (i.e. the level of detail) can be adjusted with the
-    ///     `.arc_resolution(...)` method.
+    /// - The resolution of the arcs at each edge (i.e. the level of detail) can be adjusted with
+    ///   the `.arc_resolution(...)` method.
     ///
     /// # Example
     /// ```

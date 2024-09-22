@@ -1,4 +1,5 @@
 //! A freecam-style camera controller plugin.
+//!
 //! To use in your own application:
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
@@ -18,7 +19,9 @@ impl Plugin for CameraControllerPlugin {
     }
 }
 
-/// Based on Valorant's default sensitivity, not entirely sure why it is exactly 1.0 / 180.0,
+/// Based on Valorant's default sensitivity.
+///
+/// Not entirely sure why it is exactly 1.0 / 180.0,
 /// but I'm guessing it is a misunderstanding between degrees/radians and then sticking with
 /// it because it felt nice.
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;

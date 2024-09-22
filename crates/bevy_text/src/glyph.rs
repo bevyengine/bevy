@@ -10,7 +10,8 @@ use bevy_sprite::TextureAtlasLayout;
 ///
 /// Contains information about how and where to render a glyph.
 ///
-/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
+/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and
+/// [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
     /// The position of the glyph in the [`Text`](crate::Text)'s bounding box.
@@ -21,10 +22,10 @@ pub struct PositionedGlyph {
     pub atlas_info: GlyphAtlasInfo,
     /// The index of the glyph in the [`Text`](crate::Text)'s sections.
     pub section_index: usize,
-    /// TODO: In order to do text editing, we need access to the size of glyphs and their index in the associated String.
-    /// For example, to figure out where to place the cursor in an input box from the mouse's position.
-    /// Without this, it's only possible in texts where each glyph is one byte. Cosmic text has methods for this
-    /// cosmic-texts [hit detection](https://pop-os.github.io/cosmic-text/cosmic_text/struct.Buffer.html#method.hit)
+    /// TODO: In order to do text editing, we need access to the size of glyphs and their index in
+    /// the associated String. For example, to figure out where to place the cursor in an input
+    /// box from the mouse's position. Without this, it's only possible in texts where each
+    /// glyph is one byte. Cosmic text has methods for this cosmic-texts [hit detection](https://pop-os.github.io/cosmic-text/cosmic_text/struct.Buffer.html#method.hit)
     byte_index: usize,
 }
 

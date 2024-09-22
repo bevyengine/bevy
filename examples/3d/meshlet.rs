@@ -1,6 +1,7 @@
 //! Meshlet rendering for dense high-poly scenes (experimental).
 
-// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
+// Note: This example showcases the meshlet API, but is not the type of scene that would benefit
+// from using meshlets.
 
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;

@@ -63,11 +63,12 @@ impl AssetInfo {
 pub(crate) struct AssetInfos {
     path_to_id: HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
-    /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
-    /// This should only be set at startup.
+    /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for
+    /// changes (such as `load_dependants`) This should only be set at startup.
     pub(crate) watching_for_changes: bool,
-    /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader dependencies")
-    /// This should only be set when watching for changes to avoid unnecessary work.
+    /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader
+    /// dependencies") This should only be set when watching for changes to avoid unnecessary
+    /// work.
     pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
@@ -199,7 +200,8 @@ impl AssetInfos {
 
         let type_id = type_id
             .or_else(|| {
-                // If a TypeId is not provided, we may be able to infer it if only a single entry exists
+                // If a TypeId is not provided, we may be able to infer it if only a single entry
+                // exists
                 if handles.len() == 1 {
                     Some(*handles.keys().next().unwrap())
                 } else {
@@ -230,13 +232,15 @@ impl AssetInfos {
                     // return a strong handle
                     Ok((UntypedHandle::Strong(strong_handle), should_load))
                 } else {
-                    // Asset meta exists, but all live handles were dropped. This means the `track_assets` system
-                    // hasn't been run yet to remove the current asset
-                    // (note that this is guaranteed to be transactional with the `track_assets` system because
+                    // Asset meta exists, but all live handles were dropped. This means the
+                    // `track_assets` system hasn't been run yet to remove the
+                    // current asset (note that this is guaranteed to be
+                    // transactional with the `track_assets` system because
                     // because it locks the AssetInfos collection)
 
-                    // We must create a new strong handle for the existing id and ensure that the drop of the old
-                    // strong handle doesn't remove the asset from the Assets collection
+                    // We must create a new strong handle for the existing id and ensure that the
+                    // drop of the old strong handle doesn't remove the asset
+                    // from the Assets collection
                     info.handle_drops_to_skip += 1;
                     let provider = self
                         .handle_providers
@@ -248,7 +252,8 @@ impl AssetInfos {
                     Ok((UntypedHandle::Strong(handle), should_load))
                 }
             }
-            // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
+            // The entry does not exist, so this is a "fresh" asset load. We must create a new
+            // handle
             Entry::Vacant(entry) => {
                 let should_load = match loading_mode {
                     HandleLoadingMode::NotLoading => false,
@@ -295,7 +300,8 @@ impl AssetInfos {
         &'a self,
         path: &'a AssetPath<'a>,
     ) -> impl Iterator<Item = UntypedAssetId> + 'a {
-        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
+        /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)`
+        /// is `None`
         enum HandlesByPathIterator<T> {
             None,
             Some(T),
@@ -374,7 +380,8 @@ impl AssetInfos {
         )
     }
 
-    /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependants).
+    /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant
+    /// dependencies / dependants).
     pub(crate) fn process_asset_load(
         &mut self,
         loaded_asset_id: UntypedAssetId,
@@ -678,8 +685,9 @@ impl AssetInfos {
         id: UntypedAssetId,
     ) -> bool {
         let Entry::Occupied(mut entry) = infos.entry(id) else {
-            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
-            // None of these cases should result in a removal from the Assets collection
+            // Either the asset was already dropped, it doesn't exist, or it isn't managed by the
+            // asset server None of these cases should result in a removal from the
+            // Assets collection
             return false;
         };
 
@@ -717,9 +725,10 @@ impl AssetInfos {
         true
     }
 
-    /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but it
-    /// will not affect [`Assets`] storages. For normal use cases, prefer `Assets::track_assets()`
-    /// This should only be called if `Assets` storage isn't being used (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
+    /// Consumes all current handle drop events. This will update information in [`AssetInfos`], but
+    /// it will not affect [`Assets`] storages. For normal use cases, prefer
+    /// `Assets::track_assets()` This should only be called if `Assets` storage isn't being used
+    /// (such as in [`AssetProcessor`](crate::processor::AssetProcessor))
     ///
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {

@@ -9,8 +9,8 @@ pub struct TaskPoolThreadAssignmentPolicy {
     pub min_threads: usize,
     /// Under no circumstance use more than this many threads for this pool
     pub max_threads: usize,
-    /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It is
-    /// permitted to use 1.0 to try to use all remaining threads
+    /// Target using this percentage of total cores, clamped by `min_threads` and `max_threads`. It
+    /// is permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
 }
 

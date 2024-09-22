@@ -88,7 +88,8 @@ struct CameraLayoutInfo {
     root_nodes: Vec<Entity>,
 }
 
-/// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
+/// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and
+/// transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut buffers: Local<UiLayoutSystemBuffers>,
@@ -183,7 +184,8 @@ pub fn ui_layout_system(
 
     });
 
-    // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
+    // When a `ContentSize` component is removed from an entity, we need to remove the measure from
+    // the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
     }
@@ -245,10 +247,12 @@ pub fn ui_layout_system(
     let text_buffers = &mut buffer_query;
     #[cfg(feature = "bevy_text")]
     let font_system = text_pipeline.font_system_mut();
-    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
+    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key
+    // used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
-    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
+    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as
+    // a child of another node
     children_query.iter().for_each(|(entity, children)| {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
@@ -370,7 +374,8 @@ pub fn ui_layout_system(
 }
 
 #[inline]
-/// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
+/// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to
+/// 0.5) rounded towards positive infinity.
 fn approx_round_ties_up(value: f32) -> f32 {
     (value + 0.5).floor()
 }
@@ -378,7 +383,8 @@ fn approx_round_ties_up(value: f32) -> f32 {
 #[inline]
 /// Rounds layout coordinates by rounding ties upwards.
 ///
-/// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
+/// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to
+/// positive.
 ///
 /// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
 /// - `f32::round`: width becomes 101 (rounds to -51 and 50).
@@ -471,7 +477,8 @@ mod tests {
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
+                // UI is driven by calculated camera target info, so we need to run the camera
+                // system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
                 apply_deferred,
@@ -579,7 +586,8 @@ mod tests {
             .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
             .id();
 
-        // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
+        // `ui_layout_system` should map `camera_entity` to a ui node in
+        // `UiSurface::camera_entity_to_taffy`
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
@@ -608,7 +616,8 @@ mod tests {
 
         let ui_entity = world.spawn(NodeBundle::default()).id();
 
-        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to
+        // `ui_entity`
         ui_schedule.run(&mut world);
 
         // retrieve the ui node corresponding to `ui_entity` from ui surface
@@ -633,7 +642,8 @@ mod tests {
 
         let ui_parent_entity = world.spawn(NodeBundle::default()).id();
 
-        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
+        // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to
+        // `ui_entity`
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
@@ -669,7 +679,8 @@ mod tests {
                 .map(|child_entity| (*child_entity, ui_surface.entity_to_taffy[child_entity])),
         );
 
-        // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
+        // the children should have a corresponding ui node and that ui node's parent should be
+        // `ui_parent_node`
         for node in child_node_map.values() {
             assert_eq!(ui_surface.taffy.parent(*node), Some(ui_parent_node));
         }
@@ -919,7 +930,8 @@ mod tests {
 
         let pos_inc = Vec2::splat(1.);
         let total_cameras = world.query::<&Camera>().iter(&world).len();
-        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
+        // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should
+        // expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
         world.run_system_once(update_camera_viewports);
@@ -1017,7 +1029,8 @@ mod tests {
         // a node without a content size should not have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
-        // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
+        // Without a content size, the node has no width or height constraints so the length of both
+        // dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
@@ -1104,7 +1117,8 @@ mod tests {
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
+                // UI is driven by calculated camera target info, so we need to run the camera
+                // system first
                 bevy_render::camera::camera_system::<OrthographicProjection>,
                 update_target_camera_system,
                 apply_deferred,

@@ -1,4 +1,5 @@
-//! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
+//! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and
+//! [`MeshletMesh`] for details.
 
 mod asset;
 #[cfg(feature = "meshlet_processor")]
@@ -86,32 +87,38 @@ const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3325134235233421);
 
-/// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
+/// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient
+/// GPU-driven method. See also [`MeshletMesh`].
 ///
-/// Rendering dense scenes made of high-poly meshes with thousands or millions of triangles is extremely expensive in Bevy's standard renderer.
-/// Once meshes are pre-processed into a [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
+/// Rendering dense scenes made of high-poly meshes with thousands or millions of triangles is
+/// extremely expensive in Bevy's standard renderer. Once meshes are pre-processed into a
+/// [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
 ///
 /// In comparison to Bevy's standard renderer:
-/// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-///   Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+/// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing
+///   culling for entire meshes at a time. Additionally, occlusion culling can eliminate meshlets
+///   that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single draw.
-/// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
+/// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will
+///   bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
-/// * Much greater base overhead. Rendering will be slower and use more memory than Bevy's standard renderer
-///   with small amounts of geometry and overdraw.
+/// * Much greater base overhead. Rendering will be slower and use more memory than Bevy's standard
+///   renderer with small amounts of geometry and overdraw.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
+/// This plugin requires a fairly recent GPU that supports
+/// [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
 ///
 /// This plugin currently works only on the Vulkan backend.
 ///
 /// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
 /// [`Msaa`] set to [`Msaa::Off`].
 ///
-/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
-/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
-/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported
+/// when using this plugin. You must use one or the other by setting
+/// [`crate::DefaultOpaqueRendererMethod`]. Do not override
+/// [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin {
@@ -293,7 +300,8 @@ pub struct MaterialMeshletMeshBundle<M: Material> {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
 }
 
@@ -336,7 +344,8 @@ fn configure_meshlet_views(
                 .entity(entity)
                 .insert(MeshletViewMaterialsMainOpaquePass::default());
         } else {
-            // TODO: Should we add both Prepass and DeferredGBufferPrepass materials here, and in other systems/nodes?
+            // TODO: Should we add both Prepass and DeferredGBufferPrepass materials here, and in
+            // other systems/nodes?
             commands.entity(entity).insert((
                 MeshletViewMaterialsMainOpaquePass::default(),
                 MeshletViewMaterialsPrepass::default(),

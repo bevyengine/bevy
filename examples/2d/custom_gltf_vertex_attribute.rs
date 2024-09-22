@@ -65,7 +65,9 @@ fn setup(
 }
 
 /// This custom material uses barycentric coordinates from
-/// `ATTRIBUTE_BARYCENTRIC` to shade a white border around each triangle. The
+/// `ATTRIBUTE_BARYCENTRIC` to shade a white border around each triangle.
+///
+/// The
 /// thickness of the border is animated using the global time shader uniform.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {}

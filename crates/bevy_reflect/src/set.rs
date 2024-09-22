@@ -10,14 +10,15 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`](std::collections::HashSet). The
-/// order of these entries is not guaranteed by this trait.
+/// Sets contain zero or more entries of a fixed type, and correspond to types like
+/// [`HashSet`](std::collections::HashSet). The order of these entries is not guaranteed by this
+/// trait.
 ///
 /// # Hashing
 ///
 /// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash)]` to the entire struct or enum.
 /// This is true even for manual implementors who do not use the hashed value,
 /// as it is still relied on by [`DynamicSet`].
 ///
@@ -386,8 +387,8 @@ impl<'a> IntoIterator for &'a DynamicSet {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a set;
 /// - `b` is the same length as `a`;
-/// - For each value pair in `a`, `b` contains the value too,
-///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+/// - For each value pair in `a`, `b` contains the value too, and
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

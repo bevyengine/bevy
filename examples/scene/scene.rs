@@ -30,9 +30,9 @@ struct ComponentA {
 }
 
 // Some components have fields that cannot (or should not) be written to scene files. These can be
-// ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the `FromWorld`
-// trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
-// when you construct your component.
+// ignored with the #[reflect(skip_serializing)] attribute. This is also generally where the
+// `FromWorld` trait comes into play. `FromWorld` gives you access to your App's current ECS
+// `Resources` when you construct your component.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct ComponentB {
@@ -101,9 +101,9 @@ fn save_scene_system(world: &mut World) {
     // For demonstration purposes, we'll create a new one.
     let mut scene_world = World::new();
 
-    // The `TypeRegistry` resource contains information about all registered types (including components).
-    // This is used to construct scenes, so we'll want to ensure that our previous type registrations
-    // exist in this new scene world as well.
+    // The `TypeRegistry` resource contains information about all registered types (including
+    // components). This is used to construct scenes, so we'll want to ensure that our previous
+    // type registrations exist in this new scene world as well.
     // To do this, we can simply clone the `AppTypeRegistry` resource.
     let type_registry = world.resource::<AppTypeRegistry>().clone();
     scene_world.insert_resource(type_registry);
@@ -119,8 +119,8 @@ fn save_scene_system(world: &mut World) {
     scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
     scene_world.insert_resource(ResourceA { score: 1 });
 
-    // With our sample world ready to go, we can now create our scene using DynamicScene or DynamicSceneBuilder.
-    // For simplicity, we will create our scene using DynamicScene:
+    // With our sample world ready to go, we can now create our scene using DynamicScene or
+    // DynamicSceneBuilder. For simplicity, we will create our scene using DynamicScene:
     let scene = DynamicScene::from_world(&scene_world);
 
     // Scenes can be serialized like this:
@@ -131,8 +131,8 @@ fn save_scene_system(world: &mut World) {
     // Showing the scene in the console
     info!("{}", serialized_scene);
 
-    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
-    // as they are blocking
+    // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a
+    // system as they are blocking
     // This can't work in Wasm as there is no filesystem access
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()

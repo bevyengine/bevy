@@ -98,15 +98,15 @@ pub fn propagate_transforms(
 ///
 /// # Panics
 ///
-/// If `entity`'s descendants have a malformed hierarchy, this function will panic occur before propagating
-/// the transforms of any malformed entities and their descendants.
+/// If `entity`'s descendants have a malformed hierarchy, this function will panic occur before
+/// propagating the transforms of any malformed entities and their descendants.
 ///
 /// # Safety
 ///
-/// - While this function is running, `transform_query` must not have any fetches for `entity`,
-///     nor any of its descendants.
-/// - The caller must ensure that the hierarchy leading to `entity`
-///     is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+/// - While this function is running, `transform_query` must not have any fetches for `entity`, nor
+///   any of its descendants.
+/// - The caller must ensure that the hierarchy leading to `entity` is well-formed and must remain
+///   as a tree or a forest. Each entity must have at most one parent.
 #[expect(
     unsafe_code,
     reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."
@@ -167,10 +167,11 @@ unsafe fn propagate_recursive(
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         // SAFETY: The caller guarantees that `transform_query` will not be fetched
-        // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+        // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each
+        // child.
         //
-        // The above assertion ensures that each child has one and only one unique parent throughout the
-        // entire hierarchy.
+        // The above assertion ensures that each child has one and only one unique parent throughout
+        // the entire hierarchy.
         unsafe {
             propagate_recursive(
                 global_matrix.as_ref(),
@@ -439,7 +440,8 @@ mod test {
             &**app.world().get::<Children>(child).unwrap(),
             &[grandchild]
         );
-        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to
+        // `Commands` delay
         app.update();
 
         let mut state = app.world_mut().query::<&GlobalTransform>();

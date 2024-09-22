@@ -115,7 +115,8 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
-    /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
+    /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably
+    /// access the relevant component on the given entity.
     pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
@@ -143,7 +144,8 @@ impl ReflectComponent {
         (self.0.insert)(entity, component, registry);
     }
 
-    /// Uses reflection to set the value of this [`Component`] type in the entity to the given value.
+    /// Uses reflection to set the value of this [`Component`] type in the entity to the given
+    /// value.
     ///
     /// # Panics
     ///
@@ -152,7 +154,8 @@ impl ReflectComponent {
         (self.0.apply)(entity.into(), component);
     }
 
-    /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
+    /// Uses reflection to set the value of this [`Component`] type in the entity to the given value
+    /// or insert a new one if it does not exist.
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
@@ -188,7 +191,8 @@ impl ReflectComponent {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with a [`UnsafeEntityCell`] that may be used to mutably access the component on the entity `entity`
+    /// * Only call this method with a [`UnsafeEntityCell`] that may be used to mutably access the
+    ///   component on the entity `entity`
     /// * Don't call this method more than once in the same scope for a given [`Component`].
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
@@ -198,7 +202,9 @@ impl ReflectComponent {
         unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }
 
-    /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
+    /// Gets the value of this [`Component`] type from entity from `source_world` and
+    /// [applies](Self::apply()) it to the value of this [`Component`] type in entity in
+    /// `destination_world`.
     ///
     /// # Panics
     ///
@@ -299,7 +305,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
-                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
+                // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access
+                // to the component `C` on the `entity`
                 let c = unsafe { entity.get_mut::<C>() };
                 c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },

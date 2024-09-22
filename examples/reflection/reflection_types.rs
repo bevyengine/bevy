@@ -95,15 +95,15 @@ fn setup() {
         // with fields via their indices. Tuple is automatically implemented for tuples of
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
-        // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait allows you
-        // to interact with the current variant and its fields (if it has any)
+        // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait
+        // allows you to interact with the current variant and its fields (if it has any)
         ReflectRef::Enum(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.
         ReflectRef::List(_) => {}
-        // `Array` is a special trait that can be manually implemented (instead of deriving Reflect).
-        // This exposes "array" operations on your type, such as indexing. `Array`
+        // `Array` is a special trait that can be manually implemented (instead of deriving
+        // Reflect). This exposes "array" operations on your type, such as indexing. `Array`
         // is automatically implemented for relevant core types like [T; N].
         ReflectRef::Array(_) => {}
         // `Map` is a special trait that can be manually implemented (instead of deriving Reflect).
@@ -114,10 +114,11 @@ fn setup() {
         // This exposes "set" operations on your type, such as getting / inserting by value.
         // Set is automatically implemented for relevant core types like HashSet<T>
         ReflectRef::Set(_) => {}
-        // `Function` is a special trait that can be manually implemented (instead of deriving Reflect).
-        // This exposes "function" operations on your type, such as calling it with arguments.
-        // This trait is automatically implemented for types like DynamicFunction.
-        // This variant only exists if the `reflect_functions` feature is enabled.
+        // `Function` is a special trait that can be manually implemented (instead of deriving
+        // Reflect). This exposes "function" operations on your type, such as calling it
+        // with arguments. This trait is automatically implemented for types like
+        // DynamicFunction. This variant only exists if the `reflect_functions` feature is
+        // enabled.
         #[cfg(feature = "reflect_functions")]
         ReflectRef::Function(_) => {}
         // `Value` types do not implement any of the other traits above. They are simply a Reflect

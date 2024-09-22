@@ -1,8 +1,8 @@
 //! Simple text input support
 //!
 //! Return creates a new line, backspace removes the last character.
-//! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
-//! You should change the provided font with another one to test other languages input.
+//! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of
+//! characters. You should change the provided font with another one to test other languages input.
 
 use std::mem;
 

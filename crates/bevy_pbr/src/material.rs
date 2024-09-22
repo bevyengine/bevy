@@ -42,17 +42,20 @@ use std::{
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
-/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
-/// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
-/// way to render [`Mesh`](bevy_render::mesh::Mesh) entities with custom shader logic.
+/// A high level way to render [`Mesh`](bevy_render::mesh::Mesh) entities with custom shader
+/// logic.
 ///
-/// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
-/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
+/// to spawn entities that are rendered with a specific [`Material`] type.
+///
+/// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and
+/// bound in shaders. [`AsBindGroup`] can be derived, which makes generating bindings
+/// straightforward. See the [`AsBindGroup`] docs for details.
 ///
 /// # Example
 ///
-/// Here is a simple Material implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
-/// check out the [`AsBindGroup`] documentation.
+/// Here is a simple Material implementation. The [`AsBindGroup`] derive has many features. To see
+/// what else is available, check out the [`AsBindGroup`] documentation.
 /// ```
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
@@ -102,14 +105,14 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
-    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
-    /// will be used.
+    /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default
+    /// mesh vertex shader will be used.
     fn vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
-    /// will be used.
+    /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default
+    /// mesh fragment shader will be used.
     #[allow(unused_variables)]
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -123,7 +126,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns if this material should be rendered by the deferred or forward renderer.
     /// for `AlphaMode::Opaque` or `AlphaMode::Mask` materials.
-    /// If `OpaqueRendererMethod::Auto`, it will default to what is selected in the `DefaultOpaqueRendererMethod` resource.
+    /// If `OpaqueRendererMethod::Auto`, it will default to what is selected in the
+    /// `DefaultOpaqueRendererMethod` resource.
     #[inline]
     fn opaque_render_method(&self) -> OpaqueRendererMethod {
         OpaqueRendererMethod::Forward
@@ -132,76 +136,85 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     #[inline]
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
     /// for meshes with similar depth, to avoid z-fighting.
-    /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
+    /// The bias is in depth-texture units so large values may be needed to overcome small depth
+    /// differences.
     fn depth_bias(&self) -> f32 {
         0.0
     }
 
     #[inline]
-    /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    /// Returns whether the material would like to read from
+    /// [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
     ///
-    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
-    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space
+    /// transmission) but requires rendering to take place in a separate [`Transmissive3d`]
+    /// pass.
     fn reads_view_transmission_texture(&self) -> bool {
         false
     }
 
-    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
-    /// will be used.
+    /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the
+    /// default prepass vertex shader will be used.
     ///
-    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
-    /// required for shadow mapping.
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for
+    /// generating the depth maps required for shadow mapping.
     fn prepass_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the default prepass fragment shader
-    /// will be used.
+    /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the
+    /// default prepass fragment shader will be used.
     ///
-    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
-    /// required for shadow mapping.
+    /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for
+    /// generating the depth maps required for shadow mapping.
     #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the default deferred vertex shader
-    /// will be used.
+    /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the
+    /// default deferred vertex shader will be used.
     fn deferred_vertex_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's deferred fragment shader. If [`ShaderRef::Default`] is returned, the default deferred fragment shader
-    /// will be used.
+    /// Returns this material's deferred fragment shader. If [`ShaderRef::Default`] is returned, the
+    /// default deferred fragment shader will be used.
     #[allow(unused_variables)]
     fn deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh fragment shader will be
+    /// used.
     ///
-    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are
+    /// using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh prepass fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] prepass fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh prepass fragment shader
+    /// will be used.
     ///
-    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are
+    /// using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
 
-    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If [`ShaderRef::Default`] is returned,
-    /// the default meshlet mesh deferred fragment shader will be used.
+    /// Returns this material's [`crate::meshlet::MeshletMesh`] deferred fragment shader. If
+    /// [`ShaderRef::Default`] is returned, the default meshlet mesh deferred fragment shader
+    /// will be used.
     ///
-    /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    /// This is part of an experimental feature, and is unnecessary to implement unless you are
+    /// using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
@@ -222,8 +235,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     }
 }
 
-/// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
-/// asset type.
+/// Adds the necessary ECS resources and render logic to enable rendering entities using the given
+/// [`Material`] asset type.
 pub struct MaterialPlugin<M: Material> {
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
@@ -864,9 +877,11 @@ impl DefaultOpaqueRendererMethod {
 /// metalness, etc, and writes them into a deferred 'g-buffer' texture. The deferred main pass is
 /// then a fullscreen pass that reads data from these textures and executes shading. This allows
 /// for one pass over geometry, but is at the cost of not being able to use MSAA, and has heavier
-/// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained devices.
+/// bandwidth usage which can be unsuitable for low end mobile or other bandwidth-constrained
+/// devices.
 ///
-/// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
+/// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be
+/// used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
 pub enum OpaqueRendererMethod {
     #[default]
@@ -889,12 +904,15 @@ pub struct MaterialProperties {
     pub mesh_pipeline_key_bits: MeshPipelineKey,
     /// Add a bias to the view depth of the mesh which can be used to force a specific render order
     /// for meshes with equal depth, to avoid z-fighting.
-    /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
+    /// The bias is in depth-texture units so large values may be needed to overcome small depth
+    /// differences.
     pub depth_bias: f32,
-    /// Whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
+    /// Whether the material would like to read from
+    /// [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
     ///
-    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
-    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space
+    /// transmission) but requires rendering to take place in a separate [`Transmissive3d`]
+    /// pass.
     pub reads_view_transmission_texture: bool,
 }
 

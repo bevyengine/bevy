@@ -217,7 +217,8 @@ fn bounding_shapes_2d(
                 );
             }
             BoundingShape::BoundingSphere => {
-                // Get the bounding sphere of the primitive with the rotation and translation of the mesh.
+                // Get the bounding sphere of the primitive with the rotation and translation of the
+                // mesh.
                 let bounding_circle = HEART.bounding_circle(isometry);
 
                 gizmos
@@ -261,7 +262,8 @@ fn bounding_shapes_3d(
                 );
             }
             BoundingShape::BoundingSphere => {
-                // Get the bounding sphere of the extrusion with the rotation and translation of the mesh.
+                // Get the bounding sphere of the extrusion with the rotation and translation of the
+                // mesh.
                 let bounding_sphere = EXTRUSION.bounding_sphere(transform.to_isometry());
 
                 gizmos.sphere(
@@ -311,7 +313,10 @@ fn switch_cameras(
     };
 }
 
-/// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.
+/// A custom 2D heart primitive.
+///
+/// The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same
+/// `radius`.
 ///
 /// The tip of the heart connects the two circles at a 45° angle from `Vec3::NEG_Y`.
 #[derive(Copy, Clone)]
@@ -320,8 +325,8 @@ struct Heart {
     radius: f32,
 }
 
-// The `Primitive2d` or `Primitive3d` trait is required by almost all other traits for primitives in bevy.
-// Depending on your shape, you should implement either one of them.
+// The `Primitive2d` or `Primitive3d` trait is required by almost all other traits for primitives in
+// bevy. Depending on your shape, you should implement either one of them.
 impl Primitive2d for Heart {}
 
 impl Heart {
@@ -330,8 +335,9 @@ impl Heart {
     }
 }
 
-// The `Measured2d` and `Measured3d` traits are used to compute the perimeter, the area or the volume of a primitive.
-// If you implement `Measured2d` for a 2D primitive, `Measured3d` is automatically implemented for `Extrusion<T>`.
+// The `Measured2d` and `Measured3d` traits are used to compute the perimeter, the area or the
+// volume of a primitive. If you implement `Measured2d` for a 2D primitive, `Measured3d` is
+// automatically implemented for `Extrusion<T>`.
 impl Measured2d for Heart {
     fn perimeter(&self) -> f32 {
         self.radius * (2.5 * PI + ops::powf(2f32, 1.5) + 2.0)
@@ -346,14 +352,16 @@ impl Measured2d for Heart {
     }
 }
 
-// The `Bounded2d` or `Bounded3d` traits are used to compute the Axis Aligned Bounding Boxes or bounding circles / spheres for primitives.
+// The `Bounded2d` or `Bounded3d` traits are used to compute the Axis Aligned Bounding Boxes or
+// bounding circles / spheres for primitives.
 impl Bounded2d for Heart {
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
         // The center of the circle at the center of the right wing of the heart
         let circle_center = isometry.rotation * Vec2::new(self.radius, 0.0);
         // The maximum X and Y positions of the two circles of the wings of the heart.
         let max_circle = circle_center.abs() + Vec2::splat(self.radius);
-        // Since the two circles of the heart are mirrored around the origin, the minimum position is the negative of the maximum.
+        // Since the two circles of the heart are mirrored around the origin, the minimum position
+        // is the negative of the maximum.
         let min_circle = -max_circle;
 
         // The position of the tip at the bottom of the heart
@@ -366,7 +374,8 @@ impl Bounded2d for Heart {
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        // The bounding circle of the heart is not at its origin. This `offset` is the offset between the center of the bounding circle and its translation.
+        // The bounding circle of the heart is not at its origin. This `offset` is the offset
+        // between the center of the bounding circle and its translation.
         let offset = self.radius / ops::powf(2f32, 1.5);
         // The center of the bounding circle
         let center = isometry * Vec2::new(0.0, -offset);
@@ -376,8 +385,9 @@ impl Bounded2d for Heart {
         BoundingCircle::new(center, radius)
     }
 }
-// You can implement the `BoundedExtrusion` trait to implement `Bounded3d for Extrusion<Heart>`. There is a default implementation for both AABBs and bounding spheres,
-// but you may be able to find faster solutions for your specific primitives.
+// You can implement the `BoundedExtrusion` trait to implement `Bounded3d for Extrusion<Heart>`.
+// There is a default implementation for both AABBs and bounding spheres, but you may be able to
+// find faster solutions for your specific primitives.
 impl BoundedExtrusion for Heart {}
 
 // You can use the `Meshable` trait to create a `MeshBuilder` for the primitive.
@@ -400,8 +410,9 @@ struct HeartMeshBuilder {
     resolution: usize,
 }
 
-// This trait is needed so that the configuration methods of the builder of the primitive are also available for the builder for the extrusion.
-// If you do not want to support these configuration options for extrusions you can just implement them for your 2D mesh builder.
+// This trait is needed so that the configuration methods of the builder of the primitive are also
+// available for the builder for the extrusion. If you do not want to support these configuration
+// options for extrusions you can just implement them for your 2D mesh builder.
 trait HeartBuilder {
     /// Set the resolution for each of the wings of the heart.
     fn resolution(self, resolution: usize) -> Self;
@@ -428,7 +439,8 @@ impl MeshBuilder for HeartMeshBuilder {
         // The curved parts of each wing (half) of the heart have an angle of `PI * 1.25` or 225°
         let wing_angle = PI * 1.25;
 
-        // We create buffers for the vertices, their normals and UVs, as well as the indices used to connect the vertices.
+        // We create buffers for the vertices, their normals and UVs, as well as the indices used to
+        // connect the vertices.
         let mut vertices = Vec::with_capacity(2 * self.resolution);
         let mut uvs = Vec::with_capacity(2 * self.resolution);
         let mut indices = Vec::with_capacity(6 * self.resolution - 9);
@@ -451,7 +463,8 @@ impl MeshBuilder for HeartMeshBuilder {
         vertices.push([0.0, radius * (-1. - SQRT_2), 0.0]);
         uvs.push([0.5, 1.]);
 
-        // The right wing of the heart, starting from the bottom most point and going towards the middle point.
+        // The right wing of the heart, starting from the bottom most point and going towards the
+        // middle point.
         for i in 0..self.resolution - 1 {
             let angle = (i as f32 / self.resolution as f32) * wing_angle - PI / 4.;
             let (sin, cos) = ops::sin_cos(angle);
@@ -460,12 +473,14 @@ impl MeshBuilder for HeartMeshBuilder {
         }
 
         // This is where we build all the triangles from the points created above.
-        // Each triangle has one corner on the middle point with the other two being adjacent points on the perimeter of the heart.
+        // Each triangle has one corner on the middle point with the other two being adjacent points
+        // on the perimeter of the heart.
         for i in 2..2 * self.resolution as u32 {
             indices.extend_from_slice(&[i - 1, i, 0]);
         }
 
-        // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
+        // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created
+        // above and specify the topology of the mesh.
         Mesh::new(
             bevy::render::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -484,10 +499,12 @@ impl Extrudable for HeartMeshBuilder {
         vec![
             // The left wing of the heart
             PerimeterSegment::Smooth {
-                // The normals of the first and last vertices of smooth segments have to be specified manually.
+                // The normals of the first and last vertices of smooth segments have to be
+                // specified manually.
                 first_normal: Vec2::X,
                 last_normal: Vec2::new(-1.0, -1.0).normalize(),
-                // These indices are used to index into the `ATTRIBUTE_POSITION` vec of your 2D mesh.
+                // These indices are used to index into the `ATTRIBUTE_POSITION` vec of your 2D
+                // mesh.
                 indices: (0..resolution).collect(),
             },
             // The bottom tip of the heart

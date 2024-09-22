@@ -27,7 +27,9 @@ struct BoxMeshHandle(Handle<Mesh>);
 struct BoxMaterialHandle(Handle<StandardMaterial>);
 
 /// Startup system which runs only once and generates our Box Mesh
-/// and Box Material assets, adds them to their respective Asset
+/// and Box Material assets.
+///
+/// This adds them to their respective Asset
 /// Resources, and stores their handles as resources so we can access
 /// them later when we're ready to render our Boxes
 fn add_assets(
@@ -46,7 +48,9 @@ fn add_assets(
 struct ComputeTransform(Task<CommandQueue>);
 
 /// This system generates tasks simulating computationally intensive
-/// work that potentially spans multiple frames/ticks. A separate
+/// work that potentially spans multiple frames/ticks.
+///
+/// A separate
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
@@ -105,7 +109,9 @@ fn spawn_tasks(mut commands: Commands) {
     }
 }
 
-/// This system queries for entities that have our Task<Transform> component. It polls the
+/// This system queries for entities that have our Task<Transform> component.
+///
+/// It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
 /// new [`PbrBundle`] of components to the entity using the result from the task's work, and
 /// removes the task component from the entity.

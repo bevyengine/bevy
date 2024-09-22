@@ -21,7 +21,8 @@ use crate::func::{
 /// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
-/// Instead, many functions and closures can be automatically converted using the [`IntoFunctionMut`] trait.
+/// Instead, many functions and closures can be automatically converted using the
+/// [`IntoFunctionMut`] trait.
 ///
 /// # Example
 ///
@@ -89,9 +90,9 @@ impl<'env> DynamicFunctionMut<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`std::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -175,9 +176,9 @@ impl<'env> DynamicFunctionMut<'env> {
     /// The [name] of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`std::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
@@ -191,9 +192,11 @@ impl<'env> DynamicFunctionMut<'env> {
 
 /// Outputs the function's signature.
 ///
-/// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) ->
+/// {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments and the function itself are optional and will default to `_` if not
+/// provided.
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));

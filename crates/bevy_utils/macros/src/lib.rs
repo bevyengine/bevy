@@ -51,9 +51,12 @@ impl Parse for AllTuples {
     }
 }
 
-/// Helper macro to generate tuple pyramids. Useful to generate scaffolding to work around Rust
-/// lacking variadics. Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)`
-/// invokes `impl_foo` providing ident tuples through arity `start..=end`.
+/// Helper macro to generate tuple pyramids.
+///
+/// Useful to generate scaffolding to work around Rust lacking variadics.
+/// Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)` invokes `impl_foo`
+/// providing ident tuples through arity `start..=end`.
+///
 /// If you require the length of the tuple, see [`all_tuples_with_size!`].
 ///
 /// # Examples
@@ -131,8 +134,8 @@ impl Parse for AllTuples {
 /// tuples or fn pointers of varying length you can use the rustdoc-internal `fake_variadic` marker.
 /// All your impls are collapsed and shown as a single `impl Trait for (F₁, F₂, …, Fₙ)`.
 ///
-/// The `all_tuples!` macro does most of the work for you, the only change to your implementation macro
-/// is that you have to accept attributes using `$(#[$meta:meta])*`.
+/// The `all_tuples!` macro does most of the work for you, the only change to your implementation
+/// macro is that you have to accept attributes using `$(#[$meta:meta])*`.
 ///
 /// Since this feature requires a nightly compiler, it's only enabled on docs.rs by default.
 /// Add the following to your lib.rs if not already present:
@@ -191,9 +194,13 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Helper macro to generate tuple pyramids with their length. Useful to generate scaffolding to
-/// work around Rust lacking variadics. Invoking `all_tuples_with_size!(impl_foo, start, end, P, Q, ..)`
-/// invokes `impl_foo` providing ident tuples through arity `start..=end` preceded by their length.
+/// Helper macro to generate tuple pyramids with their length.
+///
+/// Useful to generate scaffolding to work around Rust lacking variadics.
+/// Invoking `all_tuples_with_size!(impl_foo, start, end, P, Q, ..)` invokes
+/// `impl_foo` providing ident tuples through arity `start..=end` preceded by
+/// their length.
+///
 /// If you don't require the length of the tuple, see [`all_tuples!`].
 ///
 /// # Examples
@@ -273,8 +280,8 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 /// tuples or fn pointers of varying length you can use the rustdoc-internal `fake_variadic` marker.
 /// All your impls are collapsed and shown as a single `impl Trait for (F₁, F₂, …, Fₙ)`.
 ///
-/// The `all_tuples!` macro does most of the work for you, the only change to your implementation macro
-/// is that you have to accept attributes using `$(#[$meta:meta])*`.
+/// The `all_tuples!` macro does most of the work for you, the only change to your implementation
+/// macro is that you have to accept attributes using `$(#[$meta:meta])*`.
 ///
 /// Since this feature requires a nightly compiler, it's only enabled on docs.rs by default.
 /// Add the following to your lib.rs if not already present:

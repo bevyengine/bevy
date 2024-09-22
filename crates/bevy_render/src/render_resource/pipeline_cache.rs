@@ -334,9 +334,11 @@ impl ShaderCache {
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
-                // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
-                // and on wasm the error will be handled by wgpu and crash the application.
+                // On native platforms, wgpu will yield the error immediately while on wasm it may
+                // take longer since the browser APIs are asynchronous. So to keep
+                // the complexity of the ShaderCache low, we will only catch this error early on
+                // native platforms, and on wasm the error will be handled by wgpu
+                // and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
                     bevy_utils::futures::now_or_never(error)
                 {
@@ -547,8 +549,8 @@ impl PipelineCache {
     /// # Returns
     ///
     /// This method returns a successfully created render pipeline if any, or `None` if the pipeline
-    /// was not created yet or if there was an error during creation. You can check the actual creation
-    /// state with [`PipelineCache::get_render_pipeline_state()`].
+    /// was not created yet or if there was an error during creation. You can check the actual
+    /// creation state with [`PipelineCache::get_render_pipeline_state()`].
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
@@ -580,9 +582,9 @@ impl PipelineCache {
     ///
     /// # Returns
     ///
-    /// This method returns a successfully created compute pipeline if any, or `None` if the pipeline
-    /// was not created yet or if there was an error during creation. You can check the actual creation
-    /// state with [`PipelineCache::get_compute_pipeline_state()`].
+    /// This method returns a successfully created compute pipeline if any, or `None` if the
+    /// pipeline was not created yet or if there was an error during creation. You can check the
+    /// actual creation state with [`PipelineCache::get_compute_pipeline_state()`].
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
@@ -596,14 +598,14 @@ impl PipelineCache {
 
     /// Insert a render pipeline into the cache, and queue its creation.
     ///
-    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
-    /// an already cached pipeline.
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate
+    /// it with an already cached pipeline.
     ///
     /// # Returns
     ///
-    /// This method returns the unique render shader ID of the cached pipeline, which can be used to query
-    /// the caching state with [`get_render_pipeline_state()`] and to retrieve the created GPU pipeline once
-    /// it's ready with [`get_render_pipeline()`].
+    /// This method returns the unique render shader ID of the cached pipeline, which can be used to
+    /// query the caching state with [`get_render_pipeline_state()`] and to retrieve the created
+    /// GPU pipeline once it's ready with [`get_render_pipeline()`].
     ///
     /// [`get_render_pipeline_state()`]: PipelineCache::get_render_pipeline_state
     /// [`get_render_pipeline()`]: PipelineCache::get_render_pipeline
@@ -625,14 +627,14 @@ impl PipelineCache {
 
     /// Insert a compute pipeline into the cache, and queue its creation.
     ///
-    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate it with
-    /// an already cached pipeline.
+    /// The pipeline is always inserted and queued for creation. There is no attempt to deduplicate
+    /// it with an already cached pipeline.
     ///
     /// # Returns
     ///
-    /// This method returns the unique compute shader ID of the cached pipeline, which can be used to query
-    /// the caching state with [`get_compute_pipeline_state()`] and to retrieve the created GPU pipeline once
-    /// it's ready with [`get_compute_pipeline()`].
+    /// This method returns the unique compute shader ID of the cached pipeline, which can be used
+    /// to query the caching state with [`get_compute_pipeline_state()`] and to retrieve the
+    /// created GPU pipeline once it's ready with [`get_compute_pipeline()`].
     ///
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
@@ -931,7 +933,8 @@ impl PipelineCache {
         for event in events.read() {
             #[allow(clippy::match_same_arms)]
             match event {
-                // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
+                // PERF: Instead of blocking waiting for the shader cache lock, try again next frame
+                // if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
                         cache.set_shader(*id, shader);
@@ -996,9 +999,10 @@ pub enum PipelineCacheError {
     CreateShaderModule(String),
 }
 
-// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
-// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
-// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function
+// in wgpu-core https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
+// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core`
+// isn't included in WebGPU builds.
 /// Get the device's capabilities for use in `naga_oil`.
 fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();

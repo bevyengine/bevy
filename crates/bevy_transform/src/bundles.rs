@@ -7,7 +7,8 @@ use crate::prelude::{GlobalTransform, Transform};
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
+/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a
+///   [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`] to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]

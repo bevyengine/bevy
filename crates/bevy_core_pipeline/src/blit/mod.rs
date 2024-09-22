@@ -14,7 +14,8 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
 pub const BLIT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2312396983770133547);
 
-/// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
+/// Adds support for specialized "blit pipelines", which can be used to write one texture to
+/// another.
 pub struct BlitPlugin;
 
 impl Plugin for BlitPlugin {

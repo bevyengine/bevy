@@ -25,6 +25,6 @@
 /// // Error: the trait `NotObjectSafe` cannot be made into an object
 /// ```
 pub fn assert_object_safe<T: ?Sized>() {
-    // This space is left intentionally blank. The type parameter T is sufficient to induce a compiler
-    // error without a function body.
+    // This space is left intentionally blank. The type parameter T is sufficient to induce a
+    // compiler error without a function body.
 }

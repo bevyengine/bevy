@@ -18,7 +18,8 @@ use crate::{error::TextError, Font, FontAtlas, GlyphAtlasInfo};
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
-    // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
+    // PERF: in theory this could be optimized with Assets storage ... consider making some fast
+    // "simple" AssetMap
     pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
 }
 
@@ -61,16 +62,17 @@ impl From<u32> for FontSizeKey {
 
 /// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.
 ///
-/// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
+/// Provides the interface for adding and retrieving rasterized glyphs, and manages the
+/// [`FontAtlas`]es.
 ///
 /// A `FontAtlasSet` is an [`Asset`].
 ///
 /// There is one `FontAtlasSet` for each font:
-/// - When a [`Font`] is loaded as an asset and then used in [`Text`](crate::Text),
-///   a `FontAtlasSet` asset is created from a weak handle to the `Font`.
-/// - ~When a font is loaded as a system font, and then used in [`Text`](crate::Text),
-///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.~
-///   (*Note that system fonts are not currently supported by the `TextPipeline`.*)
+/// - When a [`Font`] is loaded as an asset and then used in [`Text`](crate::Text), a `FontAtlasSet`
+///   asset is created from a weak handle to the `Font`.
+/// - ~When a font is loaded as a system font, and then used in [`Text`](crate::Text), a
+///   `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.~ (*Note
+///   that system fonts are not currently supported by the `TextPipeline`.*)
 ///
 /// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
 ///
@@ -94,7 +96,8 @@ impl FontAtlasSet {
         self.font_atlases.iter()
     }
 
-    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
+    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this
+    /// set
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontSizeKey) -> bool {
         self.font_atlases
             .get(font_size)

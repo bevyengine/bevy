@@ -91,7 +91,8 @@
 //!
 //! The glTF loader let's you specify labels that let you target specific parts of the glTF.
 //!
-//! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
+//! Be careful when using this feature, if you misspell a label it will simply ignore it without
+//! warning.
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
@@ -130,10 +131,11 @@ pub struct GltfPlugin {
 }
 
 impl GltfPlugin {
-    /// Register a custom vertex attribute so that it is recognized when loading a glTF file with the [`GltfLoader`].
+    /// Register a custom vertex attribute so that it is recognized when loading a glTF file with
+    /// the [`GltfLoader`].
     ///
-    /// `name` must be the attribute name as found in the glTF data, which must start with an underscore.
-    /// See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
+    /// `name` must be the attribute name as found in the glTF data, which must start with an
+    /// underscore. See [this section of the glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes-overview)
     /// for additional details on custom attributes.
     pub fn add_custom_vertex_attribute(
         mut self,
@@ -215,7 +217,8 @@ pub struct Gltf {
 pub struct GltfNode {
     /// Index of the node inside the scene
     pub index: usize,
-    /// Computed name for a node - either a user defined node name from gLTF or a generated name from index
+    /// Computed name for a node - either a user defined node name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// Direct children of the node.
     pub children: Vec<Handle<GltfNode>>,
@@ -274,7 +277,8 @@ impl GltfNode {
     }
 }
 
-/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+/// A glTF skin with all of its joint nodes,
+/// [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).
@@ -282,7 +286,8 @@ impl GltfNode {
 pub struct GltfSkin {
     /// Index of the skin inside the scene
     pub index: usize,
-    /// Computed name for a skin - either a user defined skin name from gLTF or a generated name from index
+    /// Computed name for a skin - either a user defined skin name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// All the nodes that form this skin.
     pub joints: Vec<Handle<GltfNode>>,
@@ -327,7 +332,8 @@ impl GltfSkin {
 pub struct GltfMesh {
     /// Index of the mesh inside the scene
     pub index: usize,
-    /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name from index
+    /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name
+    /// from index
     pub name: String,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
@@ -360,7 +366,8 @@ impl GltfMesh {
     }
 }
 
-/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
+/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and
+/// [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -369,7 +376,8 @@ pub struct GltfPrimitive {
     pub index: usize,
     /// Index of the parent [`GltfMesh`] of this primitive
     pub parent_mesh_index: usize,
-    /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
+    /// Computed name for a primitive - either a user defined primitive name from gLTF or a
+    /// generated name from index
     pub name: String,
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
@@ -409,7 +417,8 @@ impl GltfPrimitive {
         }
     }
 
-    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
+    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent
+    /// asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Primitive {
             mesh: self.parent_mesh_index,
@@ -513,7 +522,8 @@ pub enum GltfAssetLabel {
     Material {
         /// Index of this material
         index: usize,
-        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material, useful if it is used with negative scale
+        /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material, useful if
+        /// it is used with negative scale
         is_scale_inverted: bool,
     },
     /// `DefaultMaterial`: as above, if the glTF file contains a default material with no index

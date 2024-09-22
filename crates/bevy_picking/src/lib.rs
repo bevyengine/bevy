@@ -1,12 +1,15 @@
-//! This crate provides 'picking' capabilities for the Bevy game engine. That means, in simple terms, figuring out
-//! how to connect up a user's clicks or taps to the entities they are trying to interact with.
+//! This crate provides 'picking' capabilities for the Bevy game engine.
+//!
+//! That means, in simple
+//! terms, figuring out how to connect up a user's clicks or taps to the entities they are trying to
+//! interact with.
 //!
 //! ## Overview
 //!
 //! In the simplest case, this plugin allows you to click on things in the scene. However, it also
 //! allows you to express more complex interactions, like detecting when a touch input drags a UI
-//! element and drops it on a 3d mesh rendered to a different camera. The crate also provides a set of
-//! interaction callbacks, allowing you to receive input directly on entities like here:
+//! element and drops it on a 3d mesh rendered to a different camera. The crate also provides a set
+//! of interaction callbacks, allowing you to receive input directly on entities like here:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::*;
@@ -24,16 +27,16 @@
 //! ```
 //!
 //! At its core, this crate provides a robust abstraction for computing picking state regardless of
-//! pointing devices, or what you are hit testing against. It is designed to work with any input, including
-//! mouse, touch, pens, or virtual pointers controlled by gamepads.
+//! pointing devices, or what you are hit testing against. It is designed to work with any input,
+//! including mouse, touch, pens, or virtual pointers controlled by gamepads.
 //!
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
-//! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
-//! See [`Observer`] for details.
+//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are
+//! generated, they bubble up the entity hierarchy starting from their target, until they reach the
+//! root or bubbling is haulted with a call to
+//! [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate). See [`Observer`] for details.
 //!
 //! This allows you to run callbacks when any children of an entity are interacted with, and leads
 //! to succinct, expressive code:
@@ -75,7 +78,8 @@
 //!
 //! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
 //! types of input devices. Pointers can be controlled with anything, whether its the included mouse
-//! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
+//! or touch inputs, or a custom gamepad input system you write yourself to control a virtual
+//! pointer.
 //!
 //! ## Robustness
 //!
@@ -101,11 +105,11 @@
 //! #### Pointers ([`pointer`](mod@pointer))
 //!
 //! The first stage of the pipeline is to gather inputs and update pointers. This stage is
-//! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The provided
-//! crate does this automatically for mouse, touch, and pen inputs. If you wanted to implement your own
-//! pointer, controlled by some other input, you can do that here. The ordering of events within the
-//! [`PointerInput`](pointer::PointerInput) stream is meaningful for events with the same
-//! [`PointerId`](pointer::PointerId), but not between different pointers.
+//! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The
+//! provided crate does this automatically for mouse, touch, and pen inputs. If you wanted to
+//! implement your own pointer, controlled by some other input, you can do that here. The ordering
+//! of events within the [`PointerInput`](pointer::PointerInput) stream is meaningful for events
+//! with the same [`PointerId`](pointer::PointerId), but not between different pointers.
 //!
 //! Because pointer positions and presses are driven by these events, you can use them to mock
 //! inputs for testing.
@@ -115,13 +119,13 @@
 //!
 //! #### Backend ([`backend`])
 //!
-//! A picking backend only has one job: reading [`PointerLocation`](pointer::PointerLocation) components,
-//! and producing [`PointerHits`](backend::PointerHits). You can find all documentation and types needed to
-//! implement a backend at [`backend`].
+//! A picking backend only has one job: reading [`PointerLocation`](pointer::PointerLocation)
+//! components, and producing [`PointerHits`](backend::PointerHits). You can find all documentation
+//! and types needed to implement a backend at [`backend`].
 //!
 //! You will eventually need to choose which picking backend(s) you want to use. This crate does not
-//! supply any backends, and expects you to select some from the other bevy crates or the third-party
-//! ecosystem. You can find all the provided backends in the [`backend`] module.
+//! supply any backends, and expects you to select some from the other bevy crates or the
+//! third-party ecosystem. You can find all the provided backends in the [`backend`] module.
 //!
 //! It's important to understand that you can mix and match backends! For example, you might have a
 //! backend for your UI, and one for the 3d scene, with each being specialized for their purpose.
@@ -171,7 +175,9 @@ pub mod prelude {
     };
 }
 
-/// An optional component that overrides default picking behavior for an entity, allowing you to
+/// An optional component that overrides default picking behavior for an entity.
+///
+/// With this, you can
 /// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
 /// the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
@@ -292,12 +298,14 @@ pub enum PickSet {
     Last,
 }
 
-/// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
-/// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
+/// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin),
+/// [`PickingPlugin`] and the [`InteractionPlugin`], this is probably the plugin that will be most
+/// used.
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
 /// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
-/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into
+/// [`bevy_ecs::observer::Trigger`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
@@ -311,11 +319,11 @@ impl Plugin for DefaultPickingPlugins {
     }
 }
 
-/// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
-/// types used by other picking plugins.
+/// This plugin sets up the core picking infrastructure. It receives input events, and provides the
+/// shared types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
-/// can configure picking settings at runtime through the resource.
+/// This plugin contains several settings, and is added to the wrold as a resource after
+/// initialization. You can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default, Debug)]
 pub struct PickingPlugin {

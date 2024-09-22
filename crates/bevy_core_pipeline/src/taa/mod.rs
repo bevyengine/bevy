@@ -103,9 +103,11 @@ pub struct TemporalAntiAliasBundle {
 /// # Tradeoffs
 ///
 /// Pros:
-/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels (specular aliasing)
+/// * Filters more types of aliasing than MSAA, such as textures and singular bright pixels
+///   (specular aliasing)
 /// * Cost scales with screen/view resolution, unlike MSAA which scales with number of triangles
-/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow map sampling methods, etc
+/// * Greatly increases the quality of stochastic rendering techniques such as SSAO, certain shadow
+///   map sampling methods, etc
 ///
 /// Cons:
 /// * Chance of "ghosting" - ghostly trails left behind moving objects

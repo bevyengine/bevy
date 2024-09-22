@@ -78,7 +78,8 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
         };
     } else {
         for target in targets.entities() {
-            // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
+            // SAFETY: T is accessible as the type represented by self.trigger, ensured in
+            // `Self::new`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_type,
@@ -92,10 +93,12 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     }
 }
 
-/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+/// Represents a collection of targets for a specific [`Trigger`] of an [`Event`].
 ///
-/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
-/// will run.
+/// Targets can be of type [`Entity`] or [`ComponentId`].
+///
+/// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches
+/// for that specific event-target combination will run.
 ///
 /// [`Trigger`]: crate::observer::Trigger
 /// [`Observer`]: crate::observer::Observer

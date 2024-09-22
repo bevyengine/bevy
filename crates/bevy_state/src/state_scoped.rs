@@ -17,7 +17,8 @@ use crate::state::{StateTransitionEvent, States};
 /// when the world's state of the matching type no longer matches the supplied value.
 ///
 /// To enable this feature remember to configure your application
-/// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
+/// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on
+/// your state(s) of choice.
 ///
 /// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
 ///

@@ -30,16 +30,18 @@ use std::{
 
 /// A data type that can be used to store data for an [entity].
 ///
-/// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
-/// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
+/// `Component` is a [derivable trait]: this means that a data type can implement it by applying a
+/// `#[derive(Component)]` attribute to it. However, components must always satisfy the
+/// `Send + Sync + 'static` trait bounds.
 ///
 /// [entity]: crate::entity
 /// [derivable trait]: https://doc.rust-lang.org/book/appendix-03-derivable-traits.html
 ///
 /// # Examples
 ///
-/// Components can take many forms: they are usually structs, but can also be of every other kind of data type, like enums or zero sized types.
-/// The following examples show how components are laid out in code.
+/// Components can take many forms: they are usually structs, but can also be of every other kind of
+/// data type, like enums or zero sized types. The following examples show how components are laid
+/// out in code.
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
@@ -72,7 +74,8 @@ use std::{
 ///
 /// # Component and data access
 ///
-/// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
+/// See the [`entity`] module level documentation to learn how to add or remove components from an
+/// entity.
 ///
 /// See the documentation for [`Query`] to learn how to access component data from a system.
 ///
@@ -81,11 +84,13 @@ use std::{
 ///
 /// # Choosing a storage type
 ///
-/// Components can be stored in the world using different strategies with their own performance implications.
-/// By default, components are added to the [`Table`] storage, which is optimized for query iteration.
+/// Components can be stored in the world using different strategies with their own performance
+/// implications. By default, components are added to the [`Table`] storage, which is optimized for
+/// query iteration.
 ///
-/// Alternatively, components can be added to the [`SparseSet`] storage, which is optimized for component insertion and removal.
-/// This is achieved by adding an additional `#[component(storage = "SparseSet")]` attribute to the derive one:
+/// Alternatively, components can be added to the [`SparseSet`] storage, which is optimized for
+/// component insertion and removal. This is achieved by adding an additional `#[component(storage =
+/// "SparseSet")]` attribute to the derive one:
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
@@ -100,8 +105,9 @@ use std::{
 ///
 /// # Required Components
 ///
-/// Components can specify Required Components. If some [`Component`] `A` requires [`Component`] `B`,  then when `A` is inserted,
-/// `B` will _also_ be initialized and inserted (if it was not manually specified).
+/// Components can specify Required Components. If some [`Component`] `A` requires [`Component`]
+/// `B`,  then when `A` is inserted, `B` will _also_ be initialized and inserted (if it was not
+/// manually specified).
 ///
 /// The [`Default`] constructor will be used to initialize the component, by default:
 ///
@@ -166,8 +172,8 @@ use std::{
 /// assert_eq!(&B(10), world.entity(id).get::<B>().unwrap());
 /// ```
 ///
-/// Required components are _recursive_. This means, if a Required Component has required components,
-/// those components will _also_ be inserted if they are missing:
+/// Required components are _recursive_. This means, if a Required Component has required
+/// components, those components will _also_ be inserted if they are missing:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -189,11 +195,11 @@ use std::{
 /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// Note that cycles in the "component require tree" will result in stack overflows when attempting to
-/// insert a component.
+/// Note that cycles in the "component require tree" will result in stack overflows when attempting
+/// to insert a component.
 ///
-/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
-/// at different levels of the inheritance tree:
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for
+/// a given type at different levels of the inheritance tree:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -225,19 +231,28 @@ use std::{
 /// assert_eq!(2, world.entity(id).get::<X>().unwrap().0);
 /// ```
 ///
-/// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
-/// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// In general, this shouldn't happen often, but when it does the algorithm is simple and
+/// predictable:
+/// 1. Use all of the constructors (including default constructors) directly defined in the spawned
+///    component's require list
+/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list
+///    of each of the components in the list (this is a depth Depth First Search). When a
+///    constructor is found, it will only be used if one has not already been found.
 ///
 /// From a user perspective, just think about this as the following:
-/// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
-/// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
+/// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will
+///    result in that constructor being used (and overriding existing constructors lower in the
+///    inheritance tree). This is the classic "inheritance override" behavior people expect.
+/// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be
+///    listed in "importance order". List a component earlier in the requirement list to initialize
+///    its inheritance tree earlier.
 ///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
 ///
-/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured
+/// using following attributes:
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
 /// - `#[component(on_replace = on_replace_function)]`
@@ -271,10 +286,11 @@ use std::{
 ///
 /// # Implementing the trait for foreign types
 ///
-/// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
-/// This means that it is not possible to directly have a type defined in a third party library as a component.
-/// This important limitation can be easily worked around using the [newtype pattern]:
-/// this makes it possible to locally define and implement `Component` for a tuple struct that wraps the foreign type.
+/// As a consequence of the [orphan rule], it is not possible to separate into two different crates
+/// the implementation of `Component` from the definition of a type. This means that it is not
+/// possible to directly have a type defined in a third party library as a component. This important
+/// limitation can be easily worked around using the [newtype pattern]: this makes it possible to
+/// locally define and implement `Component` for a tuple struct that wraps the foreign type.
 /// The following example gives a demonstration of this pattern.
 ///
 /// ```
@@ -296,10 +312,10 @@ use std::{
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 ///
 /// # `!Sync` Components
-/// A `!Sync` type cannot implement `Component`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
+/// A `!Sync` type cannot implement `Component`. However, it is possible to wrap a `Send` but not
+/// `Sync` type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This
+/// forces only having mutable access (`&mut T` only, never `&T`), but makes it safe to reference
+/// across multiple threads.
 ///
 /// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail
@@ -374,8 +390,8 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
 ///
 /// Hooks are functions that run when a component is added, overwritten, or removed from an entity.
-/// These are intended to be used for structural side effects that need to happen when a component is added or removed,
-/// and are not intended for general-purpose logic.
+/// These are intended to be used for structural side effects that need to happen when a component
+/// is added or removed, and are not intended for general-purpose logic.
 ///
 /// For example, you might use a hook to update a cached index when a component is added,
 /// to clean up resources when a component is removed,
@@ -448,12 +464,14 @@ impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
     /// or replaced.
     ///
-    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
+    /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have
+    /// the component).
     ///
     /// # Warning
     ///
-    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    /// The hook won't run if the component is already present and is only mutated, such as in a
+    /// system via a query. As a result, this is *not* an appropriate mechanism for reliably
+    /// updating indexes and other caches.
     ///
     /// # Panics
     ///
@@ -466,16 +484,18 @@ impl ComponentHooks {
     /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
     /// such as being replaced (with `.insert`) or removed.
     ///
-    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
-    /// allowing access to the previous data just before it is dropped.
+    /// If this component is inserted onto an entity that already has it, this hook will run before
+    /// the value is replaced, allowing access to the previous data just before it is dropped.
     /// This hook does *not* run if the entity did not already have this component.
     ///
-    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
+    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being
+    /// removed from the entity).
     ///
     /// # Warning
     ///
-    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
-    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    /// The hook won't run if the component is already present and is only mutated, such as in a
+    /// system via a query. As a result, this is *not* an appropriate mechanism for reliably
+    /// updating indexes and other caches.
     ///
     /// # Panics
     ///
@@ -496,7 +516,8 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_remove hook")
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an
+    /// entity.
     ///
     /// This is a fallible version of [`Self::on_add`].
     ///
@@ -509,7 +530,8 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added (with
+    /// `.insert`)
     ///
     /// This is a fallible version of [`Self::on_insert`].
     ///
@@ -522,7 +544,8 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced
+    /// (with `.insert`) or removed
     ///
     /// This is a fallible version of [`Self::on_replace`].
     ///
@@ -535,7 +558,8 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is removed from
+    /// an entity.
     ///
     /// This is a fallible version of [`Self::on_remove`].
     ///
@@ -641,8 +665,9 @@ impl ComponentInfo {
         &self.hooks
     }
 
-    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
-    /// needed by this component. This includes _recursive_ required components.
+    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and
+    /// their constructors) needed by this component. This includes _recursive_ required
+    /// components.
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
@@ -658,8 +683,8 @@ impl ComponentInfo {
 ///
 /// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
 /// into two separate but related concepts allows components to exist outside of Rust's type system.
-/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
-/// `ComponentId`s may exist in a `World` to track components which cannot be
+/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but
+/// additional `ComponentId`s may exist in a `World` to track components which cannot be
 /// represented as Rust types for scripting or other advanced use-cases.
 ///
 /// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
@@ -681,7 +706,8 @@ impl ComponentId {
     /// Creates a new [`ComponentId`].
     ///
     /// The `index` is a unique value associated with each type of component in a given world.
-    /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
+    /// Usually, this value is taken from a counter incremented for each type of component
+    /// registered with the world.
     #[inline]
     pub const fn new(index: usize) -> ComponentId {
         ComponentId(index)
@@ -915,7 +941,8 @@ impl Components {
         self.components.len()
     }
 
-    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
+    /// Returns `true` if there are no components registered with this instance. Otherwise, this
+    /// returns `false`.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.components.len() == 0
@@ -923,7 +950,8 @@ impl Components {
 
     /// Gets the metadata associated with the given component.
     ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It
+    /// may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.components.get(id.0)
@@ -931,7 +959,8 @@ impl Components {
 
     /// Returns the name associated with the given component.
     ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It
+    /// may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(ComponentInfo::name)
@@ -1124,12 +1153,14 @@ impl Tick {
 
     /// Returns `true` if this `Tick` occurred since the system's `last_run`.
     ///
-    /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
+    /// `this_run` is the current tick of the system, used as a reference to help deal with
+    /// wraparound.
     #[inline]
     pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
-        // This works even with wraparound because the world tick (`this_run`) is always "newer" than
-        // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
-        // so they never get older than `u32::MAX` (the difference would overflow).
+        // This works even with wraparound because the world tick (`this_run`) is always "newer"
+        // than `last_run` and `self.tick`, and we scan periodically to clamp
+        // `ComponentTicks` values so they never get older than `u32::MAX` (the difference
+        // would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
         let ticks_since_insert = this_run.relative_to(self).tick.min(MAX_CHANGE_AGE);
@@ -1151,8 +1182,8 @@ impl Tick {
     #[inline]
     pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
         let age = tick.relative_to(*self);
-        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-        // so long as this check always runs before that can happen.
+        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be
+        // true so long as this check always runs before that can happen.
         if age.get() > Self::MAX.get() {
             *self = tick.relative_to(Self::MAX);
             true
@@ -1185,7 +1216,8 @@ impl<'a> TickCells<'a> {
     }
 }
 
-/// Records when a component or resource was added and when it was last mutably dereferenced (or added).
+/// Records when a component or resource was added and when it was last mutably dereferenced (or
+/// added).
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
@@ -1201,8 +1233,8 @@ impl ComponentTicks {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran
-    /// (or the system is running for the first time).
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the
+    /// system last ran (or the system is running for the first time).
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)
@@ -1230,8 +1262,9 @@ impl ComponentTicks {
     /// Manually sets the change tick.
     ///
     /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
-    /// However, components and resources that make use of interior mutability might require manual updates.
+    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut),
+    /// etc. However, components and resources that make use of interior mutability might
+    /// require manual updates.
     ///
     /// # Example
     /// ```no_run
@@ -1315,12 +1348,14 @@ pub struct RequiredComponentConstructor(
 
 impl RequiredComponentConstructor {
     /// # Safety
-    /// This is intended to only be called in the context of [`BundleInfo::write_components`] to initialized required components.
-    /// Calling it _anywhere else_ should be considered unsafe.
+    /// This is intended to only be called in the context of [`BundleInfo::write_components`] to
+    /// initialized required components. Calling it _anywhere else_ should be considered unsafe.
     ///
-    /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
-    /// on this [`RequiredComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
-    /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
+    /// `table_row` and `entity` must correspond to a valid entity that currently needs a component
+    /// initialized via the constructor stored on this [`RequiredComponentConstructor`]. The
+    /// stored constructor must correspond to a component on `entity` that needs initialization.
+    /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this
+    /// required component initialized.
     ///
     /// Again, don't call this anywhere but [`BundleInfo::write_components`].
     pub(crate) unsafe fn initialize(
@@ -1366,8 +1401,8 @@ impl RequiredComponents {
     ///
     /// `component_id` must match the type initialized by `constructor`.
     /// `constructor` _must_ initialize a component for `component_id` in such a way that
-    /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
-    /// initialize the storage for `component_id` corresponding to the given entity.
+    /// matches the storage type of the component. It must only use the given `table_row` or
+    /// `Entity` to initialize the storage for `component_id` corresponding to the given entity.
     pub unsafe fn register_dynamic(
         &mut self,
         component_id: ComponentId,
@@ -1393,10 +1428,12 @@ impl RequiredComponents {
                   entity,
                   #[cfg(feature = "track_change_detection")] caller| {
                 OwningPtr::make(constructor(), |ptr| {
-                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                    // SAFETY: This will only be called in the context of
+                    // `BundleInfo::write_components`, which will
                     // pass in a valid table_row and entity requiring a C constructor
                     // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                    // `ptr` points to valid `C` data, which matches the type associated with
+                    // `component_id`
                     unsafe {
                         BundleInfo::initialize_required_component(
                             table,
@@ -1417,8 +1454,8 @@ impl RequiredComponents {
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that
-        // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
-        // initialize the storage corresponding to the given entity.
+        // matches the storage type of the component. It only uses the given `table_row` or `Entity`
+        // to initialize the storage corresponding to the given entity.
         unsafe { self.register_dynamic(component_id, erased) };
     }
 
@@ -1427,8 +1464,8 @@ impl RequiredComponents {
         self.0.keys().copied()
     }
 
-    /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
-    /// be logically treated as normal components, not "required components".
+    /// Removes components that are explicitly provided in a given [`Bundle`]. These components
+    /// should be logically treated as normal components, not "required components".
     ///
     /// [`Bundle`]: crate::bundle::Bundle
     pub(crate) fn remove_explicit_components(&mut self, components: &[ComponentId]) {

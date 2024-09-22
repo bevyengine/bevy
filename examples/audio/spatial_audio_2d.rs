@@ -1,4 +1,5 @@
-//! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
+//! This example illustrates how to load and play an audio file, and control where the sounds seems
+//! to come from.
 use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,

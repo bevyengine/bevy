@@ -53,7 +53,8 @@ fn deal_damage_over_time(
 //
 // Events are mutated using an 'EventMutator<T>' by calling 'read'. This returns an iterator
 // over all the &mut T that this system has not read yet. Note, you can have multiple
-// 'EventReader', 'EventWriter', and 'EventMutator' in a given system, as long as the types (T) are different.
+// 'EventReader', 'EventWriter', and 'EventMutator' in a given system, as long as the types (T) are
+// different.
 fn apply_armor_to_damage(
     mut dmg_events: EventMutator<DealDamage>,
     mut armor_events: EventWriter<ArmorBlockedDamage>,
@@ -69,10 +70,10 @@ fn apply_armor_to_damage(
 
 // This system reads 'DealDamage' events and sends 'DamageReceived' if the amount is non-zero
 //
-// Events are read using an 'EventReader<T>' by calling 'read'. This returns an iterator over all the &T
-// that this system has not read yet, and must be 'mut' in order to track which events have been read.
-// Again, note you can have multiple 'EventReader', 'EventWriter', and 'EventMutator' in a given system,
-// as long as the types (T) are different.
+// Events are read using an 'EventReader<T>' by calling 'read'. This returns an iterator over all
+// the &T that this system has not read yet, and must be 'mut' in order to track which events have
+// been read. Again, note you can have multiple 'EventReader', 'EventWriter', and 'EventMutator' in
+// a given system, as long as the types (T) are different.
 fn apply_damage_to_health(
     mut dmg_events: EventReader<DealDamage>,
     mut rcvd_events: EventWriter<DamageReceived>,
@@ -91,8 +92,8 @@ fn apply_damage_to_health(
 // The first system will play a sound.
 // The second system will spawn a particle effect.
 //
-// As before, events are read using an 'EventReader' by calling 'read'. This returns an iterator over all the &T
-// that this system has not read yet.
+// As before, events are read using an 'EventReader' by calling 'read'. This returns an iterator
+// over all the &T that this system has not read yet.
 fn play_damage_received_sound(mut dmg_events: EventReader<DamageReceived>) {
     for _ in dmg_events.read() {
         info!("Playing a sound.");
@@ -131,8 +132,9 @@ fn main() {
         )
         // These two systems are not guaranteed to run in order, nor are they guaranteed to run
         // after the above chain. They may even run in parallel with each other.
-        // This means they may have a one frame delay in processing events compared to the above chain
-        // In some instances this is fine. In other cases it can be an issue. See the docs for more information
+        // This means they may have a one frame delay in processing events compared to the above
+        // chain In some instances this is fine. In other cases it can be an issue. See the
+        // docs for more information
         .add_systems(
             Update,
             (

@@ -287,7 +287,8 @@ mod test {
 
     use super::dds_buffer_to_image;
 
-    /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to your GPU
+    /// `wgpu::create_texture_with_data` that reads from data structure but doesn't actually talk to
+    /// your GPU
     fn fake_wgpu_create_texture_with_data(desc: &TextureDescriptor<'_>, data: &[u8]) {
         // Will return None only if it's a combined depth-stencil format
         // If so, default to 4, validation will fail later anyway since the depth or stencil

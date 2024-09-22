@@ -465,8 +465,9 @@ pub struct ViewTarget {
     out_texture: OutputColorAttachment,
 }
 
-/// Contains [`OutputColorAttachment`] used for each target present on any view in the current
-/// frame, after being prepared by [`prepare_view_attachments`]. Users that want to override
+/// [`OutputColorAttachment`] for each target present on any view in the current frame.
+///
+/// Available after being prepared by [`prepare_view_attachments`]. Users that want to override
 /// the default output color attachment for a specific target can do so by adding a
 /// [`OutputColorAttachment`] to this resource before [`prepare_view_targets`] is called.
 #[derive(Resource, Default, Deref, DerefMut)]

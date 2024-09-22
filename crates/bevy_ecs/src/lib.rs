@@ -125,7 +125,8 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
+    // TODO: The compiler says the Debug and Clone are removed during dead code analysis.
+    // Investigate.
     #[allow(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]

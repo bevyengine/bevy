@@ -780,7 +780,8 @@ where
         self.render_range(render_pass, world, view, ..)
     }
 
-    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
+    /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`)
+    /// using their corresponding draw functions.
     pub fn render_range<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,
@@ -826,16 +827,16 @@ where
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.
 ///
-/// * Binned phase items have a `BinKey` which specifies what bin they're to be
-///     placed in. All items in the same bin are eligible to be batched together.
-///     The `BinKey`s are sorted, but the individual bin items aren't. Binned phase
-///     items are good for opaque meshes, in which the order of rendering isn't
-///     important. Generally, binned phase items are faster than sorted phase items.
+/// * Binned phase items have a `BinKey` which specifies what bin they're to be placed in. All items
+///   in the same bin are eligible to be batched together. The `BinKey`s are sorted, but the
+///   individual bin items aren't. Binned phase items are good for opaque meshes, in which the order
+///   of rendering isn't important. Generally, binned phase items are faster than sorted phase
+///   items.
 ///
-/// * Sorted phase items, on the other hand, are placed into one large buffer
-///     and then sorted all at once. This is needed for transparent meshes, which
-///     have to be sorted back-to-front to render with the painter's algorithm.
-///     These types of phase items are generally slower than binned phase items.
+/// * Sorted phase items, on the other hand, are placed into one large buffer and then sorted all at
+///   once. This is needed for transparent meshes, which have to be sorted back-to-front to render
+///   with the painter's algorithm. These types of phase items are generally slower than binned
+///   phase items.
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
     const AUTOMATIC_BATCHING: bool = true;
@@ -872,13 +873,13 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// Sometimes phase items require another index in addition to the range of
 /// instances they already have. These can be:
 ///
-/// * The *dynamic offset*: a `wgpu` dynamic offset into the uniform buffer of
-///     instance data. This is used on platforms that don't support storage
-///     buffers, to work around uniform buffer size limitations.
+/// * The *dynamic offset*: a `wgpu` dynamic offset into the uniform buffer of instance data. This
+///   is used on platforms that don't support storage buffers, to work around uniform buffer size
+///   limitations.
 ///
-/// * The *indirect parameters index*: an index into the buffer that specifies
-///     the indirect parameters for this [`PhaseItem`]'s drawcall. This is used when
-///     indirect mode is on (as used for GPU culling).
+/// * The *indirect parameters index*: an index into the buffer that specifies the indirect
+///   parameters for this [`PhaseItem`]'s drawcall. This is used when indirect mode is on (as used
+///   for GPU culling).
 ///
 /// Note that our indirect draw functionality requires storage buffers, so it's
 /// impossible to have both a dynamic offset and an indirect parameters index.
@@ -995,7 +996,9 @@ impl PhaseItemExtraIndex {
     }
 }
 
-/// Represents phase items that are placed into bins. The `BinKey` specifies
+/// Represents phase items that are placed into bins.
+///
+/// The `BinKey` specifies
 /// which bin they're to be placed in. Bin keys are sorted, and items within the
 /// same bin are eligible to be batched together. The elements within the bins
 /// aren't themselves sorted.

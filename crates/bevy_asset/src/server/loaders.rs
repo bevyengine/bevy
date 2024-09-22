@@ -31,7 +31,8 @@ impl AssetLoaders {
         self.loaders.get(index).cloned()
     }
 
-    /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
+    /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be
+    /// used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
         let type_name = std::any::type_name::<L>();
         let loader_asset_type = TypeId::of::<L::Asset>();
@@ -410,7 +411,8 @@ mod tests {
         }
     }
 
-    /// Basic framework for creating, storing, loading, and checking an [`AssetLoader`] inside an [`AssetLoaders`]
+    /// Basic framework for creating, storing, loading, and checking an [`AssetLoader`] inside an
+    /// [`AssetLoaders`]
     #[test]
     fn basic() {
         let mut loaders = AssetLoaders::default();
@@ -775,7 +777,8 @@ mod tests {
         assert!(rx_c1_c.try_recv().is_err());
     }
 
-    /// Ensure that if there is a complete ambiguity in [`AssetLoader`] to use, prefer most recently registered by asset type.
+    /// Ensure that if there is a complete ambiguity in [`AssetLoader`] to use, prefer most recently
+    /// registered by asset type.
     #[test]
     fn ambiguity_resolution() {
         let mut loaders = AssetLoaders::default();

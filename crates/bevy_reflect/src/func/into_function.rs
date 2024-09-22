@@ -13,9 +13,10 @@ use crate::func::{DynamicFunction, ReflectFn, TypedFunction};
 /// [unconstrained type parameters] when defining impls with generic arguments or return types.
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
-/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For named functions and some closures, this will end up just being `'static`,
-/// however, closures that borrow from their environment will have a lifetime bound to that environment.
+/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the
+/// function. For named functions and some closures, this will end up just being `'static`,
+/// however, closures that borrow from their environment will have a lifetime bound to that
+/// environment.
 ///
 /// [module-level documentation]: crate::func
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html

@@ -247,8 +247,8 @@ pub fn extract_uinode_background_colors(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        // Both vertical and horizontal percentage border values are calculated based on the width
+        // of the parent node <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
             .and_then(|parent| node_query.get(parent.get()).ok())
             .map(|parent_node| parent_node.size().x)
@@ -373,8 +373,8 @@ pub fn extract_uinode_images(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        // Both vertical and horizontal percentage border values are calculated based on the width
+        // of the parent node <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
             .and_then(|parent| node_query.get(parent.get()).ok())
             .map(|parent_node| parent_node.size().x)
@@ -510,8 +510,8 @@ pub fn extract_uinode_borders(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        // Both vertical and horizontal percentage border values are calculated based on the width
+        // of the parent node <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = maybe_parent
             .and_then(|parent| node_query.get(parent.get()).ok())
             .map(|parent_node| parent_node.size().x)
@@ -536,7 +536,8 @@ pub fn extract_uinode_borders(
 
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
-        // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
+        // don't extract border if no border or the node is zero-sized (a zero sized node can still
+        // have an outline).
         if !uinode.is_empty() && border != [0.; 4] {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
@@ -598,15 +599,17 @@ pub fn extract_uinode_borders(
     }
 }
 
-/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and also has a view
-/// distance of this many units. This ensures that with a left-handed projection,
+/// An extra distance the UI camera is "moved back" in the view.
+///
+/// The UI camera is "moved back" by this many units (plus the [`UI_CAMERA_TRANSFORM_OFFSET`]) and
+/// also has a view distance of this many units. This ensures that with a left-handed projection,
 /// as ui elements are "stacked on top of each other", they are within the camera's view
 /// and have room to grow.
 // TODO: Consider computing this value at runtime based on the maximum z-value.
 const UI_CAMERA_FAR: f32 = 1000.0;
 
-// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z == 0.0 are rendered
-// TODO: Evaluate if we still need this.
+// This value is subtracted from the far distance for the camera's z-position to ensure nodes at z
+// == 0.0 are rendered TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
 #[derive(Component)]
@@ -643,7 +646,8 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            // use a projection matrix with the origin in the top left instead of the bottom left
+            // that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
                 logical_size.x * scale,
@@ -714,7 +718,8 @@ pub fn extract_uinode_text(
             continue;
         };
 
-        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to
+        // `Display::None`)
         if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
@@ -728,11 +733,13 @@ pub fn extract_uinode_text(
         let inverse_scale_factor = scale_factor.recip();
 
         // Align the text to the nearest physical pixel:
-        // * Translate by minus the text node's half-size
-        //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
-        // * Multiply the logical coordinates by the scale factor to get its position in physical coordinates
+        // * Translate by minus the text node's half-size (The transform translates to the center of
+        //   the node but the text coordinates are relative to the node's top left corner)
+        // * Multiply the logical coordinates by the scale factor to get its position in physical
+        //   coordinates
         // * Round the physical position to the nearest physical pixel
-        // * Multiply by the rounded physical position by the inverse scale factor to return to logical coordinates
+        // * Multiply by the rounded physical position by the inverse scale factor to return to
+        //   logical coordinates
 
         let logical_top_left = -0.5 * uinode.size();
 
@@ -1025,7 +1032,8 @@ pub fn prepare_uinodes(
                     });
 
                     // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                    // Note: this won't work with rotation/scaling, but that's much more complex
+                    // (may need more that 2 quads)
                     let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
                         [
                             Vec2::new(
@@ -1061,8 +1069,8 @@ pub fn prepare_uinodes(
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
+                    // In those two cases, the culling check can proceed normally as corners will be
+                    // on horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
                     if extracted_uinode.transform.x_axis[1] == 0.0 {
@@ -1079,7 +1087,8 @@ pub fn prepare_uinodes(
                         let image = gpu_images
                             .get(extracted_uinode.image)
                             .expect("Image was checked during batching and should still exist");
-                        // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                        // Rescale atlases. This is done here because we need texture data that
+                        // might not be available in Extract.
                         let atlas_extent = extracted_uinode
                             .atlas_scaling
                             .map(|scaling| image.size.as_vec2() * scaling)

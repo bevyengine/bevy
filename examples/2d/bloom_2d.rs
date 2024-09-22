@@ -29,7 +29,8 @@ fn setup(
                 hdr: true, // 1. HDR is required for bloom
                 ..default()
             },
-            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+            tonemapping: Tonemapping::TonyMcMapface, /* 2. Using a tonemapper that desaturates to
+                                                      *    white is recommended */
             ..default()
         },
         Bloom::default(), // 3. Enable bloom for the camera
@@ -39,7 +40,8 @@ fn setup(
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/bevy_bird_dark.png"),
         sprite: Sprite {
-            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+            color: Color::srgb(5.0, 5.0, 5.0), /* 4. Put something bright in a dark environment
+                                                *    to see the effect */
             custom_size: Some(Vec2::splat(160.0)),
             ..default()
         },

@@ -18,10 +18,10 @@ use bevy_reflect::prelude::*;
 ///
 /// [`Color`] supports all the standard color operations, such as [mixing](Mix),
 /// [luminance](Luminance) and [hue](Hue) adjustment,
-/// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
-/// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
-/// current space. After performing the operation, if a conversion was required, the result will be
-/// converted back into the original color space.
+/// and [diffing](EuclideanDistance). These operations delegate to the concrete color space
+/// contained by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't
+/// supported in the current space. After performing the operation, if a conversion was required,
+/// the result will be converted back into the original color space.
 ///
 /// ```rust
 /// # use bevy_color::{Hue, Color};
@@ -36,8 +36,8 @@ use bevy_reflect::prelude::*;
 /// red_srgb.hue();
 /// ```
 ///
-/// [`Oklch`](Oklcha) has been chosen as the intermediary space in cases where conversion is required
-/// due to its perceptual uniformity and broad support for Bevy's color operations.
+/// [`Oklch`](Oklcha) has been chosen as the intermediary space in cases where conversion is
+/// required due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -116,12 +116,14 @@ impl Color {
     }
 
     #[deprecated = "Use `Color::srgb_from_array` instead"]
-    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an
+    /// alpha of 1.0.
     pub fn rgb_from_array([r, g, b]: [f32; 3]) -> Self {
         Self::Srgba(Srgba::rgb(r, g, b))
     }
 
-    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an
+    /// alpha of 1.0.
     pub fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::Srgba(Srgba {
             red: array[0],
@@ -152,14 +154,16 @@ impl Color {
     }
 
     #[deprecated = "Use `Color::srgb_u8` instead"]
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of
+    /// 1.0.
     ///
     /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
     pub fn rgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::srgb_u8(red, green, blue)
     }
 
-    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of
+    /// 1.0.
     ///
     /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
     pub fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {

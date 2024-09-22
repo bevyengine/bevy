@@ -26,16 +26,13 @@ pub struct NoAutomaticBatching;
 /// Data necessary to be equal for two draw commands to be mergeable
 ///
 /// This is based on the following assumptions:
-/// - Only entities with prepared assets (pipelines, materials, meshes) are
-///   queued to phases
-/// - View bindings are constant across a phase for a given draw function as
-///   phases are per-view
-/// - `batch_and_prepare_render_phase` is the only system that performs this
-///   batching and has sole responsibility for preparing the per-object data.
-///   As such the mesh binding and dynamic offsets are assumed to only be
-///   variable as a result of the `batch_and_prepare_render_phase` system, e.g.
-///   due to having to split data across separate uniform bindings within the
-///   same buffer due to the maximum uniform buffer binding size.
+/// - Only entities with prepared assets (pipelines, materials, meshes) are queued to phases
+/// - View bindings are constant across a phase for a given draw function as phases are per-view
+/// - `batch_and_prepare_render_phase` is the only system that performs this batching and has sole
+///   responsibility for preparing the per-object data. As such the mesh binding and dynamic offsets
+///   are assumed to only be variable as a result of the `batch_and_prepare_render_phase` system,
+///   e.g. due to having to split data across separate uniform bindings within the same buffer due
+///   to the maximum uniform buffer binding size.
 #[derive(PartialEq)]
 struct BatchMeta<T: PartialEq> {
     /// The pipeline id encompasses all pipeline configuration including vertex

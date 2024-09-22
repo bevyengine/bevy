@@ -3,12 +3,15 @@ use std::hash::Hash;
 use bevy_asset::Asset;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
 
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
-/// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
-/// way to render `Node` entities with custom shader logic.
+/// A high level way to render `Node` entities with custom shader logic.
 ///
-/// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
-/// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and
+/// [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle) to spawn entities that are rendered
+/// with a specific [`UiMaterial`] type.
+///
+/// `UiMaterials` must implement [`AsBindGroup`] to define how data will be transferred to the GPU
+/// and bound in shaders. [`AsBindGroup`] can be derived, which makes generating bindings
+/// straightforward. See the [`AsBindGroup`] docs for details.
 ///
 /// Materials must also implement [`Asset`] so they can be treated as such.
 ///
@@ -18,8 +21,8 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// # Example
 ///
-/// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
-/// check out the [`AsBindGroup`] documentation.
+/// Here is a simple [`UiMaterial`] implementation. The [`AsBindGroup`] derive has many features. To
+/// see what else is available, check out the [`AsBindGroup`] documentation.
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
@@ -68,8 +71,9 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///
 /// If you only use the fragment shader make sure to import `UiVertexOutput` from
 /// `bevy_ui::ui_vertex_output` in your wgsl shader.
-/// Also note that bind group 0 is always bound to the [`View Uniform`](bevy_render::view::ViewUniform)
-/// and the [`Globals Uniform`](bevy_render::globals::GlobalsUniform).
+/// Also note that bind group 0 is always bound to the [`View
+/// Uniform`](bevy_render::view::ViewUniform) and the [`Globals
+/// Uniform`](bevy_render::globals::GlobalsUniform).
 ///
 /// ```wgsl
 /// #import bevy_ui::ui_vertex_output UiVertexOutput

@@ -1,5 +1,5 @@
-//! Core data structures to be used internally in Curve implementations, encapsulating storage
-//! and access patterns for reuse.
+//! Core data structures to be used internally in Curve implementations, encapsulating storage and
+//! access patterns for reuse.
 //!
 //! The `Core` types here expose their fields publicly so that it is easier to manipulate and
 //! extend them, but in doing so, you must maintain the invariants of those fields yourself. The
@@ -14,8 +14,9 @@ use thiserror::Error;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-/// This type expresses the relationship of a value to a fixed collection of values. It is a kind
-/// of summary used intermediately by sampling operations.
+/// This type expresses the relationship of a value to a fixed collection of values.
+///
+/// It is a kind of summary used intermediately by sampling operations.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -50,9 +51,10 @@ impl<T> InterpolationDatum<T> {
     }
 }
 
-/// The data core of a curve derived from evenly-spaced samples. The intention is to use this
-/// in addition to explicit or inferred interpolation information in user-space in order to
-/// implement curves using [`domain`] and [`sample_with`].
+/// The data core of a curve derived from evenly-spaced samples.
+///
+/// The intention is to use this in addition to explicit or inferred interpolation information in
+/// user-space in order to implement curves using [`domain`] and [`sample_with`].
 ///
 /// The internals are made transparent to give curve authors freedom, but [the provided constructor]
 /// enforces the required invariants, and the methods maintain those invariants.
@@ -102,7 +104,7 @@ impl<T> InterpolationDatum<T> {
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
@@ -197,10 +199,11 @@ impl<T> EvenCore<T> {
         }
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
@@ -222,14 +225,14 @@ impl<T> EvenCore<T> {
     }
 }
 
-/// Given a domain and a number of samples taken over that interval, return an [`InterpolationDatum`]
-/// that governs how samples are extracted relative to the stored data.
+/// Return an [`InterpolationDatum`] that governs how samples are extracted relative to stored data.
 ///
 /// `domain` must be a bounded interval (i.e. `domain.is_bounded() == true`).
 ///
 /// `samples` must be at least 2.
 ///
-/// This function will never panic, but it may return invalid indices if its assumptions are violated.
+/// This function will never panic, but it may return invalid indices if its assumptions are
+/// violated.
 pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
@@ -252,9 +255,10 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
     }
 }
 
-/// The data core of a curve defined by unevenly-spaced samples or keyframes. The intention is to
-/// use this in concert with implicitly or explicitly-defined interpolation in user-space in
-/// order to implement the curve interface using [`domain`] and [`sample_with`].
+/// The data core of a curve defined by unevenly-spaced samples or keyframes.
+///
+/// The intention is to use this in concert with implicitly or explicitly-defined interpolation in
+/// user-space in order to implement the curve interface using [`domain`] and [`sample_with`].
 ///
 /// The internals are made transparent to give curve authors freedom, but [the provided constructor]
 /// enforces the required invariants, and the methods maintain those invariants.
@@ -297,7 +301,7 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample the curve, we just look at the interpolation mode and
 ///         // dispatch accordingly.
@@ -351,7 +355,8 @@ impl<T> UnevenCore<T> {
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
     pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
-        // Filter out non-finite sample times first so they don't interfere with sorting/deduplication.
+        // Filter out non-finite sample times first so they don't interfere with
+        // sorting/deduplication.
         let mut timed_samples = timed_samples
             .into_iter()
             .filter(|(t, _)| t.is_finite())
@@ -405,10 +410,11 @@ impl<T> UnevenCore<T> {
         }
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
@@ -447,6 +453,8 @@ impl<T> UnevenCore<T> {
     }
 }
 
+/// The data core of a curve that yields a fixed number of values between set times.
+///
 /// The data core of a curve using uneven samples (i.e. keyframes), where each sample time
 /// yields some fixed number of values — the [sampling width]. This may serve as storage for
 /// curves that yield vectors or iterators, and in some cases, it may be useful for cache locality
@@ -464,7 +472,8 @@ pub struct ChunkedUnevenCore<T> {
     /// non-finite times.
     pub times: Vec<f32>,
 
-    /// The values that are used in sampling. Each width-worth of these correspond to a single sample.
+    /// The values that are used in sampling. Each width-worth of these correspond to a single
+    /// sample.
     ///
     /// # Invariants
     /// The length of this vector must always be some fixed integer multiple of that of `times`.
@@ -555,10 +564,11 @@ impl<T> ChunkedUnevenCore<T> {
         self.values.len() / self.times.len()
     }
 
-    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
-    /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
-    /// be used to interpolate between the two contained values with the given parameter. The other
-    /// variants give additional context about where the value is relative to the family of samples.
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might
+    /// recover a sample at time `t`. For example, when a [`Between`] value is returned, its
+    /// contents can be used to interpolate between the two contained values with the given
+    /// parameter. The other variants give additional context about where the value is relative
+    /// to the family of samples.
     ///
     /// [`Between`]: `InterpolationDatum::Between`
     #[inline]
@@ -597,9 +607,9 @@ fn filter_sort_dedup_times(times: impl IntoIterator<Item = f32>) -> Vec<f32> {
     times
 }
 
-/// Given a list of `times` and a target value, get the interpolation relationship for the
-/// target value in terms of the indices of the starting list. In a sense, this encapsulates the
-/// heart of uneven/keyframe sampling.
+/// Given a set of keyframes, return the position of a time between indices into the keyframe slice.
+///
+/// In a sense, this encapsulates the heart of uneven/keyframe sampling.
 ///
 /// `times` is assumed to be sorted, deduplicated, and consisting only of finite values. It is also
 /// assumed to contain at least two values.

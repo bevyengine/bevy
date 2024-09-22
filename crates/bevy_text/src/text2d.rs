@@ -31,9 +31,10 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 pub struct Text2dBundle {
     /// Contains the text.
     ///
-    /// With `Text2dBundle` the alignment field of `Text` only affects the internal alignment of a block of text and not its
-    /// relative position which is controlled by the `Anchor` component.
-    /// This means that for a block of text consisting of only one line that doesn't wrap, the `alignment` field will have no effect.
+    /// With `Text2dBundle` the alignment field of `Text` only affects the internal alignment of a
+    /// block of text and not its relative position which is controlled by the `Anchor`
+    /// component. This means that for a block of text consisting of only one line that doesn't
+    /// wrap, the `alignment` field will have no effect.
     pub text: Text,
     /// Cached buffer for layout with cosmic-text
     pub buffer: CosmicBuffer,
@@ -52,9 +53,11 @@ pub struct Text2dBundle {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
-    /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
+    /// Contains the size of the text and its glyph's position and scale data. Generated via
+    /// [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
     /// Marks that this is a [`SpriteSource`].
     ///
@@ -225,7 +228,8 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 /// System calculating and inserting an [`Aabb`] component to entities with some
 /// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
 ///
-/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
+/// Used in system set
+/// [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<
@@ -234,8 +238,9 @@ pub fn calculate_bounds_text2d(
     >,
 ) {
     for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
-        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
-        // by the logical size we compensate the transform offset in local space to get the center.
+        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and
+        // scaling by the logical size we compensate the transform offset in local space to
+        // get the center.
         let center = (-anchor.as_vec() * layout_info.size).extend(0.0).into();
         // Distance in local space from the center to the x and y limits of the text2d bounds.
         let half_extents = (layout_info.size / 2.0).extend(0.0).into();

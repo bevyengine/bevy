@@ -130,13 +130,15 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
     }
 }
 
-/// Generates the implementation of the `ReflectRemote` trait for the given derive data and remote type.
+/// Generates the implementation of the `ReflectRemote` trait for the given derive data and remote
+/// type.
 ///
 /// # Note to Developers
 ///
 /// The `ReflectRemote` trait could likely be made with default method implementations.
-/// However, this makes it really easy for a user to accidentally implement this trait in an unsafe way.
-/// To prevent this, we instead generate the implementation through a macro using this function.
+/// However, this makes it really easy for a user to accidentally implement this trait in an unsafe
+/// way. To prevent this, we instead generate the implementation through a macro using this
+/// function.
 fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macro2::TokenStream {
     let bevy_reflect_path = input.meta().bevy_reflect_path();
 
@@ -346,7 +348,8 @@ pub(crate) fn generate_remote_assertions(
 /// ```
 ///
 /// Ideally it would be the other way around, but there's no easy way of doing this without
-/// generating a copy of the struct/enum definition and using that as the base instead of the remote type.
+/// generating a copy of the struct/enum definition and using that as the base instead of the remote
+/// type.
 fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_macro2::TokenStream {
     let meta = derive_data.meta();
     let self_ident = format_ident!("__remote__");
@@ -440,7 +443,8 @@ fn create_assertion_span(span: Span) -> Span {
 
 /// A reflected type's remote type.
 ///
-/// This is a wrapper around [`TypePath`] that allows it to be paired with other remote-specific logic.
+/// This is a wrapper around [`TypePath`] that allows it to be paired with other remote-specific
+/// logic.
 #[derive(Copy, Clone)]
 pub(crate) struct RemoteType<'a> {
     path: &'a TypePath,
@@ -456,9 +460,11 @@ impl<'a> RemoteType<'a> {
         self.path
     }
 
-    /// Attempts to convert the [type path](TypePath) of this remote type into an [expression path](ExprPath).
+    /// Attempts to convert the [type path](TypePath) of this remote type into an [expression
+    /// path](ExprPath).
     ///
-    /// For example, this would convert `foo::Bar<T>` into `foo::Bar::<T>` to be used as part of an expression.
+    /// For example, this would convert `foo::Bar<T>` into `foo::Bar::<T>` to be used as part of an
+    /// expression.
     ///
     /// This will return an error for types that are parenthesized, such as in `Fn() -> Foo`.
     pub fn as_expr_path(&self) -> Result<ExprPath, syn::Error> {

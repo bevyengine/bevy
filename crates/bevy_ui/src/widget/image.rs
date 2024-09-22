@@ -70,7 +70,8 @@ impl Measure for ImageMeasure {
         let aspect_ratio = s_aspect_ratio.unwrap_or_else(|| self.size.x / self.size.y);
 
         // Apply aspect ratio
-        // If only one of width or height was determined at this point, then the other is set beyond this point using the aspect ratio.
+        // If only one of width or height was determined at this point, then the other is set beyond
+        // this point using the aspect ratio.
         let taffy_size = taffy::Size { width, height }.maybe_apply_aspect_ratio(Some(aspect_ratio));
 
         // Use computed sizes or fall back to image's inherent size

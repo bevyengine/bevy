@@ -77,9 +77,9 @@ pub struct PointerHits {
     /// ### Why is this an `f32`???
     ///
     /// Bevy UI is special in that it can share a camera with other things being rendered. in order
-    /// to properly sort them, we need a way to make `bevy_ui`'s order a tiny bit higher, like adding
-    /// 0.5 to the order. We can't use integers, and we want users to be using camera.order by
-    /// default, so this is the best solution at the moment.
+    /// to properly sort them, we need a way to make `bevy_ui`'s order a tiny bit higher, like
+    /// adding 0.5 to the order. We can't use integers, and we want users to be using
+    /// camera.order by default, so this is the best solution at the moment.
     pub order: f32,
 }
 

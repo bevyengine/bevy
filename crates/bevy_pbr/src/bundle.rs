@@ -32,7 +32,8 @@ pub struct MaterialMeshBundle<M: Material> {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
 }
 
@@ -106,7 +107,8 @@ pub struct PointLightBundle {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
 }
 
@@ -122,7 +124,8 @@ pub struct SpotLightBundle {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
 }
 
@@ -140,6 +143,7 @@ pub struct DirectionalLightBundle {
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
     pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
     pub view_visibility: ViewVisibility,
 }

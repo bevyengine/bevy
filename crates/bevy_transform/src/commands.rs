@@ -63,14 +63,14 @@ impl Command for RemoveParentInPlace {
         update_transform();
     }
 }
-/// Collection of methods similar to [`BuildChildren`](bevy_hierarchy::BuildChildren), but preserving each
-/// entity's [`GlobalTransform`].
+/// Collection of methods similar to [`BuildChildren`](bevy_hierarchy::BuildChildren), but
+/// preserving each entity's [`GlobalTransform`].
 pub trait BuildChildrenTransformExt {
     /// Change this entity's parent while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`].
     ///
-    /// See [`BuildChildren::set_parent`](bevy_hierarchy::BuildChildren::set_parent) for a method that doesn't update the
-    /// [`Transform`].
+    /// See [`BuildChildren::set_parent`](bevy_hierarchy::BuildChildren::set_parent) for a method
+    /// that doesn't update the [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
@@ -80,8 +80,8 @@ pub trait BuildChildrenTransformExt {
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`] to be equal to its current [`GlobalTransform`].
     ///
-    /// See [`BuildChildren::remove_parent`](bevy_hierarchy::BuildChildren::remove_parent) for a method that doesn't update the
-    /// [`Transform`].
+    /// See [`BuildChildren::remove_parent`](bevy_hierarchy::BuildChildren::remove_parent) for a
+    /// method that doesn't update the [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied

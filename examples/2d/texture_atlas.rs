@@ -146,7 +146,8 @@ fn setup(
         .unwrap();
 
     // get index of the sprite in the texture atlas, this is used to render the sprite
-    // the index is the same for all the texture atlases, since they are created from the same folder
+    // the index is the same for all the texture atlases, since they are created from the same
+    // folder
     let vendor_index = texture_atlas_linear
         .get_texture_index(&vendor_handle)
         .unwrap();

@@ -27,7 +27,8 @@ pub fn basis_buffer_to_image(
     };
 
     // First deal with transcoding to the desired format
-    // FIXME: Use external metadata to transcode to more appropriate formats for 1- or 2-component sources
+    // FIXME: Use external metadata to transcode to more appropriate formats for 1- or 2-component
+    // sources
     let (transcode_format, texture_format) =
         get_transcoded_formats(supported_compressed_formats, is_srgb);
     let basis_texture_format = transcoder.basis_texture_format(buffer);

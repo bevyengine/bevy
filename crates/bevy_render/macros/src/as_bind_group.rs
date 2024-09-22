@@ -260,7 +260,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, dimension);
 
-                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit
+                    // before allocating any buffers
                     binding_impls.insert(0, quote! {
                         ( #binding_index,
                           #render_path::render_resource::OwnedBindingResource::TextureView({
@@ -300,7 +301,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
-                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit
+                    // before allocating any buffers
                     binding_impls.insert(0, quote! {
                         (
                             #binding_index,
@@ -357,7 +359,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         }
                     };
 
-                    // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
+                    // insert fallible texture-based entries at 0 so that if we fail here, we exit
+                    // before allocating any buffers
                     binding_impls.insert(0, quote! {
                         (
                             #binding_index,
@@ -444,7 +447,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         count: None,
                     }
                 });
-            // multi-field uniform bindings for a given index require an intermediate struct to derive ShaderType
+            // multi-field uniform bindings for a given index require an intermediate struct to
+            // derive ShaderType
             } else {
                 let uniform_struct_name = Ident::new(
                     &format!("_{struct_name}AsBindGroupUniformStructBindGroup{binding_index}"),

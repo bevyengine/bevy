@@ -7,7 +7,8 @@ use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
 use wgpu::TextureFormat;
 
-/// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`] collection.
+/// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`]
+/// collection.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash)]
 pub struct ManualTextureViewHandle(pub u32);

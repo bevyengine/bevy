@@ -13,7 +13,8 @@
 /// impl_function_traits!(foo::bar::Baz);
 /// ```
 ///
-/// For generic types, however, the generic type parameters must also be given in angle brackets (`<` and `>`):
+/// For generic types, however, the generic type parameters must also be given in angle brackets
+/// (`<` and `>`):
 ///
 /// ```ignore
 /// impl_function_traits!(foo::bar::Baz<T, U>; <T: Clone, U>);

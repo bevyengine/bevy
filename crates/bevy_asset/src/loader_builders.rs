@@ -63,8 +63,8 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
 
     /// Configure the settings used to load the asset.
     ///
-    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an error will be printed to the log
-    /// and the asset load will fail.
+    /// If the settings type `S` does not match the settings expected by `A`'s asset loader, an
+    /// error will be printed to the log and the asset load will fail.
     #[must_use]
     pub fn with_settings<S: Settings>(
         self,
@@ -105,15 +105,16 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
         UntypedNestedLoader { base: self }
     }
 
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`](crate::AssetServer::load), an actual asset
-    /// load will be kicked off immediately, which ensures the load happens as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off
+    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the
+    /// asset. If the current context is a normal
+    /// [`AssetServer::load`](crate::AssetServer::load), an actual asset load will be kicked off
+    /// immediately, which ensures the load happens as soon as possible. "Normal loads" kicked
+    /// from within a normal Bevy App will generally configure the context to kick off
     /// loads immediately.
     /// If the current context is configured to not load dependencies automatically
     /// (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin
-    /// a load if necessary.
+    /// a load will not be kicked off automatically. It is then the calling context's responsibility
+    /// to begin a load if necessary.
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -140,7 +141,8 @@ pub struct UntypedNestedLoader<'ctx, 'builder> {
 }
 
 impl<'ctx, 'builder> UntypedNestedLoader<'ctx, 'builder> {
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset without knowing its type.
+    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the
+    /// asset without knowing its type.
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
         let handle = if self.base.load_context.should_load_dependencies {
@@ -244,13 +246,15 @@ impl<'ctx: 'reader, 'builder, 'reader> DirectNestedLoader<'ctx, 'builder, 'reade
         Ok((loader, asset))
     }
 
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
+    /// Loads the asset at the given `path` directly. This is an async function that will wait until
+    /// the asset is fully loaded before returning. Use this if you need the _value_ of another
+    /// asset in order to load the current asset. For example, if you are deriving a new asset
+    /// from the referenced asset, or you are building a collection of assets. This will add the
+    /// `path` as a "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a
+    /// [`LoadTransformAndSave`] preprocessor, changing a "load dependency" will result in
+    /// re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
     /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
@@ -287,13 +291,15 @@ pub struct UntypedDirectNestedLoader<'ctx, 'builder, 'reader> {
 }
 
 impl<'ctx: 'reader, 'builder, 'reader> UntypedDirectNestedLoader<'ctx, 'builder, 'reader> {
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
+    /// Loads the asset at the given `path` directly. This is an async function that will wait until
+    /// the asset is fully loaded before returning. Use this if you need the _value_ of another
+    /// asset in order to load the current asset. For example, if you are deriving a new asset
+    /// from the referenced asset, or you are building a collection of assets. This will add the
+    /// `path` as a "load dependency".
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
+    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a
+    /// [`LoadTransformAndSave`] preprocessor, changing a "load dependency" will result in
+    /// re-processing of the asset.
     ///
     /// [`Process`]: crate::processor::Process
     /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave

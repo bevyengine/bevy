@@ -11,7 +11,8 @@ type ReflectionIndex = usize;
 
 /// Collected serialization data used to generate a `SerializationData` type.
 pub(crate) struct SerializationDataDef {
-    /// Maps a field's _reflection_ index to its [`SkippedFieldDef`] if marked as `#[reflect(skip_serializing)]`.
+    /// Maps a field's _reflection_ index to its [`SkippedFieldDef`] if marked as
+    /// `#[reflect(skip_serializing)]`.
     skipped: HashMap<ReflectionIndex, SkippedFieldDef>,
 }
 

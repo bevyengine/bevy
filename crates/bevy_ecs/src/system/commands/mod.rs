@@ -40,8 +40,9 @@ pub use parallel_scope::*;
 ///
 /// # Usage
 ///
-/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct that will be applied the next time a copy of [`apply_deferred`] runs.
-/// Commands are almost always used as a [`SystemParam`](crate::system::SystemParam).
+/// Add `mut commands: Commands` as a function argument to your system to get a copy of this struct
+/// that will be applied the next time a copy of [`apply_deferred`] runs. Commands are almost always
+/// used as a [`SystemParam`](crate::system::SystemParam).
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -192,7 +193,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns a new `Commands` instance from a [`RawCommandQueue`] and an [`Entities`] reference.
     ///
-    /// This is used when constructing [`Commands`] from a [`DeferredWorld`](crate::world::DeferredWorld).
+    /// This is used when constructing [`Commands`] from a
+    /// [`DeferredWorld`](crate::world::DeferredWorld).
     ///
     /// # Safety
     ///
@@ -248,7 +250,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
+    /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding
+    /// [`EntityCommands`].
     ///
     /// See [`World::spawn_empty`] for more details.
     ///
@@ -290,8 +293,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
-    /// and returns its corresponding [`EntityCommands`].
+    /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not
+    /// exists, and returns its corresponding [`EntityCommands`].
     ///
     /// This method silently fails by returning [`EntityCommands`]
     /// even if the given `Entity` cannot be spawned.
@@ -314,8 +317,8 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
-    /// and returns its corresponding [`EntityCommands`].
+    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s
+    /// components, and returns its corresponding [`EntityCommands`].
     ///
     /// # Example
     ///
@@ -448,7 +451,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    /// 
+    ///
     /// # See also
     ///
     /// - [`entity`](Self::entity) for the panicking version.
@@ -547,8 +550,9 @@ impl<'w, 's> Commands<'w, 's> {
                 queue.push(command);
             }
             InternalQueue::RawCommandQueue(queue) => {
-                // SAFETY: `RawCommandQueue` is only every constructed in `Commands::new_raw_from_entities`
-                // where the caller of that has ensured that `queue` outlives `self`
+                // SAFETY: `RawCommandQueue` is only every constructed in
+                // `Commands::new_raw_from_entities` where the caller of that has
+                // ensured that `queue` outlives `self`
                 unsafe {
                     queue.push(command);
                 }
@@ -574,9 +578,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Note
     ///
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use
+    /// [`Commands::spawn_batch`]. This method should generally only be used for sharing
+    /// entities across apps, and only when they have a scheme worked out to share an ID space
+    /// (which doesn't happen by default).
     #[track_caller]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
@@ -586,7 +591,8 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(insert_or_spawn_batch(bundles_iter));
     }
 
-    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an
+    /// inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
     /// When the command is applied,
@@ -615,7 +621,8 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(init_resource::<R>);
     }
 
-    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a specific value.
+    /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with a
+    /// specific value.
     ///
     /// This will overwrite any previous value of the same resource type.
     ///
@@ -677,7 +684,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a
+    /// command.
     pub fn run_system(&mut self, id: SystemId) {
         self.run_system_with_input(id, ());
     }
@@ -690,22 +698,25 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
-    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+    /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a
+    /// command.
     pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by
+    /// [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a push-based fashion.
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the
+    /// associated system. This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     ///
-    /// If you want to prevent Commands from registering the same system multiple times, consider using [`Local`](crate::system::Local)
+    /// If you want to prevent Commands from registering the same system multiple times, consider
+    /// using [`Local`](crate::system::Local)
     ///
     /// # Example
     ///
@@ -758,16 +769,16 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
-    /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
-    /// isn't scoped to specific targets.
+    /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the
+    /// `event` that isn't scoped to specific targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
         self.queue(TriggerEvent { event, targets: () });
     }
 
-    /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
-    /// watches those targets.
+    /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event`
+    /// that watches those targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger_targets(
@@ -778,7 +789,8 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(TriggerEvent { event, targets });
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that
+    /// stores the observer.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -790,8 +802,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This is a convenience method for sending events without requiring an [`EventWriter`].
     /// ## Performance
-    /// Since this is a command, exclusive world access is used, which means that it will not profit from
-    /// system-level parallelism on supported platforms.
+    /// Since this is a command, exclusive world access is used, which means that it will not profit
+    /// from system-level parallelism on supported platforms.
     /// If these events are performance-critical or very frequently
     /// sent, consider using a typed [`EventWriter`] instead.
     ///
@@ -862,8 +874,8 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
     /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`].
-    /// You can override the provided implementation if you can return a `Command` with a smaller memory
-    /// footprint than `(Entity, Self)`.
+    /// You can override the provided implementation if you can return a `Command` with a smaller
+    /// memory footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
     #[must_use = "commands do nothing unless applied to a `World`"]
     fn with_entity(self, entity: Entity) -> impl Command
@@ -911,7 +923,8 @@ impl EntityCommands<'_> {
     /// Get an [`EntityEntryCommands`] for the [`Component`] `T`,
     /// allowing you to modify it or insert it if it isn't already present.
     ///
-    /// See also [`insert_if_new`](Self::insert_if_new), which lets you insert a [`Bundle`] without overwriting it.
+    /// See also [`insert_if_new`](Self::insert_if_new), which lets you insert a [`Bundle`] without
+    /// overwriting it.
     ///
     /// # Example
     ///
@@ -1359,7 +1372,8 @@ impl EntityCommands<'_> {
         self.queue(despawn())
     }
 
-    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current
+    /// [`Entity`].
     ///
     /// # Examples
     ///
@@ -1383,7 +1397,8 @@ impl EntityCommands<'_> {
 
     /// Removes all components except the given [`Bundle`] from the entity.
     ///
-    /// This can also be used to remove all the components from the entity by passing it an empty Bundle.
+    /// This can also be used to remove all the components from the entity by passing it an empty
+    /// Bundle.
     ///
     /// # Example
     ///
@@ -1439,8 +1454,8 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
-    /// watches this entity.
+    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event`
+    /// that watches this entity.
     ///
     /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(mut self, event: impl Event) -> Self {
@@ -1454,7 +1469,8 @@ impl EntityCommands<'_> {
     }
 }
 
-/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
+/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified
+/// component type.
 pub struct EntityEntryCommands<'a, T> {
     entity_commands: EntityCommands<'a>,
     marker: PhantomData<T>,
@@ -1502,7 +1518,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
+    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T`
+    /// is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
     ///
@@ -1515,9 +1532,11 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_insert(default())
     }
 
-    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
+    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T`
+    /// is not already present.
     ///
-    /// Unlike [`or_insert_with`](Self::or_insert_with), this will not panic if the entity does not exist.
+    /// Unlike [`or_insert_with`](Self::or_insert_with), this will not panic if the entity does not
+    /// exist.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
     #[track_caller]
@@ -1525,7 +1544,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_try_insert(default())
     }
 
-    /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already present.
+    /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already
+    /// present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_from_world`](Self::or_from_world).
     ///
@@ -1542,7 +1562,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.or_insert(T::default())
     }
 
-    /// [Insert](EntityCommands::insert) `T::from_world` into this entity, if `T` is not already present.
+    /// [Insert](EntityCommands::insert) `T::from_world` into this entity, if `T` is not already
+    /// present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_default`](Self::or_default).
     ///
@@ -1799,7 +1820,8 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
     }
 }
 
-/// [`EntityCommand`] to log the components of a given entity. See [`EntityCommands::log_components`].
+/// [`EntityCommand`] to log the components of a given entity. See
+/// [`EntityCommands::log_components`].
 fn log_components(entity: Entity, world: &mut World) {
     let debug_infos: Vec<_> = world
         .inspect_entity(entity)

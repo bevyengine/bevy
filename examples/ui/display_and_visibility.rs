@@ -468,7 +468,8 @@ fn text_hover(
                 *color = Color::BLACK.with_alpha(0.6).into();
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
-                        // Bypass change detection to avoid recomputation of the text when only changing the color
+                        // Bypass change detection to avoid recomputation of the text when only
+                        // changing the color
                         text.bypass_change_detection().sections[0].style.color = YELLOW.into();
                     }
                 }

@@ -50,7 +50,8 @@ pub enum GizmoLineStyle {
 ///
 /// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
 ///
-/// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
+/// Make sure to derive [`Default`] + [`Reflect`] and register in the app using
+/// `app.init_gizmo_group::<T>()`
 pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
@@ -69,7 +70,8 @@ pub struct GizmoConfigStore {
 }
 
 impl GizmoConfigStore {
-    /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
+    /// Returns [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a
+    /// [`GizmoConfigGroup`]
     pub fn get_config_dyn(&self, config_type_id: &TypeId) -> Option<(&GizmoConfig, &dyn Reflect)> {
         let (config, ext) = self.store.get(config_type_id)?;
         Some((config, ext.deref()))
@@ -85,7 +87,8 @@ impl GizmoConfigStore {
         (config, ext)
     }
 
-    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a [`GizmoConfigGroup`]
+    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`TypeId`] of a
+    /// [`GizmoConfigGroup`]
     pub fn get_config_mut_dyn(
         &mut self,
         config_type_id: &TypeId,
@@ -94,7 +97,8 @@ impl GizmoConfigStore {
         Some((config, ext.deref_mut()))
     }
 
-    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with [`GizmoConfigGroup`] `T`
+    /// Returns mutable [`GizmoConfig`] and [`GizmoConfigGroup`] associated with
+    /// [`GizmoConfigGroup`] `T`
     pub fn config_mut<T: GizmoConfigGroup>(&mut self) -> (&mut GizmoConfig, &mut T) {
         let Some((config, ext)) = self.get_config_mut_dyn(&TypeId::of::<T>()) else {
             panic!("Requested config {} does not exist in `GizmoConfigStore`! Did you forget to add it using `app.init_gizmo_group<T>()`?", T::type_path());

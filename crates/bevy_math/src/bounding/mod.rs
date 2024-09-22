@@ -51,7 +51,8 @@ pub trait BoundingVolume: Sized {
     /// Scale the size of the bounding volume around its center by the given amount
     fn scale_around_center(&self, scale: impl Into<Self::HalfSize>) -> Self;
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     fn transformed_by(
         mut self,
         translation: impl Into<Self::Translation>,
@@ -61,7 +62,8 @@ pub trait BoundingVolume: Sized {
         self
     }
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     fn transform_by(
         &mut self,
         translation: impl Into<Self::Translation>,

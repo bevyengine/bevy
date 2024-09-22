@@ -71,7 +71,8 @@ where
         // first, draw the body of the arrow
         self.gizmos.line(self.start, self.end, self.color);
         // now the hard part is to draw the head in a sensible way
-        // put us in a coordinate system where the arrow is pointing towards +x and ends at the origin
+        // put us in a coordinate system where the arrow is pointing towards +x and ends at the
+        // origin
         let pointing_end = (self.end - self.start).normalize();
         let rotation_end = Quat::from_rotation_arc(Vec3::X, pointing_end);
         let tips = [
@@ -106,7 +107,8 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
+    /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any
+    /// direction.
     ///
     /// This should be called for each frame the arrow needs to be rendered.
     ///
@@ -166,8 +168,8 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
-    /// of `base_length`.
+    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a
+    /// factor of `base_length`.
     ///
     /// This should be called for each frame the axes need to be rendered.
     ///
@@ -199,8 +201,8 @@ where
         self.arrow(start, end_z, BLUE);
     }
 
-    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
-    /// of `base_length`.
+    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a
+    /// factor of `base_length`.
     ///
     /// This should be called for each frame the axes need to be rendered.
     ///

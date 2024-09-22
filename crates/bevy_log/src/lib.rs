@@ -76,12 +76,12 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 
 /// Adds logging to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a collector appropriate to your target platform:
-/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default,
-///     logging to `stdout`.
-/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
-///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
-///     to the browser console.
+/// * Using [`tracing-subscriber`](https://crates.io/crates/tracing-subscriber) by default, logging
+///   to `stdout`.
+/// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android, logging to
+///   Android logs.
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging to the browser
+///   console.
 ///
 /// You can configure this plugin.
 /// ```no_run
@@ -164,7 +164,8 @@ pub struct LogPlugin {
     ///
     /// This function is only called once, when the plugin is built.
     ///
-    /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
+    /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return
+    /// value.
     ///
     /// Access to [`App`] is also provided to allow for communication between the
     /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
@@ -213,7 +214,8 @@ impl Plugin for LogPlugin {
                     .source()
                     .and_then(|source| source.downcast_ref::<ParseError>())
                     .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
+                        // we cannot use the `error!` macro here because the logger is not ready
+                        // yet.
                         eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
                     });
 

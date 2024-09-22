@@ -116,7 +116,8 @@ pub enum ReflectOwned {
 }
 impl_reflect_enum!(ReflectOwned);
 
-/// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
+/// A enumeration of all error outcomes that might happen when running
+/// [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
@@ -194,9 +195,9 @@ impl std::fmt::Display for ReflectKind {
 /// This is a supertrait of [`Reflect`],
 /// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
 ///
-/// It's recommended to use [the derive macro for `Reflect`] rather than manually implementing this trait.
-/// Doing so will automatically implement this trait as well as many other useful traits for reflection,
-/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+/// It's recommended to use [the derive macro for `Reflect`] rather than manually implementing this
+/// trait. Doing so will automatically implement this trait as well as many other useful traits for
+/// reflection, including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
 /// See the [crate-level documentation] to see how this trait and its subtraits can be used.
 ///
@@ -209,7 +210,8 @@ impl std::fmt::Display for ReflectKind {
 )]
 pub trait PartialReflect: DynamicTypePath + Send + Sync
 where
-    // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
+    // NB: we don't use `Self: Any` since for
+    // downcasting, `Reflect` should be used.
     Self: 'static,
 {
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
@@ -263,24 +265,22 @@ where
     ///
     /// If a type implements an [introspection subtrait], then the semantics of this
     /// method are as follows:
-    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
-    ///   applied to the corresponding named field of `self`. Fields which are
-    ///   not present in both structs are ignored.
-    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
-    ///   numbered field is applied to the corresponding numbered field of
-    ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
-    ///   the variant of `value`. The corresponding fields of that variant are
-    ///   applied from `value` onto `self`. Fields which are not present in both
-    ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
-    ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
-    ///   and excess elements in `value` are appended to `self`.
-    /// - If `T` is a [`Map`], then for each key in `value`, the associated
-    ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
-    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
-    ///   assigned to `self`.
+    /// - If `T` is a [`Struct`], then the value of each named field of `value` is applied to the
+    ///   corresponding named field of `self`. Fields which are not present in both structs are
+    ///   ignored.
+    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each numbered field is applied
+    ///   to the corresponding numbered field of `self.` Fields which are not present in both values
+    ///   are ignored.
+    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match the variant of
+    ///   `value`. The corresponding fields of that variant are applied from `value` onto `self`.
+    ///   Fields which are not present in both values are ignored.
+    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied to the
+    ///   corresponding element of `self`. Up to `self.len()` items are applied, and excess elements
+    ///   in `value` are appended to `self`.
+    /// - If `T` is a [`Map`], then for each key in `value`, the associated value is applied to the
+    ///   value associated with the same key in `self`. Keys which are not present in `self` are
+    ///   inserted.
+    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and assigned to `self`.
     ///
     /// Note that `Reflect` must be implemented manually for [`List`]s and
     /// [`Map`]s in order to achieve the correct semantics, as derived
@@ -295,10 +295,10 @@ where
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
-    ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
-    ///   `self` and `value` are not of the same type.
+    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is a `List`, while
+    ///   `value` is a `Struct`).
+    /// - If `T` is any complex type and the corresponding fields or elements of `self` and `value`
+    ///   are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
@@ -306,13 +306,14 @@ where
 
     /// Tries to [`apply`](PartialReflect::apply) a reflected value to this value.
     ///
-    /// Functions the same as the [`apply`](PartialReflect::apply) function but returns an error instead of
-    /// panicking.
+    /// Functions the same as the [`apply`](PartialReflect::apply) function but returns an error
+    /// instead of panicking.
     ///
     /// # Handling Errors
     ///
-    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
-    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
+    /// This function may leave `self` in a partially mutated state if a error was encountered on
+    /// the way. consider maintaining a cloned instance of this data you can switch to if a
+    /// error is encountered.
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.
@@ -413,8 +414,9 @@ where
 /// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
 ///
 /// It's recommended to use [the derive macro] rather than manually implementing this trait.
-/// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful traits for reflection,
-/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+/// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful
+/// traits for reflection, including one of the appropriate subtraits: [`Struct`], [`TupleStruct`]
+/// or [`Enum`].
 ///
 /// If you need to use this trait as a generic bound along with other reflection traits,
 /// for your convenience, consider using [`Reflectable`] instead.

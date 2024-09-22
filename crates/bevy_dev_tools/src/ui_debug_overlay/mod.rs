@@ -64,7 +64,8 @@ impl UiDebugOptions {
     }
 }
 
-/// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`](bevy_gizmos::prelude::GizmoConfig).
+/// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`]
+/// and [`GizmoConfig`](bevy_gizmos::prelude::GizmoConfig).
 fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfigStore>,
     mut options: ResMut<UiDebugOptions>,
@@ -119,7 +120,8 @@ fn update_debug_camera(
     }
 }
 
-/// The function that goes over every children of given [`Entity`], skipping the not visible ones and drawing the gizmos outlines.
+/// The function that goes over every children of given [`Entity`], skipping the not visible ones
+/// and drawing the gizmos outlines.
 fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity, scale: f32) {
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
@@ -171,7 +173,8 @@ struct CameraParam<'w, 's> {
     default_ui_camera: DefaultUiCamera<'w, 's>,
 }
 
-/// system responsible for drawing the gizmos lines around all the node roots, iterating recursively through all visible children.
+/// system responsible for drawing the gizmos lines around all the node roots, iterating recursively
+/// through all visible children.
 fn outline_roots(
     outline: OutlineParam,
     draw: Gizmos<UiGizmosDebug>,
@@ -222,7 +225,8 @@ fn outline_roots(
             .or(cam.default_ui_camera.get())
         {
             let Ok(camera) = cam.cameras.get(camera_entity) else {
-                // The camera wasn't found. Either the Camera don't exist or the Camera is the debug Camera, that we want to skip and warn
+                // The camera wasn't found. Either the Camera don't exist or the Camera is the debug
+                // Camera, that we want to skip and warn
                 warn_once!("Camera {:?} wasn't found for debug overlay", camera_entity);
                 continue;
             };
@@ -271,7 +275,8 @@ impl Plugin for DebugUiPlugin {
                     update_debug_camera,
                     outline_roots
                         .after(TransformSystem::TransformPropagate)
-                        // This needs to run before VisibilityPropagate so it can relies on ViewVisibility
+                        // This needs to run before VisibilityPropagate so it can relies on
+                        // ViewVisibility
                         .before(VisibilitySystems::VisibilityPropagate),
                 )
                     .chain(),

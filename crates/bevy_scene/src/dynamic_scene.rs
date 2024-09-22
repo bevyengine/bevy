@@ -21,8 +21,8 @@ use serde::Serialize;
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
 /// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
-///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
-///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+///   visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
+///   [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 /// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
@@ -34,7 +34,8 @@ pub struct DynamicScene {
 
 /// A reflection-powered serializable representation of an entity and its components.
 pub struct DynamicEntity {
-    /// The identifier of the entity, unique within a scene (and the world it may have been generated from).
+    /// The identifier of the entity, unique within a scene (and the world it may have been
+    /// generated from).
     ///
     /// Components that reference this entity must consistently use this identifier.
     pub entity: Entity,
@@ -57,11 +58,13 @@ impl DynamicScene {
             .build()
     }
 
-    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given
+    /// world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
-    /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource) trait.
+    /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource)
+    /// trait.
     pub fn write_to_world_with(
         &self,
         world: &mut World,
@@ -166,7 +169,8 @@ impl DynamicScene {
         Ok(())
     }
 
-    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given
+    /// world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the

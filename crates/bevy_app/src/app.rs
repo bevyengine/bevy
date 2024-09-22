@@ -291,13 +291,14 @@ impl App {
         self
     }
 
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by
+    /// [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`] with [`App::add_systems`],
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a push-based fashion.
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the
+    /// associated system. This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
@@ -307,7 +308,8 @@ impl App {
         self.main_mut().register_system(system)
     }
 
-    /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
+    /// Configures a collection of system sets in the provided schedule, adding any sets that do not
+    /// exist.
     #[track_caller]
     pub fn configure_sets(
         &mut self,
@@ -480,7 +482,8 @@ impl App {
     ///
     /// This can be used to read the settings of any existing plugins.
     /// This vector will be empty if no plugins of that type have been added.
-    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in
+    /// insertion order in this vector.
     ///
     /// ```
     /// # use bevy_app::prelude::*;
@@ -647,7 +650,8 @@ impl App {
     ///     .register_function(add);
     /// ```
     ///
-    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`]
+    /// or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```should_panic
     /// use bevy_app::App;
@@ -671,7 +675,8 @@ impl App {
         self
     }
 
-    /// Registers the given function or closure into the [`AppFunctionRegistry`] resource using the given name.
+    /// Registers the given function or closure into the [`AppFunctionRegistry`] resource using the
+    /// given name.
     ///
     /// To avoid conflicts, it's recommended to use a unique name for the function.
     /// This can be achieved by "namespacing" the function with a unique identifier,
@@ -683,8 +688,9 @@ impl App {
     /// Another approach could be to use the [type name] of the function,
     /// however, it should be noted that anonymous functions do _not_ have unique type names.
     ///
-    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
-    /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
+    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is
+    /// not needed, it's recommended to use [`register_function`] instead as the generated name
+    /// is guaranteed to be unique.
     ///
     /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
@@ -814,7 +820,8 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
-    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an
+    /// update if it exists.
     pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
         self.sub_apps.update_subapp_by_label(label);
     }
@@ -1041,15 +1048,17 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// An event that indicates the [`App`] should exit.
+///
+/// If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
 /// for this event run before the current update ends.
 ///
 /// # Portability
-/// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
-/// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
+/// This type is roughly meant to map to a standard definition of a process exit code (0 means
+/// success, not 0 means error). Due to portability concerns (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
 #[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
@@ -1400,8 +1409,9 @@ mod tests {
         assert_eq!(exit, AppExit::from_code(4));
     }
 
-    /// Custom runners should be in charge of when `app::update` gets called as they may need to
-    /// coordinate some state.
+    /// Custom runners should be in charge of when `update` gets called; may need to coordinate
+    /// state.
+    ///
     /// bug: <https://github.com/bevyengine/bevy/issues/10385>
     /// fix: <https://github.com/bevyengine/bevy/pull/10389>
     #[test]

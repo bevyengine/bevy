@@ -42,8 +42,9 @@ pub enum ExecutorKind {
     /// other things, or just trying minimize overhead.
     #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
     SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
-    /// immediately after running each system.
+    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls
+    /// [`apply_deferred`](crate::system::System::apply_deferred) immediately after running
+    /// each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
@@ -100,23 +101,29 @@ impl SystemSchedule {
     }
 }
 
-/// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
-/// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters
-/// (like [`Commands`](crate::prelude::Commands)) or other system buffers.
+/// Instructs executor to call [`apply_deferred`] on systems.
+///
+/// This affects systems that have run but not applied their [`Deferred`] system parameters
+/// (like [`Commands`]) or other system buffers.
 ///
 /// ## Scheduling
 ///
 /// `apply_deferred` systems are scheduled *by default*
-/// - later in the same schedule run (for example, if a system with `Commands` param
-///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
-/// - between systems with dependencies if the dependency
-///   [has deferred buffers](crate::system::System::has_deferred)
-///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses `Commands` param,
-///   changes to the world in `foo` will be visible in `bar`)
+/// - later in the same schedule run (for example, if a system with `Commands` param is scheduled in
+///   `Update`, all the changes will be visible in `PostUpdate`)
+/// - between systems with dependencies if the dependency [has deferred
+///   buffers](crate::system::System::has_deferred) (if system `bar` directly or indirectly depends
+///   on `foo`, and `foo` uses `Commands` param, changes to the world in `foo` will be visible in
+///   `bar`)
 ///
 /// ## Notes
-/// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
+/// - This function (currently) does nothing if it's called manually or wrapped inside a
+///   [`PipeSystem`](crate::system::PipeSystem).
 /// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
+///
+/// [`apply_deferred`]: crate::system::System::apply_deferred
+/// [`Deferred`]: crate::system::Deferred
+/// [`Commands`]: crate::prelude::Commands
 #[doc(alias = "apply_system_buffers")]
 #[allow(unused_variables)]
 pub fn apply_deferred(world: &mut World) {}
@@ -128,14 +135,15 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
     system.as_ref().type_id() == apply_deferred.system_type_id()
 }
 
-/// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
+/// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default
+/// panic handler is used).
 ///
 /// The full callstack will still be visible with `RUST_BACKTRACE=full`.
-/// They are specialized for `System::run` & co instead of being generic over closures because this avoids an
-/// extra frame in the backtrace.
+/// They are specialized for `System::run` & co instead of being generic over closures because this
+/// avoids an extra frame in the backtrace.
 ///
-/// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call stack for symbols
-/// containing the string `__rust_begin_short_backtrace` in their mangled name.
+/// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call
+/// stack for symbols containing the string `__rust_begin_short_backtrace` in their mangled name.
 mod __rust_begin_short_backtrace {
     use std::hint::black_box;
 

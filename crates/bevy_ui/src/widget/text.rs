@@ -148,11 +148,13 @@ fn create_text_measure(
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated if the target camera's scale factor (or primary window if no specific target) or [`UiScale`] is changed.
-/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
-///     method should be called when only changing the `Text`'s colors.
+/// * Measures are regenerated if the target camera's scale factor (or primary window if no specific
+///   target) or [`UiScale`] is changed.
+/// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system is
+///   only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///   color changes. This can be expensive, particularly for large blocks of text, and the
+///   [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+///   method should be called when only changing the `Text`'s colors.
 #[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
@@ -276,14 +278,17 @@ fn queue_text(
     }
 }
 
-/// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
-/// or when the `needs_recompute` field of [`TextFlags`] is set to true.
+/// Updates the layout and size information for a UI text node.
+///
+/// Occurs on changes to the size value of its [`Node`] component, or when the `needs_recompute`
+/// field of [`TextFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
 ///
 /// ## World Resources
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
-/// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
+/// It does not modify or observe existing ones. The exception is when adding new glyphs to a
+/// [`bevy_text::FontAtlas`].
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,

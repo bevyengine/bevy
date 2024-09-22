@@ -60,17 +60,18 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// - The caller must ensure that `world` has permission to access any world data
-    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
-    ///   simultaneous accesses while the system is running.
-    /// - The method [`Self::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    /// - The caller must ensure that `world` has permission to access any world data registered in
+    ///   [`Self::archetype_component_access`]. There must be no conflicting simultaneous accesses
+    ///   while the system is running.
+    /// - The method [`Self::update_archetype_component_access`] must be called at some point before
+    ///   this one, with the same exact [`World`]. If `update_archetype_component_access` panics (or
+    ///   otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
-    /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using `&World`.
+    /// For [read-only](ReadOnlySystem) systems, see [`run_readonly`], which can be called using
+    /// `&World`.
     ///
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
@@ -86,13 +87,14 @@ pub trait System: Send + Sync + 'static {
         ret
     }
 
-    /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
+    /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system
+    /// buffers) of this system to the world.
     ///
     /// This is where [`Commands`](crate::system::Commands) get applied.
     fn apply_deferred(&mut self, world: &mut World);
 
-    /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
-    /// of this system into the world's command buffer.
+    /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system
+    /// buffers) of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
 
     /// Initialize the system.
@@ -124,17 +126,18 @@ pub trait System: Send + Sync + 'static {
     /// Overwrites the tick indicating the last time this system ran.
     ///
     /// # Warning
-    /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
-    /// However, it can be an essential escape hatch when, for example,
-    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    /// This is a complex and error-prone operation, that can have unexpected consequences on any
+    /// system relying on this code. However, it can be an essential escape hatch when, for
+    /// example, you are trying to synchronize representations using change detection and need
+    /// to avoid infinite recursion.
     fn set_last_run(&mut self, last_run: Tick);
 }
 
 /// [`System`] types that do not modify the [`World`] when run.
 /// This is implemented for any systems whose parameters all implement [`ReadOnlySystemParam`].
 ///
-/// Note that systems which perform [deferred](System::apply_deferred) mutations (such as with [`Commands`])
-/// may implement this trait.
+/// Note that systems which perform [deferred](System::apply_deferred) mutations (such as with
+/// [`Commands`]) may implement this trait.
 ///
 /// [`ReadOnlySystemParam`]: crate::system::ReadOnlySystemParam
 /// [`Commands`]: crate::system::Commands
@@ -185,13 +188,14 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// Trait used to run a system immediately on a [`World`].
 ///
 /// # Warning
-/// This function is not an efficient method of running systems and it's meant to be used as a utility
-/// for testing and/or diagnostics.
+/// This function is not an efficient method of running systems and it's meant to be used as a
+/// utility for testing and/or diagnostics.
 ///
-/// Systems called through [`run_system_once`](RunSystemOnce::run_system_once) do not hold onto any state,
-/// as they are created and destroyed every time [`run_system_once`](RunSystemOnce::run_system_once) is called.
-/// Practically, this means that [`Local`](crate::system::Local) variables are
-/// reset on every run and change detection does not work.
+/// Systems called through [`run_system_once`](RunSystemOnce::run_system_once) do not hold onto any
+/// state, as they are created and destroyed every time
+/// [`run_system_once`](RunSystemOnce::run_system_once) is called. Practically, this means that
+/// [`Local`](crate::system::Local) variables are reset on every run and change detection does not
+/// work.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -209,22 +213,27 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system`](World::run_system)
-/// and run the system by their [`SystemId`](crate::system::SystemId).
+/// If you do need systems to hold onto state between runs, use the
+/// [`World::run_system`](World::run_system) and run the system by their
+/// [`SystemId`](crate::system::SystemId).
 ///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
-/// you'd need a [`Schedule`](crate::schedule::Schedule) to run the system. This can create redundant boilerplate code
-/// when writing tests or trying to quickly iterate on debug specific systems.
+/// you'd need a [`Schedule`](crate::schedule::Schedule) to run the system. This can create
+/// redundant boilerplate code when writing tests or trying to quickly iterate on debug specific
+/// systems.
 ///
 /// For these situations, this function can be useful because it allows you to execute a system
-/// immediately with some custom input and retrieve its output without requiring the necessary boilerplate.
+/// immediately with some custom input and retrieve its output without requiring the necessary
+/// boilerplate.
 ///
 /// # Examples
 ///
 /// ## Immediate Command Execution
 ///
-/// This usage is helpful when trying to test systems or functions that operate on [`Commands`](crate::system::Commands):
+/// This usage is helpful when trying to test systems or functions that operate on
+/// [`Commands`](crate::system::Commands):
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystemOnce;
@@ -237,7 +246,9 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 ///
 /// ## Immediate Queries
 ///
-/// This usage is helpful when trying to run an arbitrary query on a world for testing or debugging purposes:
+/// This usage is helpful when trying to run an arbitrary query on a world for testing or debugging
+/// purposes:
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystemOnce;
@@ -257,7 +268,6 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// ```
 ///
 /// Note that instead of closures you can also pass in regular functions as systems:
-///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystemOnce;

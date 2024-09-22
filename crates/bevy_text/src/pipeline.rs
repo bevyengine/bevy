@@ -46,7 +46,8 @@ impl Default for SwashCache {
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
-    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`]
+    /// [`Asset`](bevy_asset::Asset).
     map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
     /// The font system is used to retrieve fonts and their information, including glyph outlines.
     ///
@@ -98,8 +99,8 @@ impl TextPipeline {
             load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
         }
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
-        // since they cannot be rendered by cosmic-text.
+        // Map text sections to cosmic-text spans, and ignore sections with negative or zero
+        // fontsizes, since they cannot be rendered by cosmic-text.
         //
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
@@ -144,7 +145,8 @@ impl TextPipeline {
         buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
 
         // PERF: https://github.com/pop-os/cosmic-text/issues/166:
-        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
+        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text`
+        // which is presumably not free?
         for buffer_line in buffer.lines.iter_mut() {
             buffer_line.set_align(Some(alignment.into()));
         }
@@ -341,8 +343,8 @@ impl TextMeasureInfo {
         buffer: &mut Buffer,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
-        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
-        // whenever a canonical state is required.
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always
+        // 'refreshed' whenever a canonical state is required.
         buffer.set_size(font_system, bounds.width, bounds.height);
         buffer_dimensions(buffer)
     }
@@ -415,8 +417,8 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 
 /// Discards stale data cached in `FontSystem`.
 pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
-    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
-    // See https://github.com/bevyengine/bevy/pull/15037
+    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic
+    // text. See https://github.com/bevyengine/bevy/pull/15037
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).

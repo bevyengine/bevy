@@ -44,8 +44,9 @@ impl AssetSaver for CompressedImageSaver {
             source_image.init(&image.data, size.x, size.y, 4);
 
             let mut compressor = basis_universal::Compressor::new(4);
-            // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The basis-universal
-            // library bindings note that invalid params might produce undefined behavior.
+            // SAFETY: the CompressorParams are "valid" to the best of our knowledge. The
+            // basis-universal library bindings note that invalid params might produce
+            // undefined behavior.
             unsafe {
                 compressor.init(&compressor_params);
                 compressor.process().unwrap();

@@ -10,9 +10,9 @@ use bevy_reflect::TypePath;
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
 /// * adding the [`SceneBundle`](crate::SceneBundle) to an entity
-/// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
-///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
-///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+/// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be visible
+///   if the entity already has [`Transform`](bevy_transform::components::Transform) and
+///   [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
     /// The world of the scene, containing its entities and resources.
@@ -40,7 +40,8 @@ impl Scene {
     /// Clone the scene.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
-    /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
+    /// provided [`AppTypeRegistry`] or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
     pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
         let mut new_world = World::new();
         let mut entity_map = EntityHashMap::default();
@@ -51,7 +52,8 @@ impl Scene {
     /// Write the entities and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
-    /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
+    /// provided [`AppTypeRegistry`] or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
     pub fn write_to_world_with(
         &self,
         world: &mut World,

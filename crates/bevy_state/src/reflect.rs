@@ -62,8 +62,8 @@ pub struct ReflectFreelyMutableStateFns {
 }
 
 impl ReflectFreelyMutableStateFns {
-    /// Get the default set of [`ReflectFreelyMutableStateFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// Get the default set of [`ReflectFreelyMutableStateFns`] for a specific component type using
+    /// its [`FromType`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.

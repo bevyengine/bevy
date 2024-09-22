@@ -1,4 +1,6 @@
-//! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
+//! A [`bevy_picking`] backend for sprites.
+//!
+//! Works for simple sprites and sprite atlases. Works for
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
@@ -148,7 +150,8 @@ pub fn sprite_picking(
                             .affine()
                             .inverse()
                             .transform_point3(hit_pos_world);
-                        // HitData requires a depth as calculated from the camera's near clipping plane
+                        // HitData requires a depth as calculated from the camera's near clipping
+                        // plane
                         let depth = -cam_ortho.near - hit_pos_cam.z;
                         (
                             entity,

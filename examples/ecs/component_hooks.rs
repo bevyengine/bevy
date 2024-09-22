@@ -1,17 +1,17 @@
 //! This example illustrates the different ways you can employ component lifecycle hooks.
 //!
-//! Whenever possible, prefer using Bevy's change detection or Events for reacting to component changes.
-//! Events generally offer better performance and more flexible integration into Bevy's systems.
-//! Hooks are useful to enforce correctness but have limitations (only one hook per component,
-//! less ergonomic than events).
+//! Whenever possible, prefer using Bevy's change detection or Events for reacting to component
+//! changes. Events generally offer better performance and more flexible integration into Bevy's
+//! systems. Hooks are useful to enforce correctness but have limitations (only one hook per
+//! component, less ergonomic than events).
 //!
 //! Here are some cases where components hooks might be necessary:
 //!
-//! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
-//!     sync with the addition/removal of components.
+//! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in sync
+//!   with the addition/removal of components.
 //!
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
-//!     between components (like hierarchies or parent-child links) and need to maintain correctness.
+//!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
     ecs::component::{ComponentHooks, StorageType},
@@ -58,14 +58,17 @@ fn setup(world: &mut World) {
     // In order to register component hooks the component must:
     // - not be currently in use by any entities in the world
     // - not already have a hook of that kind registered
-    // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
+    // This is to prevent overriding hooks defined in plugins and other crates as well as keeping
+    // things fast
     world
         .register_component_hooks::<MyComponent>()
-        // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and `on_remove`
-        // A hook has 3 arguments:
-        // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`
+        // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and
+        // `on_remove` A hook has 3 arguments:
+        // - a `DeferredWorld`, this allows access to resource and component data as well as
+        //   `Commands`
         // - the entity that triggered the hook
-        // - the component id of the triggering component, this is mostly used for dynamic components
+        // - the component id of the triggering component, this is mostly used for dynamic
+        //   components
         //
         // `on_add` will trigger when a component is inserted onto an entity without it
         .on_add(|mut world, entity, component_id| {
@@ -84,8 +87,8 @@ fn setup(world: &mut World) {
         .on_insert(|world, _, _| {
             println!("Current Index: {:?}", world.resource::<MyComponentIndex>());
         })
-        // `on_replace` will trigger when a component is inserted onto an entity that already had it,
-        // and runs before the value is replaced.
+        // `on_replace` will trigger when a component is inserted onto an entity that already had
+        // it, and runs before the value is replaced.
         // Also triggers when a component is removed from an entity, and runs before `on_remove`
         .on_replace(|mut world, entity, _| {
             let value = world.get::<MyComponent>(entity).unwrap().0;

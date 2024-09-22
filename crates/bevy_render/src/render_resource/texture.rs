@@ -9,7 +9,8 @@ render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// Can be created via
+/// [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -51,7 +52,8 @@ define_atomic_id!(TextureViewId);
 render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
 render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
-/// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
+/// Describes a [`Texture`] with its associated metadata required by a pipeline or
+/// [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
@@ -115,10 +117,12 @@ define_atomic_id!(SamplerId);
 render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
-/// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
+/// They define image filters (including anisotropy) and address (wrapping) modes, among other
+/// things.
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+/// Can be created via
+/// [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,

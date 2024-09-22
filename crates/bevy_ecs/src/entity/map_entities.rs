@@ -97,7 +97,8 @@ pub trait EntityMapper {
 }
 
 /// An [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety) version
-/// of [`EntityMapper`]. This trait is automatically implemented for type that implements `EntityMapper`.
+/// of [`EntityMapper`]. This trait is automatically implemented for type that implements
+/// `EntityMapper`.
 pub trait DynEntityMapper {
     /// Map an entity to another entity.
     ///
@@ -123,7 +124,8 @@ impl<T: EntityMapper> DynEntityMapper for T {
 }
 
 impl EntityMapper for SceneEntityMapper<'_> {
-    /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
+    /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current
+    /// world if it is absent.
     fn map_entity(&mut self, entity: Entity) -> Entity {
         if let Some(&mapped) = self.map.get(&entity) {
             return mapped;
@@ -148,21 +150,26 @@ impl EntityMapper for SceneEntityMapper<'_> {
     }
 }
 
-/// A wrapper for [`EntityHashMap<Entity>`], augmenting it with the ability to allocate new [`Entity`] references in a destination
-/// world. These newly allocated references are guaranteed to never point to any living entity in that world.
+/// A wrapper for [`EntityHashMap<Entity>`], augmenting it with the ability to allocate new
+/// [`Entity`] references in a destination world.
 ///
-/// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
+/// These newly allocated references are guaranteed to never point to any living entity in that
+/// world.
+///
+/// References are allocated by returning increasing generations starting from an internally
+/// initialized base [`Entity`]. After it is finished being used by [`MapEntities`] implementations,
+/// this entity is despawned and the requisite number of generations reserved.
 pub struct SceneEntityMapper<'m> {
     /// A mapping from one set of entities to another.
     ///
-    /// This is typically used to coordinate data transfer between sets of entities, such as between a scene and the world
-    /// or over the network. This is required as [`Entity`] identifiers are opaque; you cannot and do not want to reuse
-    /// identifiers directly.
+    /// This is typically used to coordinate data transfer between sets of entities, such as
+    /// between a scene and the world or over the network. This is required as [`Entity`]
+    /// identifiers are opaque; you cannot and do not want to reuse identifiers directly.
     ///
-    /// On its own, a [`EntityHashMap<Entity>`] is not capable of allocating new entity identifiers, which is needed to map references
-    /// to entities that lie outside the source entity set. This functionality can be accessed through [`SceneEntityMapper::world_scope()`].
+    /// On its own, a [`EntityHashMap<Entity>`] is not capable of allocating new entity
+    /// identifiers, which is needed to map references to entities that lie outside the source
+    /// entity set. This functionality can be accessed through
+    /// [`SceneEntityMapper::world_scope()`].
     map: &'m mut EntityHashMap<Entity>,
     /// A base [`Entity`] used to allocate new references.
     dead_start: Entity,
@@ -181,7 +188,8 @@ impl<'m> SceneEntityMapper<'m> {
         self.map
     }
 
-    /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided [`World`]
+    /// Creates a new [`SceneEntityMapper`], spawning a temporary base [`Entity`] in the provided
+    /// [`World`]
     pub fn new(map: &'m mut EntityHashMap<Entity>, world: &mut World) -> Self {
         Self {
             map,
@@ -191,9 +199,10 @@ impl<'m> SceneEntityMapper<'m> {
         }
     }
 
-    /// Reserves the allocated references to dead entities within the world. This frees the temporary base
-    /// [`Entity`] while reserving extra generations. Because this makes the [`SceneEntityMapper`] unable to
-    /// safely allocate any more references, this method takes ownership of `self` in order to render it unusable.
+    /// Reserves the allocated references to dead entities within the world. This frees the
+    /// temporary base [`Entity`] while reserving extra generations. Because this makes the
+    /// [`SceneEntityMapper`] unable to safely allocate any more references, this method takes
+    /// ownership of `self` in order to render it unusable.
     pub fn finish(self, world: &mut World) {
         // SAFETY: Entities data is kept in a valid state via `EntityMap::world_scope`
         let entities = unsafe { world.entities_mut() };
@@ -201,12 +210,13 @@ impl<'m> SceneEntityMapper<'m> {
         assert!(entities.reserve_generations(self.dead_start.index(), self.generations));
     }
 
-    /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`], then calls the
-    /// provided function with it. This allows one to allocate new entity references in this [`World`] that are
-    /// guaranteed to never point at a living entity now or in the future. This functionality is useful for safely
-    /// mapping entity identifiers that point at entities outside the source world. The passed function, `f`, is called
-    /// within the scope of this world. Its return value is then returned from `world_scope` as the generic type
-    /// parameter `R`.
+    /// Creates an [`SceneEntityMapper`] from a provided [`World`] and [`EntityHashMap<Entity>`],
+    /// then calls the provided function with it. This allows one to allocate new entity
+    /// references in this [`World`] that are guaranteed to never point at a living entity now
+    /// or in the future. This functionality is useful for safely mapping entity identifiers
+    /// that point at entities outside the source world. The passed function, `f`, is called
+    /// within the scope of this world. Its return value is then returned from `world_scope` as the
+    /// generic type parameter `R`.
     pub fn world_scope<R>(
         entity_map: &'m mut EntityHashMap<Entity>,
         world: &mut World,

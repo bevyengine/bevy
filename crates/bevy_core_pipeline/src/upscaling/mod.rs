@@ -22,9 +22,9 @@ impl Plugin for UpscalingPlugin {
                 Render,
                 // This system should probably technically be run *after* all of the other systems
                 // that might modify `PipelineCache` via interior mutability, but for now,
-                // we've chosen to simply ignore the ambiguities out of a desire for a better refactor
-                // and aversion to extensive and intrusive system ordering.
-                // See https://github.com/bevyengine/bevy/issues/14770 for more context.
+                // we've chosen to simply ignore the ambiguities out of a desire for a better
+                // refactor and aversion to extensive and intrusive system
+                // ordering. See https://github.com/bevyengine/bevy/issues/14770 for more context.
                 prepare_view_upscaling_pipelines
                     .in_set(RenderSet::Prepare)
                     .ambiguous_with_all(),
@@ -53,9 +53,9 @@ fn prepare_view_upscaling_pipelines(
         {
             match *blend_state {
                 None => {
-                    // If we've already seen this output for a camera and it doesn't have a output blend
-                    // mode configured, default to alpha blend so that we don't accidentally overwrite
-                    // the output texture
+                    // If we've already seen this output for a camera and it doesn't have a output
+                    // blend mode configured, default to alpha blend so that we
+                    // don't accidentally overwrite the output texture
                     if output_textures.contains(&out_texture_id) {
                         Some(BlendState::ALPHA_BLENDING)
                     } else {
@@ -76,7 +76,8 @@ fn prepare_view_upscaling_pipelines(
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
-        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
+        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any
+        // GPU work submitted
         pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands

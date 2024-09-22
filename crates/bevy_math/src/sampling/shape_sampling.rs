@@ -48,7 +48,8 @@ use rand::{
 
 /// Exposes methods to uniformly sample a variety of primitive shapes.
 pub trait ShapeSample {
-    /// The type of vector returned by the sample methods, [`Vec2`] for 2D shapes and [`Vec3`] for 3D shapes.
+    /// The type of vector returned by the sample methods, [`Vec2`] for 2D shapes and [`Vec3`] for
+    /// 3D shapes.
     type Output;
 
     /// Uniformly sample a point from inside the area/volume of this shape, centered on 0.
@@ -80,7 +81,8 @@ pub trait ShapeSample {
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
-    /// Extract a [`Distribution`] whose samples are points of this shape's interior, taken uniformly.
+    /// Extract a [`Distribution`] whose samples are points of this shape's interior, taken
+    /// uniformly.
     ///
     /// # Example
     ///
@@ -102,7 +104,8 @@ pub trait ShapeSample {
         InteriorOf(self)
     }
 
-    /// Extract a [`Distribution`] whose samples are points of this shape's boundary, taken uniformly.
+    /// Extract a [`Distribution`] whose samples are points of this shape's boundary, taken
+    /// uniformly.
     ///
     /// # Example
     ///

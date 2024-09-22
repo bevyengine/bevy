@@ -164,7 +164,8 @@ impl BoundingVolume for Aabb2d {
         b
     }
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     ///
@@ -181,7 +182,8 @@ impl BoundingVolume for Aabb2d {
         self
     }
 
-    /// Transforms the bounding volume by first rotating it around the origin and then applying a translation.
+    /// Transforms the bounding volume by first rotating it around the origin and then applying a
+    /// translation.
     ///
     /// The result is an Axis-Aligned Bounding Box that encompasses the rotated shape.
     ///
@@ -504,8 +506,8 @@ impl BoundingCircle {
 
     /// Finds the point on the bounding circle that is closest to the given `point`.
     ///
-    /// If the point is outside the circle, the returned point will be on the perimeter of the circle.
-    /// Otherwise, it will be inside the circle and returned as is.
+    /// If the point is outside the circle, the returned point will be on the perimeter of the
+    /// circle. Otherwise, it will be inside the circle and returned as is.
     #[inline(always)]
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         self.circle.closest_point(point - self.center) + self.center

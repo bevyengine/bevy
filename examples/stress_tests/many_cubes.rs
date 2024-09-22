@@ -35,7 +35,8 @@ struct Args {
     #[argh(option, default = "Layout::Sphere")]
     layout: Layout,
 
-    /// whether to step the camera animation by a fixed amount such that each frame is the same across runs.
+    /// whether to step the camera animation by a fixed amount such that each frame is the same
+    /// across runs.
     #[argh(switch)]
     benchmark: bool,
 
@@ -43,7 +44,8 @@ struct Args {
     #[argh(switch)]
     vary_material_data_per_instance: bool,
 
-    /// the number of different textures from which to randomly select the material base color. 0 means no textures.
+    /// the number of different textures from which to randomly select the material base color. 0
+    /// means no textures.
     #[argh(option, default = "0")]
     material_texture_count: usize,
 
@@ -51,11 +53,13 @@ struct Args {
     #[argh(option, default = "1")]
     mesh_count: usize,
 
-    /// whether to disable all frustum culling. Stresses queuing and batching as all mesh material entities in the scene are always drawn.
+    /// whether to disable all frustum culling. Stresses queuing and batching as all mesh material
+    /// entities in the scene are always drawn.
     #[argh(switch)]
     no_frustum_culling: bool,
 
-    /// whether to disable automatic batching. Skips batching resulting in heavy stress on render pass draw command encoding.
+    /// whether to disable automatic batching. Skips batching resulting in heavy stress on render
+    /// pass draw command encoding.
     #[argh(switch)]
     no_automatic_batching: bool,
 
@@ -154,7 +158,8 @@ fn setup(
             // NOTE: This pattern is good for testing performance of culling as it provides roughly
             // the same number of visible meshes regardless of the viewing angle.
             const N_POINTS: usize = WIDTH * HEIGHT * 4;
-            // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
+            // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the
+            // distribution
             let radius = WIDTH as f64 * 2.5;
             let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
             for i in 0..N_POINTS {
@@ -184,7 +189,8 @@ fn setup(
                 camera.insert(NoCpuCulling);
             }
 
-            // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
+            // Inside-out box around the meshes onto which shadows are cast (though you cannot see
+            // them...)
             commands.spawn((
                 PbrBundle {
                     mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
@@ -196,8 +202,9 @@ fn setup(
             ));
         }
         _ => {
-            // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
-            // as the number of visible meshes rises and falls depending on the viewing angle.
+            // NOTE: This pattern is good for demonstrating that frustum culling is working
+            // correctly as the number of visible meshes rises and falls depending on
+            // the viewing angle.
             let scale = 2.5;
             for x in 0..WIDTH {
                 for y in 0..HEIGHT {
@@ -242,7 +249,8 @@ fn setup(
                 transform: Transform::from_translation(center),
                 ..default()
             });
-            // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
+            // Inside-out box around the meshes onto which shadows are cast (though you cannot see
+            // them...)
             commands.spawn((
                 PbrBundle {
                     mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),

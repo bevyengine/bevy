@@ -1,7 +1,7 @@
 // structs containing wgpu types take a long time to compile. this is particularly bad for generic
-// structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
-// by type-erasing with the `render_resource_wrapper` macro. The resulting type behaves like Arc<$wgpu_type>,
-// but avoids explicitly storing an Arc<$wgpu_type> member.
+// structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust
+// analyzer) by type-erasing with the `render_resource_wrapper` macro. The resulting type behaves
+// like Arc<$wgpu_type>, but avoids explicitly storing an Arc<$wgpu_type> member.
 // analysis from https://github.com/bevyengine/bevy/pull/5950#issuecomment-1243473071 indicates this is
 // due to `evaluate_obligations`. we should check if this can be removed after a fix lands for
 // https://github.com/rust-lang/rust/issues/99188 (and after other `evaluate_obligations`-related changes).
@@ -11,7 +11,8 @@ macro_rules! render_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         #[derive(Debug)]
-        // SAFETY: while self is live, self.0 comes from `into_raw` of an Arc<$wgpu_type> with a strong ref.
+        // SAFETY: while self is live, self.0 comes from `into_raw` of an Arc<$wgpu_type> with a
+        // strong ref.
         pub struct $wrapper_type(*const ());
 
         #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
@@ -35,7 +36,8 @@ macro_rules! render_resource_wrapper {
                 // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                 let arc = unsafe { std::sync::Arc::from_raw(value_ptr) };
 
-                // we forget ourselves here since the reconstructed arc will be dropped/decremented within this scope
+                // we forget ourselves here since the reconstructed arc will be dropped/decremented
+                // within this scope
                 std::mem::forget(self);
 
                 std::sync::Arc::try_unwrap(arc).ok()
@@ -63,13 +65,14 @@ macro_rules! render_resource_wrapper {
         }
 
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        // SAFETY: We manually implement Send and Sync, which is valid for Arc<T> when T: Send + Sync.
-        // We ensure correctness by checking that $wgpu_type does implement Send and Sync.
+        // SAFETY: We manually implement Send and Sync, which is valid for Arc<T> when T: Send +
+        // Sync. We ensure correctness by checking that $wgpu_type does implement Send and Sync.
         // If in future there is a case where a wrapper is required for a non-send/sync type
         // we can implement a macro variant that omits these manual Send + Sync impls
         unsafe impl Send for $wrapper_type {}
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements Send and Sync.
+        // SAFETY: As explained above, we ensure correctness by checking that $wgpu_type implements
+        // Send and Sync.
         unsafe impl Sync for $wrapper_type {}
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         const _: () = {
@@ -83,7 +86,8 @@ macro_rules! render_resource_wrapper {
                 // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                 let arc = unsafe { std::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
                 let cloned = std::sync::Arc::clone(&arc);
-                // we forget the reconstructed Arc to avoid decrementing the ref counter, as self is still live.
+                // we forget the reconstructed Arc to avoid decrementing the ref counter, as self is
+                // still live.
                 std::mem::forget(arc);
                 let cloned_value_ptr = std::sync::Arc::into_raw(cloned);
                 let cloned_unit_ptr = cloned_value_ptr.cast::<()>();

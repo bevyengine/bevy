@@ -21,7 +21,8 @@ fn main() {
             (
                 setup_ui,
                 setup_with_commands,
-                setup_with_world.after(setup_ui), // since we run `system_b` once in world it needs to run after `setup_ui`
+                setup_with_world.after(setup_ui), /* since we run `system_b` once in world it
+                                                   * needs to run after `setup_ui` */
             ),
         )
         .add_systems(Update, (trigger_system, evaluate_callbacks).chain())
@@ -69,7 +70,8 @@ fn trigger_system(
     }
 }
 
-/// Runs the systems associated with each `Callback` component if the entity also has a `Triggered` component.
+/// Runs the systems associated with each `Callback` component if the entity also has a `Triggered`
+/// component.
 ///
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
 fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut commands: Commands) {

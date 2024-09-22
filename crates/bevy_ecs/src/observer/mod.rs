@@ -20,9 +20,11 @@ use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
 use std::{fmt::Debug, marker::PhantomData};
 
-/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
-/// contains event propagation information. See [`Trigger::propagate`] for more information.
+/// Type containing triggered [`Event`] information for a given run of an [`Observer`].
+///
+/// This contains the [`Event`] data itself. If it was triggered for a specific [`Entity`], it
+/// includes that as well. It also contains event propagation information. See
+/// [`Trigger::propagate`] for more information.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
     propagate: &'w mut bool,
@@ -92,14 +94,17 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         self.trigger.observer
     }
 
-    /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
+    /// Enables or disables event propagation, allowing the same event to trigger observers on a
+    /// chain of different entities.
     ///
-    /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
-    /// use `TraverseNone` which ends the path immediately and prevents propagation.
+    /// The path an event will propagate along is specified by its associated [`Traversal`]
+    /// component. By default, events use `TraverseNone` which ends the path immediately and
+    /// prevents propagation.
     ///
     /// To enable propagation, you must:
     /// + Set [`Event::Traversal`] to the component you want to propagate along.
-    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
+    /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to
+    ///   `true`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
     ///
@@ -108,7 +113,8 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         *self.propagate = should_propagate;
     }
 
-    /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
+    /// Returns the value of the flag that controls event propagation. See [`propagate`] for more
+    /// information.
     ///
     /// [`propagate`]: Trigger::propagate
     pub fn get_propagate(&self) -> bool {
@@ -186,7 +192,8 @@ pub struct ObserverTrigger {
 // Map between an observer entity and its runner
 type ObserverMap = EntityHashMap<ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at
+/// a specific component.
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
@@ -239,7 +246,8 @@ impl Observers {
         }
     }
 
-    /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
+    /// This will run the observers of the given `event_type`, targeting the given `entity` and
+    /// `components`.
     pub(crate) fn invoke<T>(
         mut world: DeferredWorld,
         event_type: ComponentId,
@@ -359,7 +367,8 @@ impl World {
         TriggerEvent { event, targets: () }.trigger(self);
     }
 
-    /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
+    /// Triggers the given `event` for the given `targets`, which will run any observers watching
+    /// for it.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         TriggerEvent { event, targets }.trigger(self);
     }
@@ -430,7 +439,8 @@ impl World {
                 cache.map.remove(&entity);
             } else if descriptor.components.is_empty() {
                 for watched_entity in &descriptor.entities {
-                    // This check should be unnecessary since this observer hasn't been unregistered yet
+                    // This check should be unnecessary since this observer hasn't been unregistered
+                    // yet
                     let Some(observers) = cache.entity_observers.get_mut(watched_entity) else {
                         continue;
                     };

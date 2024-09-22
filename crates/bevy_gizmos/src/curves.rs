@@ -94,8 +94,8 @@ where
     ///
     /// # Arguments
     /// - `curve_2d` some type that implements the [`Curve`] trait and samples `Vec2`s
-    /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling
-    ///   the curve together with the color at this position
+    /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling the
+    ///   curve together with the color at this position
     ///
     /// # Example
     /// ```
@@ -137,8 +137,8 @@ where
     ///
     /// # Arguments
     /// - `curve_3d` some type that implements the [`Curve`] trait and samples `Vec3`s
-    /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling
-    ///   the curve together with the color at this position
+    /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling the
+    ///   curve together with the color at this position
     ///
     /// # Example
     /// ```

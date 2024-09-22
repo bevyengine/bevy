@@ -43,8 +43,9 @@ impl Plugin for WireframePlugin {
                 (
                     global_color_changed.run_if(resource_changed::<WireframeConfig>),
                     wireframe_color_changed,
-                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
-                    // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
+                    // Run `apply_global_wireframe_material` after `apply_wireframe_material` so
+                    // that the global wireframe setting is applied to a mesh
+                    // on the same frame its wireframe marker component is removed.
                     (apply_wireframe_material, apply_global_wireframe_material).chain(),
                 ),
             );
@@ -86,11 +87,12 @@ pub struct NoWireframe;
 #[reflect(Resource, Debug, Default)]
 pub struct WireframeConfig {
     /// Whether to show wireframes for all meshes.
-    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`] component.
+    /// Can be overridden for individual meshes by adding a [`Wireframe`] or [`NoWireframe`]
+    /// component.
     pub global: bool,
-    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component attached to it will have
-    /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe`],
-    /// but no [`WireframeColor`].
+    /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe`] component
+    /// attached to it will have wireframes using this color. Otherwise, this will be the
+    /// fallback color for any entity that has a [`Wireframe`], but no [`WireframeColor`].
     pub default_color: Color,
 }
 
@@ -113,7 +115,8 @@ fn setup_global_wireframe_material(
     });
 }
 
-/// Updates the wireframe material of all entities without a [`WireframeColor`] or without a [`Wireframe`] component
+/// Updates the wireframe material of all entities without a [`WireframeColor`] or without a
+/// [`Wireframe`] component
 fn global_color_changed(
     config: Res<WireframeConfig>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -140,8 +143,8 @@ fn wireframe_color_changed(
     }
 }
 
-/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
-/// for any mesh with a [`NoWireframe`] component.
+/// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes
+/// it for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
     mut commands: Commands,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -169,7 +172,8 @@ fn apply_wireframe_material(
 
 type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
 
-/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
+/// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`]
+/// component.
 fn apply_global_wireframe_material(
     mut commands: Commands,
     config: Res<WireframeConfig>,
@@ -186,7 +190,8 @@ fn apply_global_wireframe_material(
         for (e, maybe_color) in &meshes_without_material {
             let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
-            // This makes it easy to detect which mesh is using the global material and which ones are user specified
+            // This makes it easy to detect which mesh is using the global material and which ones
+            // are user specified
             material_to_spawn.push((e, material));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
@@ -208,7 +213,8 @@ fn get_wireframe_material(
             color: wireframe_color.color.into(),
         })
     } else {
-        // If there's no color specified we can use the global material since it's already set to use the default_color
+        // If there's no color specified we can use the global material since it's already set to
+        // use the default_color
         global_material.handle.clone()
     }
 }

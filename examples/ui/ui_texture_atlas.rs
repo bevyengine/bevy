@@ -6,8 +6,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
-            // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
-            // by linear filtering.
+            // This is done to prevent textures with low resolution (e.g. pixel art) from being
+            // blurred by linear filtering.
             ImagePlugin::default_nearest(),
         ))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.

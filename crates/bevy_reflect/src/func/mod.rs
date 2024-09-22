@@ -42,7 +42,8 @@
 //!
 //! A "function" is a callable that does not capture its environment.
 //! These are typically defined with the `fn` keyword, which are referred to as _named_ functions.
-//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
+//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function
+//! syntax.
 //!
 //! ```rust
 //! // This is a named function:
@@ -73,7 +74,8 @@
 //!
 //! # Valid Signatures
 //!
-//! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
+//! Many of the traits in this module have default blanket implementations over a specific set of
+//! function signatures.
 //!
 //! These signatures are:
 //! - `(...) -> R`
@@ -85,8 +87,8 @@
 //! The lifetime of any reference to the return type `R`, must be tied to a "receiver" argument
 //! (i.e. the first argument in the signature, normally `self`).
 //!
-//! Each trait will also have its own requirements for what traits are required for both arguments and return types,
-//! but a good rule-of-thumb is that all types should derive [`Reflect`].
+//! Each trait will also have its own requirements for what traits are required for both arguments
+//! and return types, but a good rule-of-thumb is that all types should derive [`Reflect`].
 //!
 //! The reason for such a small subset of valid signatures is due to limitations in Rust—
 //! namely the [lack of variadic generics] and certain [coherence issues].
@@ -96,8 +98,8 @@
 //!
 //! # Function Registration
 //!
-//! This module also provides a [`FunctionRegistry`] that can be used to register functions and closures
-//! by name so that they may be retrieved and called dynamically.
+//! This module also provides a [`FunctionRegistry`] that can be used to register functions and
+//! closures by name so that they may be retrieved and called dynamically.
 //!
 //! ```
 //! # use bevy_reflect::func::{ArgList, FunctionRegistry};

@@ -59,8 +59,8 @@ pub struct MorphTargetImage(pub Image);
 impl MorphTargetImage {
     /// Generate textures for each morph target.
     ///
-    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item iterated in the top level
-    /// iterator corresponds "the attributes of a specific morph target".
+    /// This accepts an "iterator of [`MorphAttributes`] iterators". Each item iterated in the top
+    /// level iterator corresponds "the attributes of a specific morph target".
     ///
     /// Each pixel of the texture is a component of morph target animated
     /// attributes. So a set of 9 pixels is this morph's displacement for
@@ -114,17 +114,23 @@ impl MorphTargetImage {
     }
 }
 
-/// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
-/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
-/// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
+/// Controls the [morph targets] for all child [`Handle<Mesh>`] entities.
+///
+/// In most cases,
+/// [`MorphWeights`] should be considered the "source of truth" when writing morph targets for
+/// meshes. However you can choose to write child [`MeshMorphWeights`] if your situation requires
+/// more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
 /// [`MeshMorphWeights`] values.
 ///
-/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
-/// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
-/// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
+/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph
+/// targets as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is
+/// its own surface with its own material). Therefore in Bevy [`MorphWeights`] an a parent entity
+/// are the "canonical weights" from a GLTF perspective, which then synchronized to child
+/// [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a
+/// GLTF perspective).
 ///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
+/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a
+/// [`MeshMorphWeights`].
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
@@ -161,7 +167,9 @@ impl MorphWeights {
     }
 }
 
-/// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
+/// Control a specific [`Mesh`] instance's [morph targets].
+///
+/// These control the weights of
 /// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
 /// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
 /// on a parent entity.

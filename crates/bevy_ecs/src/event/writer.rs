@@ -22,20 +22,22 @@ use bevy_ecs::{
 /// ```
 /// # Observers
 ///
-/// "Buffered" Events, such as those sent directly in [`Events`] or sent using [`EventWriter`], do _not_ automatically
-/// trigger any [`Observer`]s watching for that event, as each [`Event`] has different requirements regarding _if_ it will
-/// be triggered, and if so, _when_ it will be triggered in the schedule.
+/// "Buffered" Events, such as those sent directly in [`Events`] or sent using [`EventWriter`], do
+/// _not_ automatically trigger any [`Observer`]s watching for that event, as each [`Event`] has
+/// different requirements regarding _if_ it will be triggered, and if so, _when_ it will be
+/// triggered in the schedule.
 ///
 /// # Concurrency
 ///
-/// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring `EventWriter<T>` params
-/// for the same event type won't be executed concurrently.
+/// `EventWriter` param has [`ResMut<Events<T>>`](Events) inside. So two systems declaring
+/// `EventWriter<T>` params for the same event type won't be executed concurrently.
 ///
 /// # Untyped events
 ///
 /// `EventWriter` can only send events of one specific type, which must be known at compile-time.
 /// This is not a problem most of the time, but you may find a situation where you cannot know
-/// ahead of time every kind of event you'll need to send. In this case, you can use the "type-erased event" pattern.
+/// ahead of time every kind of event you'll need to send. In this case, you can use the
+/// "type-erased event" pattern.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
@@ -56,7 +58,8 @@ use bevy_ecs::{
 ///     });
 /// }
 /// ```
-/// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
+/// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will
+/// not work.
 ///
 /// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
@@ -73,9 +76,9 @@ impl<'w, E: Event> EventWriter<'w, E> {
         self.events.send(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
-    /// This is more efficient than sending each event individually.
-    /// This method returns the [IDs](`EventId`) of the sent `events`.
+    /// Sends a list of `events` all at once, which can later be read by
+    /// [`EventReader`](super::EventReader)s. This is more efficient than sending each event
+    /// individually. This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {

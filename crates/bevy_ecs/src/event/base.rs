@@ -11,15 +11,17 @@ use std::{
 /// Something that "happens" and might be read / observed by app logic.
 ///
 /// Events can be stored in an [`Events<E>`] resource
-/// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
+/// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system
+/// parameter.
 ///
-/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
+/// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that
+/// trigger to run.
 ///
 /// This trait can be derived.
 ///
-/// Events implement the [`Component`] type (and they automatically do when they are derived). Events are (generally)
-/// not directly inserted as components. More often, the [`ComponentId`] is used to identify the event type within the
-/// context of the ECS.
+/// Events implement the [`Component`] type (and they automatically do when they are derived).
+/// Events are (generally) not directly inserted as components. More often, the [`ComponentId`] is
+/// used to identify the event type within the context of the ECS.
 ///
 /// Events must be thread-safe.
 ///
@@ -35,13 +37,14 @@ use std::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Component {
-    /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
+    /// The component that describes which Entity to propagate this event to next, when
+    /// [propagation] is enabled.
     ///
     /// [propagation]: crate::observer::Trigger::propagate
     type Traversal: Traversal;
 
-    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`Trigger::propagate`].
+    /// When true, this event will always attempt to propagate when [triggered], without requiring a
+    /// call to [`Trigger::propagate`].
     ///
     /// [triggered]: crate::system::Commands::trigger_targets
     /// [`Trigger::propagate`]: crate::observer::Trigger::propagate

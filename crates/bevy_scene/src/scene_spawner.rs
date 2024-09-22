@@ -40,7 +40,8 @@ impl InstanceId {
     }
 }
 
-/// Handles spawning and despawning scenes in the world, either synchronously or batched through the [`scene_spawner_system`].
+/// Handles spawning and despawning scenes in the world, either synchronously or batched through the
+/// [`scene_spawner_system`].
 ///
 /// Synchronous methods: (Scene operations will take effect immediately)
 /// - [`spawn_dynamic_sync`](Self::spawn_dynamic_sync)
@@ -265,7 +266,8 @@ impl SceneSpawner {
 
     /// Iterate through all instances of the provided scenes and update those immediately.
     ///
-    /// Useful for updating already spawned scene instances after their corresponding scene has been modified.
+    /// Useful for updating already spawned scene instances after their corresponding scene has been
+    /// modified.
     pub fn update_spawned_scenes(
         &mut self,
         world: &mut World,
@@ -322,7 +324,8 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
+                        // Defer via commands otherwise SceneSpawner is not available in the
+                        // observer.
                         world.commands().trigger(SceneInstanceReady { instance_id });
                     }
                 }
@@ -347,7 +350,8 @@ impl SceneSpawner {
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
-                        // Defer via commands otherwise SceneSpawner is not available in the observer.
+                        // Defer via commands otherwise SceneSpawner is not available in the
+                        // observer.
                         world.commands().trigger(SceneInstanceReady { instance_id });
                     }
                 }
@@ -368,15 +372,15 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
-                    // the scene parent
+                    // Add the `Parent` component to the scene root, and update the `Children`
+                    // component of the scene parent
                     if !world
                         .get_entity(entity)
                         // This will filter only the scene root entity, as all other from the
                         // scene have a parent
                         .map(|entity| entity.contains::<Parent>())
-                        // Default is true so that it won't run on an entity that wouldn't exist anymore
-                        // this case shouldn't happen anyway
+                        // Default is true so that it won't run on an entity that wouldn't exist
+                        // anymore this case shouldn't happen anyway
                         .unwrap_or(true)
                     {
                         AddChild {

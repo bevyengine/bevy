@@ -21,15 +21,19 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
-/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled.
-/// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
-/// dynamically generated geometry.
+/// A [`bevy_render::mesh::Mesh`] can be converted to a [`MeshletMesh`] using
+/// `MeshletMesh::from_mesh` when the `meshlet_processor` cargo feature is enabled. The conversion
+/// step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type
+/// of mesh is not suitable for dynamically generated geometry.
 ///
-/// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
+/// There are restrictions on the [`crate::Material`] functionality that can be used with this type
+/// of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
-/// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
-/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
-///   which requires certain shader patterns that differ from the regular material shaders.
+/// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not
+///   supported.
+/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar
+///   variants for prepass/deferred shaders) which requires certain shader patterns that differ from
+///   the regular material shaders.
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
@@ -51,9 +55,11 @@ pub struct MeshletMesh {
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Meshlet {
-    /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
+    /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices
+    /// for this meshlet begin.
     pub start_vertex_id: u32,
-    /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
+    /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for
+    /// this meshlet begin.
     pub start_index_id: u32,
     /// The amount of vertices in this meshlet.
     pub vertex_count: u32,
@@ -67,9 +73,11 @@ pub struct Meshlet {
 pub struct MeshletBoundingSpheres {
     /// The bounding sphere used for frustum and occlusion culling for this meshlet.
     pub self_culling: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet is at the correct level of detail for a given view.
+    /// The bounding sphere used for determining if this meshlet is at the correct level of detail
+    /// for a given view.
     pub self_lod: MeshletBoundingSphere,
-    /// The bounding sphere used for determining if this meshlet's parent is at the correct level of detail for a given view.
+    /// The bounding sphere used for determining if this meshlet's parent is at the correct level
+    /// of detail for a given view.
     pub parent_lod: MeshletBoundingSphere,
 }
 

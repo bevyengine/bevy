@@ -290,39 +290,47 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
-    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
+    /// Runs before all systems in `set`. If `self` has any systems that produce
+    /// [`Commands`](crate::system::Commands) or other [`Deferred`](crate::system::Deferred)
+    /// operations, all systems in `set` will see their effect.
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
-    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
-    /// Please check the [caveats section of `.after`](Self::after) for details.
+    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are
+    /// added to the schedule. Please check the [caveats section of `.after`](Self::after) for
+    /// details.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
-    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
+    /// Run after all systems in `set`. If `set` has any systems that produce
+    /// [`Commands`](crate::system::Commands) or other [`Deferred`](crate::system::Deferred)
+    /// operations, all systems in `self` will see their effect.
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
-    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
+    /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are
+    /// added to the schedule.
     ///
     /// # Caveats
     ///
-    /// If you configure two [`System`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
+    /// If you configure two [`System`]s like `(GameSystem::A).after(GameSystem::B)` or
+    /// `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically
+    /// scheduled.
     ///
-    /// This means that the system `GameSystem::A` and the system or systems in `GameSystem::B` will run independently of each other if `GameSystem::B` was never explicitly scheduled with [`configure_sets`]
-    /// If that is the case, `.after`/`.before` will not provide the desired behaviour
-    /// and the systems can run in parallel or in any order determined by the scheduler.
-    /// Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know that `B` has already been scheduled for you,
-    /// e.g. when it was provided by Bevy or a third-party dependency,
-    /// or you manually scheduled it somewhere else in your app.
+    /// This means that the system `GameSystem::A` and the system or systems in `GameSystem::B` will
+    /// run independently of each other if `GameSystem::B` was never explicitly scheduled with
+    /// [`configure_sets`] If that is the case, `.after`/`.before` will not provide the desired
+    /// behaviour and the systems can run in parallel or in any order determined by the
+    /// scheduler. Only use `after(GameSystem::B)` and `before(GameSystem::B)` when you know
+    /// that `B` has already been scheduled for you, e.g. when it was provided by Bevy or a
+    /// third-party dependency, or you manually scheduled it somewhere else in your app.
     ///
-    /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
-    /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
+    /// Another caveat is that if `GameSystem::B` is placed in a different schedule than
+    /// `GameSystem::A`, any ordering calls between them—whether using `.before`, `.after`, or
+    /// `.chain`—will be silently ignored.
     ///
     /// [`configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
@@ -370,7 +378,8 @@ where
     ///
     /// Because the conditions are evaluated separately for each system, there is no guarantee
     /// that all evaluations in a single schedule run will yield the same result. If another
-    /// system is run inbetween two evaluations it could cause the result of the condition to change.
+    /// system is run inbetween two evaluations it could cause the result of the condition to
+    /// change.
     ///
     /// Use [`run_if`](IntoSystemSetConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
@@ -429,8 +438,9 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// If the preceding node on a edge has deferred parameters, a [`apply_deferred`](crate::schedule::apply_deferred)
-    /// will be inserted on the edge. If this behavior is not desired consider using
+    /// If the preceding node on a edge has deferred parameters, a
+    /// [`apply_deferred`](crate::schedule::apply_deferred) will be inserted on the edge. If
+    /// this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
@@ -440,7 +450,8 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add
+    /// [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemConfigs {
         self.into_configs().chain_ignore_deferred()
     }
@@ -607,8 +618,9 @@ where
         self.into_configs().in_set(set)
     }
 
-    /// Runs before all systems in `set`. If `self` has any systems that produce [`Commands`](crate::system::Commands)
-    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `set` will see their effect.
+    /// Runs before all systems in `set`. If `self` has any systems that produce
+    /// [`Commands`](crate::system::Commands) or other [`Deferred`](crate::system::Deferred)
+    /// operations, all systems in `set` will see their effect.
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
@@ -616,8 +628,9 @@ where
         self.into_configs().before(set)
     }
 
-    /// Runs before all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
-    /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
+    /// Runs before all systems in `set`. If `set` has any systems that produce
+    /// [`Commands`](crate::system::Commands) or other [`Deferred`](crate::system::Deferred)
+    /// operations, all systems in `self` will see their effect.
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
@@ -672,7 +685,8 @@ where
     ///
     /// Ordering constraints will be applied between the successive elements.
     ///
-    /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
+    /// Unlike [`chain`](Self::chain) this will **not** add
+    /// [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
     fn chain_ignore_deferred(self) -> SystemSetConfigs {
         self.into_configs().chain_ignore_deferred()
     }

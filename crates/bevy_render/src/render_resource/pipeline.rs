@@ -13,10 +13,12 @@ use wgpu::{
 define_atomic_id!(RenderPipelineId);
 render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
-/// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
+/// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and
+/// vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
-/// Can be created via [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
+/// Can be created via
+/// [`RenderDevice::create_render_pipeline`](crate::renderer::RenderDevice::create_render_pipeline).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
@@ -54,7 +56,8 @@ render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
-/// Can be created via [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
+/// Can be created via
+/// [`RenderDevice::create_compute_pipeline`](crate::renderer::RenderDevice::create_compute_pipeline).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
@@ -90,7 +93,8 @@ impl Deref for ComputePipeline {
 /// Describes a render (graphics) pipeline.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RenderPipelineDescriptor {
-    /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
+    /// Debug label of the pipeline. This will show up in graphics debuggers for easy
+    /// identification.
     pub label: Option<Cow<'static, str>>,
     /// The layout of bind groups for this pipeline.
     pub layout: Vec<BindGroupLayout>,
@@ -134,9 +138,10 @@ pub struct VertexBufferLayout {
 
 impl VertexBufferLayout {
     /// Creates a new densely packed [`VertexBufferLayout`] from an iterator of vertex formats.
-    /// Iteration order determines the `shader_location` and `offset` of the [`VertexAttributes`](VertexAttribute).
-    /// The first iterated item will have a `shader_location` and `offset` of zero.
-    /// The `array_stride` is the sum of the size of the iterated [`VertexFormats`](VertexFormat) (in bytes).
+    /// Iteration order determines the `shader_location` and `offset` of the
+    /// [`VertexAttributes`](VertexAttribute). The first iterated item will have a
+    /// `shader_location` and `offset` of zero. The `array_stride` is the sum of the size of the
+    /// iterated [`VertexFormats`](VertexFormat) (in bytes).
     pub fn from_vertex_formats<T: IntoIterator<Item = VertexFormat>>(
         step_mode: VertexStepMode,
         vertex_formats: T,

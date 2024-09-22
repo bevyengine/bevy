@@ -17,11 +17,12 @@ pub struct Sprite {
     pub flip_x: bool,
     /// Flip the sprite along the `Y` axis
     pub flip_y: bool,
-    /// An optional custom size for the sprite that will be used when rendering, instead of the size
-    /// of the sprite's image
+    /// An optional custom size for the sprite that will be used when rendering, instead of the
+    /// size of the sprite's image
     pub custom_size: Option<Vec2>,
-    /// An optional rectangle representing the region of the sprite's image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
+    /// An optional rectangle representing the region of the sprite's image to render, instead of
+    /// rendering the full image. This is an easy one-off alternative to using a
+    /// [`TextureAtlas`](crate::TextureAtlas).
     ///
     /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect
     /// is offset by the atlas's minimal (top-left) corner position.
@@ -52,8 +53,8 @@ pub enum ImageScaleMode {
         tile_x: bool,
         /// Should the image repeat vertically
         tile_y: bool,
-        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
-        /// *original texture size* are above this value.
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and
+        /// the *original texture size* are above this value.
         stretch_value: f32,
     },
 }

@@ -23,7 +23,8 @@ pub struct TransformHelper<'w, 's> {
 }
 
 impl<'w, 's> TransformHelper<'w, 's> {
-    /// Computes the [`GlobalTransform`] of the given entity from the [`Transform`] component on it and its ancestors.
+    /// Computes the [`GlobalTransform`] of the given entity from the [`Transform`] component on it
+    /// and its ancestors.
     pub fn compute_global_transform(
         &self,
         entity: Entity,

@@ -107,7 +107,8 @@ impl UiSurface {
         }
     }
 
-    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
+    /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node
+    /// exists.
     pub fn update_node_context(&mut self, entity: Entity, context: NodeMeasure) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
         self.taffy.set_node_context(*taffy_node, Some(context)).ok()
@@ -147,7 +148,8 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node in the taffy layout.
+    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node
+    /// in the taffy layout.
     pub fn set_camera_children(
         &mut self,
         camera_id: Entity,
@@ -264,7 +266,8 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Removes each camera entity from the internal map and then removes their associated node from taffy
+    /// Removes each camera entity from the internal map and then removes their associated node from
+    /// taffy
     pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
@@ -285,7 +288,8 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
-    /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
+    /// Does not compute the layout geometry, `compute_window_layouts` should be run before using
+    /// this function.
     pub fn get_layout(&self, entity: Entity) -> Result<&taffy::Layout, LayoutError> {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
             self.taffy

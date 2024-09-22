@@ -12,8 +12,9 @@ use crate::{
     texture::{image::TextureFormatPixelInfo, BevyDefault, GpuImage, ImageSampler},
 };
 
-/// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
-/// which can be used in situations where an image was not explicitly defined. The most common
+/// "Fallback image" which can be used in situations where an image was not explicitly defined.
+///
+/// The most common
 /// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
 ///
 /// Defaults to a 1x1 fully opaque white texture, (1.0, 1.0, 1.0, 1.0) which makes multiplying
@@ -34,18 +35,16 @@ pub struct FallbackImage {
     pub d3: GpuImage,
 }
 
-/// A [`RenderApp`](crate::RenderApp) resource that contains a _zero-filled_ "fallback image",
-/// which can be used in place of [`FallbackImage`], when a fully transparent or black fallback
-/// is required instead of fully opaque white.
+/// Zero-filled "fallback image" which can be used in place of [`FallbackImage`].
+///
+/// For when a fully transparent or black fallback is required instead of fully opaque white.
 ///
 /// Defaults to a 1x1 fully transparent black texture, (0.0, 0.0, 0.0, 0.0) which makes adding
 /// or alpha-blending it to other colors a no-op.
 #[derive(Resource, Deref)]
 pub struct FallbackImageZero(GpuImage);
 
-/// A [`RenderApp`](crate::RenderApp) resource that contains a "cubemap fallback image",
-/// which can be used in situations where an image was not explicitly defined. The most common
-/// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
+/// "Cubemap fallback image" which can be used in place of [`FallbackImage`].
 #[derive(Resource, Deref)]
 pub struct FallbackImageCubemap(GpuImage);
 

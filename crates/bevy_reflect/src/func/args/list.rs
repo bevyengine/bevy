@@ -135,7 +135,8 @@ impl<'a> ArgList<'a> {
         self.take_arg()?.take::<T>()
     }
 
-    /// Remove the first argument in the list and return `Ok(T)` if the argument is [`ArgValue::Owned`].
+    /// Remove the first argument in the list and return `Ok(T)` if the argument is
+    /// [`ArgValue::Owned`].
     ///
     /// If the list is empty or the argument is not owned, returns an error.
     ///
@@ -154,7 +155,8 @@ impl<'a> ArgList<'a> {
         self.take_arg()?.take_owned()
     }
 
-    /// Remove the first argument in the list and return `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    /// Remove the first argument in the list and return `Ok(&T)` if the argument is
+    /// [`ArgValue::Ref`].
     ///
     /// If the list is empty or the argument is not a reference, returns an error.
     ///
@@ -173,7 +175,8 @@ impl<'a> ArgList<'a> {
         self.take_arg()?.take_ref()
     }
 
-    /// Remove the first argument in the list and return `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    /// Remove the first argument in the list and return `Ok(&mut T)` if the argument is
+    /// [`ArgValue::Mut`].
     ///
     /// If the list is empty or the argument is not a mutable reference, returns an error.
     ///
@@ -226,7 +229,8 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take::<T>()
     }
 
-    /// Remove the last argument in the list and return `Ok(T)` if the argument is [`ArgValue::Owned`].
+    /// Remove the last argument in the list and return `Ok(T)` if the argument is
+    /// [`ArgValue::Owned`].
     ///
     /// If the list is empty or the argument is not owned, returns an error.
     ///
@@ -245,7 +249,8 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take_owned()
     }
 
-    /// Remove the last argument in the list and return `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    /// Remove the last argument in the list and return `Ok(&T)` if the argument is
+    /// [`ArgValue::Ref`].
     ///
     /// If the list is empty or the argument is not a reference, returns an error.
     ///
@@ -264,7 +269,8 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take_ref()
     }
 
-    /// Remove the last argument in the list and return `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    /// Remove the last argument in the list and return `Ok(&mut T)` if the argument is
+    /// [`ArgValue::Mut`].
     ///
     /// If the list is empty or the argument is not a mutable reference, returns an error.
     ///

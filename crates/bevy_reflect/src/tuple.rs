@@ -423,7 +423,8 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<()
 /// Returns true if and only if all of the following are true:
 /// - `b` is a tuple;
 /// - `b` has the same number of elements as `a`;
-/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and
+///   `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

@@ -302,8 +302,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle` can't automatically
-                    // size itself with a child node present.
+                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle`
+                    // can't automatically size itself with a child node
+                    // present.
                     parent
                         .spawn((
                             NodeBundle {
@@ -319,7 +320,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             // alt text
-                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
+                            // This UI node takes up no space in the layout and the `Text` component
+                            // is used by the accessibility module
                             // and is not rendered.
                             parent.spawn((
                                 NodeBundle {

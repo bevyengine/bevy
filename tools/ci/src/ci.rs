@@ -18,8 +18,9 @@ pub struct CI {
 impl CI {
     /// Runs the specified commands or all commands if none are specified.
     ///
-    /// When run locally, results may differ from actual CI runs triggered by `.github/workflows/ci.yml`.
-    /// This is usually related to differing toolchains and configuration.
+    /// When run locally, results may differ from actual CI runs triggered by
+    /// `.github/workflows/ci.yml`. This is usually related to differing toolchains and
+    /// configuration.
     pub fn run(self) {
         let sh = xshell::Shell::new().unwrap();
 
@@ -28,8 +29,9 @@ impl CI {
         let mut failures = vec![];
 
         for command in prepared_commands {
-            // If the CI test is to be executed in a subdirectory, we move there before running the command.
-            // This will automatically move back to the original directory once dropped.
+            // If the CI test is to be executed in a subdirectory, we move there before running the
+            // command. This will automatically move back to the original directory once
+            // dropped.
             let _subdir_hook = command.subdir.map(|path| sh.push_dir(path));
 
             // Execute each command, checking if it returned an error.

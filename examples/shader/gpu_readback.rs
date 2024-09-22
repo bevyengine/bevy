@@ -2,7 +2,8 @@
 //! That buffer is then copied to the cpu and sent to the main world.
 //!
 //! This example is not meant to teach compute shaders.
-//! It is only meant to explain how to read a gpu buffer on the cpu and then use it in the main world.
+//! It is only meant to explain how to read a gpu buffer on the cpu and then use it in the main
+//! world.
 //!
 //! The code is based on this wgpu example:
 //! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
@@ -99,8 +100,9 @@ impl Plugin for GpuReadbackPlugin {
 struct Buffers {
     /// The buffer that will be used by the compute shader
     ///
-    /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper around a `Buffer`
-    /// that will make sure the data is correctly aligned for the gpu and will simplify uploading the data to the gpu.
+    /// In this example, we want to write a `Vec<u32>` to a `Buffer`. `BufferVec` is a wrapper
+    /// around a `Buffer` that will make sure the data is correctly aligned for the gpu and
+    /// will simplify uploading the data to the gpu.
     gpu_buffer: BufferVec<u32>,
     /// The buffer that will be read on the cpu.
     /// The `gpu_buffer` will be copied to this buffer every frame

@@ -139,7 +139,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         if self.cursor.is_dense {
-            // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
+            // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table
+            // ids.
             let table_id = unsafe { storage.table_id };
             // SAFETY: Matched table IDs are guaranteed to still exist.
             let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
@@ -152,7 +153,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 // - The if block ensures that the query iteration is dense
                 unsafe { self.fold_over_table_range(accum, func, table, range) };
         } else {
-            // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
+            // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be
+            // archetype ids.
             let archetype_id = unsafe { storage.archetype_id };
             // SAFETY: Matched archetype IDs are guaranteed to still exist.
             let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
@@ -161,8 +163,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             let range = range.unwrap_or(0..archetype.len());
 
-            // When an archetype and its table have equal entity counts, dense iteration can be safely used.
-            // this leverages cache locality to optimize performance.
+            // When an archetype and its table have equal entity counts, dense iteration can be
+            // safely used. this leverages cache locality to optimize performance.
             if table.entity_count() == archetype.len() {
                 accum =
                 // SAFETY:
@@ -291,8 +293,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 continue;
             }
 
-            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
-            // Caller assures `index` in range of the current archetype.
+            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the
+            // current archetype Caller assures `index` in range of the current
+            // archetype.
             let item = unsafe {
                 D::fetch(
                     &mut self.cursor.fetch,
@@ -388,7 +391,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     ///
     /// # Examples
     /// ```rust
@@ -493,10 +497,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -550,7 +555,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     ///
     /// # Example
     /// ```
@@ -585,10 +591,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -642,7 +649,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     ///
     /// # Example
     /// ```
@@ -685,10 +693,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -740,7 +749,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
@@ -751,10 +761,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -790,7 +801,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
-    /// Sorts all query items into a new iterator with a key extraction function over the query lens.
+    /// Sorts all query items into a new iterator with a key extraction function over the query
+    /// lens.
     ///
     /// This sort is stable (i.e., does not reorder equal elements).
     ///
@@ -806,7 +818,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     ///
     /// # Example
     /// ```
@@ -880,10 +893,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -919,7 +933,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
-    /// Sorts all query items into a new iterator with a key extraction function over the query lens.
+    /// Sorts all query items into a new iterator with a key extraction function over the query
+    /// lens.
     ///
     /// This sort is unstable (i.e., may reorder equal elements).
     ///
@@ -935,7 +950,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
@@ -949,10 +965,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -1004,7 +1021,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying
+    /// `Query` is empty.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
@@ -1018,10 +1036,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
+        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or
+        // `table_entities` will be set to a non-zero value. The correctness of this method
+        // relies on this. I.e. this sort method will execute if and only if `next` on
+        // `QueryIterationCursor` of a non-empty `QueryIter` has not yet been called. When
+        // empty, this sort method will not panic.
         if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
             panic!("it is not valid to call sort() after next()")
         }
@@ -1184,7 +1203,8 @@ where
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
-        // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+        // - set_archetype was called prior, `location.archetype_row` is an archetype index in range
+        //   of the current archetype
         // - fetch is only called once for each entity.
         unsafe { D::fetch(&mut self.fetch, entity, location.table_row) }
     }
@@ -1250,7 +1270,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// Items are returned in the order of the provided iterator.
 /// Entities that don't match the query are skipped.
 ///
-/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
+/// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and
+/// [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
 pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> {
     entity_iter: I,
     entities: &'w Entities,
@@ -1335,10 +1356,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
             }
 
             // SAFETY: set_archetype was called prior.
-            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            // `location.archetype_row` is an archetype index row in range of the current archetype,
+            // because if it was not, the match above would have `continue`d
             if unsafe { F::filter_fetch(filter, entity, location.table_row) } {
                 // SAFETY:
-                // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                // - set_archetype was called prior, `location.archetype_row` is an archetype index
+                //   in range of the current archetype
                 // - fetch is only called once for each entity.
                 return Some(unsafe { D::fetch(fetch, entity, location.table_row) });
             }
@@ -1469,27 +1492,31 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 ///
 /// A combination is an arrangement of a collection of items where order does not matter.
 ///
-/// `K` is the number of items that make up each subset, and the number of items returned by the iterator.
-/// `N` is the number of total entities output by the query.
+/// `K` is the number of items that make up each subset, and the number of items returned by the
+/// iterator. `N` is the number of total entities output by the query.
 ///
 /// For example, given the list [1, 2, 3, 4], where `K` is 2, the combinations without repeats are
 /// [1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4].
 /// And in this case, `N` would be defined as 4 since the size of the input list is 4.
 ///
-/// The number of combinations depend on how `K` relates to the number of entities matching the [`Query`]:
+/// The number of combinations depend on how `K` relates to the number of entities matching the
+/// [`Query`]:
 /// - if `K = N`, only one combination exists,
-/// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of `Query`),
+/// - if `K < N`, there are <sub>N</sub>C<sub>K</sub> combinations (see the [performance section] of
+///   `Query`),
 /// - if `K > N`, there are no combinations.
 ///
 /// The output combination is not guaranteed to have any order of iteration.
 ///
 /// # Usage
 ///
-/// This type is returned by calling [`Query::iter_combinations`] or [`Query::iter_combinations_mut`].
+/// This type is returned by calling [`Query::iter_combinations`] or
+/// [`Query::iter_combinations_mut`].
 ///
 /// It implements [`Iterator`] only if it iterates over read-only query items ([learn more]).
 ///
-/// In the case of mutable query items, it can be iterated by calling [`fetch_next`] in a `while let` loop.
+/// In the case of mutable query items, it can be iterated by calling [`fetch_next`] in a `while
+/// let` loop.
 ///
 /// # Examples
 ///
@@ -1507,7 +1534,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 /// }
 /// ```
 ///
-/// The following example shows how `fetch_next` should be called with a `while let` loop to traverse the iterator when the query items are mutable.
+/// The following example shows how `fetch_next` should be called with a `while let` loop to
+/// traverse the iterator when the query items are mutable.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -1585,8 +1613,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// It is always safe for shared access.
     #[inline]
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
-        // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
-        // when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
+        // PERF: can speed up the following code using `cursor.remaining()` instead of
+        // `next_item.is_none()` when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
         // let `i` be the index of `c`, the last cursor in `self.cursors` that
         // returns `K-i` or more elements.
@@ -1710,9 +1738,11 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
-    // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
+    // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s
+    // fetches are dense
     current_len: usize,
-    // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
+    // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are
+    // dense
     current_row: usize,
 }
 
@@ -1809,8 +1839,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
                 let archetype_entity = unsafe { self.archetype_entities.get_unchecked(index) };
                 // SAFETY:
-                //  - `set_archetype` must have been called previously either in `next` or before it.
-                //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current archetype.
+                //  - `set_archetype` must have been called previously either in `next` or before
+                //    it.
+                //  - `archetype_entity.id()` and `archetype_entity.table_row()` are in the current
+                //    archetype.
                 unsafe {
                     Some(D::fetch(
                         &mut self.fetch,
@@ -1840,8 +1872,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         remaining_matched + self.current_len - self.current_row
     }
 
-    // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-    // QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
+    // NOTE: If you are changing query iteration code, remember to update the following places,
+    // where relevant: QueryIter, QueryIterationCursor, QuerySortedIter, QueryManyIter,
+    // QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
     /// # Safety
     /// `tables` and `archetypes` must belong to the same world that the [`QueryIterationCursor`]
     /// was initialized for.
@@ -1855,7 +1888,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     ) -> Option<D::Item<'w>> {
         if self.is_dense {
             loop {
-                // we are on the beginning of the query, or finished processing a table, so skip to the next
+                // we are on the beginning of the query, or finished processing a table, so skip to
+                // the next
                 if self.current_row == self.current_len {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
@@ -1863,7 +1897,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         continue;
                     }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were
+                    // initialized with
                     unsafe {
                         D::set_table(&mut self.fetch, &query_state.fetch_state, table);
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
@@ -1874,7 +1909,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 }
 
                 // SAFETY: set_table was called prior.
-                // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
+                // `current_row` is a table row in range of the current table, because if it was
+                // not, then the above would have been executed.
                 let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
                 let row = TableRow::from_usize(self.current_row);
                 if !F::filter_fetch(&mut self.filter, *entity, row) {
@@ -1884,8 +1920,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
                 // SAFETY:
                 // - set_table was called prior.
-                // - `current_row` must be a table row in range of the current table,
-                //   because if it was not, then the above would have been executed.
+                // - `current_row` must be a table row in range of the current table, because if it
+                //   was not, then the above would have been executed.
                 // - fetch is only called once for each `entity`.
                 let item = unsafe { D::fetch(&mut self.fetch, *entity, row) };
 
@@ -1901,8 +1937,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         continue;
                     }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
-                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
-                    // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                    // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were
+                    // created for, `fetch_state`/`filter_state` are the states
+                    // that `fetch/filter` were initialized with
                     unsafe {
                         D::set_archetype(
                             &mut self.fetch,
@@ -1923,7 +1960,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 }
 
                 // SAFETY: set_archetype was called prior.
-                // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
+                // `current_row` is an archetype index row in range of the current archetype,
+                // because if it was not, then the if above would have been executed.
                 let archetype_entity =
                     unsafe { self.archetype_entities.get_unchecked(self.current_row) };
                 if !F::filter_fetch(

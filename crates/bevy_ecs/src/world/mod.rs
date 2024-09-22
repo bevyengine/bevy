@@ -90,8 +90,9 @@ pub trait Command: Send + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
-    /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
-    /// This data is set by the system or other source of the command, and then ultimately read in this method.
+    /// Because this method takes `self`, you can store data or settings on the type that implements
+    /// this trait. This data is set by the system or other source of the command, and then
+    /// ultimately read in this method.
     fn apply(self, world: &mut World);
 }
 
@@ -168,8 +169,9 @@ impl Drop for World {
 }
 
 impl World {
-    /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
-    /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
+    /// This performs initialization that _must_ happen for every [`World`] immediately upon
+    /// creation (such as claiming specific component ids). This _must_ be run as part of
+    /// constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
@@ -276,7 +278,8 @@ impl World {
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
     }
 
-    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id
+    /// if it exists.
     ///
     /// Will panic if `id` exists in any archetypes.
     pub fn register_component_hooks_by_id(
@@ -291,7 +294,8 @@ impl World {
     ///
     /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
     /// to initialize the new component type instead of statically available type information. This
-    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    /// enables the dynamic initialization of new component definitions at runtime for advanced use
+    /// cases.
     ///
     /// While the option to initialize a component from a descriptor is useful in type-erased
     /// contexts, the standard `World::init_component` function should always be used instead
@@ -368,9 +372,9 @@ impl World {
         }
     }
 
-    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
-    /// This will panic if the `entity` does not exist. Use [`World::get_entity_mut`] if you want
-    /// to check for entity existence instead of implicitly panic-ing.
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given
+    /// `entity`. This will panic if the `entity` does not exist. Use [`World::get_entity_mut`]
+    /// if you want to check for entity existence instead of implicitly panic-ing.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -511,13 +515,15 @@ impl World {
             .filter_map(|id| self.components().get_info(id))
     }
 
-    /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
-    /// This will return [`None`] if the `entity` exists with a different generation.
+    /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it
+    /// doesn't exist. This will return [`None`] if the `entity` exists with a different
+    /// generation.
     ///
     /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor [`World::spawn`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a
-    /// scheme worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should favor
+    /// [`World::spawn`]. This method should generally only be used for sharing entities across
+    /// apps, and only when they have a scheme worked out to share an ID space (which doesn't
+    /// happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
         self.flush();
@@ -557,7 +563,8 @@ impl World {
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
         let location = self.entities.get(entity)?;
         // SAFETY: if the Entity is invalid, the function returns early.
-        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity
+        // exists.
         let entity_cell =
             UnsafeEntityCell::new(self.as_unsafe_world_cell_readonly(), entity, location);
         // SAFETY: The UnsafeEntityCell has read access to the entire world.
@@ -653,7 +660,8 @@ impl World {
                         table_row: archetype_entity.table_row(),
                     };
 
-                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
+                    // SAFETY: entity exists and location accurately specifies the archetype where
+                    // the entity is stored.
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
@@ -682,17 +690,19 @@ impl World {
                         table_row: archetype_entity.table_row(),
                     };
 
-                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
+                    // SAFETY: entity exists and location accurately specifies the archetype where
+                    // the entity is stored.
                     let cell = UnsafeEntityCell::new(world_cell, entity, location);
-                    // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
-                    // so none will conflict with one another.
+                    // SAFETY: We have exclusive access to the entire world. We only create one
+                    // borrow for each entity, so none will conflict with one
+                    // another.
                     unsafe { EntityMut::new(cell) }
                 })
         })
     }
 
-    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist.
+    /// Retrieves an [`EntityWorldMut`] that exposes read and write operations for the given
+    /// `entity`. Returns [`None`] if the `entity` does not exist.
     /// Instead of unwrapping the value returned from this function, prefer [`World::entity_mut`].
     ///
     /// ```
@@ -785,8 +795,8 @@ impl World {
 
         // SAFETY:
         // - `world_cell` has exclusive access to the entire world.
-        // - The caller ensures that each entity is unique, so none
-        //   of the borrows will conflict with one another.
+        // - The caller ensures that each entity is unique, so none of the borrows will conflict
+        //   with one another.
         let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
 
         Ok(borrows)
@@ -879,8 +889,8 @@ impl World {
             .into_iter()
             // SAFETY:
             // - `world_cell` has exclusive access to the entire world.
-            // - The caller ensures that each entity is unique, so none
-            //   of the borrows will conflict with one another.
+            // - The caller ensures that each entity is unique, so none of the borrows will conflict
+            //   with one another.
             .map(|c| unsafe { EntityMut::new(c) })
             .collect();
 
@@ -1153,12 +1163,13 @@ impl World {
     /// The state is also used for change detection when accessing components and resources outside
     /// of a system, for example via [`World::get_mut()`] or [`World::get_resource_mut()`].
     ///
-    /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
-    /// of detection to be recorded.
+    /// By clearing this internal state, the world "forgets" about those changes, allowing a new
+    /// round of detection to be recorded.
     ///
     /// When using `bevy_ecs` as part of the full Bevy engine, this method is called automatically
-    /// by `bevy_app::App::update` and `bevy_app::SubApp::update`, so you don't need to call it manually.
-    /// When using `bevy_ecs` as a separate standalone crate however, you do need to call this manually.
+    /// by `bevy_app::App::update` and `bevy_app::SubApp::update`, so you don't need to call it
+    /// manually. When using `bevy_ecs` as a separate standalone crate however, you do need to
+    /// call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1495,9 +1506,10 @@ impl World {
     /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
-    /// - When called from an exclusive system, this will check for additions since the system last ran.
-    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
-    ///   was called.
+    /// - When called from an exclusive system, this will check for additions since the system last
+    ///   ran.
+    /// - When called elsewhere, this will check for additions since the last time that
+    ///   [`World::clear_trackers`] was called.
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -1509,9 +1521,10 @@ impl World {
     /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
-    /// - When called from an exclusive system, this will check for additions since the system last ran.
-    /// - When called elsewhere, this will check for additions since the last time that [`World::clear_trackers`]
-    ///   was called.
+    /// - When called from an exclusive system, this will check for additions since the system last
+    ///   ran.
+    /// - When called elsewhere, this will check for additions since the last time that
+    ///   [`World::clear_trackers`] was called.
     pub fn is_resource_added_by_id(&self, component_id: ComponentId) -> bool {
         self.storages
             .resources
@@ -1528,9 +1541,10 @@ impl World {
     /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
     ///
     /// This means that:
-    /// - When called from an exclusive system, this will check for changes since the system last ran.
-    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
-    ///   was called.
+    /// - When called from an exclusive system, this will check for changes since the system last
+    ///   ran.
+    /// - When called elsewhere, this will check for changes since the last time that
+    ///   [`World::clear_trackers`] was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
@@ -1538,13 +1552,15 @@ impl World {
             .unwrap_or(false)
     }
 
-    /// Returns `true` if a resource with id `component_id` exists and was modified since the world's
-    /// [`last_change_tick`](World::last_change_tick()). Otherwise, this returns `false`.
+    /// Returns `true` if a resource with id `component_id` exists and was modified since the
+    /// world's [`last_change_tick`](World::last_change_tick()). Otherwise, this returns
+    /// `false`.
     ///
     /// This means that:
-    /// - When called from an exclusive system, this will check for changes since the system last ran.
-    /// - When called elsewhere, this will check for changes since the last time that [`World::clear_trackers`]
-    ///   was called.
+    /// - When called from an exclusive system, this will check for changes since the system last
+    ///   ran.
+    /// - When called elsewhere, this will check for changes since the last time that
+    ///   [`World::clear_trackers`] was called.
     pub fn is_resource_changed_by_id(&self, component_id: ComponentId) -> bool {
         self.storages
             .resources
@@ -1566,7 +1582,8 @@ impl World {
 
     /// Retrieves the change ticks for the given [`ComponentId`].
     ///
-    /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where possible.**
+    /// **You should prefer to use the typed API [`World::get_resource_change_ticks`] where
+    /// possible.**
     pub fn get_resource_change_ticks_by_id(
         &self,
         component_id: ComponentId,
@@ -1719,9 +1736,11 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle
+    /// this case.
     ///
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource<R: 'static>(&self) -> &R {
@@ -1741,9 +1760,11 @@ impl World {
     /// # Panics
     ///
     /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to
+    /// handle this case.
     ///
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
@@ -1762,7 +1783,8 @@ impl World {
     /// Otherwise returns `None`.
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         // SAFETY:
@@ -1775,7 +1797,8 @@ impl World {
     /// Otherwise returns `None`.
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY:
@@ -1784,17 +1807,19 @@ impl World {
         unsafe { self.as_unsafe_world_cell().get_non_send_resource_mut() }
     }
 
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the given
-    /// bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity already exists).
-    /// This is faster than doing equivalent operations one-by-one.
-    /// Returns `Ok` if all entities were successfully inserted into or spawned. Otherwise it returns an `Err`
-    /// with a list of entities that could not be spawned or inserted into. A "spawn or insert" operation can
-    /// only fail if an [`Entity`] is passed in with an "invalid generation" that conflicts with an existing [`Entity`].
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, either spawns each [`Entity`] with the
+    /// given bundle (if the entity does not exist), or inserts the [`Bundle`] (if the entity
+    /// already exists). This is faster than doing equivalent operations one-by-one.
+    /// Returns `Ok` if all entities were successfully inserted into or spawned. Otherwise it
+    /// returns an `Err` with a list of entities that could not be spawned or inserted into. A
+    /// "spawn or insert" operation can only fail if an [`Entity`] is passed in with an "invalid
+    /// generation" that conflicts with an existing [`Entity`].
     ///
     /// # Note
-    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`World::spawn_batch`].
-    /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an ID space (which doesn't happen by default).
+    /// Spawning a specific `entity` value is rarely the right choice. Most apps should use
+    /// [`World::spawn_batch`]. This method should generally only be used for sharing entities
+    /// across apps, and only when they have a scheme worked out to share an ID space (which
+    /// doesn't happen by default).
     ///
     /// ```
     /// use bevy_ecs::{entity::Entity, world::World, component::Component};
@@ -1876,7 +1901,8 @@ impl World {
                         SpawnOrInsert::Insert(ref mut inserter, archetype)
                             if location.archetype_id == archetype =>
                         {
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches
+                            // inserter
                             unsafe {
                                 inserter.insert(
                                     entity,
@@ -1898,7 +1924,8 @@ impl World {
                                     change_tick,
                                 )
                             };
-                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                            // SAFETY: `entity` is valid, `location` matches entity, bundle matches
+                            // inserter
                             unsafe {
                                 inserter.insert(
                                     entity,
@@ -1929,7 +1956,8 @@ impl World {
                         // SAFETY: we initialized this bundle_id in `init_info`
                         let mut spawner =
                             unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches
+                        // inserter
                         unsafe {
                             spawner.spawn_non_existent(
                                 entity,
@@ -1957,8 +1985,9 @@ impl World {
     /// Temporarily removes the requested resource from this [`World`], runs custom user code,
     /// then re-adds the resource before returning.
     ///
-    /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
-    /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
+    /// This enables safe simultaneous mutable access to both a resource and the rest of the
+    /// [`World`]. For more complex access patterns, consider using
+    /// [`SystemState`](crate::system::SystemState).
     ///
     /// # Example
     /// ```
@@ -2104,8 +2133,8 @@ impl World {
     /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
     /// existed.
     ///
-    /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible and only
-    /// use this in cases where the actual types are not known at compile time.**
+    /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible
+    /// and only use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
     /// If a value is already present, this function will panic if not called from the same
@@ -2165,9 +2194,9 @@ impl World {
             })
     }
 
-    /// Empties queued entities and adds them to the empty [`Archetype`](crate::archetype::Archetype).
-    /// This should be called before doing operations that might operate on queued entities,
-    /// such as inserting a [`Component`].
+    /// Empties queued entities and adds them to the empty
+    /// [`Archetype`](crate::archetype::Archetype). This should be called before doing
+    /// operations that might operate on queued entities, such as inserting a [`Component`].
     pub(crate) fn flush_entities(&mut self) {
         let empty_archetype = self.archetypes.empty_mut();
         let table = &mut self.storages.tables[empty_archetype.table_id()];
@@ -2207,7 +2236,8 @@ impl World {
     ///
     /// If you need to call this method, but do not have `&mut` access to the world,
     /// consider using [`as_unsafe_world_cell_readonly`](Self::as_unsafe_world_cell_readonly)
-    /// to obtain an [`UnsafeWorldCell`] and calling [`increment_change_tick`](UnsafeWorldCell::increment_change_tick) on that.
+    /// to obtain an [`UnsafeWorldCell`] and calling
+    /// [`increment_change_tick`](UnsafeWorldCell::increment_change_tick) on that.
     /// Note that this *can* be done in safe code, despite the name of the type.
     #[inline]
     pub fn increment_change_tick(&mut self) -> Tick {
@@ -2219,8 +2249,9 @@ impl World {
 
     /// Reads the current change tick of this world.
     ///
-    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
-    /// which is more efficient since it does not require atomic synchronization.
+    /// If you have exclusive (`&mut`) access to the world, consider using
+    /// [`change_tick()`](Self::change_tick), which is more efficient since it does not require
+    /// atomic synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> Tick {
         let tick = self.change_tick.load(Ordering::Acquire);
@@ -2237,10 +2268,12 @@ impl World {
         Tick::new(tick)
     }
 
-    /// When called from within an exclusive system (a [`System`] that takes `&mut World` as its first
-    /// parameter), this method returns the [`Tick`] indicating the last time the exclusive system was run.
+    /// When called from within an exclusive system (a [`System`] that takes `&mut World` as its
+    /// first parameter), this method returns the [`Tick`] indicating the last time the
+    /// exclusive system was run.
     ///
-    /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`] was called.
+    /// Otherwise, this returns the `Tick` indicating the last time that [`World::clear_trackers`]
+    /// was called.
     ///
     /// [`System`]: crate::system::System
     #[inline]
@@ -2258,7 +2291,8 @@ impl World {
     /// Sets [`World::last_change_tick()`] to the specified value during a scope.
     /// When the scope terminates, it will return to its old value.
     ///
-    /// This is useful if you need a region of code to be able to react to earlier changes made in the same system.
+    /// This is useful if you need a region of code to be able to react to earlier changes made in
+    /// the same system.
     ///
     /// # Examples
     ///
@@ -2366,11 +2400,12 @@ impl World {
         f(guard.world)
     }
 
-    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
-    /// This prevents overflow and thus prevents false positives.
+    /// Iterates all component change ticks and clamps any older than
+    /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE). This prevents overflow and
+    /// thus prevents false positives.
     ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`]
-    /// times since the previous pass.
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least
+    /// [`CHECK_TICK_THRESHOLD`] times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let change_tick = self.change_tick();
@@ -2399,8 +2434,9 @@ impl World {
         self.last_check_tick = change_tick;
     }
 
-    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    /// Runs both [`clear_entities`](Self::clear_entities) and
+    /// [`clear_resources`](Self::clear_resources), invalidating all [`Entity`] and resource
+    /// fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
@@ -2478,8 +2514,8 @@ impl World {
 
     /// Iterates over all resources in the world.
     ///
-    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading the contents
-    /// of each resource will require the use of unsafe code.
+    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading the
+    /// contents of each resource will require the use of unsafe code.
     ///
     /// # Examples
     ///
@@ -2567,7 +2603,8 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must
+                // exist with its ID.
                 let component_info = unsafe {
                     self.components
                         .get_info(component_id)
@@ -2579,8 +2616,8 @@ impl World {
 
     /// Mutably iterates over all resources in the world.
     ///
-    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading from or writing
-    /// to the contents of each resource will require the use of unsafe code.
+    /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading from or
+    /// writing to the contents of each resource will require the use of unsafe code.
     ///
     /// # Example
     ///
@@ -2648,7 +2685,8 @@ impl World {
             .resources
             .iter()
             .filter_map(|(component_id, data)| {
-                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
+                // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must
+                // exist with its ID.
                 let component_info = unsafe {
                     self.components
                         .get_info(component_id)
@@ -2657,8 +2695,10 @@ impl World {
                 let (ptr, ticks, _caller) = data.get_with_ticks()?;
 
                 // SAFETY:
-                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
+                // - We have exclusive access to the world, so no other code can be aliasing the
+                //   `TickCells`
+                // - We only hold one `TicksMut` at a time, and we let go of it before getting the
+                //   next one
                 let ticks = unsafe {
                     TicksMut::from_tick_cells(
                         ticks,
@@ -2692,7 +2732,8 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         // SAFETY:
@@ -2712,7 +2753,8 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY:
@@ -2742,7 +2784,8 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
         self.storages
             .non_send_resources
@@ -2751,14 +2794,16 @@ impl World {
         Some(())
     }
 
-    /// Retrieves an immutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves an immutable untyped reference to the given `entity`'s [`Component`] of the given
+    /// [`ComponentId`]. Returns `None` if the `entity` does not have a [`Component`] of the
+    /// given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was
+    /// inserted from.
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
         // SAFETY:
@@ -2771,8 +2816,9 @@ impl World {
         }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given
+    /// [`ComponentId`]. Returns `None` if the `entity` does not have a [`Component`] of the
+    /// given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
@@ -2942,9 +2988,11 @@ impl fmt::Debug for World {
     }
 }
 
-// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
+// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main
+// thread
 unsafe impl Send for World {}
-// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
+// SAFETY: all methods on the world ensure that non-send resources are only accessible on the main
+// thread
 unsafe impl Sync for World {}
 
 /// Creates an instance of the type this trait is implemented for
@@ -3217,7 +3265,8 @@ mod tests {
 
         let mut world = World::new();
 
-        // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
+        // SAFETY: the drop function is valid for the layout and the data will be safe to access
+        // from any thread
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),

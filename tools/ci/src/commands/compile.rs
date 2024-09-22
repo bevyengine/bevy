@@ -7,7 +7,8 @@ use crate::{
 };
 use argh::FromArgs;
 
-/// Alias for running the `compile-fail`, `bench-check`, `example-check`, `compile-check`, and `test-check` subcommands.
+/// Alias for running the `compile-fail`, `bench-check`, `example-check`, `compile-check`, and
+/// `test-check` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "compile")]
 pub struct CompileCommand {}

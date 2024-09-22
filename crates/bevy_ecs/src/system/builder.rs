@@ -76,10 +76,9 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
-/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used
-///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
-/// - None of the world accesses may conflict with any prior accesses registered
-///   on `system_meta`.
+/// - [`SystemParamBuilder::build`] correctly registers all [`World`] accesses used by
+///   [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered on `system_meta`.
 ///
 /// Note that this depends on the implementation of [`SystemParam::get_param`],
 /// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
@@ -108,7 +107,8 @@ unsafe impl<P: SystemParam> SystemParamBuilder<P> for ParamBuilder {
 }
 
 impl ParamBuilder {
-    /// Creates a [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
+    /// Creates a [`SystemParamBuilder`] for any [`SystemParam`] that uses its default
+    /// initialization.
     pub fn of<T: SystemParam>() -> impl SystemParamBuilder<T> {
         Self
     }
@@ -118,7 +118,8 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
+    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to
+    /// `of::<ResMut<T>>()`
     pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
@@ -134,7 +135,8 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D, F>>()`
+    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D,
+    /// F>>()`
     pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
@@ -156,7 +158,8 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 pub struct QueryParamBuilder<T>(T);
 
 impl<T> QueryParamBuilder<T> {
-    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the
+    /// [`QueryBuilder`].
     pub fn new<D: QueryData, F: QueryFilter>(f: T) -> Self
     where
         T: FnOnce(&mut QueryBuilder<D, F>),
@@ -168,8 +171,9 @@ impl<T> QueryParamBuilder<T> {
 impl<'a, D: QueryData, F: QueryFilter>
     QueryParamBuilder<Box<dyn FnOnce(&mut QueryBuilder<D, F>) + 'a>>
 {
-    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
-    /// This boxes the callback so that it has a common type and can be put in a `Vec`.
+    /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the
+    /// [`QueryBuilder`]. This boxes the callback so that it has a common type and can be put in
+    /// a `Vec`.
     pub fn new_box(f: impl FnOnce(&mut QueryBuilder<D, F>) + 'a) -> Self {
         Self(Box::new(f))
     }
@@ -228,8 +232,9 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 ///
-/// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
-/// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
+/// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching
+/// [`SystemParamBuilder`]s. To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec`
+/// of matching [`SystemParamBuilder`]s.
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
@@ -269,8 +274,8 @@ macro_rules! impl_param_set_builder_tuple {
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
-// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-// with any prior access, a panic will occur.
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta.
+// If any ParamState conflicts with any prior access, a panic will occur.
 unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
     SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
 {

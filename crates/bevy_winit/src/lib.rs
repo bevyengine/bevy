@@ -9,8 +9,8 @@
 //!
 //! Most commonly, the [`WinitPlugin`] is used as part of
 //! [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
-//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
-//! See `winit_runner` for details.
+//! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit`
+//! [`EventLoop`]. See `winit_runner` for details.
 
 use bevy_derive::Deref;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
@@ -63,14 +63,15 @@ pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 ///
-/// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
-/// in systems.
+/// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as
+/// events in systems.
 #[derive(Default)]
 pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
-    /// See [`EventLoopBuilder::build`](winit::event_loop::EventLoopBuilder::build) for more information on this.
+    /// See [`EventLoopBuilder::build`](winit::event_loop::EventLoopBuilder::build) for more
+    /// information on this.
     ///
     /// # Supported platforms
     ///

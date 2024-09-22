@@ -242,7 +242,8 @@ where
     }
 }
 
-/// SAFETY: Both systems are read-only, so any system created by combining them will only read from the world.
+/// SAFETY: Both systems are read-only, so any system created by combining them will only read from
+/// the world.
 unsafe impl<A, B, Func> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
@@ -264,10 +265,11 @@ where
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
-/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the receiving system.
+/// This can be repeated indefinitely, but system pipes cannot branch: the output is consumed by the
+/// receiving system.
 ///
-/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A` is
-/// equal to the input type of `B`.
+/// Given two systems `A` and `B`, A may be piped into `B` as `A.pipe(B)` if the output type of `A`
+/// is equal to the input type of `B`.
 ///
 /// Note that for [`FunctionSystem`](crate::system::FunctionSystem)s the output is the return value
 /// of the function and the input is the first [`SystemParam`](crate::system::SystemParam) if it is

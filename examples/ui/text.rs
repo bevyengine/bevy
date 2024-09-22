@@ -69,7 +69,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font_size: 33.0,
                     color: GOLD.into(),
-                    // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+                    // If no font is specified, the default font (a minimal subset of FiraMono) will
+                    // be used.
                     ..default()
                 }
             } else {
@@ -87,7 +88,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(feature = "default_font")]
     commands.spawn(
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
-        // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
+        // This will use the default font (a minimal subset of FiraMono) and apply the default
+        // styling.
         TextBundle::from("From an &str into a TextBundle with the default font!").with_style(
             Style {
                 position_type: PositionType::Absolute,

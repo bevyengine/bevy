@@ -57,7 +57,8 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         None
     }
 
-    /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a [`RenderAsset`].
+    /// Prepares the [`RenderAsset::SourceAsset`] for the GPU by transforming it into a
+    /// [`RenderAsset`].
     ///
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
@@ -102,11 +103,13 @@ impl Default for RenderAssetUsages {
     /// Returns the default render asset usage flags:
     /// `RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD`
     ///
-    /// This default configuration ensures the asset persists in the main world, even after being prepared for rendering.
+    /// This default configuration ensures the asset persists in the main world, even after being
+    /// prepared for rendering.
     ///
-    /// If your asset does not change, consider using `RenderAssetUsages::RENDER_WORLD` exclusively. This will cause
-    /// the asset to be unloaded from the main world once it has been prepared for rendering. If the asset does not need
-    /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
+    /// If your asset does not change, consider using `RenderAssetUsages::RENDER_WORLD` exclusively.
+    /// This will cause the asset to be unloaded from the main world once it has been prepared
+    /// for rendering. If the asset does not need to reach the render world at all, use
+    /// `RenderAssetUsages::MAIN_WORLD` exclusively.
     fn default() -> Self {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
     }
@@ -118,10 +121,11 @@ impl Default for RenderAssetUsages {
 /// Therefore it sets up the [`ExtractSchedule`] and
 /// [`RenderSet::PrepareAssets`] steps for the specified [`RenderAsset`].
 ///
-/// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
-/// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
-/// prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on `RenderAssets::<GpuImage>` for morph
-/// targets, so the plugin is created as `RenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
+/// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run
+/// until `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to
+/// depend on another prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on
+/// `RenderAssets::<GpuImage>` for morph targets, so the plugin is created as
+/// `RenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
 pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
@@ -250,8 +254,8 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
     }
 }
 
-/// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
-/// into the "render world".
+/// This system extracts all created or modified assets of the corresponding
+/// [`RenderAsset::SourceAsset`] type into the "render world".
 pub(crate) fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
     mut main_world: ResMut<MainWorld>,

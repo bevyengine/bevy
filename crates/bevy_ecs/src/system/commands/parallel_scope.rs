@@ -14,9 +14,11 @@ struct ParallelCommandQueue {
     thread_queues: Parallel<CommandQueue>,
 }
 
-/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_iter`](crate::system::Query::par_iter)
+/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in
+/// [`Query::par_iter`](crate::system::Query::par_iter)
 ///
-/// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
+/// Note: Because command application order will depend on how many threads are ran, non-commutative
+/// commands may result in non-deterministic results.
 ///
 /// Example:
 /// ```

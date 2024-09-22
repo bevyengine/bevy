@@ -51,9 +51,9 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 // http://www.aortiz.me/2018/12/21/CG.html
 // Some inspiration was taken from “Practical Clustered Shading” which is part 2 of:
 // https://efficientshading.com/2015/01/01/real-time-many-light-management-and-shadows-with-clustered-shading/
-// (Also note that Part 3 of the above shows how we could support the shadow mapping for many lights.)
-// The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's Siggraph 2016 talk about Doom 2016:
-// http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
+// (Also note that Part 3 of the above shows how we could support the shadow mapping for many
+// lights.) The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's
+// Siggraph 2016 talk about Doom 2016: http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
@@ -87,25 +87,26 @@ pub enum ClusterConfig {
     /// One single cluster. Optimal for low-light complexity scenes or scenes where
     /// most lights affect the entire scene.
     Single,
-    /// Explicit `X`, `Y` and `Z` counts (may yield non-square `X/Y` clusters depending on the aspect ratio)
+    /// Explicit `X`, `Y` and `Z` counts (may yield non-square `X/Y` clusters depending on the
+    /// aspect ratio)
     XYZ {
         dimensions: UVec3,
         z_config: ClusterZConfig,
-        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
-        /// the available cluster-object index limit
+        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of
+        /// exceeding the available cluster-object index limit
         dynamic_resizing: bool,
     },
     /// Fixed number of `Z` slices, `X` and `Y` calculated to give square clusters
-    /// with at most total clusters. For top-down games where lights will generally always be within a
-    /// short depth range, it may be useful to use this configuration with 1 or few `Z` slices. This
-    /// would reduce the number of lights per cluster by distributing more clusters in screen space
-    /// `X/Y` which matches how lights are distributed in the scene.
+    /// with at most total clusters. For top-down games where lights will generally always be
+    /// within a short depth range, it may be useful to use this configuration with 1 or few
+    /// `Z` slices. This would reduce the number of lights per cluster by distributing more
+    /// clusters in screen space `X/Y` which matches how lights are distributed in the scene.
     FixedZ {
         total: u32,
         z_slices: u32,
         z_config: ClusterZConfig,
-        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
-        /// the available clusterable object index limit
+        /// Specify if clusters should automatically resize in `X/Y` if there is a risk of
+        /// exceeding the available clusterable object index limit
         dynamic_resizing: bool,
     },
 }
@@ -143,8 +144,8 @@ pub struct GlobalClusterableObjectMeta {
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuClusterableObject {
-    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
-    // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
+    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2]
+    // [3][3] For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
     pub(crate) light_custom_data: Vec4,
     pub(crate) color_inverse_square_range: Vec4,
     pub(crate) position_radius: Vec4,
@@ -494,16 +495,15 @@ impl Default for GpuClusterableObjectsUniform {
 #[allow(clippy::too_many_arguments)]
 // Sort clusterable objects by:
 //
-// * point-light vs spot-light, so that we can iterate point lights and spot
-//   lights in contiguous blocks in the fragment shader,
+// * point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous
+//   blocks in the fragment shader,
 //
-// * then those with shadows enabled first, so that the index can be used to
-//   render at most `point_light_shadow_maps_count` point light shadows and
-//   `spot_light_shadow_maps_count` spot light shadow maps,
+// * then those with shadows enabled first, so that the index can be used to render at most
+//   `point_light_shadow_maps_count` point light shadows and `spot_light_shadow_maps_count` spot
+//   light shadow maps,
 //
-// * then by entity as a stable key to ensure that a consistent set of
-//   clusterable objects are chosen if the clusterable object count limit is
-//   exceeded.
+// * then by entity as a stable key to ensure that a consistent set of clusterable objects are
+//   chosen if the clusterable object count limit is exceeded.
 pub(crate) fn clusterable_object_order(
     (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),

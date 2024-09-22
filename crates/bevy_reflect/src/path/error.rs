@@ -11,7 +11,8 @@ pub enum AccessErrorKind {
     MissingField(ReflectKind),
 
     /// An error that occurs when using an [`Access`] on the wrong type.
-    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a [`TupleIndex`](Access::TupleIndex) on a list)
+    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct, or a
+    /// [`TupleIndex`](Access::TupleIndex) on a list)
     IncompatibleTypes {
         /// The [`ReflectKind`] that was expected based on the [`Access`].
         expected: ReflectKind,
@@ -20,7 +21,8 @@ pub enum AccessErrorKind {
     },
 
     /// An error that occurs when using an [`Access`] on the wrong enum variant.
-    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct variant, or a [`TupleIndex`](Access::TupleIndex) on a unit variant)
+    /// (i.e. a [`ListIndex`](Access::ListIndex) on a struct variant, or a
+    /// [`TupleIndex`](Access::TupleIndex) on a unit variant)
     IncompatibleEnumVariantTypes {
         /// The [`VariantType`] that was expected based on the [`Access`].
         expected: VariantType,

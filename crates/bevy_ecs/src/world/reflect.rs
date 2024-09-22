@@ -12,11 +12,12 @@ impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
     /// reflection.
     ///
-    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
+    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using
+    /// [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
     /// and `app.register_type::<TheComponent>()` to have been called[^note-reflect-impl].
     ///
-    /// If you want to call this with a [`ComponentId`], see [`World::components`] and [`Components::get_id`] to get
-    /// the corresponding [`TypeId`].
+    /// If you want to call this with a [`ComponentId`], see [`World::components`] and
+    /// [`Components::get_id`] to get the corresponding [`TypeId`].
     ///
     /// Also see the crate documentation for [`bevy_reflect`] for more information on
     /// [`Reflect`] and bevy's reflection capabilities.
@@ -62,7 +63,8 @@ impl World {
     /// [`Reflect`]: bevy_reflect::Reflect
     /// [`App::register_type`]: ../../bevy_app/struct.App.html#method.register_type
     /// [^note-reflect-impl]: More specifically: Requires [`TypeData`] for [`ReflectFromPtr`] to be registered for the given `type_id`,
-    ///     which is automatically handled when deriving [`Reflect`] and calling [`App::register_type`].
+    ///     which is automatically handled when deriving [`Reflect`] and calling
+    /// [`App::register_type`].
     #[inline]
     pub fn get_reflect(
         &self,
@@ -115,10 +117,11 @@ impl World {
         }
     }
 
-    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given `type_id` using
-    /// reflection.
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given `type_id`
+    /// using reflection.
     ///
-    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
+    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using
+    /// [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
     /// and `app.register_type::<TheComponent>()` to have been called.
     ///
     /// This is the mutable version of [`World::get_reflect`], see its docs for more information
@@ -164,7 +167,8 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around
+        // it.
         let component_name = self
             .components()
             .get_name(component_id)
@@ -229,7 +233,8 @@ pub enum GetComponentReflectError {
     #[error("The `World` was missing the `AppTypeRegistry` resource")]
     MissingAppTypeRegistry,
 
-    /// The [`World`]'s [`TypeRegistry`] did not contain [`TypeData`] for [`ReflectFromPtr`] for the given [`TypeId`].
+    /// The [`World`]'s [`TypeRegistry`] did not contain [`TypeData`] for [`ReflectFromPtr`] for
+    /// the given [`TypeId`].
     ///
     /// This is usually handled by calling [`App::register_type`] for the type corresponding to
     /// the given [`TypeId`].

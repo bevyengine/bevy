@@ -36,7 +36,8 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         }
     }
 
-    /// Queue an item of type T to be added to the buffer, returning the byte range within the buffer that it will be located at.
+    /// Queue an item of type T to be added to the buffer, returning the byte range within the
+    /// buffer that it will be located at.
     pub fn queue_write(&mut self, data: T, metadata: T::Metadata) -> Range<BufferAddress> {
         let data_size = data.size_in_bytes() as u64;
         debug_assert!(data_size % COPY_BUFFER_ALIGNMENT == 0);
@@ -117,11 +118,12 @@ pub trait PersistentGpuBufferable {
     /// The size in bytes of `self`. This will determine the size of the buffer passed into
     /// `write_bytes_le`.
     ///
-    /// All data written must be in a multiple of `wgpu::COPY_BUFFER_ALIGNMENT` bytes. Failure to do so will
-    /// result in a panic when using [`PersistentGpuBuffer`].
+    /// All data written must be in a multiple of `wgpu::COPY_BUFFER_ALIGNMENT` bytes. Failure to do
+    /// so will result in a panic when using [`PersistentGpuBuffer`].
     fn size_in_bytes(&self) -> usize;
 
-    /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer slice.
-    /// Any bytes not written to in the slice will be zeroed out when uploaded to the GPU.
+    /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer
+    /// slice. Any bytes not written to in the slice will be zeroed out when uploaded to the
+    /// GPU.
     fn write_bytes_le(&self, metadata: Self::Metadata, buffer_slice: &mut [u8]);
 }

@@ -18,30 +18,36 @@ fn main() {
                     // The common_conditions module has a few useful run conditions
                     // for checking resources and states. These are included in the prelude.
                     .run_if(resource_exists::<InputCounter>)
-                    // `.or()` is a run condition combinator that only evaluates the second condition
-                    // if the first condition returns `false`. This behavior is known as "short-circuiting",
-                    // and is how the `||` operator works in Rust (as well as most C-family languages).
-                    // In this case, the `has_user_input` run condition will be evaluated since the `Unused` resource has not been initialized.
+                    // `.or()` is a run condition combinator that only evaluates the second
+                    // condition if the first condition returns `false`. This
+                    // behavior is known as "short-circuiting", and is how the
+                    // `||` operator works in Rust (as well as most C-family languages).
+                    // In this case, the `has_user_input` run condition will be evaluated since the
+                    // `Unused` resource has not been initialized.
                     .run_if(resource_exists::<Unused>.or(
                         // This is a custom run condition, defined using a system that returns
                         // a `bool` and which has read-only `SystemParam`s.
-                        // Only a single run condition must return `true` in order for the system to run.
+                        // Only a single run condition must return `true` in order for the system
+                        // to run.
                         has_user_input,
                     )),
                 print_input_counter
-                    // `.and()` is a run condition combinator that only evaluates the second condition
-                    // if the first condition returns `true`, analogous to the `&&` operator.
-                    // In this case, the short-circuiting behavior prevents the second run condition from
+                    // `.and()` is a run condition combinator that only evaluates the second
+                    // condition if the first condition returns `true`,
+                    // analogous to the `&&` operator. In this case, the
+                    // short-circuiting behavior prevents the second run condition from
                     // panicking if the `InputCounter` resource has not been initialized.
                     .run_if(resource_exists::<InputCounter>.and(
                         // This is a custom run condition in the form of a closure.
                         // This is useful for small, simple run conditions you don't need to reuse.
-                        // All the normal rules still apply: all parameters must be read only except for local parameters.
+                        // All the normal rules still apply: all parameters must be read only
+                        // except for local parameters.
                         |counter: Res<InputCounter>| counter.is_changed() && !counter.is_added(),
                     )),
                 print_time_message
-                    // This function returns a custom run condition, much like the common conditions module.
-                    // It will only return true once 2 seconds have passed.
+                    // This function returns a custom run condition, much like the common conditions
+                    // module. It will only return true once 2 seconds have
+                    // passed.
                     .run_if(time_passed(2.0))
                     // You can use the `not` condition from the common_conditions module
                     // to inverse a run condition. In this case it will return true if
@@ -89,6 +95,7 @@ fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
 }
 
 /// SYSTEM: Increment the input counter
+///
 /// Notice how we can take just the `ResMut` and not have to wrap
 /// it in an option in case it hasn't been initialized, this is because
 /// it has a run condition that checks if the `InputCounter` resource exists

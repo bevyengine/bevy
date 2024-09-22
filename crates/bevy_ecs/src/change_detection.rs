@@ -112,8 +112,8 @@ pub trait DetectChangesMut: DetectChanges {
 
     /// Flags this value as having been changed.
     ///
-    /// Mutably accessing this smart pointer will automatically flag this value as having been changed.
-    /// However, mutation through interior mutability requires manual reporting.
+    /// Mutably accessing this smart pointer will automatically flag this value as having been
+    /// changed. However, mutation through interior mutability requires manual reporting.
     ///
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
@@ -121,17 +121,21 @@ pub trait DetectChangesMut: DetectChanges {
     /// Manually sets the change tick recording the time when this data was last mutated.
     ///
     /// # Warning
-    /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
-    /// If you merely want to flag this data as changed, use [`set_changed`](DetectChangesMut::set_changed) instead.
-    /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) instead.
+    /// This is a complex and error-prone operation, primarily intended for use with rollback
+    /// networking strategies. If you merely want to flag this data as changed, use
+    /// [`set_changed`](DetectChangesMut::set_changed) instead. If you want to avoid triggering
+    /// change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection)
+    /// instead.
     fn set_last_changed(&mut self, last_changed: Tick);
 
-    /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
+    /// Manually bypasses change detection, allowing you to mutate the underlying value without
+    /// updating the change tick.
     ///
     /// # Warning
-    /// This is a risky operation, that can have unexpected consequences on any system relying on this code.
-    /// However, it can be an essential escape hatch when, for example,
-    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    /// This is a risky operation, that can have unexpected consequences on any system relying on
+    /// this code. However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid
+    /// infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
 
     /// Overwrites this smart pointer with the given value, if and only if `*self != value`.
@@ -544,7 +548,8 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 ///
 /// # Panics
 ///
-/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
+/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not
+/// exist.
 ///
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
@@ -623,7 +628,8 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// # Panics
 ///
-/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
+/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not
+/// exist.
 ///
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
@@ -664,8 +670,8 @@ impl_methods!(ResMut<'w, T>, T, Resource);
 impl_debug!(ResMut<'w, T>, Resource);
 
 impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
-    /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
-    /// while losing the specificity of `ResMut` for resources.
+    /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of
+    /// `Mut` while losing the specificity of `ResMut` for resources.
     fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
         Mut {
             value: other.value,
@@ -678,10 +684,10 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 
 /// Unique borrow of a non-[`Send`] resource.
 ///
-/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
+/// Only [`Send`] resources may be accessed with the [`ResMut`]
+/// [`SystemParam`](crate::system::SystemParam). In case that the resource does not implement
+/// `Send`, this `SystemParam` wrapper can be used. This will instruct the scheduler to instead run
+/// the system on the main thread so that it doesn't send the resource over to another thread.
 ///
 /// # Panics
 ///
@@ -701,8 +707,8 @@ impl_methods!(NonSendMut<'w, T>, T,);
 impl_debug!(NonSendMut<'w, T>,);
 
 impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
-    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
-    /// while losing the specificity of `NonSendMut`.
+    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of
+    /// `Mut` while losing the specificity of `NonSendMut`.
     fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
         Mut {
             value: other.value,
@@ -745,7 +751,8 @@ pub struct Ref<'w, T: ?Sized> {
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
-    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`, which makes this method more flexible than simply borrowing `self`.
+    /// Returns the reference wrapped by this type. The reference is allowed to outlive `self`,
+    /// which makes this method more flexible than simply borrowing `self`.
     pub fn into_inner(self) -> &'w T {
         self.value
     }
@@ -771,8 +778,8 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     /// - `value` - The value wrapped by `Ref`.
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
-    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
-    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used as a reference to
+    ///   determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'w T,
@@ -812,8 +819,9 @@ impl_debug!(Ref<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
-/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
-/// `&mut T`, which only provides access to change detection while in its mutable form:
+/// This can be used in queries to opt into change detection on both their mutable and immutable
+/// forms, as opposed to `&mut T`, which only provides access to change detection while in its
+/// mutable form:
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;
@@ -887,11 +895,10 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     ///
     /// - `value` - The value wrapped by this smart pointer.
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
-    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
-    ///   This will be updated to the value of `change_tick` if the returned smart pointer
-    ///   is modified.
-    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
-    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed. This
+    ///   will be updated to the value of `change_tick` if the returned smart pointer is modified.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used as a reference to
+    ///   determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'w mut T,
@@ -974,7 +981,8 @@ pub struct MutUntyped<'w> {
 impl<'w> MutUntyped<'w> {
     /// Returns the pointer to the value, marking it as changed.
     ///
-    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
+    /// In order to avoid marking the value as changed, you need to call
+    /// [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
     #[inline]
     pub fn into_inner(mut self) -> PtrMut<'w> {
         self.set_changed();
@@ -1004,9 +1012,11 @@ impl<'w> MutUntyped<'w> {
         self.ticks.changed.is_newer_than(tick, self.ticks.this_run)
     }
 
-    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
+    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as
+    /// changed.
     ///
-    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
+    /// In order to avoid marking the value as changed, you need to call
+    /// [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_> {
         self.set_changed();
@@ -1023,7 +1033,10 @@ impl<'w> MutUntyped<'w> {
     /// without flagging a change.
     /// This function is the untyped equivalent of [`Mut::map_unchanged`].
     ///
-    /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
+    /// You should never modify the argument passed to the closure – if you want to modify the data
+    /// without flagging a change, consider using
+    /// [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent
+    /// explicit.
     ///
     /// If you know the type of the value you can do
     /// ```no_run
@@ -1032,8 +1045,8 @@ impl<'w> MutUntyped<'w> {
     /// // SAFETY: ptr is of type `u8`
     /// mut_untyped.map_unchanged(|ptr| unsafe { ptr.deref_mut::<u8>() });
     /// ```
-    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
-    /// you can do
+    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this
+    /// [`MutUntyped`], you can do
     /// ```no_run
     /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
     /// # let mut_untyped: MutUntyped = unimplemented!();
@@ -1142,8 +1155,8 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
     }
 }
 
-/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
-/// enabled, and the unit type `()` when it is not.
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the
+/// `track_change_detection` feature is enabled, and the unit type `()` when it is not.
 ///
 /// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
 /// function return types. Because unit is a zero-sized type, it is the equivalent of not using a
@@ -1153,8 +1166,8 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 #[cfg(feature = "track_change_detection")]
 pub(crate) type MaybeLocation = &'static Location<'static>;
 
-/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
-/// enabled, and the unit type `()` when it is not.
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the
+/// `track_change_detection` feature is enabled, and the unit type `()` when it is not.
 ///
 /// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
 /// function return types. Because unit is a zero-sized type, it is the equivalent of not using a
@@ -1282,8 +1295,9 @@ mod tests {
 
         world.increment_change_tick();
 
-        // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
-        // the wrapping difference will always be positive, so wraparound doesn't matter.
+        // Since the world is always ahead, as long as changes can't get older than `u32::MAX`
+        // (which we ensure), the wrapping difference will always be positive, so wraparound
+        // doesn't matter.
         let mut query = world.query::<Ref<C>>();
         assert!(query.single(&world).is_changed());
     }

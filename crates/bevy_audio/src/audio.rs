@@ -69,7 +69,8 @@ pub struct PlaybackSettings {
     /// features. Spatial audio is implemented via simple left-right stereo panning.
     pub spatial: bool,
     /// Optional scale factor applied to the positions of this audio source and the listener,
-    /// overriding the default value configured on [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
+    /// overriding the default value configured on
+    /// [`AudioPlugin::default_spatial_scale`](crate::AudioPlugin::default_spatial_scale).
     pub spatial_scale: Option<SpatialScale>,
 }
 

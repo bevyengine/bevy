@@ -1,5 +1,4 @@
-//! Types for defining [`Archetype`]s, collections of entities that have the same set of
-//! components.
+//! Types for defining [`Archetype`]s, collections of entities that have the same set of components.
 //!
 //! An archetype uniquely describes a group of entities that share the same components:
 //! a world only has one archetype for each unique combination of components, and all
@@ -82,7 +81,8 @@ impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
     /// # Safety:
     ///
-    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
+    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space
+    /// allocation.
     pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
@@ -120,17 +120,21 @@ pub(crate) enum ComponentStatus {
 pub(crate) struct AddBundle {
     /// The target archetype after the bundle is added to the source archetype
     pub archetype_id: ArchetypeId,
-    /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
-    /// indicate if the component is newly added to the target archetype or if it already existed
+    /// For each component iterated in the same order as the source
+    /// [`Bundle`](crate::bundle::Bundle), indicate if the component is newly added to the
+    /// target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
-    /// The set of additional required components that must be initialized immediately when adding this Bundle.
+    /// The set of additional required components that must be initialized immediately when adding
+    /// this Bundle.
     ///
-    /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
+    /// The initial values are determined based on the provided constructor, falling back to the
+    /// `Default` trait if none is given.
     pub required_components: Vec<RequiredComponentConstructor>,
-    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
+    /// The components added by this bundle. This includes any Required Components that are
+    /// inserted when adding this bundle.
     pub added: Vec<ComponentId>,
-    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
-    /// Required Components.
+    /// The components that were explicitly contributed by this bundle, but already existed in the
+    /// archetype. This _does not_ include any Required Components.
     pub existing: Vec<ComponentId>,
 }
 
@@ -148,9 +152,11 @@ impl AddBundle {
     }
 }
 
-/// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
-/// being added to a given entity, relative to that entity's original archetype.
+/// Reports status of [`Bundle`] components being added relative to an original archetype.
+///
 /// See [`crate::bundle::BundleInfo::write_components`] for more info.
+///
+/// [`Bundle`]: crate::bundle::Bundle
 pub(crate) trait BundleComponentStatus {
     /// Returns the Bundle's component status for the given "bundle index"
     ///
@@ -324,7 +330,8 @@ impl ArchetypeEntity {
 /// Internal metadata for an [`Entity`] getting removed from an [`Archetype`].
 pub(crate) struct ArchetypeSwapRemoveResult {
     /// If the [`Entity`] was not the last in the [`Archetype`], it gets removed by swapping it out
-    /// with the last entity in the archetype. In that case, this field contains the swapped entity.
+    /// with the last entity in the archetype. In that case, this field contains the swapped
+    /// entity.
     pub(crate) swapped_entity: Option<Entity>,
     /// The [`TableRow`] where the removed entity's components are stored.
     pub(crate) table_row: TableRow,
@@ -397,9 +404,9 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
-            // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
-            // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
-            // component in the `table_components` vector
+            // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the
+            // same sorted order, so the index of the `Column` in the `Table` is the
+            // same as the index of the component in the `table_components` vector
             component_index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
@@ -674,7 +681,8 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
+    /// Returns true if any of the components in this archetype have at least one [`OnInsert`]
+    /// observer
     ///
     /// [`OnInsert`]: crate::world::OnInsert
     #[inline]
@@ -682,7 +690,8 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
+    /// Returns true if any of the components in this archetype have at least one [`OnReplace`]
+    /// observer
     ///
     /// [`OnReplace`]: crate::world::OnReplace
     #[inline]
@@ -690,7 +699,8 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
     }
 
-    /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
+    /// Returns true if any of the components in this archetype have at least one [`OnRemove`]
+    /// observer
     ///
     /// [`OnRemove`]: crate::world::OnRemove
     #[inline]
@@ -760,8 +770,12 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
-/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
-/// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
+/// Maps a [`ComponentId`] to the list of [`Archetype`]s that contain the [`Component`].
+///
+/// The [`ArchetypeRecord`] contains some metadata about how the component is stored in the
+/// archetype.
+///
+/// [`Component`]: crate::component::Component
 pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
 /// The backing store of all [`Archetype`]s within a [`World`].
@@ -952,7 +966,8 @@ impl Archetypes {
     }
 
     /// Returns the number of components that are stored in archetypes.
-    /// Note that if some component `T` is stored in more than one archetype, it will be counted once for each archetype it's present in.
+    /// Note that if some component `T` is stored in more than one archetype, it will be counted
+    /// once for each archetype it's present in.
     #[inline]
     pub fn archetype_components_len(&self) -> usize {
         self.archetype_component_count

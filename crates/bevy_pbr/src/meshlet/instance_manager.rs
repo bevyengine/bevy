@@ -31,7 +31,8 @@ pub struct InstanceManager {
     pub instance_meshlet_counts_prefix_sum: StorageBuffer<Vec<u32>>,
     /// Per-instance index to the start of the instance's slice of the meshlets buffer
     pub instance_meshlet_slice_starts: StorageBuffer<Vec<u32>>,
-    /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
+    /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`]
+    /// support.
     pub view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
 
     /// Next material ID available for a [`Material`]
@@ -161,7 +162,8 @@ impl InstanceManager {
 pub fn extract_meshlet_mesh_entities(
     mut meshlet_mesh_manager: ResMut<MeshletMeshManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
+    // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is
+    // possible
     mut main_world: ResMut<MainWorld>,
     mut system_state: Local<
         Option<
@@ -237,8 +239,11 @@ pub fn extract_meshlet_mesh_entities(
     }
 }
 
-/// For each entity in the scene, record what material ID its material was assigned in the `prepare_material_meshlet_meshes` systems,
-/// and note that the material is used by at least one entity in the scene.
+/// Record meshlet materials for each entity in the scene.
+///
+/// Records what material ID its material was assigned in the
+/// `prepare_material_meshlet_meshes` systems, and note that the material is used by at least one
+/// entity in the scene.
 pub fn queue_material_meshlet_meshes<M: Material>(
     mut instance_manager: ResMut<InstanceManager>,
     render_material_instances: Res<RenderMaterialInstances<M>>,

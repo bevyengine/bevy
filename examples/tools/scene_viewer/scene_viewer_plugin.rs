@@ -1,5 +1,5 @@
-//! A glTF scene viewer plugin.  Provides controls for directional lighting, and switching between scene cameras.
-//! To use in your own application:
+//! A glTF scene viewer plugin.  Provides controls for directional lighting, and switching between
+//! scene cameras. To use in your own application:
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 

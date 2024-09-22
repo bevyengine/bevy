@@ -1,6 +1,7 @@
-//! The [`Curve`] trait, used to describe curves in a number of different domains. This module also
-//! contains the [`Interval`] type, along with a selection of core data structures used to back
-//! curves that are interpolated from samples.
+//! The [`Curve`] trait, used to describe curves in a number of different domains.
+//!
+//! This module also contains the [`Interval`] type, along with a selection of
+//! core data structures used to back curves that are interpolated from samples.
 
 pub mod cores;
 pub mod interval;
@@ -32,8 +33,8 @@ pub trait Curve<T> {
     /// is already known to lie within the curve's domain.
     ///
     /// Values sampled from outside of a curve's domain are generally considered invalid; data which
-    /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
-    /// beyond a curve's domain should not be relied upon.
+    /// is nonsensical or otherwise useless may be returned in such a circumstance, and
+    /// extrapolation beyond a curve's domain should not be relied upon.
     fn sample_unchecked(&self, t: f32) -> T;
 
     /// Sample a point on this curve at the parameter value `t`, returning `None` if the point is
@@ -190,9 +191,9 @@ pub trait Curve<T> {
 
     /// Reparametrize this [`Curve`] by sampling from another curve.
     ///
-    /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which produces
-    /// another sample time `s` which is then used to sample this curve. The domain of the resulting
-    /// curve is the domain of `other`.
+    /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which
+    /// produces another sample time `s` which is then used to sample this curve. The domain of
+    /// the resulting curve is the domain of `other`.
     #[must_use]
     fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
@@ -210,8 +211,8 @@ pub trait Curve<T> {
     /// time as part of a tuple.
     ///
     /// For example, if this curve outputs `x` at time `t`, then the produced curve will produce
-    /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
-    /// is a `Curve<(f32, T)>`.
+    /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this
+    /// method is a `Curve<(f32, T)>`.
     #[must_use]
     fn graph(self) -> GraphCurve<T, Self>
     where
@@ -243,10 +244,11 @@ pub trait Curve<T> {
         })
     }
 
-    /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another curve
-    /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
-    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
+    /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another
+    /// curve with outputs of the same type. The domain of the other curve is translated so that
+    /// its start coincides with where this curve ends. A [`ChainError`] is returned if this
+    /// curve's domain doesn't have a finite end or if `other`'s domain doesn't have a finite
+    /// start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
@@ -266,11 +268,11 @@ pub trait Curve<T> {
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
+    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent
+    /// samples. The curve is interpolated on `segments` segments between samples. For example,
+    /// if `segments` is 1, only the start and end points of the curve are used as samples; if
+    /// `segments` is 2, a sample at the midpoint is taken as well, and so on. If `segments` is
+    /// zero, or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
     ///
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
@@ -304,11 +306,11 @@ pub trait Curve<T> {
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
-    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
-    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
-    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
-    /// domain, then a [`ResamplingError`] is returned.
+    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent
+    /// samples. The curve is interpolated on `segments` segments between samples. For example,
+    /// if `segments` is 1, only the start and end points of the curve are used as samples; if
+    /// `segments` is 2, a sample at the midpoint is taken as well, and so on. If `segments` is
+    /// zero, or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
@@ -388,9 +390,9 @@ pub trait Curve<T> {
         })
     }
 
-    /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation] over
-    /// samples taken at the given set of times. The given `sample_times` are expected to contain at least
-    /// two valid times within the curve's domain interval.
+    /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation]
+    /// over samples taken at the given set of times. The given `sample_times` are expected to
+    /// contain at least two valid times within the curve's domain interval.
     ///
     /// Redundant sample times, non-finite sample times, and sample times outside of the domain
     /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
@@ -513,7 +515,8 @@ pub enum ResamplingError {
 
 /// A curve with a constant value over its domain.
 ///
-/// This is a curve that holds an inner value and always produces a clone of that value when sampled.
+/// This is a curve that holds an inner value and always produces a clone of that value when
+/// sampled.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -550,8 +553,8 @@ where
 
 /// A curve defined by a function together with a fixed domain.
 ///
-/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and produces
-/// output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
+/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and
+/// produces output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -677,7 +680,8 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
+/// sample times before sampling. Curves of this type are produced by
+/// [`Curve::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]

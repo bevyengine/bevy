@@ -7,8 +7,8 @@
 //! project support other lightmap baking methods.
 //!
 //! When a [`Lightmap`] component is added to an entity with a [`Mesh`] and a
-//! [`StandardMaterial`](crate::StandardMaterial), Bevy applies the lightmap when rendering. The brightness
-//! of the lightmap may be controlled with the `lightmap_exposure` field on
+//! [`StandardMaterial`](crate::StandardMaterial), Bevy applies the lightmap when rendering. The
+//! brightness of the lightmap may be controlled with the `lightmap_exposure` field on
 //! `StandardMaterial`.
 //!
 //! During the rendering extraction phase, we extract all lightmaps into the

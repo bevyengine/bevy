@@ -6,7 +6,11 @@ use std::{
     ops::{Add, Div, Mul, Neg, Sub},
 };
 
-/// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
+// this is required because rustfmt's `wrap_comments` feature will rewrap the
+// equations so they're on separate lines, making clippy angry.
+#[rustfmt::skip]
+/// A type that supports the mathematical operations of a real vector space.
+///
 /// In particular, this means that the implementing type supports:
 /// - Scalar multiplication and division on the right by elements of `f32`
 /// - Negation
@@ -14,17 +18,25 @@ use std::{
 /// - Zero
 ///
 /// Within the limitations of floating point arithmetic, all the following are required to hold:
-/// - (Associativity of addition) For all `u, v, w: Self`, `(u + v) + w == u + (v + w)`.
-/// - (Commutativity of addition) For all `u, v: Self`, `u + v == v + u`.
-/// - (Additive identity) For all `v: Self`, `v + Self::ZERO == v`.
-/// - (Additive inverse) For all `v: Self`, `v - v == v + (-v) == Self::ZERO`.
-/// - (Compatibility of multiplication) For all `a, b: f32`, `v: Self`, `v * (a * b) == (v * a) * b`.
-/// - (Multiplicative identity) For all `v: Self`, `v * 1.0 == v`.
-/// - (Distributivity for vector addition) For all `a: f32`, `u, v: Self`, `(u + v) * a == u * a + v * a`.
-/// - (Distributivity for scalar addition) For all `a, b: f32`, `v: Self`, `v * (a + b) == v * a + v * b`.
+/// - (Associativity of addition)
+///   For all `u, v, w: Self`, `(u + v) + w == u + (v + w)`.
+/// - (Commutativity of addition)
+///   For all `u, v: Self`, `u + v == v + u`.
+/// - (Additive identity)
+///   For all `v: Self`, `v + Self::ZERO == v`.
+/// - (Additive inverse)
+///   For all `v: Self`, `v - v == v + (-v) == Self::ZERO`.
+/// - (Compatibility of multiplication)
+///   For all `a, b: f32`, `v: Self`, `v * (a * b) == (v * a) * b`.
+/// - (Multiplicative identity)
+///   For all `v: Self`, `v * 1.0 == v`.
+/// - (Distributivity for vector addition)
+///   For all `a: f32`, `u, v: Self`, `(u + v) * a == u * a + v * a`.
+/// - (Distributivity for scalar addition)
+///   For all `a, b: f32`, `v: Self`, `v * (a + b) == v * a + v * b`.
 ///
-/// Note that, because implementing types use floating point arithmetic, they are not required to actually
-/// implement `PartialEq` or `Eq`.
+/// Note that, because implementing types use floating point arithmetic, they are not required to
+/// actually implement `PartialEq` or `Eq`.
 pub trait VectorSpace:
     Mul<f32, Output = Self>
     + Div<f32, Output = Self>
@@ -71,16 +83,19 @@ impl VectorSpace for f32 {
     const ZERO: Self = 0.0;
 }
 
-/// A type that supports the operations of a normed vector space; i.e. a norm operation in addition
-/// to those of [`VectorSpace`]. Specifically, the implementor must guarantee that the following
-/// relationships hold, within the limitations of floating point arithmetic:
+/// A type that supports the operations of a normed vector space.
+///
+/// Supports a norm operation in addition to those of [`VectorSpace`].
+///
+/// Specifically, the implementor must guarantee that the following relationships
+/// hold, within the limitations of floating point arithmetic:
 /// - (Nonnegativity) For all `v: Self`, `v.norm() >= 0.0`.
 /// - (Positive definiteness) For all `v: Self`, `v.norm() == 0.0` implies `v == Self::ZERO`.
 /// - (Absolute homogeneity) For all `c: f32`, `v: Self`, `(v * c).norm() == v.norm() * c.abs()`.
 /// - (Triangle inequality) For all `v, w: Self`, `(v + w).norm() <= v.norm() + w.norm()`.
 ///
-/// Note that, because implementing types use floating point arithmetic, they are not required to actually
-/// implement `PartialEq` or `Eq`.
+/// Note that, because implementing types use floating point arithmetic, they are not required to
+/// actually implement `PartialEq` or `Eq`.
 pub trait NormedVectorSpace: VectorSpace {
     /// The size of this element. The return value should always be nonnegative.
     fn norm(self) -> f32;
@@ -170,18 +185,18 @@ impl NormedVectorSpace for f32 {
 ///
 /// Although the only required method is `interpolate_stable`, many things are expected of it:
 ///
-/// 1. The notion of interpolation should follow naturally from the semantics of the type, so
-///    that inferring the interpolation mode from the type alone is sensible.
+/// 1. The notion of interpolation should follow naturally from the semantics of the type, so that
+///    inferring the interpolation mode from the type alone is sensible.
 ///
-/// 2. The interpolation recovers something equivalent to the starting value at `t = 0.0`
-///    and likewise with the ending value at `t = 1.0`. They do not have to be data-identical, but
-///    they should be semantically identical. For example, [`Quat::slerp`] doesn't always yield its
+/// 2. The interpolation recovers something equivalent to the starting value at `t = 0.0` and
+///    likewise with the ending value at `t = 1.0`. They do not have to be data-identical, but they
+///    should be semantically identical. For example, [`Quat::slerp`] doesn't always yield its
 ///    second rotation input exactly at `t = 1.0`, but it always returns an equivalent rotation.
 ///
 /// 3. Importantly, the interpolation must be *subdivision-stable*: for any interpolation curve
 ///    between two (unnamed) values and any parameter-value pairs `(t0, p)` and `(t1, q)`, the
-///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the original
-///    interpolation curve restricted to the interval `[t0, t1]`.
+///    interpolation curve between `p` and `q` must be the *linear* reparametrization of the
+///    original interpolation curve restricted to the interval `[t0, t1]`.
 ///
 /// The last of these conditions is very strong and indicates something like constant speed. It
 /// is called "subdivision stability" because it guarantees that breaking up the interpolation
@@ -191,7 +206,7 @@ impl NormedVectorSpace for f32 {
 /// ```text
 /// top curve = u.interpolate_stable(v, t)
 ///
-///              t0 => p   t1 => q    
+///              t0 => p   t1 => q
 ///   |-------------|---------|-------------|
 /// 0 => u         /           \          1 => v
 ///              /               \

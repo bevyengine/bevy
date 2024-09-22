@@ -28,10 +28,11 @@ fn main() {
 ///
 /// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
 /// reflection by using the `#[reflect(ignore)]` attribute.
-/// If you choose to ignore a field, you need to let the automatically-derived `FromReflect` implementation
-/// how to handle the field.
-/// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored field, or
-/// opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]` attribute.
+/// If you choose to ignore a field, you need to let the automatically-derived `FromReflect`
+/// implementation how to handle the field.
+/// To do this, you can either define a `#[reflect(default = "...")]` attribute on the ignored
+/// field, or opt-out of `FromReflect`'s auto-derive using the `#[reflect(from_reflect = false)]`
+/// attribute.
 #[derive(Reflect)]
 #[reflect(from_reflect = false)]
 pub struct Foo {

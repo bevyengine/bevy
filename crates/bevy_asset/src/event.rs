@@ -15,7 +15,8 @@ pub struct AssetLoadFailedEvent<A: Asset> {
 }
 
 impl<A: Asset> AssetLoadFailedEvent<A> {
-    /// Converts this to an "untyped" / "generic-less" asset error event that stores the type information.
+    /// Converts this to an "untyped" / "generic-less" asset error event that stores the type
+    /// information.
     pub fn untyped(&self) -> UntypedAssetLoadFailedEvent {
         self.into()
     }
@@ -41,7 +42,8 @@ impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
     }
 }
 
-/// Events that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
+/// Events that occur for a specific loaded [`Asset`], such as "value changed" events and
+/// "dependency" events.
 #[derive(Event)]
 pub enum AssetEvent<A: Asset> {
     /// Emitted whenever an [`Asset`] is added.
@@ -52,12 +54,14 @@ pub enum AssetEvent<A: Asset> {
     Removed { id: AssetId<A> },
     /// Emitted when the last [`super::Handle::Strong`] of an [`Asset`] is dropped.
     Unused { id: AssetId<A> },
-    /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all "recursive dependencies").
+    /// Emitted whenever an [`Asset`] has been fully loaded (including its dependencies and all
+    /// "recursive dependencies").
     LoadedWithDependencies { id: AssetId<A> },
 }
 
 impl<A: Asset> AssetEvent<A> {
-    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the given `id`.
+    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the given
+    /// `id`.
     pub fn is_loaded_with_dependencies(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::LoadedWithDependencies { id } if *id == asset_id.into())
     }

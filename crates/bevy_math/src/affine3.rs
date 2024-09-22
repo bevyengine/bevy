@@ -15,7 +15,8 @@ pub struct Affine3 {
 }
 
 impl Affine3 {
-    /// Calculates the transpose of the affine 4x3 matrix to a 3x4 and formats it for packing into GPU buffers
+    /// Calculates the transpose of the affine 4x3 matrix to a 3x4 and formats it for packing into
+    /// GPU buffers
     #[inline]
     pub fn to_transpose(&self) -> [Vec4; 3] {
         let transpose_3x3 = self.matrix3.transpose();
@@ -26,7 +27,8 @@ impl Affine3 {
         ]
     }
 
-    /// Calculates the inverse transpose of the 3x3 matrix and formats it for packing into GPU buffers
+    /// Calculates the inverse transpose of the 3x3 matrix and formats it for packing into GPU
+    /// buffers
     #[inline]
     pub fn inverse_transpose_3x3(&self) -> ([Vec4; 2], f32) {
         let inverse_transpose_3x3 = Affine3A::from(self).inverse().matrix3.transpose();

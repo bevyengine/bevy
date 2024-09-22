@@ -4,7 +4,8 @@
 use bevy::{prelude::*, window::WindowResolution};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
-// TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
+// TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently
+// unsupported on CI.
 const MAX_WIDTH: u16 = 401;
 const MAX_HEIGHT: u16 = 401;
 const MIN_WIDTH: u16 = 1;

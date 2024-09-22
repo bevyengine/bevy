@@ -111,7 +111,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # app.run(&mut world);
     /// ```
     ///
-    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    /// Note that in this case, it's better to just use the run condition
+    /// [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
     fn and<M, C: Condition<M, In>>(self, and: C) -> And<Self::System, C::System> {
@@ -162,7 +163,8 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # app.run(&mut world);
     /// ```
     ///
-    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    /// Note that in this case, it's better to just use the run condition
+    /// [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
     #[deprecated(
@@ -1073,7 +1075,8 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`] that returns true when the passed one changes.
     ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
+    /// The first time this is called, the passed condition is assumed to have been previously
+    /// false.
     ///
     /// # Example
     ///
@@ -1122,7 +1125,8 @@ pub mod common_conditions {
     /// Generates a [`Condition`] that returns true when the result of
     /// the passed one went from false to true since the last time this was called.
     ///
-    /// The first time this is called, the passed condition is assumed to have been previously false.
+    /// The first time this is called, the passed condition is assumed to have been previously
+    /// false.
     ///
     /// # Example
     ///
@@ -1407,15 +1411,16 @@ mod tests {
         schedule.add_systems(
             (
                 increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
-                increment_counter.run_if(every_other_time.nand(|| false)),    // Always run.
-                double_counter.run_if(every_other_time.nor(|| false)), // Run every even cycle.
-                increment_counter.run_if(every_other_time.or(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.and_then(|| true)), /* Run every odd
+                                                                          * cycle. */
+                increment_counter.run_if(every_other_time.nand(|| false)), // Always run.
+                double_counter.run_if(every_other_time.nor(|| false)),     // Run every even cycle.
+                increment_counter.run_if(every_other_time.or(|| true)),    // Always run.
                 increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
-                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xnor(|| false)), // Run every even cycle.
-                increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
-                double_counter.run_if(every_other_time.xor(|| true)),  // Run every even cycle.
+                increment_counter.run_if(every_other_time.xnor(|| true)),  // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)),    // Run every even cycle.
+                increment_counter.run_if(every_other_time.xor(|| false)),  // Run every odd cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),      // Run every even cycle.
             )
                 .chain(),
         );

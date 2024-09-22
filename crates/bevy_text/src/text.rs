@@ -119,7 +119,8 @@ impl Text {
     }
 
     /// Returns this [`Text`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`,
+    /// will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak_behavior = BreakLineOn::NoWrap;
         self
@@ -255,9 +256,11 @@ pub enum BreakLineOn {
     /// This is closer to the behavior one might expect from text in a terminal.
     /// However it may lead to words being broken up across linebreaks.
     AnyCharacter,
-    /// Wraps at the word level, or fallback to character level if a word can’t fit on a line by itself
+    /// Wraps at the word level, or fallback to character level if a word can’t fit on a line by
+    /// itself
     WordOrCharacter,
-    /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
+    /// No soft wrapping, where text is automatically broken up into separate lines when it
+    /// overflows a boundary, will ever occur. Hard wrapping, where text contains an explicit
+    /// linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
 }

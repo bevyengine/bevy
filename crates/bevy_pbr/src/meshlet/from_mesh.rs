@@ -53,12 +53,13 @@ impl MeshletMesh {
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         while simplification_queue.len() > 1 {
-            // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
+            // For each meshlet build a list of connected meshlets (meshlets that share a triangle
+            // edge)
             let connected_meshlets_per_meshlet =
                 find_connected_meshlets(simplification_queue.clone(), &meshlets);
 
-            // Group meshlets into roughly groups of 4, grouping meshlets with a high number of shared edges
-            // http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
+            // Group meshlets into roughly groups of 4, grouping meshlets with a high number of
+            // shared edges http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
             let groups = group_meshlets(
                 simplification_queue.clone(),
                 &connected_meshlets_per_meshlet,
@@ -74,7 +75,8 @@ impl MeshletMesh {
                     continue;
                 };
 
-                // Force parent error to be >= child error (we're currently building the parent from its children)
+                // Force parent error to be >= child error (we're currently building the parent from
+                // its children)
                 group_error = group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
                     acc.max(bounding_spheres[*meshlet_id].self_lod.radius)
                 });
@@ -86,7 +88,8 @@ impl MeshletMesh {
                 ));
                 group_bounding_sphere.radius = group_error;
 
-                // For each meshlet in the group set their parent LOD bounding sphere to that of the simplified group
+                // For each meshlet in the group set their parent LOD bounding sphere to that of the
+                // simplified group
                 for meshlet_id in group_meshlets {
                     bounding_spheres[meshlet_id].parent_lod = group_bounding_sphere;
                 }
@@ -98,7 +101,8 @@ impl MeshletMesh {
                     &mut meshlets,
                 );
 
-                // Calculate the culling bounding sphere for the new meshlets and set their LOD bounding spheres
+                // Calculate the culling bounding sphere for the new meshlets and set their LOD
+                // bounding spheres
                 let new_meshlet_ids = (meshlets.len() - new_meshlets_count)..meshlets.len();
                 bounding_spheres.extend(
                     new_meshlet_ids
@@ -164,7 +168,8 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 }
 
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
-    build_meshlets(indices, vertices, 255, 128, 0.0) // Meshoptimizer won't currently let us do 256 vertices
+    build_meshlets(indices, vertices, 255, 128, 0.0) // Meshoptimizer won't currently let us do 256
+                                                     // vertices
 }
 
 fn find_connected_meshlets(
@@ -185,8 +190,9 @@ fn find_connected_meshlets(
                 let vec = edges_to_meshlets
                     .entry(edge)
                     .or_insert_with(SmallVec::<[usize; 2]>::new);
-                // Meshlets are added in order, so we can just check the last element to deduplicate,
-                // in the case of two triangles sharing the same edge within a single meshlet
+                // Meshlets are added in order, so we can just check the last element to
+                // deduplicate, in the case of two triangles sharing the same edge
+                // within a single meshlet
                 if vec.last() != Some(&meshlet_id) {
                     vec.push(meshlet_id);
                 }
@@ -206,7 +212,8 @@ fn find_connected_meshlets(
         }
     }
 
-    // For each meshlet, gather all meshlets that share at least one edge along with shared edge count
+    // For each meshlet, gather all meshlets that share at least one edge along with shared edge
+    // count
     let mut connected_meshlets = vec![Vec::new(); simplification_queue.len()];
 
     for ((meshlet_id1, meshlet_id2), shared_count) in shared_edge_count {
@@ -217,7 +224,8 @@ fn find_connected_meshlets(
             .push((meshlet_id1, shared_count));
     }
 
-    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
+    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort
+    // them
     for list in connected_meshlets.iter_mut() {
         list.sort_unstable();
     }

@@ -56,8 +56,8 @@ use hashbrown::hash_map::RawEntryMut;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-    /// futures aren't Send.
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms
+    /// (eg. Wasm), futures aren't Send.
     pub trait ConditionalSend: Send {}
     impl<T: Send> ConditionalSend for T {}
 }
@@ -71,12 +71,13 @@ mod conditional_send {
 
 pub use conditional_send::*;
 
-/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
-/// futures aren't Send.
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain
+/// platforms (eg. Wasm), futures aren't Send.
 pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
 impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
+/// An owned and dynamically typed Future used when you can't statically type your result or need to
+/// add some indirection.
 #[cfg(feature = "alloc")]
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
@@ -146,11 +147,13 @@ pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 )]
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
-/// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
+/// A pre-hashed value of a specific type.
+///
+/// Pre-hashing enables memoization of hashes that are expensive to compute.
 ///
 /// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.
-/// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`] implementation
-/// designed to work with [`Hashed`]
+/// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`]
+/// implementation designed to work with [`Hashed`]
 /// See [`PreHashMap`] for a hashmap pre-configured to use [`Hashed`] keys.
 pub struct Hashed<V, H = FixedState> {
     hash: u64,
@@ -374,7 +377,8 @@ impl<F: FnOnce()> OnDrop<F> {
 
 impl<F: FnOnce()> Drop for OnDrop<F> {
     fn drop(&mut self) {
-        // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
+        // SAFETY: We may move out of `self`, since this instance can never be observed after it's
+        // dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
     }

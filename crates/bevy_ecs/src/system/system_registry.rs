@@ -7,7 +7,8 @@ use crate::{
 use bevy_ecs_macros::Component;
 use thiserror::Error;
 
-/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
+/// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been
+/// initialized.
 #[derive(Component)]
 struct RegisteredSystem<I, O> {
     initialized: bool,
@@ -105,13 +106,14 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
 }
 
 impl World {
-    /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
+    /// Registers a system and returns a [`SystemId`] so it can later be called by
+    /// [`World::run_system`].
     ///
     /// It's possible to register the same systems more than once, they'll be stored separately.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
-    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
-    /// This allows for running systems in a pushed-based fashion.
+    /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the
+    /// associated system. This allows for running systems in a pushed-based fashion.
     /// Using a [`Schedule`](crate::schedule::Schedule) is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
     pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
@@ -144,8 +146,9 @@ impl World {
     }
 
     /// Removes a registered system and returns the system, if it exists.
-    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it afterwards will result in errors.
-    /// Re-adding the removed system will register it on a new [`SystemId`].
+    /// After removing a system, the [`SystemId`] becomes invalid and attempting to use it
+    /// afterwards will result in errors. Re-adding the removed system will register it on a new
+    /// [`SystemId`].
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
@@ -171,14 +174,17 @@ impl World {
     /// Run stored systems by their [`SystemId`].
     /// Before running a system, it must first be registered.
     /// The method [`World::register_system`] stores a given system and returns a [`SystemId`].
-    /// This is different from [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
+    /// This is different from
+    /// [`RunSystemOnce::run_system_once`](crate::system::RunSystemOnce::run_system_once),
     /// because it keeps local state between calls and change detection works correctly.
     ///
-    /// In order to run a chained system with an input, use [`World::run_system_with_input`] instead.
+    /// In order to run a chained system with an input, use [`World::run_system_with_input`]
+    /// instead.
     ///
     /// # Limitations
     ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    ///  - Stored systems cannot be recursive, they cannot call themselves through
+    ///    [`Commands::run_system`](crate::system::Commands).
     ///
     /// # Examples
     ///
@@ -268,7 +274,8 @@ impl World {
     ///
     /// # Limitations
     ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    ///  - Stored systems cannot be recursive, they cannot call themselves through
+    ///    [`Commands::run_system`](crate::system::Commands).
     ///
     /// # Examples
     ///
@@ -334,7 +341,8 @@ impl World {
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
-/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a
+/// command.
 #[derive(Debug, Clone)]
 pub struct RunSystemWithInput<I: 'static> {
     system_id: SystemId<I>,
@@ -351,19 +359,22 @@ pub struct RunSystemWithInput<I: 'static> {
 ///
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
-/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
+/// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a
+/// command.
 pub type RunSystem = RunSystemWithInput<()>;
 
 impl RunSystem {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to
+    /// [`Commands`](crate::system::Commands)
     pub fn new(system_id: SystemId) -> Self {
         Self::new_with_input(system_id, ())
     }
 }
 
 impl<I: 'static> RunSystemWithInput<I> {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
-    /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
+    /// Creates a new [`Command`] struct, which can be added to
+    /// [`Commands`](crate::system::Commands) in order to run the specified system with the
+    /// provided [`In<_>`](crate::system::In) input value.
     pub fn new_with_input(system_id: SystemId<I>, input: I) -> Self {
         Self { system_id, input }
     }

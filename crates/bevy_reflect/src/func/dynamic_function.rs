@@ -27,7 +27,8 @@ use std::sync::Arc;
 /// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
-/// Instead, many functions and closures can be automatically converted using the [`IntoFunction`] trait.
+/// Instead, many functions and closures can be automatically converted using the [`IntoFunction`]
+/// trait.
 ///
 /// # Example
 ///
@@ -79,9 +80,9 @@ impl<'env> DynamicFunction<'env> {
     /// Set the name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`std::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -132,9 +133,9 @@ impl<'env> DynamicFunction<'env> {
     /// The [name] of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
-    /// unless the function is a closure, anonymous function, or function pointer,
-    /// in which case the name will be `None`.
+    /// the default name will always be the full path to the function as returned by
+    /// [`std::any::type_name`], unless the function is a closure, anonymous function, or
+    /// function pointer, in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
@@ -250,9 +251,11 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 
 /// Outputs the function's signature.
 ///
-/// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) ->
+/// {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments and the function itself are optional and will default to `_` if not
+/// provided.
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));

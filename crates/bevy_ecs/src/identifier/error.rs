@@ -1,5 +1,6 @@
-//! Error types for [`super::Identifier`] conversions. An ID can be converted
-//! to various kinds, but these can fail if they are not valid forms of those
+//! Error types for [`super::Identifier`] conversions.
+//!
+//! An ID can be converted to various kinds, but these can fail if they are not valid forms of those
 //! kinds. The error type in this module encapsulates the various failure modes.
 use std::fmt;
 
@@ -10,7 +11,8 @@ use std::fmt;
 pub enum IdentifierError {
     /// A given ID has an invalid value for initialising to a [`crate::identifier::Identifier`].
     InvalidIdentifier,
-    /// A given ID has an invalid configuration of bits for converting to an [`crate::entity::Entity`].
+    /// A given ID has an invalid configuration of bits for converting to an
+    /// [`crate::entity::Entity`].
     InvalidEntityId(u64),
 }
 

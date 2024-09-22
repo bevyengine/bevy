@@ -1,7 +1,7 @@
 //! This example shows how to manually render 2d items using "mid level render apis" with a custom
 //! pipeline for 2d meshes.
-//! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
-//! Check out the "mesh2d" example for simpler / higher level 2d meshes.
+//! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex
+//! color. Check out the "mesh2d" example for simpler / higher level 2d meshes.
 //!
 //! [`Material2d`]: bevy::sprite::Material2d
 
@@ -77,7 +77,8 @@ fn star(
     for i in 0..10 {
         // The angle between each vertex is 1/10 of a full rotation.
         let a = i as f32 * PI / 5.0;
-        // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
+        // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's
+        // 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
         // Add the vertex position.
         v_pos.push([r * ops::sin(a), r * ops::cos(a), 0.0]);
@@ -111,7 +112,8 @@ fn star(
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d,
-        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
+        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead
+        // of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
         SpatialBundle::INHERITED_IDENTITY,

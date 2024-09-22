@@ -15,7 +15,8 @@ impl<'a> Serializable<'a> {
     ///
     /// Returns an error if any of the following conditions are met:
     /// - The underlying type of `value` does not implement [`Reflect`].
-    /// - The underlying type of `value` does not represent any type (via [`PartialReflect::get_represented_type_info`]).
+    /// - The underlying type of `value` does not represent any type (via
+    ///   [`PartialReflect::get_represented_type_info`]).
     /// - The represented type of `value` is not registered in the `type_registry`.
     /// - The represented type of `value` did not register the [`ReflectSerialize`] type data.
     ///
