@@ -9,7 +9,9 @@ mod typed;
 mod values;
 
 pub(crate) use assertions::impl_assertions;
-pub(crate) use common::{common_partial_reflect_methods, impl_full_reflect};
+pub(crate) use common::{
+    common_partial_reflect_methods, impl_full_reflect, reflect_auto_registration,
+};
 pub(crate) use enums::impl_enum;
 #[cfg(feature = "functions")]
 pub(crate) use func::impl_function_traits;

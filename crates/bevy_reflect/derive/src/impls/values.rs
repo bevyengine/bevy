@@ -1,4 +1,7 @@
-use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
+use crate::impls::{
+    common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed,
+    reflect_auto_registration,
+};
 use crate::utility::WhereClauseOptions;
 use crate::ReflectMeta;
 use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
@@ -57,6 +60,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 
+    let auto_register = reflect_auto_registration(meta);
+
     quote! {
         #get_type_registration_impl
 
@@ -67,6 +72,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         #full_reflect_impl
 
         #function_impls
+
+        #auto_register
 
         impl #impl_generics #bevy_reflect_path::PartialReflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]

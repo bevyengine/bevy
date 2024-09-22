@@ -1,6 +1,6 @@
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
 
@@ -155,4 +155,26 @@ pub fn common_partial_reflect_methods(
 
         #debug_fn
     }
+}
+
+pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
+    if meta.attrs().no_auto_register() {
+        return None;
+    }
+
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let type_path = meta.type_path();
+    let generics = meta.type_path().generics();
+
+    if !generics.into_token_stream().is_empty() {
+        return None;
+    };
+
+    Some(quote! {
+        #bevy_reflect_path::__macro_exports::auto_register_function!{
+            #bevy_reflect_path::__macro_exports::AutomaticReflectRegistrations::add(
+                <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register
+            )
+        }
+    })
 }

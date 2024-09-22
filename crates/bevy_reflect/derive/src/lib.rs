@@ -310,6 +310,12 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// #[reflect(@Required, @EditorTooltip::new("An ID is required!"))]
 /// struct Id(u8);
 /// ```
+/// ## `#[reflect(no_auto_register)]`
+///
+/// This attribute will opt-out of the automatic reflect type registration.
+///
+/// All non-generic types annotated with `#[derive(Reflect)]` are usually automatically registered on app startup.
+/// If this behavior is not desired, this attribute may be used to disable it for the annotated type.
 ///
 /// # Field Attributes
 ///
