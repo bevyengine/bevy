@@ -218,8 +218,8 @@ impl TextPipeline {
                     layout_glyph.x = layout_glyph.x.round();
                     layout_glyph.y = layout_glyph.y.round();
                     layout_glyph.w = layout_glyph.w.round();
-                    layout_glyph.y_offset = layout_glyph.y_offset.round();
                     layout_glyph.x_offset = layout_glyph.x_offset.round();
+                    layout_glyph.y_offset = layout_glyph.y_offset.round();
                     layout_glyph.line_height_opt = layout_glyph.line_height_opt.map(f32::round);
                 }
                 let section_index = layout_glyph.metadata;
