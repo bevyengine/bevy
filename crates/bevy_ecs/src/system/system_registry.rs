@@ -770,18 +770,18 @@ mod tests {
         assert_ne!(old, new);
 
         let output = world.run_system(old);
-        assert_eq!(
+        assert_matches!(
             output,
-            Err(RegisteredSystemError::SystemIdNotRegistered(old)),
+            Err(RegisteredSystemError::SystemIdNotRegistered(x)) if x == old,
         );
 
         let output = world.run_system(new);
-        assert_eq!(output, Ok(four()));
+        assert_matches!(output, Ok(x) if x == four());
 
         let output = world.run_system_cached(four);
-        assert_eq!(output, Ok(four()));
+        assert_matches!(output, Ok(x) if x == four());
 
         let output = world.run_system_cached_with(four, ());
-        assert_eq!(output, Ok(four()));
+        assert_matches!(output, Ok(x) if x == four());
     }
 }
