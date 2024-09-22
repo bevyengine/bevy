@@ -36,6 +36,8 @@ pub struct Text {
     pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
+    /// The antialiasing method to use when rendering text.
+    pub font_smoothing: FontSmoothing,
 }
 
 impl Text {
@@ -259,4 +261,26 @@ pub enum BreakLineOn {
     /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
+}
+
+/// Determines which antialiasing method to use when rendering text. By default, text is
+/// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
+///
+/// **Note:** Subpixel antialiasing (a.k.a. “ClearType” on Windows) is not currently supported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+#[doc(alias = "antialiasing")]
+#[doc(alias = "pixelated")]
+pub enum FontSmoothing {
+    /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
+    ///
+    /// **Note:** Due to limitations of the underlying text rendering library,
+    /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
+    None,
+    /// The default grayscale antialising. Produces text that looks smooth,
+    /// even at small font sizes and low resolutions with modern vector fonts.
+    #[default]
+    Antialiased,
+    // TODO: Add subpixel antialias support
+    // SubpixelAntialiased,
 }
