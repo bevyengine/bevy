@@ -1,11 +1,17 @@
-use perfect_derive::perfect_derive;
-
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,
 /// combining errors into one along the way.
-#[perfect_derive(Default)]
 pub(crate) struct ResultSifter<T> {
     items: Vec<T>,
     errors: Option<syn::Error>,
+}
+
+impl<T> Default for ResultSifter<T> {
+    fn default() -> Self {
+        Self {
+            items: Vec::new(),
+            errors: None,
+        }
+    }
 }
 
 impl<T> ResultSifter<T> {

@@ -20,7 +20,6 @@ functions = []
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.15.0-dev" }
-perfect-derive = "0.1.3"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
