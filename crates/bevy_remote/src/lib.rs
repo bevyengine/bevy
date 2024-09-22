@@ -807,10 +807,7 @@ async fn process_single_request(
     request_sender: &Sender<BrpMessage>,
 ) -> AnyhowResult<BrpResponse> {
     // Reach in and get the request ID early so that we can report it even when parsing fails.
-    let id = request
-        .as_object()
-        .and_then(|map| map.get("id"))
-        .and_then(|id| Some(id.clone()));
+    let id = request.as_object().and_then(|map| map.get("id")).cloned();
 
     let request: BrpRequest = match serde_json::from_value(request) {
         Ok(v) => v,
