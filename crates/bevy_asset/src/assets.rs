@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -458,6 +458,9 @@ pub struct Assets<A: Asset> {
     // `AssetPresence` (and taking requires a default).
     hash_map: HashMap<Uuid, AssetPresence<A>>,
     handle_provider: AssetHandleProvider,
+    /// The set of currently locked assets. This just improves the speed of iterating through the
+    /// locked assets.
+    locked_assets: HashSet<AssetId<A>>,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
     /// originating from `get_strong_handle`.
@@ -473,6 +476,7 @@ impl<A: Asset> Default for Assets<A> {
             dense_storage,
             handle_provider,
             hash_map: Default::default(),
+            locked_assets: Default::default(),
             queued_events: Default::default(),
             duplicate_handles: Default::default(),
         }
@@ -528,6 +532,8 @@ impl<A: Asset> Assets<A> {
     pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> bool {
         let result = self.hash_map.insert(uuid, AssetPresence::Unlocked(asset));
         if result.is_some() {
+            // Make sure the asset isn't marked as locked anymore.
+            self.locked_assets.remove(&AssetId::Uuid { uuid });
             self.queued_events
                 .push(AssetEvent::Modified { id: uuid.into() });
         } else {
@@ -543,6 +549,11 @@ impl<A: Asset> Assets<A> {
     ) -> Result<bool, InvalidGenerationError> {
         let replaced = self.dense_storage.insert(index, asset)?;
         if replaced {
+            // Make sure the asset isn't marked as locked anymore.
+            self.locked_assets.remove(&AssetId::Index {
+                index,
+                marker: PhantomData,
+            });
             self.queued_events
                 .push(AssetEvent::Modified { id: index.into() });
         } else {
@@ -614,26 +625,34 @@ impl<A: Asset> Assets<A> {
     /// until it is unlocked. Returns [`None`] if the asset is missing.
     pub fn lock(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
         let id: AssetId<A> = id.into();
-        match id {
+        let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.lock(index),
             AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
                 None => None,
                 Some(asset_presence) => asset_presence.lock(),
             },
+        };
+        if result.is_some() {
+            self.locked_assets.insert(id);
         }
+        result
     }
 
     /// Attempts to unlock the asset with the given `id` (returning it to a mutable
     /// state). Note an already unlocked asset will return [`Ok`].
     pub fn try_unlock(&mut self, id: impl Into<AssetId<A>>) -> Result<(), UnlockAssetError> {
         let id: AssetId<A> = id.into();
-        match id {
+        let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.try_unlock(index),
             AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
                 None => Err(UnlockAssetError::Missing),
                 Some(asset_presence) => asset_presence.try_unlock(),
             },
+        };
+        if result.is_ok() {
+            self.locked_assets.remove(&id);
         }
+        result
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
@@ -652,6 +671,7 @@ impl<A: Asset> Assets<A> {
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> AssetPresence<A> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
+        self.locked_assets.remove(&id);
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).unwrap_or(AssetPresence::None),
@@ -660,6 +680,7 @@ impl<A: Asset> Assets<A> {
 
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
+        self.locked_assets.remove(&id);
         match self.duplicate_handles.get_mut(&id) {
             None | Some(0) => {}
             Some(value) => {
@@ -691,6 +712,12 @@ impl<A: Asset> Assets<A> {
         self.dense_storage
             .ids()
             .chain(self.hash_map.keys().map(|uuid| AssetId::from(*uuid)))
+    }
+
+    /// Returns an iterator over the [`AssetId`] of every locked [`Asset`] stored in this
+    /// collection.
+    pub fn locked_ids(&self) -> impl Iterator<Item = AssetId<A>> + '_ {
+        self.locked_assets.iter().copied()
     }
 
     /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
