@@ -1,14 +1,15 @@
+//! In this example we will simulate a population of entities. In every tick we will:
+//! 1. spawn a new entity with a certain possibility
+//! 2. age all entities
+//! 3. despawn entities with age > 2
+//!
+//! To demonstrate change detection, there are some console outputs based on changes in
+//! the `EntityCounter` resource and updated Age components
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
-// In this example we will simulate a population of entities. In every tick we will:
-// 1. spawn a new entity with a certain possibility
-// 2. age all entities
-// 3. despawn entities with age > 2
-//
-// To demonstrate change detection, there are some console outputs based on changes in
-// the EntityCounter resource and updated Age components
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
     let mut world = World::new();

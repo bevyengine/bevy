@@ -14,54 +14,6 @@ on:
       - completed
 
 jobs:
-  example-run:
-    runs-on: ubuntu-latest
-    if: >
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'failure'
-    steps:
-      - name: 'Download artifact'
-        id: find-artifact
-        uses: actions/github-script@v6
-        with:
-          result-encoding: string
-          script: |
-            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               run_id: ${{github.event.workflow_run.id }},
-            });
-            var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
-              return artifact.name == "example-run"
-            });
-            if (matchArtifacts.length == 0) { return "false" }
-            var matchArtifact = matchArtifacts[0];
-            var download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
-            });
-            var fs = require('fs');
-            fs.writeFileSync('${{github.workspace}}/example-run.zip', Buffer.from(download.data));
-            return "true"
-      - run: unzip example-run.zip
-        if: ${{ steps.find-artifact.outputs.result == 'true' }}
-      - name: 'Comment on PR'
-        if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            var fs = require('fs');
-            var issue_number = Number(fs.readFileSync('./NR'));
-            var last_example_run = fs.readFileSync('./last_example_run');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: 'Example `' + last_example_run + '` failed to run, please try running it locally and check the result.'
-            });
 
   missing-examples:
     runs-on: ubuntu-latest
@@ -71,7 +23,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -98,7 +50,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -117,7 +69,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue_number,
-                body: 'You added a new example but didn\'t update the readme. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
+                body: 'The generated `examples/README.md` is out of sync with the example metadata in `Cargo.toml` or the example readme template. Please run `cargo run -p build-templated-pages -- update examples` to update it, and commit the file change.'
               });
             }
 
@@ -129,7 +81,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -156,7 +108,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -187,7 +139,7 @@ jobs:
     steps:
       - name: 'Download artifact'
         id: find-artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           result-encoding: string
           script: |
@@ -214,7 +166,7 @@ jobs:
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
       - name: 'Comment on PR'
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

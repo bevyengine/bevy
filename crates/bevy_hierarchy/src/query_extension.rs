@@ -2,14 +2,14 @@ use std::collections::VecDeque;
 
 use bevy_ecs::{
     entity::Entity,
-    query::{ReadOnlyWorldQuery, WorldQuery},
+    query::{QueryData, QueryFilter, WorldQuery},
     system::Query,
 };
 
 use crate::{Children, Parent};
 
 /// An extension trait for [`Query`] that adds hierarchy related methods.
-pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
+pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
     /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
@@ -30,9 +30,9 @@ pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
+    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
@@ -52,24 +52,22 @@ pub trait HierarchyQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, Q, F>
+    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, D, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, F>
-    for Query<'w, 's, Q, F>
-{
-    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, Q, F>
+impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
+    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
         DescendantIter::new(self, entity)
     }
 
-    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, Q, F>
+    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, D, F>
     where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         AncestorIter::new(self, entity)
     }
@@ -78,20 +76,20 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> HierarchyQueryExt<'w, 's, Q, 
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
+pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
-    children_query: &'w Query<'w, 's, Q, F>,
+    children_query: &'w Query<'w, 's, D, F>,
     vecdeque: VecDeque<Entity>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> DescendantIter<'w, 's, Q, F>
+impl<'w, 's, D: QueryData, F: QueryFilter> DescendantIter<'w, 's, D, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
     /// Returns a new [`DescendantIter`].
-    pub fn new(children_query: &'w Query<'w, 's, Q, F>, entity: Entity) -> Self {
+    pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
         DescendantIter {
             children_query,
             vecdeque: children_query
@@ -104,9 +102,9 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for DescendantIter<'w, 's, Q, F>
+impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for DescendantIter<'w, 's, D, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
     type Item = Entity;
 
@@ -122,20 +120,20 @@ where
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
+pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
-    parent_query: &'w Query<'w, 's, Q, F>,
+    parent_query: &'w Query<'w, 's, D, F>,
     next: Option<Entity>,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> AncestorIter<'w, 's, Q, F>
+impl<'w, 's, D: QueryData, F: QueryFilter> AncestorIter<'w, 's, D, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
     /// Returns a new [`AncestorIter`].
-    pub fn new(parent_query: &'w Query<'w, 's, Q, F>, entity: Entity) -> Self {
+    pub fn new(parent_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
         AncestorIter {
             parent_query,
             next: Some(entity),
@@ -143,14 +141,14 @@ where
     }
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for AncestorIter<'w, 's, Q, F>
+impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for AncestorIter<'w, 's, D, F>
 where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next = self.parent_query.get(self.next?).ok().map(|p| p.get());
+        self.next = self.parent_query.get(self.next?).ok().map(Parent::get);
         self.next
     }
 }
@@ -163,7 +161,7 @@ mod tests {
         world::World,
     };
 
-    use crate::{query_extension::HierarchyQueryExt, BuildWorldChildren, Children, Parent};
+    use crate::{query_extension::HierarchyQueryExt, BuildChildren, Children, Parent};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -174,8 +172,8 @@ mod tests {
 
         let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b, c]);
-        world.entity_mut(c).push_children(&[d]);
+        world.entity_mut(a).add_children(&[b, c]);
+        world.entity_mut(c).add_children(&[d]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
@@ -193,8 +191,8 @@ mod tests {
 
         let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).push_children(&[b]);
-        world.entity_mut(b).push_children(&[c]);
+        world.entity_mut(a).add_children(&[b]);
+        world.entity_mut(b).add_children(&[c]);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);

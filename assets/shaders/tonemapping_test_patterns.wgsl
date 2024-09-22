@@ -1,21 +1,18 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::utils
+#import bevy_pbr::{
+    mesh_view_bindings,
+    forward_io::VertexOutput,
+}
+
+#import bevy_render::maths::PI
 
 #ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
+#import bevy_core_pipeline::tonemapping::tone_mapping
 #endif
-
-struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
-    @builtin(position) frag_coord: vec4<f32>,
-    #import bevy_pbr::mesh_vertex_output
-};
 
 // Sweep across hues on y axis with value from 0.0 to +15EV across x axis 
 // quantized into 24 steps for both axis.
-fn color_sweep(uv: vec2<f32>) -> vec3<f32> {
-    var uv = uv;
+fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
+    var uv = uv_input;
     let steps = 24.0;
     uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
@@ -47,7 +44,9 @@ fn continuous_hue(uv: vec2<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: VertexOutput,
+) -> @location(0) vec4<f32> {
     var uv = in.uv;
     var out = vec3(0.0);
     if uv.y > 0.5 {
@@ -58,7 +57,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
     var color = vec4(out, 1.0);
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color);
+    color = tone_mapping(color, mesh_view_bindings::view.color_grading);
 #endif
     return color;
 }

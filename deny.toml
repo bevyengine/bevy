@@ -1,45 +1,78 @@
+[graph]
+all-features = true
+
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "deny"
-yanked = "deny"
-notice = "deny"
-ignore = [
-    "RUSTSEC-2022-0048", # from xml-rs 0.8.4 - unmaintained - it's used in a build script of winit
-]
+version = 2
+ignore = []
 
 [licenses]
-unlicensed = "deny"
-copyleft = "deny"
+version = 2
 allow = [
-    "MIT",
-    "MIT-0",
-    "Apache-2.0",
-    "BSD-3-Clause",
-    "ISC",
-    "Zlib",
-    "0BSD",
-    "BSD-2-Clause",
-    "CC0-1.0",
+  "0BSD",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  "Unlicense",
+  "Zlib",
 ]
+
 exceptions = [
-    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
+  { name = "unicode-ident", allow = [
+    "Unicode-DFS-2016",
+  ] },
+  { name = "symphonia", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-bundle-flac", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-bundle-mp3", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-aac", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-adpcm", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-pcm", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-codec-vorbis", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-core", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-isomp4", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-format-riff", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-metadata", allow = [
+    "MPL-2.0",
+  ] },
+  { name = "symphonia-utils-xiph", allow = [
+    "MPL-2.0",
+  ] },
 ]
-default = "deny"
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "warn"
 wildcards = "deny"
-highlight = "all"
-# Certain crates/versions that will be skipped when doing duplicate detection.
-skip = [
-    { name = "core-foundation-sys", version = "0.6" },   # from cpal v0.15.0
-    { name = "jni", version = "0.19" },                  # from cpal v0.15.0
-    { name = "nix", version = "0.24" },                  # from cpal v0.15.0
-    { name = "redox_syscall", version = "0.2" },         # from notify v5.1.0
-    { name = "windows-sys", version = "0.42" },          # from notify v5.1.0
-    { name = "windows", version = "0.43"},               # from gilrs v0.10.1
+# Certain crates that we don't want multiple versions of in the dependency tree
+deny = [
+  { name = "ahash", deny-multiple-versions = true },
+  { name = "android-activity", deny-multiple-versions = true },
+  { name = "glam", deny-multiple-versions = true },
+  { name = "raw-window-handle", deny-multiple-versions = true },
 ]
 
 [sources]

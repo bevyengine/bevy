@@ -14,65 +14,70 @@ fn easing(c: &mut Criterion) {
 }
 
 fn cubic_2d(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec2(0.0, 0.0),
         vec2(0.0, 1.0),
         vec2(1.0, 0.0),
         vec2(1.0, 1.0),
     ]])
-    .to_curve();
+    .to_curve()
+    .expect("Unable to build a curve from this data");
     c.bench_function("cubic_position_Vec2", |b| {
         b.iter(|| black_box(bezier.position(black_box(0.5))));
     });
 }
 
 fn cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),
         vec3a(1.0, 1.0, 1.0),
     ]])
-    .to_curve();
+    .to_curve()
+    .expect("Unable to build a curve from this data");
     c.bench_function("cubic_position_Vec3A", |b| {
         b.iter(|| black_box(bezier.position(black_box(0.5))));
     });
 }
 
 fn cubic_vec3(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3(0.0, 0.0, 0.0),
         vec3(0.0, 1.0, 0.0),
         vec3(1.0, 0.0, 0.0),
         vec3(1.0, 1.0, 1.0),
     ]])
-    .to_curve();
+    .to_curve()
+    .expect("Unable to build a curve from this data");
     c.bench_function("cubic_position_Vec3", |b| {
         b.iter(|| black_box(bezier.position(black_box(0.5))));
     });
 }
 
 fn build_pos_cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),
         vec3a(1.0, 1.0, 1.0),
     ]])
-    .to_curve();
+    .to_curve()
+    .expect("Unable to build a curve from this data");
     c.bench_function("build_pos_cubic_100_points", |b| {
         b.iter(|| black_box(bezier.iter_positions(black_box(100)).collect::<Vec<_>>()));
     });
 }
 
 fn build_accel_cubic(c: &mut Criterion) {
-    let bezier = Bezier::new([[
+    let bezier = CubicBezier::new([[
         vec3a(0.0, 0.0, 0.0),
         vec3a(0.0, 1.0, 0.0),
         vec3a(1.0, 0.0, 0.0),
         vec3a(1.0, 1.0, 1.0),
     ]])
-    .to_curve();
+    .to_curve()
+    .expect("Unable to build a curve from this data");
     c.bench_function("build_accel_cubic_100_points", |b| {
         b.iter(|| black_box(bezier.iter_positions(black_box(100)).collect::<Vec<_>>()));
     });

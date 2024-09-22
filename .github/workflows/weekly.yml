@@ -1,0 +1,111 @@
+name: Weekly beta compile test
+
+on:
+  schedule:
+    # New versions of rust release on Thursdays. We test on Mondays to get at least 3 days of warning before all our CI breaks again.
+    # https://forge.rust-lang.org/release/process.html#release-day-thursday
+    - cron:  '0 12 * * 1'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Build & run tests
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- test
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+        with:
+          components: rustfmt, clippy
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+      - name: Run lints
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- lints
+
+  check-compiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check compile test
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- compile
+
+  check-doc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+      - name: Build and check docs
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- doc
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0"
+
+  open-issue:
+    name: Warn that weekly CI fails
+    runs-on: ubuntu-latest
+    needs: [test, lint, check-compiles, check-doc]
+    permissions:
+      issues: write
+    # Use always() so the job doesn't get canceled if any other jobs fail 
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    steps:
+      - name: Create issue
+        run: |
+          previous_issue_number=$(gh issue list \
+            --search "$TITLE in:title" \
+            --json number \
+            --jq '.[0].number')
+          if [[ -n $previous_issue_number ]]; then
+            gh issue comment $previous_issue_number \
+              --body "Weekly pipeline still fails: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
+          else
+            gh issue create \
+              --title "$TITLE" \
+              --label "$LABELS" \
+              --body "$BODY"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Main branch fails to compile on Rust beta.
+          LABELS: C-Bug,S-Needs-Triage
+          BODY: | 
+            ## Weekly CI run has failed.
+            [The offending run.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
