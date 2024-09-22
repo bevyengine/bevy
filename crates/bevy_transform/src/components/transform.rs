@@ -66,7 +66,7 @@ use std::ops::Mul;
 ///   to learn how to use the [`Transform`] of an entity.
 /// - The [`parenting example`], to learn how [`Transform`] behaves in a hierarchy.
 ///
-/// [`TransformBundle`]: crate::TransformBundle
+/// [`TransformBundle`]: crate::bundles::TransformBundle
 /// [`TransformPropagate`]: crate::TransformSystem::TransformPropagate
 /// [`PostUpdate`]: bevy_app::PostUpdate
 /// [`Parent`]: bevy_hierarchy::Parent

@@ -20,7 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///   * You can use [`compute_transform`] to get the global `translation`, `rotation` and `scale`.
 /// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
 ///   [`Transform`] instead, the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
-///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee
+///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee
 ///     an entity has both components.
 ///
 /// ## `translation`, `rotation` and `scale`
