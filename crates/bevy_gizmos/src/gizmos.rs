@@ -193,7 +193,7 @@ where
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
     }
 
@@ -204,7 +204,7 @@ where
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,

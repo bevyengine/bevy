@@ -112,7 +112,7 @@ pub trait System: Send + Sync + 'static {
     /// This is a safe version of [`System::validate_param_unsafe`]
     /// that runs on exclusive, single-threaded `world` pointer.
     fn validate_param(&mut self, world: &mut World) -> bool {
-        let world_cell = world.as_unsafe_world_cell();
+        let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.

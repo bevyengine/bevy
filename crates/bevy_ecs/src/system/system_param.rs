@@ -223,7 +223,7 @@ pub unsafe trait SystemParam: Sized {
     /// This should be called before [`SystemParam::get_param`] when running systems
     /// to ensure data can be acquired without panic.
     ///
-    /// For encapsulated [`SystemState`]s validation will fail if any
+    /// For encapsulated [`SystemParam`]s validation will fail if any
     /// delegated validation fails.
     ///
     /// # Safety
