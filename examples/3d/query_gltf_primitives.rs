@@ -41,7 +41,7 @@ fn find_top_material_and_mesh(
                     mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
                 {
                     positions[0] = (
-                        f32::sin(2.0 * PI * time.elapsed_seconds()),
+                        ops::sin(2.0 * PI * time.elapsed_seconds()),
                         positions[0][1],
                         positions[0][2],
                     )
