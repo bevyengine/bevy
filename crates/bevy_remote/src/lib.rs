@@ -348,7 +348,7 @@ pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
     /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
-    pub jsonrpc: String,
+    pub jsonrpc: Option<Value>,
 
     /// The action to be performed. Parsing is deferred for the sake of error reporting.
     pub method: Option<Value>,
@@ -818,7 +818,35 @@ async fn process_single_request(
         }
     };
 
-    if request.jsonrpc != "2.0" {
+    // The reason that parsing of these fields is delayed is so that the request id can
+    // be included in the BRP response even if the parsing of the request is unsuccessful.
+    let jsonrpc: String = match request.jsonrpc {
+        Some(jsonrpc) => match serde_json::from_value(jsonrpc) {
+            Ok(v) => v,
+            Err(err) => {
+                return Ok(BrpResponse::new(
+                    request.id,
+                    Err(BrpError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: err.to_string(),
+                        data: None,
+                    }),
+                ));
+            }
+        },
+        None => {
+            return Ok(BrpResponse::new(
+                request.id,
+                Err(BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: String::from("Field \"jsonrpc\" not found"),
+                    data: None,
+                }),
+            ));
+        }
+    };
+
+    if jsonrpc != "2.0" {
         return Ok(BrpResponse::new(
             request.id,
             Err(BrpError {
