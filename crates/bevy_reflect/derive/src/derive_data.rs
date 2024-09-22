@@ -3,15 +3,17 @@ use proc_macro2::Span;
 
 use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
 use crate::field_attributes::FieldAttributes;
+use crate::result_sifter::ResultSifter;
+use crate::string_expression::StringExpression;
 use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{StringExpr, WhereClauseOptions};
+use crate::where_clause_options::WhereClauseOptions;
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
 use crate::remote::RemoteType;
 use crate::serialization::SerializationDataDef;
 use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+    REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
     TYPE_PATH_ATTRIBUTE_NAME,
 };
 use syn::punctuated::Punctuated;
@@ -399,7 +401,7 @@ impl<'a> ReflectDerive<'a> {
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
-        let sifter: utility::ResultSifter<StructField<'a>> = fields
+        let sifter: ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
             .map(
@@ -423,10 +425,7 @@ impl<'a> ReflectDerive<'a> {
                     })
                 },
             )
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -434,7 +433,7 @@ impl<'a> ReflectDerive<'a> {
     fn collect_enum_variants(
         variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
-        let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
+        let sifter: ResultSifter<EnumVariant<'a>> = variants
             .iter()
             .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
@@ -452,10 +451,7 @@ impl<'a> ReflectDerive<'a> {
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -467,7 +463,7 @@ impl<'a> ReflectMeta<'a> {
             attrs,
             type_path,
             remote_ty: None,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
+            bevy_reflect_path: crate::meta::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }
@@ -948,8 +944,8 @@ pub(crate) enum ReflectTypePath<'a> {
     )]
     Anonymous {
         qualified_type: Type,
-        long_type_path: StringExpr,
-        short_type_path: StringExpr,
+        long_type_path: StringExpression,
+        short_type_path: StringExpression,
     },
 }
 
@@ -1049,7 +1045,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpr`] representing the name of the type's crate.
+    /// Returns a [`StringExpression`] representing the name of the type's crate.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
@@ -1060,14 +1056,14 @@ impl<'a> ReflectTypePath<'a> {
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn crate_name(&self) -> Option<StringExpr> {
+    pub fn crate_name(&self) -> Option<StringExpression> {
         if let Some(path) = self.get_path() {
             let crate_name = &path.segments.first().unwrap().ident;
-            return Some(StringExpr::from(crate_name));
+            return Some(StringExpression::from(crate_name));
         }
 
         match self {
-            Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
+            Self::Internal { .. } => Some(StringExpression::Borrowed(quote! {
                 ::core::module_path!()
                     .split(':')
                     .next()
@@ -1078,22 +1074,22 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Combines type generics and const generics into one [`StringExpr`].
+    /// Combines type generics and const generics into one [`StringExpression`].
     ///
     /// This string can be used with a `GenericTypePathCell` in a `TypePath` implementation.
     ///
-    /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpr`]s.
+    /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpression`]s.
     fn reduce_generics(
         generics: &Generics,
-        mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
-    ) -> StringExpr {
+        mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpression,
+    ) -> StringExpression {
         let mut params = generics.params.iter().filter_map(|param| match param {
             GenericParam::Type(type_param) => Some(ty_generic_fn(type_param)),
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;
                 let ty = &const_param.ty;
 
-                Some(StringExpr::Owned(quote! {
+                Some(StringExpression::Owned(quote! {
                     <#ty as ::std::string::ToString>::to_string(&#ident)
                 }))
             }
@@ -1103,16 +1099,16 @@ impl<'a> ReflectTypePath<'a> {
         params
             .next()
             .into_iter()
-            .chain(params.flat_map(|x| [StringExpr::from_str(", "), x]))
+            .chain(params.flat_map(|x| [StringExpression::from_str(", "), x]))
             .collect()
     }
 
-    /// Returns a [`StringExpr`] representing the "type path" of the type.
+    /// Returns a [`StringExpression`] representing the "type path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
-    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
+    pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpression {
         match self {
-            Self::Primitive(ident) => StringExpr::from(ident),
+            Self::Primitive(ident) => StringExpression::from(ident),
             Self::Anonymous { long_type_path, .. } => long_type_path.clone(),
             Self::Internal { generics, .. } | Self::External { generics, .. } => {
                 let ident = self.type_ident().unwrap();
@@ -1122,36 +1118,40 @@ impl<'a> ReflectTypePath<'a> {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {
-                            StringExpr::Borrowed(quote! {
+                            StringExpression::Borrowed(quote! {
                                 <#ident as #bevy_reflect_path::TypePath>::type_path()
                             })
                         },
                     );
 
-                    StringExpr::from_iter([
+                    StringExpression::from_iter([
                         module_path,
-                        StringExpr::from_str("::"),
+                        StringExpression::from_str("::"),
                         ident,
-                        StringExpr::from_str("<"),
+                        StringExpression::from_str("<"),
                         generics,
-                        StringExpr::from_str(">"),
+                        StringExpression::from_str(">"),
                     ])
                 } else {
-                    StringExpr::from_iter([module_path, StringExpr::from_str("::"), ident])
+                    StringExpression::from_iter([
+                        module_path,
+                        StringExpression::from_str("::"),
+                        ident,
+                    ])
                 }
             }
         }
     }
 
-    /// Returns a [`StringExpr`] representing the "short path" of the type.
+    /// Returns a [`StringExpression`] representing the "short path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"Option<PhantomData>"`.
-    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
+    pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpression {
         match self {
             Self::Anonymous {
                 short_type_path, ..
             } => short_type_path.clone(),
-            Self::Primitive(ident) => StringExpr::from(ident),
+            Self::Primitive(ident) => StringExpression::from(ident),
             Self::External { generics, .. } | Self::Internal { generics, .. } => {
                 let ident = self.type_ident().unwrap();
 
@@ -1159,17 +1159,17 @@ impl<'a> ReflectTypePath<'a> {
                     let generics = ReflectTypePath::reduce_generics(
                         generics,
                         |TypeParam { ident, .. }| {
-                            StringExpr::Borrowed(quote! {
+                            StringExpression::Borrowed(quote! {
                                 <#ident as #bevy_reflect_path::TypePath>::short_type_path()
                             })
                         },
                     );
 
-                    StringExpr::from_iter([
+                    StringExpression::from_iter([
                         ident,
-                        StringExpr::from_str("<"),
+                        StringExpression::from_str("<"),
                         generics,
-                        StringExpr::from_str(">"),
+                        StringExpression::from_str(">"),
                     ])
                 } else {
                     ident
@@ -1178,7 +1178,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpr`] representing the path to the module
+    /// Returns a [`StringExpression`] representing the path to the module
     /// that the type is in.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
@@ -1190,7 +1190,7 @@ impl<'a> ReflectTypePath<'a> {
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous
     /// [internal]: ReflectTypePath::Internal
-    pub fn module_path(&self) -> Option<StringExpr> {
+    pub fn module_path(&self) -> Option<StringExpression> {
         if let Some(path) = self.get_path() {
             let path_string = path
                 .segments
@@ -1201,11 +1201,11 @@ impl<'a> ReflectTypePath<'a> {
                 .unwrap();
 
             let path_lit = LitStr::new(&path_string, path.span());
-            return Some(StringExpr::from_lit(&path_lit));
+            return Some(StringExpression::from_lit(&path_lit));
         }
 
         match self {
-            Self::Internal { .. } => Some(StringExpr::Const(quote! {
+            Self::Internal { .. } => Some(StringExpression::Const(quote! {
                 ::core::module_path!()
             })),
             Self::External { .. } => unreachable!(),
@@ -1213,7 +1213,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpr`] representing the type's final ident.
+    /// Returns a [`StringExpression`] representing the type's final ident.
     ///
     /// Returns [`None`] if the type is [anonymous].
     ///
@@ -1222,8 +1222,8 @@ impl<'a> ReflectTypePath<'a> {
     /// For `Option<PhantomData>`, this is `"Option"`.
     ///
     /// [anonymous]: ReflectTypePath::Anonymous
-    pub fn type_ident(&self) -> Option<StringExpr> {
-        self.get_ident().map(StringExpr::from)
+    pub fn type_ident(&self) -> Option<StringExpression> {
+        self.get_ident().map(StringExpression::from)
     }
 
     /// Returns the true type regardless of whether a custom path is specified.

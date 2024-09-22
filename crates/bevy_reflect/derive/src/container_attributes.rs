@@ -5,10 +5,9 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
+use crate::attribute_parser::terminated_parser;
 use crate::custom_attributes::CustomAttributes;
 use crate::derive_data::ReflectTraitToImpl;
-use crate::utility;
-use crate::utility::terminated_parser;
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
@@ -268,7 +267,7 @@ impl ContainerAttributes {
         let ident_name = ident.to_string();
 
         // Create the reflect ident
-        let mut reflect_ident = utility::get_reflect_ident(&ident_name);
+        let mut reflect_ident = crate::ident::get_reflect_ident(&ident_name);
         // We set the span to the old ident so any compile errors point to that ident instead
         reflect_ident.set_span(ident.span());
 

@@ -1,5 +1,5 @@
 use crate::derive_data::ReflectMeta;
-use crate::utility::WhereClauseOptions;
+use crate::where_clause_options::WhereClauseOptions;
 use quote::quote;
 
 pub(crate) fn impl_get_ownership(
