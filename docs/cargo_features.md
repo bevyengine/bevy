@@ -23,14 +23,14 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
-|bevy_sprite_picking_backend|Provides a picking implementation|
-|bevy_ui_picking_backend|Provides a picking implementation|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
+|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
+|bevy_ui_picking_backend|Provides an implementation for picking ui|
 |bevy_winit|winit window and input backend|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
