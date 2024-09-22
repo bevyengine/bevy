@@ -217,14 +217,17 @@ pub unsafe trait SystemParam: Sized {
     #[allow(unused_variables)]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
-    /// Validates that the data can be acquired by [`get_param`](SystemParam::get_param).
+    /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
+    /// Built-in executors use this to prevent systems with invalid params from running.
+    /// For nested [`SystemParam`]s validation will fail if any
+    /// delegated validation fails.
+    ///
+    /// However calling and respecting [`SystemParam::validate_param`]
+    /// is not a strict requirement, [`SystemParam::get_param`] should
+    /// provide it's own safety mechanism to prevent undefined behavior.
+    ///
     /// The [`world`](UnsafeWorldCell) can only be used to read param's data
     /// and world metadata. No data can be written.
-    /// This should be called before [`SystemParam::get_param`] when running systems
-    /// to ensure data can be acquired without panic.
-    ///
-    /// For encapsulated [`SystemParam`]s validation will fail if any
-    /// delegated validation fails.
     ///
     /// # Safety
     ///

@@ -94,8 +94,12 @@ pub trait System: Send + Sync + 'static {
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
 
-    /// Validates that all systems parameters can be acquired.
-    /// If not, the system should not be ran.
+    /// Validates that all parameters can be acquired and that system can run without panic.
+    /// Built-in executors use this to prevent invalid systems from running.
+    ///
+    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
+    /// should provide their own safety mechanism to prevent undefined behavior.
     ///
     /// # Safety
     ///
@@ -107,11 +111,9 @@ pub trait System: Send + Sync + 'static {
     ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
 
-    /// Validates that all systems parameters can be acquired.
-    /// If not, the system should not be ran.
-    /// This is a safe version of [`System::validate_param_unsafe`]
+    /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &mut World) -> bool {
+    fn validate_param(&mut self, world: &World) -> bool {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
