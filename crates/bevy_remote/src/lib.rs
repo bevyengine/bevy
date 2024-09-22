@@ -348,10 +348,10 @@ pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
     /// This field is mandatory and must be set to `"2.0"` for the request to be accepted.
-    pub jsonrpc: Option<Value>,
+    pub jsonrpc: String,
 
-    /// The action to be performed. Parsing is deferred for the sake of error reporting.
-    pub method: Option<Value>,
+    /// The action to be performed.
+    pub method: String,
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
@@ -804,11 +804,17 @@ async fn process_single_request(
     request: Value,
     request_sender: &Sender<BrpMessage>,
 ) -> AnyhowResult<BrpResponse> {
+    // Reach in and get the request ID early so that we can report it even when parsing fails.
+    let id = request
+        .as_object()
+        .and_then(|map| map.get("id"))
+        .and_then(|id| Some(id.clone()));
+
     let request: BrpRequest = match serde_json::from_value(request) {
         Ok(v) => v,
         Err(err) => {
             return Ok(BrpResponse::new(
-                None,
+                id,
                 Err(BrpError {
                     code: error_codes::INVALID_REQUEST,
                     message: err.to_string(),
@@ -818,37 +824,9 @@ async fn process_single_request(
         }
     };
 
-    // The reason that parsing of these fields is delayed is so that the request id can
-    // be included in the BRP response even if the parsing of the request is unsuccessful.
-    let jsonrpc: String = match request.jsonrpc {
-        Some(jsonrpc) => match serde_json::from_value(jsonrpc) {
-            Ok(v) => v,
-            Err(err) => {
-                return Ok(BrpResponse::new(
-                    request.id,
-                    Err(BrpError {
-                        code: error_codes::INVALID_REQUEST,
-                        message: err.to_string(),
-                        data: None,
-                    }),
-                ));
-            }
-        },
-        None => {
-            return Ok(BrpResponse::new(
-                request.id,
-                Err(BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: String::from("Field \"jsonrpc\" not found"),
-                    data: None,
-                }),
-            ));
-        }
-    };
-
-    if jsonrpc != "2.0" {
+    if request.jsonrpc != "2.0" {
         return Ok(BrpResponse::new(
-            request.id,
+            id,
             Err(BrpError {
                 code: error_codes::INVALID_REQUEST,
                 message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
@@ -857,38 +835,11 @@ async fn process_single_request(
         ));
     }
 
-    // Having parsed the request, we can parse the method.
-    let method = match request.method {
-        Some(method) => match serde_json::from_value(method) {
-            Ok(v) => v,
-            Err(err) => {
-                return Ok(BrpResponse::new(
-                    request.id,
-                    Err(BrpError {
-                        code: error_codes::INVALID_REQUEST,
-                        message: err.to_string(),
-                        data: None,
-                    }),
-                ));
-            }
-        },
-        None => {
-            return Ok(BrpResponse::new(
-                request.id,
-                Err(BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: String::from("Field \"method\" not found"),
-                    data: None,
-                }),
-            ));
-        }
-    };
-
     let (result_sender, result_receiver) = channel::bounded(1);
 
     let _ = request_sender
         .send(BrpMessage {
-            method,
+            method: request.method,
             params: request.params,
             sender: result_sender,
         })
