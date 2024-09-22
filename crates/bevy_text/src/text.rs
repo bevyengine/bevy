@@ -283,7 +283,7 @@ pub enum FontSmoothing {
     /// **Note:** Due to limitations of the underlying text rendering library,
     /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
     None,
-    /// The default grayscale antialising. Produces text that looks smooth,
+    /// The default grayscale antialiasing. Produces text that looks smooth,
     /// even at small font sizes and low resolutions with modern vector fonts.
     #[default]
     Antialiased,
