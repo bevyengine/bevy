@@ -234,6 +234,7 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn validate_param(
         _state: &Self::State,
         _system_meta: &SystemMeta,
@@ -251,6 +252,7 @@ pub unsafe trait SystemParam: Sized {
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -1652,17 +1654,6 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         Vec::new()
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        state
-            .iter()
-            .all(|state| T::validate_param(state, system_meta, world))
     }
 
     #[inline]

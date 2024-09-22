@@ -344,8 +344,8 @@ impl<Param: SystemParam> SystemState<Param> {
     ///
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
-    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - The passed [`UnsafeWorldCell`] must have read-only access to
+    ///   world data in [`SystemMeta::archetype_component_access`].
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegated to existing `SystemParam` implementations.
