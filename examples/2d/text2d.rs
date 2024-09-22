@@ -140,14 +140,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Demonstrate font smoothing off
     commands.spawn(Text2dBundle {
-        text: Text {
-            sections: vec![TextSection::new(
-                "FontSmoothing::None",
-                slightly_smaller_text_style.clone(),
-            )],
-            font_smoothing: FontSmoothing::None,
-            ..default()
-        },
+        text: Text::from_section("FontSmoothing::None", slightly_smaller_text_style.clone())
+            .with_font_smoothing(FontSmoothing::None),
         transform: Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
         ..default()
     });
