@@ -119,10 +119,12 @@
 //! * [`Tuple`]
 //! * [`Array`]
 //! * [`List`]
+//! * [`Set`]
 //! * [`Map`]
 //! * [`Struct`]
 //! * [`TupleStruct`]
 //! * [`Enum`]
+//! * [`Function`] (requires the `functions` feature)
 //!
 //! As mentioned previously, the last three are automatically implemented by the [derive macro].
 //!
@@ -516,6 +518,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Function`]: func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -593,7 +596,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "functions")]
-    pub use crate::func::{IntoFunction, IntoFunctionMut};
+    pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
 pub use array::*;
