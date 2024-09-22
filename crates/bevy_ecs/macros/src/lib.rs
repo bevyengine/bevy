@@ -275,7 +275,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
                     system_meta: &SystemMeta,
-                    world: UnsafeWorldCell,
+                    world: UnsafeWorldCell<'w>,
                 ) -> bool {
                     <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
                 }

@@ -1477,8 +1477,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
@@ -1487,8 +1486,7 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -1519,8 +1517,7 @@ impl World {
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_added_by_id(component_id))
-            .unwrap_or(false)
+            .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was added since the world's
