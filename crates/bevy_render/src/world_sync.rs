@@ -26,9 +26,9 @@ use bevy_reflect::Reflect;
 ///
 /// ```text
 /// |--------------------------------------------------------------------|
-/// |      |         |          Main world loop                          |
+/// |      |         |          Main world update                        |
 /// | sync | extract |---------------------------------------------------|
-/// |      |         |         Render world loop                         |
+/// |      |         |         Render world update                       |
 /// |--------------------------------------------------------------------|
 /// ```
 ///
@@ -97,7 +97,7 @@ impl Plugin for WorldSyncPlugin {
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
-/// Marker component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
+/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
 #[derive(Component, Deref, Clone, Debug, Copy)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
@@ -108,7 +108,7 @@ impl RenderEntity {
 }
 
 #[derive(Component, Deref, Clone, Debug)]
-/// Marker component added on the render world entities to keep track of the corresponding main world entity
+/// Component added on the render world entities to keep track of the corresponding main world entity
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
@@ -167,7 +167,6 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-// TODO: directly remove matched archetype for performance
 pub(crate) fn despawn_temporary_render_entities(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,

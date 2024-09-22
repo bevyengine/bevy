@@ -319,6 +319,10 @@ pub fn extract_uinode_images(
             continue;
         };
 
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
+
         // Skip invisible images
         if !view_visibility.get()
             || image.color.is_fully_transparent()
@@ -326,19 +330,6 @@ pub fn extract_uinode_images(
         {
             continue;
         }
-
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(Camera::logical_viewport_size)
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
-
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
 
         let atlas_rect = atlas
             .and_then(|s| s.texture_rect(&texture_atlases))
@@ -366,6 +357,15 @@ pub fn extract_uinode_images(
         } else {
             None
         };
+
+        let ui_logical_viewport_size = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(Camera::logical_viewport_size)
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -403,7 +403,7 @@ pub fn extract_uinode_images(
                 atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                camera_entity: camera_entity.id(),
+                camera_entity: render_camera_entity.id(),
                 border,
                 border_radius,
                 node_type: NodeType::Rect,
