@@ -24,25 +24,25 @@ impl<T: ToString + Spanned> From<T> for StringExpr {
 }
 
 impl StringExpr {
-    /// Creates a [constant] [`StringExpression`] from a [`struct@LitStr`].
+    /// Creates a [constant] [`StringExpr`] from a [`struct@LitStr`].
     ///
-    /// [constant]: StringExpression::Const
+    /// [constant]: StringExpr::Const
     pub fn from_lit(lit: &LitStr) -> Self {
         Self::Const(lit.to_token_stream())
     }
 
-    /// Creates a [constant] [`StringExpression`] by interpreting a [string slice][str] as a [`struct@LitStr`].
+    /// Creates a [constant] [`StringExpr`] by interpreting a [string slice][str] as a [`struct@LitStr`].
     ///
-    /// [constant]: StringExpression::Const
+    /// [constant]: StringExpr::Const
     pub fn from_str(string: &str) -> Self {
         Self::Const(string.into_token_stream())
     }
 
     /// Returns tokens for an [owned string](String).
     ///
-    /// The returned expression will allocate unless the [`StringExpression`] is [already owned].
+    /// The returned expression will allocate unless the [`StringExpr`] is [already owned].
     ///
-    /// [already owned]: StringExpression::Owned
+    /// [already owned]: StringExpr::Owned
     pub fn into_owned(self) -> TokenStream {
         match self {
             Self::Const(tokens) | Self::Borrowed(tokens) => quote! {
@@ -62,9 +62,9 @@ impl StringExpr {
         }
     }
 
-    /// Appends a [`StringExpression`] to another.
+    /// Appends a [`StringExpr`] to another.
     ///
-    /// If both expressions are [`StringExpression::Const`] this will use [`concat`] to merge them.
+    /// If both expressions are [`StringExpr::Const`] this will use [`concat`] to merge them.
     pub fn appended_by(mut self, other: StringExpr) -> Self {
         if let Self::Const(tokens) = self {
             if let Self::Const(more) = other {

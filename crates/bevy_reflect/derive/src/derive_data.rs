@@ -1045,7 +1045,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpression`] representing the name of the type's crate.
+    /// Returns a [`StringExpr`] representing the name of the type's crate.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
@@ -1074,11 +1074,11 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Combines type generics and const generics into one [`StringExpression`].
+    /// Combines type generics and const generics into one [`StringExpr`].
     ///
     /// This string can be used with a `GenericTypePathCell` in a `TypePath` implementation.
     ///
-    /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpression`]s.
+    /// The `ty_generic_fn` param maps [`TypeParam`]s to [`StringExpr`]s.
     fn reduce_generics(
         generics: &Generics,
         mut ty_generic_fn: impl FnMut(&TypeParam) -> StringExpr,
@@ -1103,7 +1103,7 @@ impl<'a> ReflectTypePath<'a> {
             .collect()
     }
 
-    /// Returns a [`StringExpression`] representing the "type path" of the type.
+    /// Returns a [`StringExpr`] representing the "type path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
     pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
@@ -1139,7 +1139,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpression`] representing the "short path" of the type.
+    /// Returns a [`StringExpr`] representing the "short path" of the type.
     ///
     /// For `Option<PhantomData>`, this is `"Option<PhantomData>"`.
     pub fn short_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
@@ -1174,7 +1174,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpression`] representing the path to the module
+    /// Returns a [`StringExpr`] representing the path to the module
     /// that the type is in.
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
@@ -1209,7 +1209,7 @@ impl<'a> ReflectTypePath<'a> {
         }
     }
 
-    /// Returns a [`StringExpression`] representing the type's final ident.
+    /// Returns a [`StringExpr`] representing the type's final ident.
     ///
     /// Returns [`None`] if the type is [anonymous].
     ///
