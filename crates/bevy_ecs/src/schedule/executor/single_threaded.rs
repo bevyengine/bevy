@@ -87,13 +87,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             should_run &= system_conditions_met;
 
             let system = &mut schedule.systems[system_index];
-
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the system.
-            // - `update_archetype_component_access` has been called for system.
-            let valid_params =
-                unsafe { system.validate_param_unsafe(world.as_unsafe_world_cell_readonly()) };
+            let valid_params = system.validate_param(world);
 
             if !valid_params {
                 warn_system_skipped!("System", system.name());
@@ -176,11 +170,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            // - `update_archetype_component_access` has been called for condition.
-            if !unsafe { condition.validate_param_unsafe(world.as_unsafe_world_cell_readonly()) } {
+            if !condition.validate_param(world) {
                 warn_system_skipped!("Condition", condition.name());
                 return false;
             }

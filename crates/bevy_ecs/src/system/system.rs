@@ -107,6 +107,19 @@ pub trait System: Send + Sync + 'static {
     ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
 
+    /// Validates that all systems parameters can be acquired.
+    /// If not, the system should not be ran.
+    /// This is a safe version of [`System::validate_param_unsafe`]
+    /// that runs on exclusive, single-threaded `world` pointer.
+    fn validate_param(&mut self, world: &mut World) -> bool {
+        let world_cell = world.as_unsafe_world_cell();
+        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
+        unsafe { self.validate_param_unsafe(world_cell) }
+    }
+
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
 

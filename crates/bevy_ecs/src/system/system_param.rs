@@ -2310,9 +2310,10 @@ trait DynParamState: Sync + Send {
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
-    /// Refer to [SystemParam::validate_param].
+    /// Refer to [`SystemParam::validate_param`].
     ///
-    /// # Safety: Refer to [SystemParam::validate_param].
+    /// # Safety
+    /// Refer to [`SystemParam::validate_param`].
     unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
 }
 
