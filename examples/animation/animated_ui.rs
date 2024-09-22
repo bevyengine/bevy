@@ -82,8 +82,8 @@ impl AnimationInfo {
         animation_clip.add_curve_to_target(
             animation_target_id,
             VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
-                vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
-                vec![24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0],
+                [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+                [24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0],
             ),
         );
 
@@ -91,16 +91,10 @@ impl AnimationInfo {
         // the same time duration as the previous curve.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve {
-                keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0],
-                keyframes: Box::new(AnimatablePropertyKeyframes::<TextColorProperty>(vec![
-                    Srgba::RED,
-                    Srgba::GREEN,
-                    Srgba::BLUE,
-                    Srgba::RED,
-                ])),
-                interpolation: Interpolation::Linear,
-            },
+            VariableCurve::linear::<AnimatablePropertyKeyframes<TextColorProperty>>(
+                [0.0, 1.0, 2.0, 3.0],
+                [Srgba::RED, Srgba::GREEN, Srgba::BLUE, Srgba::RED],
+            ),
         );
 
         // Save our animation clip as an asset.

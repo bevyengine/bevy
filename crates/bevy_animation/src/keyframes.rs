@@ -1,5 +1,6 @@
 //! Keyframes of animation clips.
 
+use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};
 
 use bevy_asset::Handle;
@@ -57,8 +58,8 @@ use crate::{animatable, AnimationEvaluationError, AnimationPlayer, Interpolation
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
 ///         VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
-///             vec![0.0, 1.0],
-///             vec![24.0, 80.0],
+///             [0.0, 1.0],
+///             [24.0, 80.0],
 ///         ),
 ///     );
 pub trait AnimatableProperty: Reflect + TypePath + 'static {
@@ -199,8 +200,8 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
 ///         VariableCurve::linear::<TranslationKeyframes>(
-///             vec![0.0, 1.0],
-///             vec![Vec3::ZERO, Vec3::ONE],
+///             [0.0, 1.0],
+///             [Vec3::ZERO, Vec3::ONE],
 ///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
@@ -219,8 +220,8 @@ pub struct TranslationKeyframes(pub Vec<Vec3>);
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
 ///         VariableCurve::linear::<ScaleKeyframes>(
-///             vec![0.0, 1.0],
-///             vec![Vec3::ONE, Vec3::splat(2.0)],
+///             [0.0, 1.0],
+///             [Vec3::ONE, Vec3::splat(2.0)],
 ///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
@@ -240,11 +241,8 @@ pub struct ScaleKeyframes(pub Vec<Vec3>);
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
 ///         VariableCurve::linear::<RotationKeyframes>(
-///             vec![0.0, 1.0],
-///             vec![
-///                 Quat::from_rotation_x(FRAC_PI_2),
-///                 Quat::from_rotation_y(FRAC_PI_2),
-///             ],
+///             [0.0, 1.0],
+///             [Quat::from_rotation_x(FRAC_PI_2), Quat::from_rotation_y(FRAC_PI_2)],
 ///         ),
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
@@ -263,9 +261,12 @@ pub struct MorphWeightsKeyframes {
     pub weights: Vec<f32>,
 }
 
-impl From<Vec<Vec3>> for TranslationKeyframes {
-    fn from(value: Vec<Vec3>) -> Self {
-        Self(value)
+impl<T> From<T> for TranslationKeyframes
+where
+    T: Into<Vec<Vec3>>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 
@@ -280,10 +281,12 @@ impl Keyframes for TranslationKeyframes {
         _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         let value = self
             .first()
-            .ok_or(AnimationEvaluationError::KeyframeNotPresent)?;
+            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
         component.translation = Animatable::interpolate(&component.translation, value, weight);
         Ok(())
     }
@@ -298,7 +301,9 @@ impl Keyframes for TranslationKeyframes {
         weight: f32,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         animatable::interpolate_keyframes(
             &mut component.translation,
             &(*self)[..],
@@ -311,9 +316,12 @@ impl Keyframes for TranslationKeyframes {
     }
 }
 
-impl From<Vec<Vec3>> for ScaleKeyframes {
-    fn from(value: Vec<Vec3>) -> Self {
-        Self(value)
+impl<T> From<T> for ScaleKeyframes
+where
+    T: Into<Vec<Vec3>>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 
@@ -328,10 +336,12 @@ impl Keyframes for ScaleKeyframes {
         _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         let value = self
             .first()
-            .ok_or(AnimationEvaluationError::KeyframeNotPresent)?;
+            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
         component.scale = Animatable::interpolate(&component.scale, value, weight);
         Ok(())
     }
@@ -346,7 +356,9 @@ impl Keyframes for ScaleKeyframes {
         weight: f32,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         animatable::interpolate_keyframes(
             &mut component.scale,
             &(*self)[..],
@@ -359,9 +371,12 @@ impl Keyframes for ScaleKeyframes {
     }
 }
 
-impl From<Vec<Quat>> for RotationKeyframes {
-    fn from(value: Vec<Quat>) -> Self {
-        Self(value)
+impl<T> From<T> for RotationKeyframes
+where
+    T: Into<Vec<Quat>>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 
@@ -376,10 +391,12 @@ impl Keyframes for RotationKeyframes {
         _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         let value = self
             .first()
-            .ok_or(AnimationEvaluationError::KeyframeNotPresent)?;
+            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
         component.rotation = Animatable::interpolate(&component.rotation, value, weight);
         Ok(())
     }
@@ -394,7 +411,9 @@ impl Keyframes for RotationKeyframes {
         weight: f32,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
         animatable::interpolate_keyframes(
             &mut component.rotation,
             &(*self)[..],
@@ -407,12 +426,13 @@ impl Keyframes for RotationKeyframes {
     }
 }
 
-impl<P> From<Vec<P::Property>> for AnimatablePropertyKeyframes<P>
+impl<P, T> From<T> for AnimatablePropertyKeyframes<P>
 where
     P: AnimatableProperty,
+    T: Into<Vec<P::Property>>,
 {
-    fn from(value: Vec<P::Property>) -> Self {
-        Self(value)
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 
@@ -430,14 +450,14 @@ where
         mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity
-            .get_mut::<P::Component>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent)?;
-        let property =
-            P::get_mut(&mut component).ok_or(AnimationEvaluationError::PropertyNotPresent)?;
+        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
+        })?;
+        let property = P::get_mut(&mut component)
+            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
         let value = self
             .first()
-            .ok_or(AnimationEvaluationError::KeyframeNotPresent)?;
+            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
         <P::Property>::interpolate(property, value, weight);
         Ok(())
     }
@@ -452,11 +472,11 @@ where
         weight: f32,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity
-            .get_mut::<P::Component>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent)?;
-        let property =
-            P::get_mut(&mut component).ok_or(AnimationEvaluationError::PropertyNotPresent)?;
+        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
+        })?;
+        let property = P::get_mut(&mut component)
+            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
         animatable::interpolate_keyframes(
             property,
             self,
@@ -512,9 +532,9 @@ impl Keyframes for MorphWeightsKeyframes {
         mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut dest = entity
-            .get_mut::<MorphWeights>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
+        })?;
 
         // TODO: Go 4 weights at a time to make better use of SIMD.
         for (morph_target_index, morph_weight) in dest.weights_mut().iter_mut().enumerate() {
@@ -535,9 +555,9 @@ impl Keyframes for MorphWeightsKeyframes {
         weight: f32,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut dest = entity
-            .get_mut::<MorphWeights>()
-            .ok_or(AnimationEvaluationError::ComponentNotPresent)?;
+        let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
+        })?;
 
         // TODO: Go 4 weights at a time to make better use of SIMD.
         for (morph_target_index, morph_weight) in dest.weights_mut().iter_mut().enumerate() {

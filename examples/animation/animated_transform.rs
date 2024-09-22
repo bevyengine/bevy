@@ -52,8 +52,8 @@ fn setup(
     animation.add_curve_to_target(
         planet_animation_target_id,
         VariableCurve::linear::<TranslationKeyframes>(
-            vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            vec![
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [
                 Vec3::new(1.0, 0.0, 1.0),
                 Vec3::new(-1.0, 0.0, 1.0),
                 Vec3::new(-1.0, 0.0, -1.0),
@@ -72,8 +72,8 @@ fn setup(
     animation.add_curve_to_target(
         orbit_controller_animation_target_id,
         VariableCurve::linear::<RotationKeyframes>(
-            vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            vec![
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [
                 Quat::IDENTITY,
                 Quat::from_axis_angle(Vec3::Y, PI / 2.),
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
@@ -91,8 +91,8 @@ fn setup(
     animation.add_curve_to_target(
         satellite_animation_target_id,
         VariableCurve::linear::<ScaleKeyframes>(
-            vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
-            vec![
+            [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
+            [
                 Vec3::splat(0.8),
                 Vec3::splat(1.2),
                 Vec3::splat(0.8),
@@ -110,17 +110,16 @@ fn setup(
         AnimationTargetId::from_names(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Box::new(RotationKeyframes(vec![
+        VariableCurve::linear(
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [
                 Quat::IDENTITY,
                 Quat::from_axis_angle(Vec3::Y, PI / 2.),
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
                 Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
                 Quat::IDENTITY,
-            ])),
-            interpolation: Interpolation::Linear,
-        },
+            ],
+        ),
     );
 
     // Create the animation graph

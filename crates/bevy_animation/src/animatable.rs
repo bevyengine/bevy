@@ -220,7 +220,7 @@ where
     let value = match interpolation {
         Interpolation::Step => {
             let Some(start_keyframe) = keyframes.get_keyframe(step_start) else {
-                return Err(AnimationEvaluationError::KeyframeNotPresent);
+                return Err(AnimationEvaluationError::KeyframeNotPresent(step_start));
             };
             (*start_keyframe).clone()
         }
@@ -230,7 +230,7 @@ where
                 keyframes.get_keyframe(step_start),
                 keyframes.get_keyframe(step_start + 1),
             ) else {
-                return Err(AnimationEvaluationError::KeyframeNotPresent);
+                return Err(AnimationEvaluationError::KeyframeNotPresent(step_start + 1));
             };
 
             T::interpolate(start_keyframe, end_keyframe, time)
@@ -249,7 +249,9 @@ where
                 keyframes.get_keyframe(step_start * 3 + 4),
             )
             else {
-                return Err(AnimationEvaluationError::KeyframeNotPresent);
+                return Err(AnimationEvaluationError::KeyframeNotPresent(
+                    step_start * 3 + 4,
+                ));
             };
 
             interpolate_with_cubic_bezier(

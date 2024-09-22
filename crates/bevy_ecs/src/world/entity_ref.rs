@@ -2402,6 +2402,13 @@ where
         }
     }
 
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
+    }
+
     /// Gets access to the component of type `C` for the current entity. Returns
     /// `None` if the component doesn't have a component of that type or if the
     /// type is one of the excluded components.
@@ -2481,6 +2488,13 @@ where
             entity,
             phantom: PhantomData,
         }
+    }
+
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
     }
 
     /// Returns a new instance with a shorter lifetime.

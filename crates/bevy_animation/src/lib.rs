@@ -13,7 +13,7 @@ pub mod keyframes;
 pub mod transition;
 mod util;
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -125,32 +125,45 @@ impl VariableCurve {
     /// Creates a new curve from timestamps and keyframes with no interpolation.
     ///
     /// The two arrays must have the same length.
-    pub fn step<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    pub fn step<K>(
+        keyframe_timestamps: impl Into<Vec<f32>>,
+        keyframes: impl Into<K>,
+    ) -> VariableCurve
     where
         K: Keyframes,
     {
-        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::Step)
+        VariableCurve::new(keyframe_timestamps.into(), keyframes, Interpolation::Step)
     }
 
     /// Creates a new curve from timestamps and keyframes with linear
     /// interpolation.
     ///
     /// The two arrays must have the same length.
-    pub fn linear<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    pub fn linear<K>(
+        keyframe_timestamps: impl Into<Vec<f32>>,
+        keyframes: impl Into<K>,
+    ) -> VariableCurve
     where
         K: Keyframes,
     {
-        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::Linear)
+        VariableCurve::new(keyframe_timestamps.into(), keyframes, Interpolation::Linear)
     }
 
     /// Creates a new curve from timestamps and keyframes with no interpolation.
     ///
     /// The two arrays must have the same length.
-    pub fn cubic_spline<K>(keyframe_timestamps: Vec<f32>, keyframes: impl Into<K>) -> VariableCurve
+    pub fn cubic_spline<K>(
+        keyframe_timestamps: impl Into<Vec<f32>>,
+        keyframes: impl Into<K>,
+    ) -> VariableCurve
     where
         K: Keyframes,
     {
-        VariableCurve::new(keyframe_timestamps, keyframes, Interpolation::CubicSpline)
+        VariableCurve::new(
+            keyframe_timestamps.into(),
+            keyframes,
+            Interpolation::CubicSpline,
+        )
     }
 
     /// Find the index of the keyframe at or before the current time.
@@ -609,22 +622,17 @@ pub enum AnimationEvaluationError {
     /// timestamps. For curves with `Interpolation::CubicBezier`, the
     /// `keyframes` array must have at least 3× the number of elements as
     /// keyframe timestamps, in order to account for the tangents.
-    KeyframeNotPresent,
+    KeyframeNotPresent(usize),
 
     /// The component to be animated isn't present on the animation target.
     ///
     /// To fix this error, make sure the entity to be animated contains all
     /// components that have animation curves.
-    ComponentNotPresent,
+    ComponentNotPresent(TypeId),
 
-    /// The component to be animated was present, but the `path` didn't name any
-    /// reflectable property on the component.
-    ///
-    /// This is usually because of a mistyped `ParsedPath`. For example, to
-    /// alter the color of the first section of text, you should use a path of
-    /// `sections[0].style.color.0` (correct) instead of, for example,
-    /// `sections.0.style.color` (incorrect).
-    PropertyNotPresent,
+    /// The component to be animated was present, but the property on the
+    /// component wasn't present.
+    PropertyNotPresent(TypeId),
 }
 
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
@@ -1114,9 +1122,9 @@ pub fn animate_targets(
                 } else {
                     trace!(
                         "Either an animation player {:?} or a graph was missing for the target \
-                                 entity xxx ({:?}); no animations will play this frame",
+                                 entity {:?} ({:?}); no animations will play this frame",
                         player_id,
-                        //entity_mut.id(), FIXME
+                        entity_mut.id(),
                         entity_mut.get::<Name>(),
                     );
                     return;
