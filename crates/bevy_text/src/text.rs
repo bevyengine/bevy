@@ -286,7 +286,7 @@ pub enum FontSmoothing {
     /// The default grayscale antialiasing. Produces text that looks smooth,
     /// even at small font sizes and low resolutions with modern vector fonts.
     #[default]
-    Antialiased,
+    AntiAliased,
     // TODO: Add subpixel antialias support
-    // SubpixelAntialiased,
+    // SubpixelAntiAliased,
 }
