@@ -119,10 +119,12 @@
 //! * [`Tuple`]
 //! * [`Array`]
 //! * [`List`]
+//! * [`Set`]
 //! * [`Map`]
 //! * [`Struct`]
 //! * [`TupleStruct`]
 //! * [`Enum`]
+//! * [`Function`] (requires the `functions` feature)
 //!
 //! As mentioned previously, the last three are automatically implemented by the [derive macro].
 //!
@@ -516,6 +518,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
+//! [`Function`]: func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -549,6 +552,7 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
+mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -592,7 +596,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "functions")]
-    pub use crate::func::{IntoFunction, IntoFunctionMut};
+    pub use crate::func::{Function, IntoFunction, IntoFunctionMut};
 }
 
 pub use array::*;
@@ -615,6 +619,7 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+pub use short_name::ShortName;
 
 extern crate alloc;
 
@@ -2366,7 +2371,7 @@ bevy_reflect::tests::Test {
 
             fn short_type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| bevy_utils::ShortName::of::<Self>().to_string())
+                CELL.get_or_insert::<Self, _>(|| ShortName::of::<Self>().to_string())
             }
 
             fn type_ident() -> Option<&'static str> {

@@ -3,8 +3,7 @@ use crate::{
     UntypedAssetId,
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::ShortName;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ShortName, TypePath};
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     any::TypeId,

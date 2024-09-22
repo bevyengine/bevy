@@ -14,7 +14,7 @@ use crate::{
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
-    system::{Res, Resource},
+    system::Resource,
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
@@ -353,7 +353,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
-    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Res<'w, R>> {
+    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Ref<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
 
         // SAFETY: caller ensures `self` has permission to access the resource
@@ -371,7 +371,7 @@ impl<'w> UnsafeWorldCell<'w> {
         #[cfg(feature = "track_change_detection")]
         let caller = unsafe { _caller.deref() };
 
-        Some(Res {
+        Some(Ref {
             value,
             ticks,
             #[cfg(feature = "track_change_detection")]
