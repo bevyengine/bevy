@@ -220,8 +220,7 @@ impl TextPipeline {
                     layout_glyph.w = layout_glyph.w.round();
                     layout_glyph.y_offset = layout_glyph.y_offset.round();
                     layout_glyph.x_offset = layout_glyph.x_offset.round();
-                    layout_glyph.line_height_opt =
-                        layout_glyph.line_height_opt.map(|lh| lh.round());
+                    layout_glyph.line_height_opt = layout_glyph.line_height_opt.map(f32::round);
                 }
                 let section_index = layout_glyph.metadata;
 

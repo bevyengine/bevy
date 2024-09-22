@@ -272,7 +272,7 @@ pub enum BreakLineOn {
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
-/// **Note:** Subpixel antialiasing (a.k.a. “ClearType” on Windows) is not currently supported.
+/// **Note:** Subpixel antialiasing is not currently supported.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 #[doc(alias = "antialiasing")]
