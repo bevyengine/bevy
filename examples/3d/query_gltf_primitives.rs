@@ -63,6 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 500.0,
+            rotation: Quat::IDENTITY,
         },
     ));
 
@@ -87,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),
         transform: Transform {
-            rotation: Quat::from_rotation_y(-90.0 / 180.0 * std::f32::consts::PI),
+            rotation: Quat::from_rotation_y(-90.0 / 180.0 * PI),
             ..default()
         },
         ..default()
