@@ -218,11 +218,14 @@ pub unsafe trait SystemParam: Sized {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
     /// Validates that the data can be acquired by [`get_param`](SystemParam::get_param).
-    /// For systems this means they won't be executed.
+    /// The [`world`](UnsafeWorldCell) can only be used to read param's data
+    /// and world metadata. No data can be written.
+    /// This should be called before [`SystemParam::get_param`] when running systems
+    /// to ensure data can be acquired without panic.
     ///
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must have read access to any world data
+    /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn validate_param(
@@ -2307,16 +2310,9 @@ trait DynParamState: Sync + Send {
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 
-    /// Validates that the data can be acquired by [`get_param`](SystemParam::get_param).
-    /// If validation fails, resource acquisition will fail
-    /// and [`SystemParam::get_param`] won't be called.
-    /// For systems this means they won't be executed.
+    /// Refer to [SystemParam::validate_param].
     ///
-    /// # Safety
-    ///
-    /// - The passed [`World`] must have access to any world data
-    ///   registered in [`init_state`](SystemParam::init_state).
-    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    /// # Safety: Refer to [SystemParam::validate_param].
     unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
 }
 
