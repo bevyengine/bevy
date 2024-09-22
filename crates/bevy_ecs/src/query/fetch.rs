@@ -14,7 +14,7 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use smallvec::SmallVec;
-use std::{cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop};
+use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -2349,8 +2349,8 @@ unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 /// A compile-time checked union of two different types that differs based on the
 /// [`StorageType`] of a given component.
 pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
-    table: ManuallyDrop<T>,
-    sparse_set: ManuallyDrop<S>,
+    table: T,
+    sparse_set: S,
     _marker: PhantomData<C>,
 }
 
@@ -2367,9 +2367,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
     #[inline]
     pub const unsafe fn new_table(table: T) -> Self {
         match C::STORAGE_TYPE {
-            StorageType::Table => Self {
-                table: ManuallyDrop::new(table),
-            },
+            StorageType::Table => Self { table },
             _ => {
                 #[cfg(debug_assertions)]
                 unreachable!();
@@ -2391,9 +2389,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
     #[inline]
     pub const unsafe fn new_sparse_set(sparse_set: S) -> Self {
         match C::STORAGE_TYPE {
-            StorageType::SparseSet => Self {
-                sparse_set: ManuallyDrop::new(sparse_set),
-            },
+            StorageType::SparseSet => Self { sparse_set },
             _ => {
                 #[cfg(debug_assertions)]
                 unreachable!();
@@ -2415,7 +2411,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
     #[inline]
     pub unsafe fn table(&self) -> T {
         match C::STORAGE_TYPE {
-            StorageType::Table => *self.table,
+            StorageType::Table => self.table,
             _ => {
                 #[cfg(debug_assertions)]
                 unreachable!();
@@ -2437,7 +2433,7 @@ impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
     #[inline]
     pub unsafe fn sparse_set(&self) -> S {
         match C::STORAGE_TYPE {
-            StorageType::SparseSet => *self.sparse_set,
+            StorageType::SparseSet => self.sparse_set,
             _ => {
                 #[cfg(debug_assertions)]
                 unreachable!();
