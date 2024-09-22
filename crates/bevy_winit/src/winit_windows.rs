@@ -75,9 +75,9 @@ impl WinitWindows {
                             None,
                             &monitor_selection,
                         )
-                            .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
+                        .unwrap_or_else(|| {
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
                     ),
                     WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
                         &select_monitor(
@@ -87,8 +87,8 @@ impl WinitWindows {
                             &monitor_selection,
                         )
                         .unwrap_or_else(|| {
-                                panic!("Could not find monitor for {:?}", monitor_selection)
-                            }),
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
                         window.width() as u32,
                         window.height() as u32,
                     ),
@@ -474,11 +474,27 @@ struct DisplayInfo {
 impl core::fmt::Display for DisplayInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Display information:")?;
-        write!(f, "  Window physicalresolution: {}x{}", self.window_physical_resolution.0, self.window_physical_resolution.1)?;
-        write!(f, "  Window logical resolution: {}x{}", self.window_logical_resolution.0, self.window_logical_resolution.1)?;
-        write!(f, "  Monitor_name: {}", self.monitor_name.as_deref().unwrap_or(""))?;
+        write!(
+            f,
+            "  Window physicalresolution: {}x{}",
+            self.window_physical_resolution.0, self.window_physical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Window logical resolution: {}x{}",
+            self.window_logical_resolution.0, self.window_logical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Monitor_name: {}",
+            self.monitor_name.as_deref().unwrap_or("")
+        )?;
         write!(f, "  Scale factor: {}", self.scale_factor)?;
-        write!(f, "  Refresh rate (mHz): {}", self.refresh_rate_millihertz.unwrap_or(0))?;
+        write!(
+            f,
+            "  Refresh rate (mHz): {}",
+            self.refresh_rate_millihertz.unwrap_or(0)
+        )?;
         Ok(())
     }
 }
