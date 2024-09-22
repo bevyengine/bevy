@@ -259,15 +259,6 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,

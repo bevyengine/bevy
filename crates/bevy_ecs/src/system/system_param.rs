@@ -223,16 +223,23 @@ pub unsafe trait SystemParam: Sized {
     /// This should be called before [`SystemParam::get_param`] when running systems
     /// to ensure data can be acquired without panic.
     ///
+    /// For encapsulated [`SystemState`]s validation will fail if any
+    /// delegated validation fails.
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool;
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
+        // By default we allow panics in [`SystemParam::get_param`] and return `true`.
+        // Preventing panics is an optional feature.
+        true
+    }
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
@@ -282,15 +289,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta: &mut SystemMeta,
     ) {
         state.new_archetype(archetype, &mut system_meta.archetype_component_access);
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
     }
 
     #[inline]
@@ -668,15 +666,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -783,15 +772,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -847,15 +827,6 @@ unsafe impl SystemParam for &'_ World {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -876,15 +847,6 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         system_meta.component_access_set.read_all();
         system_meta.component_access_set.write_all();
         system_meta.set_has_deferred();
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -997,15 +959,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
     }
 
     #[inline]
@@ -1199,15 +1152,6 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1377,15 +1321,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -1487,15 +1422,6 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -1524,15 +1450,6 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1552,15 +1469,6 @@ unsafe impl<'a> SystemParam for &'a Components {
     type Item<'w, 's> = &'w Components;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1584,15 +1492,6 @@ unsafe impl<'a> SystemParam for &'a Entities {
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1612,15 +1511,6 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     type Item<'w, 's> = &'w Bundles;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1671,15 +1561,6 @@ unsafe impl SystemParam for SystemChangeTick {
     type Item<'w, 's> = SystemChangeTick;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -2082,15 +1963,6 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     type Item<'world, 'state> = Self;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
 
     #[inline]
     unsafe fn get_param<'world, 'state>(

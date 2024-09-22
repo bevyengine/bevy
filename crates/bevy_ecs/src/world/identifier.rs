@@ -57,15 +57,6 @@ unsafe impl SystemParam for WorldId {
     fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
 
     #[inline]
-    unsafe fn validate_param(
-        _state: &Self::State,
-        _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
-    ) -> bool {
-        true
-    }
-
-    #[inline]
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &SystemMeta,
