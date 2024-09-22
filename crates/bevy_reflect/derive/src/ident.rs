@@ -38,7 +38,7 @@ pub(crate) fn get_reflect_ident(name: &str) -> Ident {
 ///
 /// This function helps field access in context where you are declaring either
 /// a tuple struct or a struct with named fields. If you don't have a field name,
-/// it means you need to access the struct through an index.
+/// it means that you must access the field through an index.
 pub(crate) fn ident_or_index(ident: Option<&Ident>, index: usize) -> Member {
     ident.map_or_else(
         || Member::Unnamed(index.into()),
