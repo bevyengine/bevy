@@ -604,6 +604,17 @@ impl TypeRegistration {
     pub fn iter(&self) -> impl ExactSizeIterator<Item = (TypeId, &dyn TypeData)> {
         self.data.iter().map(|(id, data)| (*id, data.deref()))
     }
+
+    /// Returns a mutable iterator over all [type data] in this registration.
+    ///
+    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+    ///
+    /// [type data]: TypeData
+    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (TypeId, &mut dyn TypeData)> {
+        self.data
+            .iter_mut()
+            .map(|(id, data)| (*id, data.deref_mut()))
+    }
 }
 
 impl Clone for TypeRegistration {
