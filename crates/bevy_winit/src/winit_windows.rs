@@ -58,7 +58,7 @@ impl WinitWindows {
         // AccessKit adapter is initialized.
         winit_window_attributes = winit_window_attributes.with_visible(false);
 
-        let select_monitor = &match window.mode {
+        let maybe_selected_monitor = &match window.mode {
             WindowMode::BorderlessFullscreen(monitor_selection) => select_monitor(
                 monitors,
                 event_loop.primary_monitor(),
@@ -82,9 +82,11 @@ impl WinitWindows {
 
         winit_window_attributes = match window.mode {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
-                .with_fullscreen(Some(Fullscreen::Borderless(select_monitor.clone()))),
+                .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
             mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
-                let select_monitor = &select_monitor.clone().expect("Unable to get monitor.");
+                let select_monitor = &maybe_selected_monitor
+                    .clone()
+                    .expect("Unable to get monitor.");
                 let videomode = match mode {
                     WindowMode::Fullscreen(_) => get_best_videomode(select_monitor),
                     WindowMode::SizedFullscreen(_) => get_fitting_videomode(
@@ -138,14 +140,14 @@ impl WinitWindows {
                 window.resolution.physical_height(),
             ),
             window_logical_resolution: (window.resolution.width(), window.resolution.height()),
-            monitor_name: select_monitor
+            monitor_name: maybe_selected_monitor
                 .as_ref()
                 .map(|monitor| monitor.name())
                 .flatten(),
-            scale_factor: select_monitor
+            scale_factor: maybe_selected_monitor
                 .as_ref()
                 .map(|monitor| monitor.scale_factor()),
-            refresh_rate_millihertz: select_monitor
+            refresh_rate_millihertz: maybe_selected_monitor
                 .as_ref()
                 .map(|monitor| monitor.refresh_rate_millihertz())
                 .flatten(),
@@ -498,11 +500,7 @@ impl core::fmt::Display for DisplayInfo {
         let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
         let hertz = millihertz / 1000;
         let extra_millihertz = millihertz % 1000;
-        write!(
-            f,
-            "  Refresh rate (Hz): {}.{:03}",
-            hertz, extra_millihertz
-        )?;
+        write!(f, "  Refresh rate (Hz): {}.{:03}", hertz, extra_millihertz)?;
         Ok(())
     }
 }
