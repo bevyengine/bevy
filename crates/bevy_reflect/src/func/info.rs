@@ -332,13 +332,7 @@ macro_rules! impl_typed_function {
     };
 }
 
-all_tuples!(
-    impl_typed_function,
-    0,
-    15,
-    Arg,
-    arg
-);
+all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 
 /// Helper function for creating [`FunctionInfo`] with the proper name value.
 ///
