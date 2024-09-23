@@ -81,13 +81,13 @@ impl SystemExecutor for SimpleExecutor {
             should_run &= system_conditions_met;
 
             let system = &mut schedule.systems[system_index];
-            let valid_params = system.validate_param(world);
-
-            if !valid_params {
-                warn_system_skipped!("System", system.name());
+            if should_run {
+                let valid_params = system.validate_param(world);
+                if !valid_params {
+                    warn_system_skipped!("System", system.name());
+                }
+                should_run &= valid_params;
             }
-
-            should_run &= valid_params;
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
