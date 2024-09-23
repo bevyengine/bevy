@@ -469,7 +469,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> core::fmt::R
 }
 
 macro_rules! impl_reflect_tuple {
-    {$(#[$meta:meta]) $($index:tt : $name:tt),*} => {
+    {$(#[$meta:meta])+ $($index:tt : $name:tt),*} => {
         $(#[$meta])*
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
