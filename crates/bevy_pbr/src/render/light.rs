@@ -982,6 +982,7 @@ pub fn prepare_lights(
                 continue;
             };
 
+            // for each face of a cube and each view we spawn a light entity
             while light_entities.len() < 6 * (offset + 1) {
                 light_entities.push(commands.spawn_empty().id());
             }
