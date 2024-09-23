@@ -26,9 +26,6 @@ use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 #[cfg_attr(not(target_arch = "wasm32"), derive(Resource))]
 pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
 
-#[cfg(target_arch = "wasm32")]
-impl !Send for Gilrs {}
-
 /// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
 #[derive(Debug, Default, Resource)]
 pub struct Gamepads {
