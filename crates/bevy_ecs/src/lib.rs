@@ -56,7 +56,7 @@ pub mod prelude {
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, AnyOf, Changed, Has, Mutated, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
@@ -78,6 +78,7 @@ pub mod prelude {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::query::Mutated;
     use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
@@ -947,12 +948,21 @@ mod tests {
             get_filtered::<Changed<A>>(&mut world),
             HashSet::from([e1, e3])
         );
+        assert_eq!(
+            get_filtered::<Mutated<A>>(&mut world),
+            HashSet::from([e1, e3])
+        );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
+        assert_eq!(
+            get_filtered::<Mutated<A>>(&mut world),
             HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
@@ -965,11 +975,21 @@ mod tests {
             HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
+        assert_eq!(
+            get_filtered::<Mutated<A>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
 
         // removing an unchanged entity should not change changed state
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
+        assert_eq!(
+            get_filtered::<Mutated<A>>(&mut world),
             HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
@@ -981,19 +1001,27 @@ mod tests {
             HashSet::from([e3]),
             "e1 should no longer be returned"
         );
+        assert_eq!(
+            get_filtered::<Mutated<A>>(&mut world),
+            HashSet::from([e3]),
+            "e1 should no longer be returned"
+        );
 
         world.clear_trackers();
 
         assert!(get_filtered::<Changed<A>>(&mut world).is_empty());
+        assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
 
         let e4 = world.spawn_empty().id();
 
         world.entity_mut(e4).insert(A(0));
         assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
         assert_eq!(get_filtered::<Added<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), HashSet::new());
 
         world.entity_mut(e4).insert(A(1));
         assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), HashSet::new());
 
         world.clear_trackers();
 
@@ -1003,8 +1031,10 @@ mod tests {
 
         assert!(get_filtered::<Added<A>>(&mut world).is_empty());
         assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), HashSet::from([e4]));
         assert_eq!(get_filtered::<Added<B>>(&mut world), HashSet::from([e4]));
         assert_eq!(get_filtered::<Changed<B>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Mutated<B>>(&mut world), HashSet::new());
     }
 
     #[test]
@@ -1038,16 +1068,26 @@ mod tests {
             get_filtered::<Changed<SparseStored>>(&mut world),
             HashSet::from([e1, e3])
         );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
+            HashSet::from([e1, e3])
+        );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
         assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e3, e1]), "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<Mutated<SparseStored>>(&mut world), HashSet::from([e3, e1]), "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new SparseStored entity should not change existing changed state
         world.entity_mut(e1).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
             HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
@@ -1059,6 +1099,11 @@ mod tests {
             HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
 
         // removing a changed entity should remove it from enumeration
         assert!(world.despawn(e1));
@@ -1067,10 +1112,16 @@ mod tests {
             HashSet::from([e3]),
             "e1 should no longer be returned"
         );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
+            HashSet::from([e3]),
+            "e1 should no longer be returned"
+        );
 
         world.clear_trackers();
 
         assert!(get_filtered::<Changed<SparseStored>>(&mut world).is_empty());
+        assert!(get_filtered::<Mutated<SparseStored>>(&mut world).is_empty());
 
         let e4 = world.spawn_empty().id();
 
@@ -1083,11 +1134,19 @@ mod tests {
             get_filtered::<Added<SparseStored>>(&mut world),
             HashSet::from([e4])
         );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
+            HashSet::new()
+        );
 
         world.entity_mut(e4).insert(A(1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
             HashSet::from([e4])
+        );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
+            HashSet::new()
         );
 
         world.clear_trackers();
@@ -1099,6 +1158,10 @@ mod tests {
         assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
+        assert_eq!(
+            get_filtered::<Mutated<SparseStored>>(&mut world),
             HashSet::from([e4])
         );
     }
