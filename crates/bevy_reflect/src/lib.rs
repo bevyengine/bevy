@@ -156,7 +156,7 @@
 //! ```
 //! # use bevy_reflect::{PartialReflect, ReflectRef};
 //! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
-//! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
+//! let my_tuple = my_tuple.reflect_ref().as_tuple().unwrap();
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
@@ -545,6 +545,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod kind;
 mod list;
 mod map;
 mod path;
@@ -603,6 +604,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use kind::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
@@ -773,11 +775,8 @@ mod tests {
 
         // nested retrieval
         let c = foo.field("c").unwrap();
-        if let ReflectRef::Struct(value) = c.reflect_ref() {
-            assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
-        } else {
-            panic!("Expected a struct.");
-        }
+        let value = c.reflect_ref().as_struct().unwrap();
+        assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
 
         // patch Foo with a dynamic struct
         let mut dynamic_struct = DynamicStruct::default();

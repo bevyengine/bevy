@@ -403,18 +403,14 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        for (i, value) in tuple.iter_fields().enumerate() {
-            if let Some(v) = a.field_mut(i) {
-                v.try_apply(value)?;
-            }
+    let tuple = b.reflect_ref().as_tuple()?;
+
+    for (i, value) in tuple.iter_fields().enumerate() {
+        if let Some(v) = a.field_mut(i) {
+            v.try_apply(value)?;
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Tuple,
-        });
     }
+
     Ok(())
 }
 
@@ -645,17 +641,15 @@ macro_rules! impl_reflect_tuple {
         impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
-                    Some(
-                        (
-                            $(
-                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
-                            )*
-                        )
+                let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
+
+                Some(
+                    (
+                        $(
+                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                        )*
                     )
-                } else {
-                    None
-                }
+                )
             }
         }
     }
