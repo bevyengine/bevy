@@ -912,4 +912,28 @@ mod test {
 
         assert!(iter.next().is_none());
     }
+
+    #[test]
+    fn type_data_iter_mut() {
+        #[derive(Reflect)]
+        struct Foo;
+
+        #[derive(Clone)]
+        struct DataA(i32);
+
+        let mut registration = TypeRegistration::of::<Foo>();
+        registration.insert(DataA(123));
+
+        {
+            let mut iter = registration.iter_mut();
+
+            let (_, data) = iter.next().unwrap();
+            data.downcast_mut::<DataA>().unwrap().0 = 456;
+
+            assert!(iter.next().is_none());
+        }
+
+        let data = registration.data::<DataA>().unwrap();
+        assert_eq!(data.0, 456);
+    }
 }
