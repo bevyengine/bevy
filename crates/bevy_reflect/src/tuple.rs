@@ -737,7 +737,13 @@ const _: () = {
     };
 }
 
-    all_tuples!(impl_get_ownership_tuple, 0, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_get_ownership_tuple,
+        0,
+        12,
+        P
+    );
 
     macro_rules! impl_from_arg_tuple {
     ($($name: ident),*) => {
@@ -745,7 +751,13 @@ const _: () = {
     };
 }
 
-    all_tuples!(impl_from_arg_tuple, 0, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_from_arg_tuple,
+        0,
+        12,
+        P
+    );
 
     macro_rules! impl_into_return_tuple {
     ($($name: ident),+) => {
@@ -754,7 +766,13 @@ const _: () = {
 }
 
     // The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
-    all_tuples!(impl_into_return_tuple, 1, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_into_return_tuple,
+        1,
+        12,
+        P
+    );
 };
 
 #[cfg(test)]

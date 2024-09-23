@@ -231,8 +231,9 @@ pub trait TypedFunction<Marker> {
 /// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
 /// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &R`
 macro_rules! impl_typed_function {
-    ($(($Arg:ident, $arg:ident)),*) => {
+    ($(#[$meta:meta])* $(($Arg:ident, $arg:ident)),*) => {
         // === (...) -> ReturnType === //
+        $(#[$meta])*
         impl<$($Arg,)* ReturnType, Function> TypedFunction<fn($($Arg),*) -> [ReturnType]> for Function
         where
             $($Arg: TypePath + GetOwnership,)*
@@ -332,7 +333,14 @@ macro_rules! impl_typed_function {
     };
 }
 
-all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_typed_function,
+    0,
+    15,
+    Arg,
+    arg
+);
 
 /// Helper function for creating [`FunctionInfo`] with the proper name value.
 ///

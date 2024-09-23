@@ -76,8 +76,9 @@ pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
 /// - `Fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
 /// - `Fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
 macro_rules! impl_reflect_fn {
-    ($(($Arg:ident, $arg:ident)),*) => {
+    ($(#[$meta:meta])* $(($Arg:ident, $arg:ident)),*) => {
         // === (...) -> ReturnType === //
+        $(#[$meta])*
         impl<'env, $($Arg,)* ReturnType, Function> ReflectFn<'env, fn($($Arg),*) -> [ReturnType]> for Function
         where
             $($Arg: FromArg,)*
@@ -197,4 +198,11 @@ macro_rules! impl_reflect_fn {
     };
 }
 
-all_tuples!(impl_reflect_fn, 0, 15, Arg, arg);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_reflect_fn,
+    0,
+    15,
+    Arg,
+    arg
+);

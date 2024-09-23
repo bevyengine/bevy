@@ -218,7 +218,8 @@ pub struct SystemState<Param: SystemParam + 'static> {
 // So, generate a function for each arity with an explicit `FnMut` constraint to enable higher-order lifetimes,
 // along with a regular `SystemParamFunction` constraint to allow the system to be built.
 macro_rules! impl_build_system {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         impl<$($param: SystemParam),*> SystemState<($($param,)*)> {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with no input.
@@ -256,7 +257,13 @@ macro_rules! impl_build_system {
     }
 }
 
-all_tuples!(impl_build_system, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_build_system,
+    0,
+    16,
+    P
+);
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
@@ -809,7 +816,8 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
 pub struct HasSystemInput;
 
 macro_rules! impl_system_function {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         #[allow(non_snake_case)]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
@@ -871,7 +879,13 @@ macro_rules! impl_system_function {
 
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
-all_tuples!(impl_system_function, 0, 16, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_function,
+    0,
+    16,
+    F
+);
 
 #[cfg(test)]
 mod tests {
