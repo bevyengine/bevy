@@ -2882,7 +2882,17 @@ doc-scrape-examples = true
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
+category = "UI (User Interface)"
+wasm = true
 
+[[example]]
+name = "scroll"
+path = "examples/ui/scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scroll]
+name = "Scroll"
+description = "Demonstrates scrolling UI containers"
 category = "UI (User Interface)"
 wasm = true
 

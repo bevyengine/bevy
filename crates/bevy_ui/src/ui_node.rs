@@ -150,6 +150,47 @@ impl Default for Node {
     }
 }
 
+/// The scroll position of the node.
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
+/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct ScrollPosition {
+    /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
+    pub offset_x: f32,
+    /// How far down the node is scrolled, in pixels. (0 = not scrolled / scrolled to top)
+    pub offset_y: f32,
+}
+
+impl ScrollPosition {
+    pub const DEFAULT: Self = Self {
+        offset_x: 0.0,
+        offset_y: 0.0,
+    };
+}
+
+impl Default for ScrollPosition {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<&ScrollPosition> for Vec2 {
+    fn from(scroll_pos: &ScrollPosition) -> Self {
+        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
+    }
+}
+
+impl From<&Vec2> for ScrollPosition {
+    fn from(vec: &Vec2) -> Self {
+        ScrollPosition {
+            offset_x: vec.x,
+            offset_y: vec.y,
+        }
+    }
+}
+
 /// Describes the style of a UI container node
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
@@ -865,6 +906,29 @@ impl Overflow {
     pub const fn is_visible(&self) -> bool {
         self.x.is_visible() && self.y.is_visible()
     }
+
+    pub const fn scroll() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Scroll,
+        }
+    }
+
+    /// Scroll overflowing items on the x axis
+    pub const fn scroll_x() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Scroll overflowing items on the y axis
+    pub const fn scroll_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Scroll,
+        }
+    }
 }
 
 impl Default for Overflow {
@@ -888,6 +952,8 @@ pub enum OverflowAxis {
     Clip,
     /// Hide overflowing items by influencing layout and then clipping.
     Hidden,
+    /// Scroll overflowing items.
+    Scroll,
 }
 
 impl OverflowAxis {
