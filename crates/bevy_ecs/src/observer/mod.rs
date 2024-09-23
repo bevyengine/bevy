@@ -91,7 +91,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
     /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
-    /// use `TraverseNone` which ends the path immediately and prevents propagation.
+    /// use `()` which ends the path immediately and prevents propagation.
     ///
     /// To enable propagation, you must:
     /// + Set [`Event::Traversal`] to the component you want to propagate along.
@@ -565,9 +565,9 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for Parent {
-        fn traverse(&self) -> Option<Entity> {
-            Some(self.0)
+    impl Traversal for &'_ Parent {
+        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+            Some(item.0)
         }
     }
 
@@ -575,7 +575,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traversal = Parent;
+        type Traversal = &'static Parent;
 
         const AUTO_PROPAGATE: bool = true;
     }
