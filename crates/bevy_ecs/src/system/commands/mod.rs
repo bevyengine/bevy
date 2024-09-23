@@ -3,7 +3,9 @@ mod parallel_scope;
 use core::panic::Location;
 use std::marker::PhantomData;
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
+use super::{
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
@@ -756,6 +758,30 @@ impl<'w, 's> Commands<'w, 's> {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
+    }
+
+    /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
+        self.run_system_cached_with(system, ());
+    }
+
+    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached_with<
+        I: 'static + Send,
+        M: 'static,
+        S: IntoSystem<I, (), M> + 'static,
+    >(
+        &mut self,
+        system: S,
+        input: I,
+    ) {
+        self.queue(RunSystemCachedWith::new(system, input));
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that

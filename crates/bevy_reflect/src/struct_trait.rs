@@ -406,19 +406,15 @@ impl PartialReflect for DynamicStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.try_apply(value)?;
-                }
+        let struct_value = value.reflect_ref().as_struct()?;
+
+        for (i, value) in struct_value.iter_fields().enumerate() {
+            let name = struct_value.name_at(i).unwrap();
+            if let Some(v) = self.field_mut(name) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::Struct,
-            });
         }
+
         Ok(())
     }
 
