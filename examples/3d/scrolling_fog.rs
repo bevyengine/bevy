@@ -14,7 +14,7 @@ use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight};
 use bevy::prelude::*;
-use bevy_render::texture::{
+use bevy::render::texture::{
     ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
 };
 

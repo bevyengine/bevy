@@ -246,7 +246,7 @@ pub enum Chain {
 /// fn system_one() { println!("System 1 works!") }
 /// fn system_two() { println!("System 2 works!") }
 /// fn system_three() { println!("System 3 works!") }
-///    
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
@@ -1582,7 +1582,7 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let mut name = match id {
+        let name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
                 if report_sets {
@@ -1607,9 +1607,15 @@ impl ScheduleGraph {
                 }
             }
         };
-        if self.settings.use_shortnames {
-            name = bevy_utils::get_short_name(&name);
+        #[cfg(feature = "bevy_reflect")]
+        {
+            if self.settings.use_shortnames {
+                bevy_reflect::ShortName(&name).to_string()
+            } else {
+                name
+            }
         }
+        #[cfg(not(feature = "bevy_reflect"))]
         name
     }
 
@@ -1893,7 +1899,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -2012,6 +2018,7 @@ pub struct ScheduleBuildSettings {
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
+    #[cfg(feature = "bevy_reflect")]
     pub use_shortnames: bool,
     /// If set to true, report all system sets the conflicting systems are part of.
     ///
@@ -2033,6 +2040,7 @@ impl ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
             auto_insert_apply_deferred: true,
+            #[cfg(feature = "bevy_reflect")]
             use_shortnames: true,
             report_sets: true,
         }

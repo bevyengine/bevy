@@ -587,6 +587,19 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     }
 }
 
+impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
+    /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
+    /// while losing the specificity of `Res` for resources.
+    fn from(res: Res<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: res.changed_by,
+        }
+    }
+}
+
 impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
 where
     &'a T: IntoIterator,

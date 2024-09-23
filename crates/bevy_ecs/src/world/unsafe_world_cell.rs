@@ -14,7 +14,7 @@ use crate::{
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
-    system::{Res, Resource},
+    system::Resource,
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
@@ -248,7 +248,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's [`Observers`] collection.
-    pub(crate) unsafe fn observers(self) -> &'w Observers {
+    pub(crate) fn observers(self) -> &'w Observers {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.observers
@@ -353,7 +353,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
-    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Res<'w, R>> {
+    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Ref<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
 
         // SAFETY: caller ensures `self` has permission to access the resource
@@ -371,7 +371,7 @@ impl<'w> UnsafeWorldCell<'w> {
         #[cfg(feature = "track_change_detection")]
         let caller = unsafe { _caller.deref() };
 
-        Some(Res {
+        Some(Ref {
             value,
             ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1002,7 +1002,7 @@ impl<'w> UnsafeEntityCell<'w> {
 
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
-    /// # Safety:
+    /// # Safety
     /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
     unsafe fn fetch_table(self, location: EntityLocation) -> Option<&'w Table> {
@@ -1013,7 +1013,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     #[inline]
-    /// # Safety:
+    /// # Safety
     /// - the returned `ComponentSparseSet` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `ComponentSparseSet` is only used in ways that would not conflict with any existing
     ///   borrows of world data.
