@@ -12,7 +12,7 @@ use bevy_ecs::{
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 
-/// A Plugin that synchronizes entities with [`SyncRenderWorld`] between the main world and the render world.
+/// A Plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
 /// Bevy's renderer is architected independently from the main app.
 /// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
@@ -21,7 +21,7 @@ use bevy_reflect::Reflect;
 /// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
 /// between the main world and the render world, by spawning new entities (without any components) in the main world,
 /// and despawning entities in the render world to match newly despawned entities in the main world.
-/// This is necessary preparation for extraction ([`ExtractSchedule`]), which copies over component data from the main
+/// This is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
 /// to the render world for these entities.
 ///
 /// ```text
@@ -35,12 +35,12 @@ use bevy_reflect::Reflect;
 /// An example for synchronized main entities 1v1 and 18v1
 ///
 /// ```text
-/// |---------------------------Main World----------------------------|
-/// |  Entity  |                    Component                         |
-/// |-----------------------------------------------------------------|
-/// | ID: 1v1  | PointLight | RenderEntity(ID: 3V1) | SyncRenderWorld |
-/// | ID: 18v1 | PointLight | RenderEntity(ID: 5V1) | SyncRenderWorld |
-/// |-----------------------------------------------------------------|
+/// |---------------------------Main World------------------------------|
+/// |  Entity  |                    Component                           |
+/// |-------------------------------------------------------------------|
+/// | ID: 1v1  | PointLight | RenderEntity(ID: 3V1) | SyncToRenderWorld |
+/// | ID: 18v1 | PointLight | RenderEntity(ID: 5V1) | SyncToRenderWorld |
+/// |-------------------------------------------------------------------|
 ///
 /// |----------Render World-----------|
 /// |  Entity  |       Component      |
@@ -52,8 +52,8 @@ use bevy_reflect::Reflect;
 /// ```
 ///
 /// Note that this effectively establishes a link between the main world entity and the render world entity.
-/// Not every entity needs to be synchronized, however; only entities with the [`SyncRenderWorld`] component are synced.
-/// Adding [`SyncRenderWorld`] to a main world component will establish such a link.
+/// Not every entity needs to be synchronized, however; only entities with the [`SyncToRenderWorld`] component are synced.
+/// Adding [`SyncToRenderWorld`] to a main world component will establish such a link.
 /// Once a synchronized main entity is despawned, its corresponding render entity will be automatically
 /// despawned in the next `sync`.
 ///
@@ -62,7 +62,7 @@ use bevy_reflect::Reflect;
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*. [`RenderAsset`]s like meshes and textures are handled
+/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
 /// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin

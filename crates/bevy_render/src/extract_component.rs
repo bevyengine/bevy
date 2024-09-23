@@ -162,7 +162,7 @@ fn prepare_uniform_components<C>(
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
 ///
 /// # Warning
-/// Components are only extracted for synced entities (for more information see [`world_sync::WorldSyncPlugin`]).
+/// Components are only extracted for synced entities (for more information see [`WorldSyncPlugin`](crate::world_sync::WorldSyncPlugin)).
 /// Removing the component from the main world entity, will stop the [`ExtractComponentPlugin`] from extracting that
 /// data, but won't remove the corresponding component in the render world.
 /// It's recommended to use this plugin for entities that are removed at the end of the frame, or for components that
