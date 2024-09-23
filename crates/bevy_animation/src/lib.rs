@@ -1092,16 +1092,17 @@ pub fn advance_animations(
         });
 }
 
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type AnimationEntityMut<'w> =
+    EntityMutExcept<'w, (Transform, AnimationPlayer, Handle<AnimationGraph>)>;
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(
-        Option<&mut Transform>,
-        EntityMutExcept<(Transform, AnimationPlayer, Handle<AnimationGraph>)>,
-    )>,
+    mut targets: Query<(Option<&mut Transform>, AnimationEntityMut)>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
