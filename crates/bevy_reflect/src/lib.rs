@@ -156,7 +156,7 @@
 //! ```
 //! # use bevy_reflect::{PartialReflect, ReflectRef};
 //! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
-//! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
+//! let my_tuple = my_tuple.reflect_ref().as_tuple().unwrap();
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
@@ -545,6 +545,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod kind;
 mod list;
 mod map;
 mod path;
@@ -552,7 +553,6 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
-mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -561,6 +561,8 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod std;
+
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "petgraph")]
@@ -569,10 +571,10 @@ mod impls {
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
-
-    mod std;
     #[cfg(feature = "uuid")]
     mod uuid;
+    #[cfg(feature = "wgpu-types")]
+    mod wgpu_types;
 }
 
 pub mod attributes;
@@ -603,6 +605,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use kind::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
@@ -619,7 +622,6 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
-pub use short_name::ShortName;
 
 extern crate alloc;
 
@@ -676,6 +678,7 @@ pub mod __macro_exports {
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    use disqualified::ShortName;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
@@ -773,11 +776,8 @@ mod tests {
 
         // nested retrieval
         let c = foo.field("c").unwrap();
-        if let ReflectRef::Struct(value) = c.reflect_ref() {
-            assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
-        } else {
-            panic!("Expected a struct.");
-        }
+        let value = c.reflect_ref().as_struct().unwrap();
+        assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
 
         // patch Foo with a dynamic struct
         let mut dynamic_struct = DynamicStruct::default();

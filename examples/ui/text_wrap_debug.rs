@@ -129,6 +129,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     }],
                     justify: JustifyText::Left,
                     linebreak_behavior,
+                    ..default()
                 };
                 let text_id = commands
                     .spawn(TextBundle {

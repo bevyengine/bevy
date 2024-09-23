@@ -452,6 +452,7 @@ macro_rules! impl_reflect_for_veclike {
         }
 
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> PartialReflect for $ty {
+            #[inline]
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -460,10 +461,12 @@ macro_rules! impl_reflect_for_veclike {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect(&self) -> &dyn PartialReflect {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
@@ -544,15 +547,15 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> FromReflect for $ty {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-                    let mut new_list = Self::with_capacity(ref_list.len());
-                    for field in ref_list.iter() {
-                        $push(&mut new_list, T::from_reflect(field)?);
-                    }
-                    Some(new_list)
-                } else {
-                    None
+                let ref_list = reflect.reflect_ref().as_list().ok()?;
+
+                let mut new_list = Self::with_capacity(ref_list.len());
+
+                for field in ref_list.iter() {
+                    $push(&mut new_list, T::from_reflect(field)?);
                 }
+
+                Some(new_list)
             }
         }
     };
@@ -792,17 +795,17 @@ macro_rules! impl_reflect_for_hashmap {
             S: TypePath + BuildHasher + Default + Send + Sync,
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
-                    let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
-                    for (key, value) in ref_map.iter() {
-                        let new_key = K::from_reflect(key)?;
-                        let new_value = V::from_reflect(value)?;
-                        new_map.insert(new_key, new_value);
-                    }
-                    Some(new_map)
-                } else {
-                    None
+                let ref_map = reflect.reflect_ref().as_map().ok()?;
+
+                let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), S::default());
+
+                for (key, value) in ref_map.iter() {
+                    let new_key = K::from_reflect(key)?;
+                    let new_value = V::from_reflect(value)?;
+                    new_map.insert(new_key, new_value);
                 }
+
+                Some(new_map)
             }
         }
     };
@@ -1013,16 +1016,16 @@ macro_rules! impl_reflect_for_hashset {
             S: TypePath + BuildHasher + Default + Send + Sync,
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                if let ReflectRef::Set(ref_set) = reflect.reflect_ref() {
-                    let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
-                    for value in ref_set.iter() {
-                        let new_value = V::from_reflect(value)?;
-                        new_set.insert(new_value);
-                    }
-                    Some(new_set)
-                } else {
-                    None
+                let ref_set = reflect.reflect_ref().as_set().ok()?;
+
+                let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
+
+                for value in ref_set.iter() {
+                    let new_value = V::from_reflect(value)?;
+                    new_set.insert(new_value);
                 }
+
+                Some(new_set)
             }
         }
     };
@@ -1251,17 +1254,17 @@ where
     V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
-            let mut new_map = Self::new();
-            for (key, value) in ref_map.iter() {
-                let new_key = K::from_reflect(key)?;
-                let new_value = V::from_reflect(value)?;
-                new_map.insert(new_key, new_value);
-            }
-            Some(new_map)
-        } else {
-            None
+        let ref_map = reflect.reflect_ref().as_map().ok()?;
+
+        let mut new_map = Self::new();
+
+        for (key, value) in ref_map.iter() {
+            let new_key = K::from_reflect(key)?;
+            let new_value = V::from_reflect(value)?;
+            new_map.insert(new_key, new_value);
         }
+
+        Some(new_map)
     }
 }
 
@@ -1422,15 +1425,15 @@ impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usiz
     for [T; N]
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_array.len());
-            for field in ref_array.iter() {
-                temp_vec.push(T::from_reflect(field)?);
-            }
-            temp_vec.try_into().ok()
-        } else {
-            None
+        let ref_array = reflect.reflect_ref().as_array().ok()?;
+
+        let mut temp_vec = Vec::with_capacity(ref_array.len());
+
+        for field in ref_array.iter() {
+            temp_vec.push(T::from_reflect(field)?);
         }
+
+        temp_vec.try_into().ok()
     }
 }
 
@@ -1795,15 +1798,15 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromR
     for Cow<'static, [T]>
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                temp_vec.push(T::from_reflect(field)?);
-            }
-            Some(temp_vec.into())
-        } else {
-            None
+        let ref_list = reflect.reflect_ref().as_list().ok()?;
+
+        let mut temp_vec = Vec::with_capacity(ref_list.len());
+
+        for field in ref_list.iter() {
+            temp_vec.push(T::from_reflect(field)?);
         }
+
+        Some(temp_vec.into())
     }
 }
 

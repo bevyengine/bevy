@@ -2897,7 +2897,17 @@ doc-scrape-examples = true
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
+category = "UI (User Interface)"
+wasm = true
 
+[[example]]
+name = "scroll"
+path = "examples/ui/scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scroll]
+name = "Scroll"
+description = "Demonstrates scrolling UI containers"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3536,6 +3546,17 @@ name = "Percentage-closer soft shadows"
 description = "Demonstrates percentage-closer soft shadows (PCSS)"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "animated_ui"
+path = "examples/animation/animated_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_ui]
+name = "Animated UI"
+description = "Shows how to use animation clips to animate UI properties"
+category = "Animation"
+wasm = true
 
 [profile.wasm-release]
 inherits = "release"
