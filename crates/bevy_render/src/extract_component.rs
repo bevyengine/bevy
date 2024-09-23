@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    world_sync::RenderEntity,
+    world_sync::{RenderEntity, SyncToRenderWorld},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -12,6 +12,7 @@ use bevy_ecs::{
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::lifetimeless::Read,
+    world::OnAdd,
 };
 use std::{marker::PhantomData, ops::Deref};
 
@@ -161,7 +162,7 @@ fn prepare_uniform_components<C>(
 /// Therefore it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
 ///
 /// # Warning
-/// Components are only extracted for synced entities (for more information see [`WorldSyncPlugin`]).
+/// Components are only extracted for synced entities (for more information see [`world_sync::WorldSyncPlugin`]).
 /// Removing the component from the main world entity, will stop the [`ExtractComponentPlugin`] from extracting that
 /// data, but won't remove the corresponding component in the render world.
 /// It's recommended to use this plugin for entities that are removed at the end of the frame, or for components that
@@ -191,6 +192,9 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
+        app.observe(|trigger: Trigger<OnAdd, C>, mut commands: Commands | {
+            commands.entity(trigger.entity()).insert(SyncToRenderWorld);
+        });
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
