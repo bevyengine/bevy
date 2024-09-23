@@ -132,6 +132,11 @@ where
         self.system.queue_deferred(world);
     }
 
+    #[inline]
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        self.system.validate_param_unsafe(world)
+    }
+
     fn initialize(&mut self, world: &mut crate::prelude::World) {
         self.system.initialize(world);
     }

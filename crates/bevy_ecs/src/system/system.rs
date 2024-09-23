@@ -59,11 +59,11 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// - The caller must ensure that `world` has permission to access any world data
-    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`Self::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
     unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
 
@@ -93,6 +93,34 @@ pub trait System: Send + Sync + 'static {
     /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
+
+    /// Validates that all parameters can be acquired and that system can run without panic.
+    /// Built-in executors use this to prevent invalid systems from running.
+    ///
+    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
+    /// should provide their own safety mechanism to prevent undefined behavior.
+    ///
+    /// # Safety
+    ///
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
+
+    /// Safe version of [`System::validate_param_unsafe`].
+    /// that runs on exclusive, single-threaded `world` pointer.
+    fn validate_param(&mut self, world: &World) -> bool {
+        let world_cell = world.as_unsafe_world_cell_readonly();
+        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
+        unsafe { self.validate_param_unsafe(world_cell) }
+    }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);

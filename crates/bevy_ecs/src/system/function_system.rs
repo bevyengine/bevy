@@ -340,6 +340,18 @@ impl<Param: SystemParam> SystemState<Param> {
         Param::apply(&mut self.param_state, &self.meta, world);
     }
 
+    /// Wrapper over [`SystemParam::validate_param`].
+    ///
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have read-only access to
+    ///   world data in `archetype_component_access`.
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
+    }
+
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
     /// Otherwise, this returns false.
     #[inline]
@@ -634,6 +646,12 @@ where
     fn queue_deferred(&mut self, world: DeferredWorld) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::queue(param_state, &self.system_meta, world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
+        F::Param::validate_param(param_state, &self.system_meta, world)
     }
 
     #[inline]

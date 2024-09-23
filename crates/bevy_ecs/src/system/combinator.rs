@@ -193,6 +193,7 @@ where
         )
     }
 
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
@@ -202,6 +203,11 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut World) {
