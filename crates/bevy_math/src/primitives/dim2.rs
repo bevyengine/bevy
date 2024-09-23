@@ -1827,7 +1827,7 @@ impl Capsule2d {
 
 impl Measured2d for Capsule2d {
     /// Get the area of the capsule
-    #[inline(always)]
+    #[inline]
     fn area(&self) -> f32 {
         // pi*r^2 + (2r)*l
         PI * self.radius.squared() + self.to_rectangle().area()
