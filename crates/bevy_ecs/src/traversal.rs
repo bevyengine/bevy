@@ -18,11 +18,11 @@ use crate::{entity::Entity, query::ReadOnlyQueryData};
 /// [observers]: crate::observer::Observer
 pub trait Traversal: ReadOnlyQueryData {
     /// Returns the next entity to visit.
-    fn traverse<'a>(item: Self::Item<'a>) -> Option<Entity>;
+    fn traverse(item: Self::Item<'_>) -> Option<Entity>;
 }
 
-impl<'a> Traversal for () {
-    fn traverse(_: Self::Item<'a>) -> Option<Entity> {
+impl Traversal for () {
+    fn traverse(_: Self::Item<'_>) -> Option<Entity> {
         None
     }
 }
