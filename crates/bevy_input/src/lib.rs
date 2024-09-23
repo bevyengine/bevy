@@ -54,7 +54,7 @@ use touch::{touch_screen_input_system, TouchInput, Touches};
 use gamepad::{
     gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
     GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnection,
-    GamepadConnectionEvent, GamepadInfo, GamepadRumbleRequest, GamepadSettings,
+    GamepadConnectionEvent, GamepadEvent, GamepadInfo, GamepadRumbleRequest, GamepadSettings,
     RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 
@@ -96,6 +96,7 @@ impl Plugin for InputPlugin {
             .add_event::<DoubleTapGesture>()
             .add_event::<PanGesture>()
             // gamepad
+            .add_event::<GamepadEvent>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
             .add_event::<GamepadButtonStateChangedEvent>()

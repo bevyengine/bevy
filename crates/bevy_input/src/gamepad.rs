@@ -22,6 +22,47 @@ use thiserror::Error;
 /// A gamepad event.
 ///
 /// This event type is used over the [`GamepadConnectionEvent`],
+/// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
+/// the in-frame relative ordering of events is important.
+///
+/// This event is produced by `bevy_input`
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub enum GamepadEvent {
+    /// A gamepad has been connected or disconnected.
+    Connection(GamepadConnectionEvent),
+    /// A button of the gamepad has been triggered.
+    Button(GamepadButtonChangedEvent),
+    /// An axis of the gamepad has been triggered.
+    Axis(GamepadAxisChangedEvent),
+}
+
+impl From<GamepadConnectionEvent> for GamepadEvent {
+    fn from(value: GamepadConnectionEvent) -> Self {
+        Self::Connection(value)
+    }
+}
+
+impl From<GamepadButtonChangedEvent> for GamepadEvent {
+    fn from(value: GamepadButtonChangedEvent) -> Self {
+        Self::Button(value)
+    }
+}
+
+impl From<GamepadAxisChangedEvent> for GamepadEvent {
+    fn from(value: GamepadAxisChangedEvent) -> Self {
+        Self::Axis(value)
+    }
+}
+
+/// A raw gamepad event.
+///
+/// This event type is used over the [`GamepadConnectionEvent`],
 /// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
 ///
@@ -1343,7 +1384,8 @@ pub enum GamepadConnection {
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
     mut raw_events: EventReader<RawGamepadEvent>,
-    mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
+    mut processed_events: EventWriter<GamepadEvent>,
+    mut processed_axis_events: EventWriter<GamepadAxisChangedEvent>,
     mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
     mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
 ) {
@@ -1355,7 +1397,9 @@ pub fn gamepad_event_processing_system(
     for event in raw_events.read() {
         match event {
             // Connections require inserting/removing components so they are done in a separate system
-            RawGamepadEvent::Connection(_) => {}
+            RawGamepadEvent::Connection(send_event) => {
+                processed_events.send(GamepadEvent::from(send_event.clone()));
+            }
             RawGamepadEvent::Axis(RawGamepadAxisChangedEvent {
                 gamepad,
                 axis,
@@ -1373,7 +1417,9 @@ pub fn gamepad_event_processing_system(
                 };
 
                 gamepad_axis.analog.set(axis.into(), filtered_value);
-                filtered_events.send(GamepadAxisChangedEvent::new(gamepad, axis, filtered_value));
+                let send_event = GamepadAxisChangedEvent::new(gamepad, axis, filtered_value);
+                processed_axis_events.send(send_event);
+                processed_events.send(GamepadEvent::from(send_event));
             }
             RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
                 gamepad,
@@ -1422,13 +1468,10 @@ pub fn gamepad_event_processing_system(
                 } else {
                     ButtonState::Released
                 };
-
-                processed_analog_events.send(GamepadButtonChangedEvent::new(
-                    gamepad,
-                    button,
-                    button_state,
-                    filtered_value,
-                ));
+                let send_event =
+                    GamepadButtonChangedEvent::new(gamepad, button, button_state, filtered_value);
+                processed_analog_events.send(send_event);
+                processed_events.send(GamepadEvent::from(send_event));
             }
         }
     }
