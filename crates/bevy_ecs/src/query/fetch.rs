@@ -2029,12 +2029,12 @@ macro_rules! impl_anytuple_fetch {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
-        $(#[$meta])*
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
             type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
