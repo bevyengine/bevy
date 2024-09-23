@@ -3500,6 +3500,17 @@ description = "Demonstrates percentage-closer soft shadows (PCSS)"
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "animated_ui"
+path = "examples/animation/animated_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_ui]
+name = "Animated UI"
+description = "Shows how to use animation clips to animate UI properties"
+category = "Animation"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"

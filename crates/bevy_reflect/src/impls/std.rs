@@ -452,6 +452,7 @@ macro_rules! impl_reflect_for_veclike {
         }
 
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> PartialReflect for $ty {
+            #[inline]
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -460,10 +461,12 @@ macro_rules! impl_reflect_for_veclike {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect(&self) -> &dyn PartialReflect {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
