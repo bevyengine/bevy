@@ -10,6 +10,24 @@ use bevy::{
 
 const DIRECTIONAL_LIGHT_MOVEMENT_SPEED: f32 = 0.02;
 
+/// The current settings that the user has chosen.
+#[derive(Resource)]
+struct AppSettings {
+    /// Whether volumetric spot light is on.
+    volumetric_spotlight: bool,
+    /// Whether volumetric point light is on.
+    volumetric_pointlight: bool,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            volumetric_spotlight: true,
+            volumetric_pointlight: true,
+        }
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -20,14 +38,16 @@ fn main() {
             alpha: 1.0,
         })))
         .insert_resource(AmbientLight::NONE)
+        .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
         .add_systems(Update, move_directional_light)
+        .add_systems(Update, adjust_app_settings)
         .run();
 }
 
 /// Initializes the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
     commands.spawn(SceneBundle {
         scene: asset_server.load(
@@ -71,22 +91,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 intensity: 1000.0,
                 ..default()
             },
-            transform: Transform::from_xyz(-0.3493744, 1.900556, 1.0452124),
+            transform: Transform::from_xyz(-0.4, 1.9, 1.0),
             ..default()
         })
         .insert(VolumetricLight);
 
     // Add the spot light
-    let mut spotlight_transform = Transform::from_xyz(-1.7817883, 3.901562, -2.7141085);
-    spotlight_transform.rotate(Quat::from_xyzw(
-        -0.83497995,
-        0.1066196,
-        -0.17422977,
-        0.5109645,
-    ));
     commands
         .spawn(SpotLightBundle {
-            transform: spotlight_transform,
+            transform: Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
             spot_light: SpotLight {
                 intensity: 5000.0, // lumens
                 color: Color::WHITE,
@@ -108,10 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Add the help text.
     commands.spawn(
         TextBundle {
-            text: Text::from_section(
-                "Press WASD or the arrow keys to change the light direction",
-                TextStyle::default(),
-            ),
+            text: create_text(&app_settings),
             ..default()
         }
         .with_style(Style {
@@ -121,6 +131,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
     );
+}
+
+fn create_text(app_settings: &AppSettings) -> Text {
+    Text::from_section(
+        format!(
+            "{}\n{}\n{}",
+            "Press WASD or the arrow keys to change the direction of the directional light",
+            if app_settings.volumetric_pointlight {
+                "Press P to turn volumetric point light off"
+            } else {
+                "Press P to turn volumetric point light on"
+            },
+            if app_settings.volumetric_spotlight {
+                "Press L to turn volumetric spot light off"
+            } else {
+                "Press L to turn volumetric spot light on"
+            }
+        ),
+        TextStyle::default(),
+    )
 }
 
 /// A system that makes directional lights in the glTF scene into volumetric
@@ -162,5 +192,56 @@ fn move_directional_light(
     let delta_quat = Quat::from_euler(EulerRot::XZY, delta_theta.y, 0.0, delta_theta.x);
     for mut transform in directional_lights.iter_mut() {
         transform.rotate(delta_quat);
+    }
+}
+
+// Adjusts app settings per user input.
+fn adjust_app_settings(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut app_settings: ResMut<AppSettings>,
+    mut point_lights: Query<Entity, With<PointLight>>,
+    mut spot_lights: Query<Entity, With<SpotLight>>,
+    mut text: Query<&mut Text>,
+) {
+    // If there are no changes, we're going to bail for efficiency. Record that
+    // here.
+    let mut any_changes = false;
+
+    // If the user pressed P, toggle volumetric state of the point light.
+    if keyboard_input.just_pressed(KeyCode::KeyP) {
+        app_settings.volumetric_pointlight = !app_settings.volumetric_pointlight;
+        any_changes = true;
+    }
+    // If the user pressed L, toggle volumetric state of the spot light.
+    if keyboard_input.just_pressed(KeyCode::KeyL) {
+        app_settings.volumetric_spotlight = !app_settings.volumetric_spotlight;
+        any_changes = true;
+    }
+
+    // If there were no changes, bail out.
+    if !any_changes {
+        return;
+    }
+
+    // Update volumetric settings.
+    for point_light in point_lights.iter_mut() {
+        if app_settings.volumetric_pointlight {
+            commands.entity(point_light).insert(VolumetricLight);
+        } else {
+            commands.entity(point_light).remove::<VolumetricLight>();
+        }
+    }
+    for spot_light in spot_lights.iter_mut() {
+        if app_settings.volumetric_spotlight {
+            commands.entity(spot_light).insert(VolumetricLight);
+        } else {
+            commands.entity(spot_light).remove::<VolumetricLight>();
+        }
+    }
+
+    // Update the help text.
+    for mut text in text.iter_mut() {
+        *text = create_text(&app_settings);
     }
 }
