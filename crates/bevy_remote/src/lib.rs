@@ -109,7 +109,7 @@
 //!
 //! `params`:
 //! - `entity`: The ID of the entity whose components will be fetched.
-//! - `components`: An array of fully-qualified type names of components to fetch.
+//! - `components`: An array of [fully-qualified type names] of components to fetch.
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
@@ -123,7 +123,7 @@
 //!
 //! `params`:
 //! - `data`:
-//!   - `components` (optional): An array of fully-qualified type names of components to fetch.
+//!   - `components` (optional): An array of [fully-qualified type names] of components to fetch.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!      reported as boolean values.
@@ -145,7 +145,7 @@
 //! Create a new entity with the provided components and return the resulting entity ID.
 //!
 //! `params`:
-//! - `components`: A map associating each component's fully-qualified type name with its value.
+//! - `components`: A map associating each component's [fully-qualified type name] with its value.
 //!
 //! `result`:
 //! - `entity`: The ID of the newly spawned entity.
@@ -165,7 +165,7 @@
 //!
 //! `params`:
 //! - `entity`: The ID of the entity whose components should be removed.
-//! - `components`: An array of fully-qualified type names of components to be removed.
+//! - `components`: An array of [fully-qualified type names] of components to be removed.
 //!
 //! `result`: null.
 //!
@@ -175,7 +175,7 @@
 //!
 //! `params`:
 //! - `entity`: The ID of the entity to insert components into.
-//! - `components`: A map associating each component's fully-qualified type name with its value.
+//! - `components`: A map associating each component's [fully-qualified type name] with its value.
 //!
 //! `result`: null.
 //!
@@ -200,7 +200,7 @@
 //! `params` (optional):
 //! - `entity`: The ID of the entity whose components will be listed.
 //!
-//! `result`: An array of fully-qualified type names of components.
+//! `result`: An array of [fully-qualified type names] of components.
 //!
 //! ## Custom methods
 //!
@@ -242,6 +242,8 @@
 //! handler system will always run with exclusive `World` access.
 //!
 //! [the `serde` documentation]: https://serde.rs/
+//! [fully-qualified type names]: bevy_reflect::TypePath::type_path
+//! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
 #![cfg(not(target_family = "wasm"))]
 

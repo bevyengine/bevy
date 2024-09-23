@@ -56,12 +56,14 @@ pub struct BrpGetParams {
     /// The ID of the entity from which components are to be requested.
     pub entity: Entity,
 
-    /// The *full paths* of the component types that are to be requested
+    /// The [full paths] of the component types that are to be requested
     /// from the entity.
     ///
     /// Note that these strings must consist of the *full* type paths: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
     /// `Transform`.
+    ///
+    /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
 }
 
@@ -86,13 +88,15 @@ pub struct BrpQueryParams {
 /// The server responds with a [`BrpSpawnResponse`].
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpSpawnParams {
-    /// A map from each component's *full path* to its serialized value.
+    /// A map from each component's full path to its serialized value.
     ///
     /// These components will be added to the entity.
     ///
-    /// Note that the keys of the map must be the *full* type paths: e.g.
+    /// Note that the keys of the map must be the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
     /// `Transform`.
+    ///
+    /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: HashMap<String, Value>,
 }
 
@@ -113,12 +117,14 @@ pub struct BrpRemoveParams {
     /// The ID of the entity from which components are to be removed.
     pub entity: Entity,
 
-    /// The *full paths* of the component types that are to be removed from
+    /// The full paths of the component types that are to be removed from
     /// the entity.
     ///
-    /// Note that these strings must consist of the *full* type paths: e.g.
+    /// Note that these strings must consist of the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
     /// `Transform`.
+    ///
+    /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
 }
 
@@ -130,13 +136,15 @@ pub struct BrpInsertParams {
     /// The ID of the entity that components are to be added to.
     pub entity: Entity,
 
-    /// A map from each component's *full path* to its serialized value.
+    /// A map from each component's full path to its serialized value.
     ///
     /// These components will be added to the entity.
     ///
-    /// Note that the keys of the map must be the *full* type paths: e.g.
+    /// Note that the keys of the map must be the [full type paths]: e.g.
     /// `bevy_transform::components::transform::Transform`, not just
     /// `Transform`.
+    ///
+    /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: HashMap<String, Value>,
 }
 
@@ -170,18 +178,24 @@ pub struct BrpListParams {
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpQuery {
-    /// The *full path* of the type name of each component that is to be
+    /// The [full path] of the type name of each component that is to be
     /// fetched.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub components: Vec<String>,
 
-    /// The *full path* of the type name of each component that is to be
+    /// The [full path] of the type name of each component that is to be
     /// optionally fetched.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub option: Vec<String>,
 
-    /// The *full path* of the type name of each component that is to be checked
+    /// The [full path] of the type name of each component that is to be checked
     /// for presence.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub has: Vec<String>,
 }
@@ -190,13 +204,17 @@ pub struct BrpQuery {
 /// certain entities.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct BrpQueryFilter {
-    /// The *full path* of the type name of each component that may not be
+    /// The [full path] of the type name of each component that must not be
     /// present on the entity for it to be included in the results.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub without: Vec<String>,
 
-    /// The *full path* of the type name of each component that must be present
+    /// The [full path] of the type name of each component that must be present
     /// on the entity for it to be included in the results.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
     pub with: Vec<String>,
 }
@@ -615,9 +633,11 @@ fn build_has_map<'a>(
     has_map
 }
 
-/// Given a component ID, return the associated type path and `ReflectComponent` if possible.
+/// Given a component ID, return the associated [type path] and `ReflectComponent` if possible.
 ///
 /// The `ReflectComponent` part is the meat of this; the type path is only used for error messages.
+/// 
+/// [type path]: bevy_reflect::TypePath::type_path
 fn reflect_component_from_id(
     component_type_id: TypeId,
     type_registry: &TypeRegistry,
