@@ -37,6 +37,7 @@ impl Plugin for CursorPlugin {
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
+    /// Makes the cursor hidden
     Hidden,
     /// Custom cursor image.
     Custom(CustomCursor),

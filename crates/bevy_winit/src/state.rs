@@ -149,7 +149,7 @@ pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::Cu
 /// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
-    /// Cursor was set to hidden, so we need to pass this onto the winit_window
+    /// A hidden cursor, used to hide the cursor in `winit_window`
     Hidden,
     /// A custom cursor was identified to be cached, no reason to recreate it.
     CustomCached(CustomCursorCacheKey),

@@ -166,6 +166,7 @@ struct CursorIcons(Vec<CursorIcon>);
 
 fn init_cursor_icons(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(CursorIcons(vec![
+        CursorIcon::Hidden,
         SystemCursorIcon::Default.into(),
         SystemCursorIcon::Pointer.into(),
         SystemCursorIcon::Wait.into(),
