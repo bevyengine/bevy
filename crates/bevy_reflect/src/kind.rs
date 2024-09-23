@@ -50,17 +50,21 @@ pub enum ReflectKind {
     /// [function-like]: Function
     #[cfg(feature = "functions")]
     Function,
-    /// A value-like type.
+    /// An opaque type.
     ///
-    /// This most often represents a primitive or opaque type,
-    /// where it is not possible, difficult, or not useful to reflect the type further.
+    /// This most often represents a type where it is either impossible, difficult,
+    /// or unuseful to reflect the type further.
     ///
-    /// For example, `u32` and `String` are examples of value-like types.
-    /// Additionally, any type that derives [`Reflect`] with the `#[reflect_value]` attribute
-    /// will be considered a value-like type.
+    /// This includes types like `String` and `Instant`.
     ///
-    /// [`Reflect`]: crate::Reflect
-    Value,
+    /// Despite not technically being opaque types,
+    /// primitives like `u32` `i32` are considered opaque for the purposes of reflection.
+    ///
+    /// Additionally, any type that [derives `Reflect`] with the `#[reflect(opaque)]` attribute
+    /// will be considered an opaque type.
+    ///
+    /// [derives `Reflect`]: bevy_reflect_derive::Reflect
+    Opaque,
 }
 
 impl std::fmt::Display for ReflectKind {
@@ -76,7 +80,7 @@ impl std::fmt::Display for ReflectKind {
             ReflectKind::Enum => f.pad("enum"),
             #[cfg(feature = "functions")]
             ReflectKind::Function => f.pad("function"),
-            ReflectKind::Value => f.pad("value"),
+            ReflectKind::Opaque => f.pad("opaque"),
         }
     }
 }
@@ -97,7 +101,7 @@ macro_rules! impl_reflect_kind_conversions {
                     Self::Enum(_) => ReflectKind::Enum,
                     #[cfg(feature = "functions")]
                     Self::Function(_) => ReflectKind::Function,
-                    Self::Value(_) => ReflectKind::Value,
+                    Self::Opaque(_) => ReflectKind::Opaque,
                 }
             }
         }
@@ -115,7 +119,7 @@ macro_rules! impl_reflect_kind_conversions {
                     $name::Enum(_) => Self::Enum,
                     #[cfg(feature = "functions")]
                     $name::Function(_) => Self::Function,
-                    $name::Value(_) => Self::Value,
+                    $name::Opaque(_) => Self::Opaque,
                 }
             }
         }
@@ -133,14 +137,14 @@ pub struct ReflectKindMismatchError {
 }
 
 macro_rules! impl_cast_method {
-    ($name:ident : Value => $retval:ty) => {
+    ($name:ident : Opaque => $retval:ty) => {
         #[doc = "Attempts a cast to a [`PartialReflect`] trait object."]
-        #[doc = "\n\nReturns an error if `self` is not the [`Self::Value`] variant."]
+        #[doc = "\n\nReturns an error if `self` is not the [`Self::Opaque`] variant."]
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
-                Self::Value(value) => Ok(value),
+                Self::Opaque(value) => Ok(value),
                 _ => Err(ReflectKindMismatchError {
-                    expected: ReflectKind::Value,
+                    expected: ReflectKind::Opaque,
                     received: self.kind(),
                 }),
             }
@@ -180,7 +184,7 @@ pub enum ReflectRef<'a> {
     Enum(&'a dyn Enum),
     #[cfg(feature = "functions")]
     Function(&'a dyn Function),
-    Value(&'a dyn PartialReflect),
+    Opaque(&'a dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectRef<'_>);
 
@@ -193,7 +197,7 @@ impl<'a> ReflectRef<'a> {
     impl_cast_method!(as_map: Map => &'a dyn Map);
     impl_cast_method!(as_set: Set => &'a dyn Set);
     impl_cast_method!(as_enum: Enum => &'a dyn Enum);
-    impl_cast_method!(as_value: Value => &'a dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a dyn PartialReflect);
 }
 
 /// A mutable enumeration of ["kinds"] of a reflected type.
@@ -215,7 +219,7 @@ pub enum ReflectMut<'a> {
     Enum(&'a mut dyn Enum),
     #[cfg(feature = "functions")]
     Function(&'a mut dyn Function),
-    Value(&'a mut dyn PartialReflect),
+    Opaque(&'a mut dyn PartialReflect),
 }
 impl_reflect_kind_conversions!(ReflectMut<'_>);
 
@@ -228,7 +232,7 @@ impl<'a> ReflectMut<'a> {
     impl_cast_method!(as_map: Map => &'a mut dyn Map);
     impl_cast_method!(as_set: Set => &'a mut dyn Set);
     impl_cast_method!(as_enum: Enum => &'a mut dyn Enum);
-    impl_cast_method!(as_value: Value => &'a mut dyn PartialReflect);
+    impl_cast_method!(as_opaque: Opaque => &'a mut dyn PartialReflect);
 }
 
 /// An owned enumeration of ["kinds"] of a reflected type.
@@ -250,7 +254,7 @@ pub enum ReflectOwned {
     Enum(Box<dyn Enum>),
     #[cfg(feature = "functions")]
     Function(Box<dyn Function>),
-    Value(Box<dyn PartialReflect>),
+    Opaque(Box<dyn PartialReflect>),
 }
 impl_reflect_kind_conversions!(ReflectOwned);
 
@@ -263,7 +267,7 @@ impl ReflectOwned {
     impl_cast_method!(into_map: Map => Box<dyn Map>);
     impl_cast_method!(into_set: Set => Box<dyn Set>);
     impl_cast_method!(into_enum: Enum => Box<dyn Enum>);
-    impl_cast_method!(into_value: Value => Box<dyn PartialReflect>);
+    impl_cast_method!(into_value: Opaque => Box<dyn PartialReflect>);
 }
 
 #[cfg(test)]

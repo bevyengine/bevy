@@ -196,7 +196,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             }
             #[cfg(feature = "functions")]
             ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
-            ReflectRef::Value(_) => Err(serializable.err().unwrap()),
+            ReflectRef::Opaque(_) => Err(serializable.err().unwrap()),
         };
 
         #[cfg(feature = "debug_stack")]
