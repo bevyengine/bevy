@@ -450,8 +450,7 @@ impl ShapeSample for Capsule2d {
         if capsule_area > 0.0 {
             // Check if the random point should be inside the rectangle
             if rng.gen_bool((rectangle_area / capsule_area) as f64) {
-                let rectangle = Rectangle::new(self.radius * 2.0, self.half_length * 2.0);
-                rectangle.sample_interior(rng)
+                self.to_rectangle().sample_interior(rng)
             } else {
                 let circle = Circle::new(self.radius);
                 let point = circle.sample_interior(rng);
