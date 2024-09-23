@@ -8,7 +8,7 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId},
+    system::{IntoObserverSystem, SystemId, SystemInput},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -299,10 +299,14 @@ impl App {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.main_mut().register_system(system)
     }
 

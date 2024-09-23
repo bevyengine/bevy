@@ -551,20 +551,16 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Map(map_value) = b.reflect_ref() {
-        for (key, b_value) in map_value.iter() {
-            if let Some(a_value) = a.get_mut(key) {
-                a_value.try_apply(b_value)?;
-            } else {
-                a.insert_boxed(key.clone_value(), b_value.clone_value());
-            }
+    let map_value = b.reflect_ref().as_map()?;
+
+    for (key, b_value) in map_value.iter() {
+        if let Some(a_value) = a.get_mut(key) {
+            a_value.try_apply(b_value)?;
+        } else {
+            a.insert_boxed(key.clone_value(), b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Map,
-        });
     }
+
     Ok(())
 }
 

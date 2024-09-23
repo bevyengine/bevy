@@ -4,9 +4,7 @@ use crate::{
 };
 use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, Path};
 
-/// A struct used to define a simple reflected value type (such as primitives).
-///
-///
+/// A struct used to define a simple reflection-opaque types (including primitives).
 ///
 /// This takes the form:
 ///
@@ -20,10 +18,10 @@ use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, 
 /// // With generics and where clause
 /// ::my_crate::foo::Bar<T1, T2> where T1: Bar (TraitA, TraitB)
 ///
-/// // With a custom path (not with impl_from_reflect_value)
+/// // With a custom path (not with impl_from_reflect_opaque)
 /// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
-pub(crate) struct ReflectValueDef {
+pub(crate) struct ReflectOpaqueDef {
     #[cfg_attr(
         not(feature = "documentation"),
         expect(
@@ -38,7 +36,7 @@ pub(crate) struct ReflectValueDef {
     pub custom_path: Option<CustomPathDef>,
 }
 
-impl ReflectValueDef {
+impl ReflectOpaqueDef {
     pub fn parse_reflect(input: ParseStream) -> syn::Result<Self> {
         Self::parse(input, ReflectTraitToImpl::Reflect)
     }
@@ -66,7 +64,7 @@ impl ReflectValueDef {
                 attrs
             });
         }
-        Ok(ReflectValueDef {
+        Ok(Self {
             attrs,
             type_path,
             generics,

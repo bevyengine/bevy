@@ -4,6 +4,9 @@ use crate::{
 };
 
 use alloc::collections::VecDeque;
+use bevy_animation::prelude::{
+    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
+};
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
@@ -267,7 +270,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{Interpolation, Keyframes};
+        use bevy_animation::Interpolation;
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
@@ -298,16 +301,23 @@ async fn load_gltf<'a, 'b, 'c>(
                 let keyframes = if let Some(outputs) = reader.read_outputs() {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
-                            Keyframes::Translation(tr.map(Vec3::from).collect())
+                            Box::new(TranslationKeyframes(tr.map(Vec3::from).collect()))
+                                as Box<dyn Keyframes>
                         }
-                        ReadOutputs::Rotations(rots) => Keyframes::Rotation(
+                        ReadOutputs::Rotations(rots) => Box::new(RotationKeyframes(
                             rots.into_f32().map(bevy_math::Quat::from_array).collect(),
-                        ),
+                        ))
+                            as Box<dyn Keyframes>,
                         ReadOutputs::Scales(scale) => {
-                            Keyframes::Scale(scale.map(Vec3::from).collect())
+                            Box::new(ScaleKeyframes(scale.map(Vec3::from).collect()))
+                                as Box<dyn Keyframes>
                         }
                         ReadOutputs::MorphTargetWeights(weights) => {
-                            Keyframes::Weights(weights.into_f32().collect())
+                            let weights: Vec<_> = weights.into_f32().collect();
+                            Box::new(MorphWeightsKeyframes {
+                                morph_target_count: weights.len() / keyframe_timestamps.len(),
+                                weights,
+                            }) as Box<dyn Keyframes>
                         }
                     }
                 } else {

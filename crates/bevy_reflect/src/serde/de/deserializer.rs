@@ -30,7 +30,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
@@ -67,7 +67,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///
 /// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
-/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
@@ -87,7 +87,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [type path]: crate::TypePath::type_path
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
 /// [`Box<DynamicList>`]: crate::DynamicList
@@ -163,7 +163,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
@@ -200,7 +200,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
-/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
@@ -219,7 +219,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
 /// [`Box<DynamicList>`]: crate::DynamicList
@@ -343,7 +343,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     dynamic_enum.set_represented_type(Some(self.registration.type_info()));
                     Ok(Box::new(dynamic_enum))
                 }
-                TypeInfo::Value(_) => {
+                TypeInfo::Opaque(_) => {
                     // This case should already be handled
                     Err(make_custom_error(format_args!(
                         "type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",

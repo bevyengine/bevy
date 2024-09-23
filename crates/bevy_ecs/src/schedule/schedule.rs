@@ -8,6 +8,7 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap, HashSet,
 };
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
@@ -1604,15 +1605,11 @@ impl ScheduleGraph {
                 }
             }
         };
-
-        #[cfg(feature = "bevy_reflect")]
-        let name = if self.settings.use_shortnames {
-            bevy_reflect::ShortName(&name).to_string()
+        if self.settings.use_shortnames {
+            ShortName(&name).to_string()
         } else {
             name
-        };
-
-        name
+        }
     }
 
     fn anonymous_set_name(&self, id: &NodeId) -> String {
@@ -2014,7 +2011,6 @@ pub struct ScheduleBuildSettings {
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
-    #[cfg(feature = "bevy_reflect")]
     pub use_shortnames: bool,
     /// If set to true, report all system sets the conflicting systems are part of.
     ///
@@ -2036,7 +2032,6 @@ impl ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
             auto_insert_apply_deferred: true,
-            #[cfg(feature = "bevy_reflect")]
             use_shortnames: true,
             report_sets: true,
         }

@@ -357,13 +357,6 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         propagate,
         observer_trigger,
     );
-    // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
-    // Additionally, IntoObserverSystem is only implemented for functions starting
-    // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
-    // allowing the Trigger<'static> to be moved outside of the context of the system.
-    // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
-    // static constraint from ObserverSystem, but so far we have not found a way.
-    let trigger: Trigger<'static, E, B> = unsafe { core::mem::transmute(trigger) };
     // SAFETY:
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.

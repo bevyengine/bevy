@@ -16,8 +16,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
-    TextBounds, TextSection, YAxisOrientation,
+    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText,
+    PositionedGlyph, TextBounds, TextSection, YAxisOrientation,
 };
 
 /// A wrapper around a [`cosmic_text::FontSystem`]
@@ -90,7 +90,12 @@ impl TextPipeline {
                 .ok_or(TextError::NoSuchFont)?;
         }
         let line_height = font_size * 1.2;
-        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
+        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
+        // deallocating the buffer.
+        metrics.font_size = metrics.font_size.max(0.000001);
+        metrics.line_height = metrics.line_height.max(0.000001);
 
         // Load Bevy fonts into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
@@ -108,24 +113,27 @@ impl TextPipeline {
             .into_iter()
             .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
-        spans.extend(
-            sections
-                .iter()
-                .enumerate()
-                .filter(|(_section_index, section)| section.style.font_size > 0.0)
-                .map(|(section_index, section)| {
-                    (
-                        &section.value[..],
-                        get_attrs(
-                            section,
-                            section_index,
-                            font_system,
-                            &self.map_handle_to_font_id,
-                            scale_factor,
-                        ),
-                    )
-                }),
-        );
+        // `metrics.font_size` hack continued: ignore all spans when scale_factor is zero.
+        if scale_factor > 0.0 {
+            spans.extend(
+                sections
+                    .iter()
+                    .enumerate()
+                    .filter(|(_section_index, section)| section.style.font_size > 0.0)
+                    .map(|(section_index, section)| {
+                        (
+                            &section.value[..],
+                            get_attrs(
+                                section,
+                                section_index,
+                                font_system,
+                                &self.map_handle_to_font_id,
+                                scale_factor,
+                            ),
+                        )
+                    }),
+            );
+        }
         let spans_iter = spans.iter().copied();
 
         buffer.set_metrics(font_system, metrics);
@@ -173,6 +181,7 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
+        font_smoothing: FontSmoothing,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -209,6 +218,24 @@ impl TextPipeline {
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
             .try_for_each(|(layout_glyph, line_y)| {
+                let mut temp_glyph;
+
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
+                    // If font smoothing is disabled, round the glyph positions and sizes,
+                    // effectively discarding all subpixel layout.
+                    temp_glyph = layout_glyph.clone();
+                    temp_glyph.x = temp_glyph.x.round();
+                    temp_glyph.y = temp_glyph.y.round();
+                    temp_glyph.w = temp_glyph.w.round();
+                    temp_glyph.x_offset = temp_glyph.x_offset.round();
+                    temp_glyph.y_offset = temp_glyph.y_offset.round();
+                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+
+                    &temp_glyph
+                } else {
+                    layout_glyph
+                };
+
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -217,7 +244,7 @@ impl TextPipeline {
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(physical_glyph.cache_key)
+                    .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
@@ -226,6 +253,7 @@ impl TextPipeline {
                             font_system,
                             swash_cache,
                             layout_glyph,
+                            font_smoothing,
                         )
                     })?;
 

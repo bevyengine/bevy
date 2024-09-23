@@ -448,22 +448,18 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::List(list_value) = b.reflect_ref() {
-        for (i, value) in list_value.iter().enumerate() {
-            if i < a.len() {
-                if let Some(v) = a.get_mut(i) {
-                    v.try_apply(value)?;
-                }
-            } else {
-                List::push(a, value.clone_value());
+    let list_value = b.reflect_ref().as_list()?;
+
+    for (i, value) in list_value.iter().enumerate() {
+        if i < a.len() {
+            if let Some(v) = a.get_mut(i) {
+                v.try_apply(value)?;
             }
+        } else {
+            List::push(a, value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::List,
-        });
     }
+
     Ok(())
 }
 
@@ -524,7 +520,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::{Reflect, ReflectRef};
+    use crate::Reflect;
     use core::assert_eq;
 
     #[test]
@@ -552,9 +548,7 @@ mod tests {
         };
         let b = Box::new(vec![(); SIZE]).into_reflect();
 
-        let ReflectRef::List(list) = b.reflect_ref() else {
-            panic!("Not a list...");
-        };
+        let list = b.reflect_ref().as_list().unwrap();
 
         let mut iter = list.iter();
         iter.index = SIZE - 1;

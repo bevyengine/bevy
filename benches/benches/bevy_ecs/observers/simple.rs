@@ -1,6 +1,6 @@
 use bevy_ecs::{entity::Entity, event::Event, observer::Trigger, world::World};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 fn deterministic_rand() -> ChaCha8Rng {

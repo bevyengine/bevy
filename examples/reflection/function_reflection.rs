@@ -8,7 +8,7 @@
 
 use bevy::reflect::{
     func::{
-        ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,
+        ArgList, DynamicFunction, DynamicFunctionMut, FunctionInfo, FunctionResult, IntoFunction,
         IntoFunctionMut, Return,
     },
     PartialReflect, Reflect,
@@ -131,16 +131,10 @@ fn main() {
     }
 
     let get_or_insert_function = dbg!(DynamicFunction::new(
-        |mut args| {
-            // We can optionally add a check to ensure we were given the correct number of arguments.
-            if args.len() != 2 {
-                return Err(FunctionError::ArgCountMismatch {
-                    expected: 2,
-                    received: args.len(),
-                });
-            }
-
+        |mut args: ArgList| -> FunctionResult {
             // The `ArgList` contains the arguments in the order they were pushed.
+            // The `DynamicFunction` will validate that the list contains
+            // exactly the number of arguments we expect.
             // We can retrieve them out in order (note that this modifies the `ArgList`):
             let value = args.take::<i32>()?;
             let container = args.take::<&mut Option<i32>>()?;
@@ -162,8 +156,8 @@ fn main() {
             // such as by using its type name or by prefixing it with your crate name.
             .with_name("my_crate::get_or_insert")
             // Since our function takes arguments, we should provide that argument information.
-            // This helps ensure that consumers of the function can validate the arguments they
-            // pass into the function and helps for debugging.
+            // This is used to validate arguments when calling the function.
+            // And it aids consumers of the function with their own validation and debugging.
             // Arguments should be provided in the order they are defined in the function.
             .with_arg::<i32>("value")
             .with_arg::<&mut Option<i32>>("container")

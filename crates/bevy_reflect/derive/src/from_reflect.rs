@@ -22,7 +22,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     impl_struct_internal(reflect_struct, true)
 }
 
-pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();

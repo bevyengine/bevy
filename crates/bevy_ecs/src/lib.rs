@@ -57,9 +57,9 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
-            System, SystemParamBuilder, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
+            Resource, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,

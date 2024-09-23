@@ -3,7 +3,7 @@
 //! A container attribute is an attribute which applies to an entire struct or enum
 //! as opposed to a particular field or variant. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like:
-//! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
+//! `#[reflect(PartialEq, Default, ...)]`.
 
 use crate::{
     attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
@@ -24,6 +24,7 @@ mod kw {
     syn::custom_keyword!(PartialEq);
     syn::custom_keyword!(Hash);
     syn::custom_keyword!(no_field_bounds);
+    syn::custom_keyword!(opaque);
 }
 
 // The "special" trait idents that are used internally for reflection.
@@ -189,6 +190,7 @@ pub(crate) struct ContainerAttributes {
     custom_where: Option<WhereClause>,
     no_field_bounds: bool,
     custom_attributes: CustomAttributes,
+    is_opaque: bool,
     idents: Vec<Ident>,
 }
 
@@ -237,6 +239,8 @@ impl ContainerAttributes {
             self.parse_from_reflect(input, trait_)
         } else if lookahead.peek(kw::type_path) {
             self.parse_type_path(input, trait_)
+        } else if lookahead.peek(kw::opaque) {
+            self.parse_opaque(input)
         } else if lookahead.peek(kw::no_field_bounds) {
             self.parse_no_field_bounds(input)
         } else if lookahead.peek(kw::Debug) {
@@ -334,6 +338,16 @@ impl ContainerAttributes {
             self.hash = TraitImpl::Implemented(ident.span);
         }
 
+        Ok(())
+    }
+
+    /// Parse `opaque` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(opaque)]`
+    fn parse_opaque(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::opaque>()?;
+        self.is_opaque = true;
         Ok(())
     }
 
@@ -528,6 +542,11 @@ impl ContainerAttributes {
     /// Returns true if the `no_field_bounds` attribute was found on this type.
     pub fn no_field_bounds(&self) -> bool {
         self.no_field_bounds
+    }
+
+    /// Returns true if the `opaque` attribute was found on this type.
+    pub fn is_opaque(&self) -> bool {
+        self.is_opaque
     }
 }
 

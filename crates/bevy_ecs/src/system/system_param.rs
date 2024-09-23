@@ -9,7 +9,7 @@ use crate::{
         Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
         QueryState, ReadOnlyQueryData,
     },
-    storage::SparseSetIndex,
+    storage::{ResourceData, SparseSetIndex},
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -182,17 +182,17 @@ pub unsafe trait SystemParam: Sized {
     /// The item type returned when constructing this system param.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
-    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
+    /// You could think of [`SystemParam::Item<'w, 's>`] as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
     /// Registers any [`World`] access used by this [`SystemParam`]
-    /// and creates a new instance of this param's [`State`](Self::State).
+    /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
     /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
     ///
     /// # Safety
-    /// `archetype` must be from the [`World`] used to initialize `state` in `init_state`.
+    /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
     #[inline]
     #[allow(unused_variables)]
     unsafe fn new_archetype(
@@ -215,15 +215,42 @@ pub unsafe trait SystemParam: Sized {
     #[allow(unused_variables)]
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
 
-    /// Creates a parameter to be passed into a [`SystemParamFunction`].
+    /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
+    /// Built-in executors use this to prevent systems with invalid params from running.
+    /// For nested [`SystemParam`]s validation will fail if any
+    /// delegated validation fails.
     ///
-    /// [`SystemParamFunction`]: super::SystemParamFunction
+    /// However calling and respecting [`SystemParam::validate_param`]
+    /// is not a strict requirement, [`SystemParam::get_param`] should
+    /// provide it's own safety mechanism to prevent undefined behavior.
+    ///
+    /// The [`world`](UnsafeWorldCell) can only be used to read param's data
+    /// and world metadata. No data can be written.
+    ///
+    /// # Safety
+    ///
+    /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
+    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
+    unsafe fn validate_param(
+        _state: &Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+    ) -> bool {
+        // By default we allow panics in [`SystemParam::get_param`] and return `true`.
+        // Preventing panics is an optional feature.
+        true
+    }
+
+    /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data
     ///   registered in [`init_state`](SystemParam::init_state).
-    /// - `world` must be the same `World` that was used to initialize [`state`](SystemParam::init_state).
+    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
+    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -586,6 +613,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 
     #[inline]
+    unsafe fn validate_param(
+        &component_id: &Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
+            .resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -683,6 +723,19 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 
     #[inline]
+    unsafe fn validate_param(
+        &component_id: &Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
+            .resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -776,6 +829,7 @@ unsafe impl SystemParam for &'_ World {
         system_meta.component_access_set.add(filtered_access);
     }
 
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1100,6 +1154,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         state.get().queue(system_meta, world);
     }
 
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1215,6 +1270,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 
     #[inline]
+    unsafe fn validate_param(
+        &component_id: &Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
+            .non_send_resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -1306,6 +1374,19 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .add_resource_write(archetype_component_id);
 
         component_id
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        &component_id: &Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Read-only access to resource metadata.
+        unsafe { world.storages() }
+            .non_send_resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
     }
 
     #[inline]
@@ -1484,6 +1565,7 @@ unsafe impl SystemParam for SystemChangeTick {
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
+    #[inline]
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -1509,6 +1591,18 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         Vec::new()
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state
+            .iter()
+            .all(|state| T::validate_param(state, system_meta, world))
+    }
+
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -1560,6 +1654,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         Vec::new()
     }
 
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -1667,6 +1762,16 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
+            unsafe fn validate_param(
+                state: &Self::State,
+                _system_meta: &SystemMeta,
+                _world: UnsafeWorldCell,
+            ) -> bool {
+                let ($($param,)*) = state;
+                $($param::validate_param($param, _system_meta, _world)&&)* true
+            }
+
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
@@ -1674,7 +1779,6 @@ macro_rules! impl_system_param_tuple {
                 _world: UnsafeWorldCell<'w>,
                 _change_tick: Tick,
             ) -> Self::Item<'w, 's> {
-
                 let ($($param,)*) = state;
                 ($($param::get_param($param, _system_meta, _world, _change_tick),)*)
             }
@@ -1720,7 +1824,7 @@ pub mod lifetimeless {
 /// A helper for using system parameters in generic contexts
 ///
 /// This type is a [`SystemParam`] adapter which always has
-/// `Self::State::Item == Self` (ignoring lifetimes for brevity),
+/// `Self::Item == Self` (ignoring lifetimes for brevity),
 /// no matter the argument [`SystemParam`] (`P`) (other than
 /// that `P` must be `'static`)
 ///
@@ -1824,6 +1928,16 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::queue(state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        P::validate_param(state, system_meta, world)
+    }
+
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
@@ -1842,6 +1956,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _state: &'state mut Self::State,
         _system_meta: &SystemMeta,
@@ -2047,7 +2162,7 @@ trait DynParamState: Sync + Send {
     /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
     ///
     /// # Safety
-    /// `archetype` must be from the [`World`] used to initialize `state` in `init_state`.
+    /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
     unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta);
 
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
@@ -2058,6 +2173,12 @@ trait DynParamState: Sync + Send {
 
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
+
+    /// Refer to [`SystemParam::validate_param`].
+    ///
+    /// # Safety
+    /// Refer to [`SystemParam::validate_param`].
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2080,6 +2201,10 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
         T::queue(&mut self.0, system_meta, world);
     }
+
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
+        T::validate_param(&self.0, system_meta, world)
+    }
 }
 
 // SAFETY: `init_state` creates a state of (), which performs no access.  The interesting safety checks are on the `SystemParamBuilder`.
@@ -2092,6 +2217,16 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         DynSystemParamState::new::<()>(())
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state.0.validate_param(system_meta, world)
+    }
+
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,

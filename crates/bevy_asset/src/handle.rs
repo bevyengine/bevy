@@ -4,12 +4,13 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, ShortName, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
 };
 use crossbeam_channel::{Receiver, Sender};
+use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;
 

@@ -1905,6 +1905,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// - If `access` takes read access to a component no mutable reference to that
     ///     component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
+    #[inline]
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }
@@ -2043,6 +2044,7 @@ impl<'w> FilteredEntityRef<'w> {
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
+    #[inline]
     fn from(entity_mut: FilteredEntityMut<'w>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
@@ -2051,6 +2053,7 @@ impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
 }
 
 impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
+    #[inline]
     fn from(entity_mut: &'a FilteredEntityMut<'_>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
@@ -2144,6 +2147,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// - If `access` takes write access to a component, no reference to that component
     ///     may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
+    #[inline]
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
         Self { entity, access }
     }
@@ -2156,6 +2160,7 @@ impl<'w> FilteredEntityMut<'w> {
     }
 
     /// Gets read-only access to all of the entity's components.
+    #[inline]
     pub fn as_readonly(&self) -> FilteredEntityRef<'_> {
         FilteredEntityRef::from(self)
     }
@@ -2397,6 +2402,13 @@ where
         }
     }
 
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
+    }
+
     /// Gets access to the component of type `C` for the current entity. Returns
     /// `None` if the component doesn't have a component of that type or if the
     /// type is one of the excluded components.
@@ -2476,6 +2488,13 @@ where
             entity,
             phantom: PhantomData,
         }
+    }
+
+    /// Returns the [ID](Entity) of the current entity.
+    #[inline]
+    #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
+    pub fn id(&self) -> Entity {
+        self.entity.id()
     }
 
     /// Returns a new instance with a shorter lifetime.

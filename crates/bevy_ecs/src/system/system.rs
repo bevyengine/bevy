@@ -6,6 +6,7 @@ use crate::{
     component::{ComponentId, Tick},
     query::Access,
     schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -27,9 +28,8 @@ use super::IntoSystem;
 /// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
-    /// The system's input. See [`In`](crate::system::In) for
-    /// [`FunctionSystem`](crate::system::FunctionSystem)s.
-    type In;
+    /// The system's input.
+    type In: SystemInput;
     /// The system's output.
     type Out;
     /// Returns the system's name.
@@ -61,13 +61,14 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// - The caller must ensure that `world` has permission to access any world data
-    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`Self::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
+        -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -76,7 +77,7 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -95,6 +96,34 @@ pub trait System: Send + Sync + 'static {
     /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
+
+    /// Validates that all parameters can be acquired and that system can run without panic.
+    /// Built-in executors use this to prevent invalid systems from running.
+    ///
+    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
+    /// should provide their own safety mechanism to prevent undefined behavior.
+    ///
+    /// # Safety
+    ///
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
+
+    /// Safe version of [`System::validate_param_unsafe`].
+    /// that runs on exclusive, single-threaded `world` pointer.
+    fn validate_param(&mut self, world: &World) -> bool {
+        let world_cell = world.as_unsafe_world_cell_readonly();
+        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
+        unsafe { self.validate_param_unsafe(world_cell) }
+    }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
@@ -149,7 +178,7 @@ pub unsafe trait ReadOnlySystem: System {
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: Self::In, world: &World) -> Self::Out {
+    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world);
         // SAFETY:
@@ -173,7 +202,11 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
+impl<In, Out> Debug for dyn System<In = In, Out = Out>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
@@ -210,8 +243,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system`](World::run_system)
-/// and run the system by their [`SystemId`](crate::system::SystemId).
+/// If you do need systems to hold onto state between runs, use [`World::run_system_cached`](World::run_system_cached)
+/// or [`World::run_system`](World::run_system).
 ///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
@@ -280,24 +313,34 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// ```
 pub trait RunSystemOnce: Sized {
     /// Runs a system and applies its deferred parameters.
-    fn run_system_once<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
+    fn run_system_once<T, Out, Marker>(self, system: T) -> Out
+    where
+        T: IntoSystem<(), Out, Marker>,
+    {
         self.run_system_once_with((), system)
     }
 
     /// Runs a system with given input and applies its deferred parameters.
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out;
+    ) -> Out
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput;
 }
 
 impl RunSystemOnce for &mut World {
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out {
+    ) -> Out
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput,
+    {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
         system.run(input, self)

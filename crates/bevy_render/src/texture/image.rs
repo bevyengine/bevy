@@ -167,7 +167,8 @@ impl ImageFormat {
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value(Default)]
+#[reflect(opaque)]
+#[reflect(Default, Debug)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors

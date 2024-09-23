@@ -2,9 +2,8 @@ use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 
 use crate::func::{
-    args::{ArgInfo, ArgList},
-    info::FunctionInfo,
-    DynamicFunction, FunctionResult, IntoFunctionMut, ReturnInfo,
+    args::ArgList, info::FunctionInfo, DynamicFunction, FunctionError, FunctionResult,
+    IntoFunctionMut,
 };
 
 /// A dynamic representation of a function.
@@ -74,8 +73,10 @@ impl<'env> DynamicFunctionMut<'env> {
     /// The given function can be used to call out to any other callable,
     /// including functions, closures, or methods.
     ///
-    /// It's important that the function signature matches the provided [`FunctionInfo`].
-    /// This info may be used by consumers of this function for validation and debugging.
+    /// It's important that the function signature matches the provided [`FunctionInfo`]
+    /// as this will be used to validate arguments when [calling] the function.
+    ///
+    /// [calling]: DynamicFunctionMut::call
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
@@ -96,21 +97,6 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
-        self
-    }
-
-    /// Set the argument information of the function.
-    ///
-    /// It's important that the arguments match the intended function signature,
-    /// as this can be used by consumers of this function for validation and debugging.
-    pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.info = self.info.with_args(args);
-        self
-    }
-
-    /// Set the return information of the function.
-    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
-        self.info = self.info.with_return_info(return_info);
         self
     }
 
@@ -137,9 +123,26 @@ impl<'env> DynamicFunctionMut<'env> {
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
     ///
+    /// # Errors
+    ///
+    /// This method will return an error if the number of arguments provided does not match
+    /// the number of arguments expected by the function's [`FunctionInfo`].
+    ///
+    /// The function itself may also return any errors it needs to.
+    ///
     /// [`call_once`]: DynamicFunctionMut::call_once
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args)
+        let expected_arg_count = self.info.arg_count();
+        let received_arg_count = args.len();
+
+        if expected_arg_count != received_arg_count {
+            Err(FunctionError::ArgCountMismatch {
+                expected: expected_arg_count,
+                received: received_arg_count,
+            })
+        } else {
+            (self.func)(args)
+        }
     }
 
     /// Call the function with the given arguments and consume it.
@@ -163,8 +166,25 @@ impl<'env> DynamicFunctionMut<'env> {
     /// increment_function.call_once(args).unwrap();
     /// assert_eq!(count, 5);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if the number of arguments provided does not match
+    /// the number of arguments expected by the function's [`FunctionInfo`].
+    ///
+    /// The function itself may also return any errors it needs to.
     pub fn call_once(mut self, args: ArgList) -> FunctionResult {
-        (self.func)(args)
+        let expected_arg_count = self.info.arg_count();
+        let received_arg_count = args.len();
+
+        if expected_arg_count != received_arg_count {
+            Err(FunctionError::ArgCountMismatch {
+                expected: expected_arg_count,
+                received: received_arg_count,
+            })
+        } else {
+            (self.func)(args)
+        }
     }
 
     /// Returns the function info.
@@ -253,5 +273,31 @@ mod tests {
         let mut total = 0;
         let closure: DynamicFunctionMut = make_closure(|a: i32, b: i32| total = a + b);
         let _: DynamicFunctionMut = make_closure(closure);
+    }
+
+    #[test]
+    fn should_return_error_on_arg_count_mismatch() {
+        let mut total = 0;
+        let mut func = (|a: i32, b: i32| total = a + b).into_function_mut();
+
+        let args = ArgList::default().push_owned(25_i32);
+        let error = func.call(args).unwrap_err();
+        assert!(matches!(
+            error,
+            FunctionError::ArgCountMismatch {
+                expected: 2,
+                received: 1
+            }
+        ));
+
+        let args = ArgList::default().push_owned(25_i32);
+        let error = func.call_once(args).unwrap_err();
+        assert!(matches!(
+            error,
+            FunctionError::ArgCountMismatch {
+                expected: 2,
+                received: 1
+            }
+        ));
     }
 }

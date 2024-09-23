@@ -2,8 +2,8 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
+    ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -39,6 +39,8 @@ pub struct NodeBundle {
     pub border_radius: BorderRadius,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The scroll position of the node,
+    pub scroll_position: ScrollPosition,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.

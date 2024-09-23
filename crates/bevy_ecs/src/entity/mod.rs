@@ -144,10 +144,11 @@ type IdCursor = isize;
 /// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
