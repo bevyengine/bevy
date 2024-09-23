@@ -8,7 +8,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    query::{QueryData, QueryFilter, WorldQuery},
     system::{Commands, Query, Resource},
     traversal::Traversal,
 };
@@ -395,7 +395,8 @@ impl<'w> DeferredWorld<'w> {
         data: &mut E,
         mut propagate: bool,
     ) where
-        T: Traversal,
+        T: Traversal + Component,
+        T: WorldQuery<Item<'a> = T>
     {
         loop {
             Observers::invoke::<_>(
@@ -409,7 +410,7 @@ impl<'w> DeferredWorld<'w> {
             if !propagate {
                 break;
             }
-            if let Some(traverse_to) = self.get::<T>(entity).and_then(|t: &T| T::traverse(t.???)) {
+            if let Some(traverse_to) = self.get_entity(entity).and_then(|e| e.get_components::<&T>().and_then(|t| T::traverse(t))) {
                 entity = traverse_to;
             } else {
                 break;
