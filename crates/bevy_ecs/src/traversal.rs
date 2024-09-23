@@ -21,8 +21,8 @@ pub trait Traversal: QueryData {
     fn traverse<'a>(item: Self::Item<'a>) -> Option<Entity>;
 }
 
-impl Traversal for () {
-    fn traverse<'a>(_: Self::Item<'a>) -> Option<Entity> {
+impl<'a> Traversal for () {
+    fn traverse(_: Self::Item<'a>) -> Option<Entity> {
         None
     }
 }

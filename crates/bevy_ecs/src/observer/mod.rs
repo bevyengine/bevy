@@ -520,9 +520,9 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for Parent {
-        fn traverse<'a>(item: Self::Item<'a>) -> Option<Entity> {
-            Some(self.0)
+    impl<'a> Traversal<'a> for &'a Parent {
+        fn traverse(item: Self::Item<'a>) -> Option<Entity> {
+            Some(item.0)
         }
     }
 
@@ -530,7 +530,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traversal = Parent;
+        type Traversal<'a> = &'a Parent;
 
         const AUTO_PROPAGATE: bool = true;
     }
