@@ -562,6 +562,8 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod std;
+
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "petgraph")]
@@ -570,10 +572,10 @@ mod impls {
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
-
-    mod std;
     #[cfg(feature = "uuid")]
     mod uuid;
+    #[cfg(feature = "wgpu-types")]
+    mod wgpu_types;
 }
 
 pub mod attributes;
