@@ -1830,7 +1830,7 @@ impl Measured2d for Capsule2d {
     #[inline]
     fn area(&self) -> f32 {
         // pi*r^2 + (2r)*l
-        PI * self.radius.squared() + self.to_rectangle().area()
+        PI * self.radius.squared() + self.to_inner_rectangle().area()
     }
 
     /// Get the perimeter of the capsule
@@ -1918,7 +1918,7 @@ mod tests {
     fn capsule_math() {
         let capsule = Capsule2d::new(2.0, 9.0);
         assert_eq!(
-            capsule.to_rectangle(),
+            capsule.to_inner_rectangle(),
             Rectangle::new(4.0, 9.0),
             "rectangle wasn't created correctly from a capsule"
         );
