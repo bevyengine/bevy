@@ -9,26 +9,22 @@ fn main() {
         .run();
 }
 
-fn gamepad_system(gamepads: Query<&Gamepad>) {
-    for gamepad in gamepads.iter() {
+fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
+    for (entity, gamepad) in gamepads.iter() {
         if gamepad.just_pressed(GamepadButton::South) {
-            info!("{:?} just pressed South", gamepad.id());
+            info!("{:?} just pressed South", entity);
         } else if gamepad.just_released(GamepadButton::South) {
-            info!("{:?} just released South", gamepad.id());
+            info!("{:?} just released South", entity);
         }
 
         let right_trigger = gamepad.get(GamepadButton::RightTrigger2).unwrap();
         if right_trigger.abs() > 0.01 {
-            info!(
-                "{:?} RightTrigger2 value is {}",
-                gamepad.id(),
-                right_trigger
-            );
+            info!("{:?} RightTrigger2 value is {}", entity, right_trigger);
         }
 
         let left_stick_x = gamepad.get(GamepadAxis::LeftStickX).unwrap();
         if left_stick_x.abs() > 0.01 {
-            info!("{:?} LeftStickX value is {}", gamepad.id(), left_stick_x);
+            info!("{:?} LeftStickX value is {}", entity, left_stick_x);
         }
     }
 }

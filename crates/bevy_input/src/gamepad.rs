@@ -310,10 +310,10 @@ pub enum ButtonSettingsError {
 /// #
 /// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
 ///     for gamepad in gamepads.iter() {
-///         println!("{}", gamepad.id());
+///         println!("{}", gamepad.name());
 ///
 ///         if gamepad.just_pressed(GamepadButton::North) {
-///             println!("{} just pressed North", gamepad.id())
+///             println!("{} just pressed North", gamepad.name())
 ///         }
 ///
 ///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
@@ -466,7 +466,7 @@ impl Gamepad {
     }
 }
 
-/// Metadata associated with a [`GamepadId`].
+/// Metadata associated with a [`Gamepad`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -625,7 +625,9 @@ impl GamepadAxis {
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum GamepadInput {
+    /// A [`GamepadAxis`]
     Axis(GamepadAxis),
+    /// A [`GamepadButton`]
     Button(GamepadButton),
 }
 
@@ -1501,15 +1503,15 @@ impl GamepadRumbleIntensity {
 ///
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity};
-/// # use bevy_ecs::prelude::{EventWriter, Res, Query};
+/// # use bevy_ecs::prelude::{EventWriter, Res, Query, Entity, With};
 /// # use bevy_utils::Duration;
 /// fn rumble_gamepad_system(
 ///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
-///     gamepads: Query<&Gamepad>,
+///     gamepads: Query<Entity, With<Gamepad>>,
 /// ) {
-///     for gamepad in gamepads.iter() {
+///     for entity in gamepads.iter() {
 ///         rumble_requests.send(GamepadRumbleRequest::Add {
-///             gamepad: gamepad.id(),
+///             gamepad: entity,
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration: Duration::from_secs_f32(0.5),
 ///         });
@@ -1540,7 +1542,7 @@ pub enum GamepadRumbleRequest {
         /// The gamepad to rumble.
         gamepad: Entity,
     },
-    /// Stop all running rumbles on the given [`GamepadId`].
+    /// Stop all running rumbles on the given [`Entity`].
     Stop {
         /// The gamepad to stop rumble.
         gamepad: Entity,
@@ -1548,7 +1550,7 @@ pub enum GamepadRumbleRequest {
 }
 
 impl GamepadRumbleRequest {
-    /// Get the [`GamepadId`] associated with this request.
+    /// Get the [`Entity`] associated with this request.
     pub fn gamepad(&self) -> Entity {
         match self {
             Self::Add { gamepad, .. } | Self::Stop { gamepad } => *gamepad,
@@ -2016,43 +2018,35 @@ mod tests {
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err(),
-            true
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
         // Settings should be kept
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok(),
-            true
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
 
         // Mistakenly sending a second disconnection event shouldn't break anything
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err(),
-            true
-        );
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok(),
-            true
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
 
     #[test]
@@ -2070,23 +2064,19 @@ mod tests {
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err(),
-            true
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
         // Settings should be kept
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok(),
-            true
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
 
     #[test]
@@ -2525,15 +2515,13 @@ mod tests {
         ctx.update();
 
         //Check it clears next frame
-        assert_eq!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .just_pressed(GamepadButton::DPadDown),
-            false
-        );
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
     }
     #[test]
     fn gamepad_buttons_released() {

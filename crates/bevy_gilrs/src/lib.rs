@@ -29,22 +29,22 @@ pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
 #[cfg(target_arch = "wasm32")]
 impl !Send for Gilrs {}
 
-/// A [`resource`](Resource) with the mapping of connected [`GamepadId`] and their [`Entity`].
+/// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
 #[derive(Debug, Default, Resource)]
 pub struct Gamepads {
-    /// Mapping of [`Entity`] to [`GamepadId`].
+    /// Mapping of [`Entity`] to [`gilrs::GamepadId`].
     pub(crate) entity_to_id: EntityHashMap<gilrs::GamepadId>,
-    /// Mapping of [`GamepadId`] to [`Entity`].
+    /// Mapping of [`gilrs::GamepadId`] to [`Entity`].
     pub(crate) id_to_entity: HashMap<gilrs::GamepadId, Entity>,
 }
 
 impl Gamepads {
-    /// Returns the [`Entity`] assigned to a connected [`GamepadId`].
+    /// Returns the [`Entity`] assigned to a connected [`gilrs::GamepadId`].
     pub fn get_entity(&self, gamepad_id: gilrs::GamepadId) -> Option<Entity> {
         self.id_to_entity.get(&gamepad_id).copied()
     }
 
-    /// Returns the [`GamepadId`] assigned to a gamepad [`Entity`].
+    /// Returns the [`gilrs::GamepadId`] assigned to a gamepad [`Entity`].
     pub fn get_gamepad_id(&self, entity: Entity) -> Option<gilrs::GamepadId> {
         self.entity_to_id.get(&entity).copied()
     }
