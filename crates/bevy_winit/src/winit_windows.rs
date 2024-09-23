@@ -58,43 +58,37 @@ impl WinitWindows {
         // AccessKit adapter is initialized.
         winit_window_attributes = winit_window_attributes.with_visible(false);
 
-        winit_window_attributes = match window.mode {
-            WindowMode::BorderlessFullscreen(monitor_selection) => winit_window_attributes
-                .with_fullscreen(Some(Fullscreen::Borderless(select_monitor(
-                    monitors,
-                    event_loop.primary_monitor(),
-                    None,
-                    &monitor_selection,
-                )))),
-            mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
-                let videomode = match mode {
-                    WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
-                        &select_monitor(
-                            monitors,
-                            event_loop.primary_monitor(),
-                            None,
-                            &monitor_selection,
-                        )
-                        .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {:?}", monitor_selection)
-                        }),
-                    ),
-                    WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
-                        &select_monitor(
-                            monitors,
-                            event_loop.primary_monitor(),
-                            None,
-                            &monitor_selection,
-                        )
-                        .unwrap_or_else(|| {
-                            panic!("Could not find monitor for {:?}", monitor_selection)
-                        }),
-                        window.width() as u32,
-                        window.height() as u32,
-                    ),
-                    _ => unreachable!(),
-                };
+        let maybe_selected_monitor = &match window.mode {
+            WindowMode::BorderlessFullscreen(monitor_selection)
+            | WindowMode::Fullscreen(monitor_selection)
+            | WindowMode::SizedFullscreen(monitor_selection) => select_monitor(
+                monitors,
+                event_loop.primary_monitor(),
+                None,
+                &monitor_selection,
+            ),
+            WindowMode::Windowed => None,
+        };
 
+        winit_window_attributes = match window.mode {
+            WindowMode::BorderlessFullscreen(_) => winit_window_attributes
+                .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
+            WindowMode::Fullscreen(_) => {
+                let select_monitor = &maybe_selected_monitor
+                    .clone()
+                    .expect("Unable to get monitor.");
+                let videomode = get_best_videomode(select_monitor);
+                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+            }
+            WindowMode::SizedFullscreen(_) => {
+                let select_monitor = &maybe_selected_monitor
+                    .clone()
+                    .expect("Unable to get monitor.");
+                let videomode = get_fitting_videomode(
+                    select_monitor,
+                    window.width() as u32,
+                    window.height() as u32,
+                );
                 winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
             }
             WindowMode::Windowed => {
@@ -107,11 +101,10 @@ impl WinitWindows {
                 ) {
                     winit_window_attributes = winit_window_attributes.with_position(position);
                 }
-
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_attributes
-                        .with_inner_size(logical_size.to_physical::<f64>(sf.into()))
+                    let inner_size = logical_size.to_physical::<f64>(sf.into());
+                    winit_window_attributes.with_inner_size(inner_size)
                 } else {
                     winit_window_attributes.with_inner_size(logical_size)
                 }
@@ -133,6 +126,24 @@ impl WinitWindows {
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }
+
+        let display_info = DisplayInfo {
+            window_physical_resolution: (
+                window.resolution.physical_width(),
+                window.resolution.physical_height(),
+            ),
+            window_logical_resolution: (window.resolution.width(), window.resolution.height()),
+            monitor_name: maybe_selected_monitor
+                .as_ref()
+                .and_then(MonitorHandle::name),
+            scale_factor: maybe_selected_monitor
+                .as_ref()
+                .map(MonitorHandle::scale_factor),
+            refresh_rate_millihertz: maybe_selected_monitor
+                .as_ref()
+                .and_then(MonitorHandle::refresh_rate_millihertz),
+        };
+        bevy_log::debug!("{display_info}");
 
         #[cfg(any(
             target_os = "linux",
@@ -447,5 +458,40 @@ pub fn select_monitor(
         Primary => primary_monitor,
         Index(n) => monitors.nth(*n),
         Entity(entity) => monitors.find_entity(*entity),
+    }
+}
+
+struct DisplayInfo {
+    window_physical_resolution: (u32, u32),
+    window_logical_resolution: (f32, f32),
+    monitor_name: Option<String>,
+    scale_factor: Option<f64>,
+    refresh_rate_millihertz: Option<u32>,
+}
+
+impl core::fmt::Display for DisplayInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Display information:")?;
+        write!(
+            f,
+            "  Window physical resolution: {}x{}",
+            self.window_physical_resolution.0, self.window_physical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Window logical resolution: {}x{}",
+            self.window_logical_resolution.0, self.window_logical_resolution.1
+        )?;
+        write!(
+            f,
+            "  Monitor name: {}",
+            self.monitor_name.as_deref().unwrap_or("")
+        )?;
+        write!(f, "  Scale factor: {}", self.scale_factor.unwrap_or(0.))?;
+        let millihertz = self.refresh_rate_millihertz.unwrap_or(0);
+        let hertz = millihertz / 1000;
+        let extra_millihertz = millihertz % 1000;
+        write!(f, "  Refresh rate (Hz): {}.{:03}", hertz, extra_millihertz)?;
+        Ok(())
     }
 }
