@@ -387,7 +387,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<'a, E, T>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
         mut entity: Entity,
