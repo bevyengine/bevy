@@ -59,19 +59,9 @@ impl WinitWindows {
         winit_window_attributes = winit_window_attributes.with_visible(false);
 
         let maybe_selected_monitor = &match window.mode {
-            WindowMode::BorderlessFullscreen(monitor_selection) => select_monitor(
-                monitors,
-                event_loop.primary_monitor(),
-                None,
-                &monitor_selection,
-            ),
-            WindowMode::Fullscreen(monitor_selection) => select_monitor(
-                monitors,
-                event_loop.primary_monitor(),
-                None,
-                &monitor_selection,
-            ),
-            WindowMode::SizedFullscreen(monitor_selection) => select_monitor(
+            WindowMode::BorderlessFullscreen(monitor_selection)
+            | WindowMode::Fullscreen(monitor_selection)
+            | WindowMode::SizedFullscreen(monitor_selection) => select_monitor(
                 monitors,
                 event_loop.primary_monitor(),
                 None,
@@ -83,19 +73,22 @@ impl WinitWindows {
         winit_window_attributes = match window.mode {
             WindowMode::BorderlessFullscreen(_) => winit_window_attributes
                 .with_fullscreen(Some(Fullscreen::Borderless(maybe_selected_monitor.clone()))),
-            mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
+            WindowMode::Fullscreen(_) => {
                 let select_monitor = &maybe_selected_monitor
                     .clone()
                     .expect("Unable to get monitor.");
-                let videomode = match mode {
-                    WindowMode::Fullscreen(_) => get_best_videomode(select_monitor),
-                    WindowMode::SizedFullscreen(_) => get_fitting_videomode(
-                        &select_monitor,
-                        window.width() as u32,
-                        window.height() as u32,
-                    ),
-                    _ => unreachable!(),
-                };
+                let videomode = get_best_videomode(select_monitor);
+                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
+            }
+            WindowMode::SizedFullscreen(_) => {
+                let select_monitor = &maybe_selected_monitor
+                    .clone()
+                    .expect("Unable to get monitor.");
+                let videomode = get_fitting_videomode(
+                    select_monitor,
+                    window.width() as u32,
+                    window.height() as u32,
+                );
                 winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
             }
             WindowMode::Windowed => {
@@ -110,8 +103,8 @@ impl WinitWindows {
                 }
                 let logical_size = LogicalSize::new(window.width(), window.height());
                 if let Some(sf) = window.resolution.scale_factor_override() {
-                    winit_window_attributes
-                        .with_inner_size(logical_size.to_physical::<f64>(sf.into()))
+                    let inner_size = logical_size.to_physical::<f64>(sf.into());
+                    winit_window_attributes.with_inner_size(inner_size)
                 } else {
                     winit_window_attributes.with_inner_size(logical_size)
                 }
@@ -142,15 +135,13 @@ impl WinitWindows {
             window_logical_resolution: (window.resolution.width(), window.resolution.height()),
             monitor_name: maybe_selected_monitor
                 .as_ref()
-                .map(|monitor| monitor.name())
-                .flatten(),
+                .and_then(MonitorHandle::name),
             scale_factor: maybe_selected_monitor
                 .as_ref()
-                .map(|monitor| monitor.scale_factor()),
+                .map(MonitorHandle::scale_factor),
             refresh_rate_millihertz: maybe_selected_monitor
                 .as_ref()
-                .map(|monitor| monitor.refresh_rate_millihertz())
-                .flatten(),
+                .and_then(MonitorHandle::refresh_rate_millihertz),
         };
         bevy_log::debug!("{display_info}");
 
