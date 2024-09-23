@@ -537,7 +537,6 @@ mod test {
     use super::*;
     use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
-    use std::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {
@@ -565,13 +564,13 @@ mod test {
 
         app.world_mut()
             .entity_mut(root1)
-            .push_children(&[root1_child1, root1_child2]);
+            .add_children(&[root1_child1, root1_child2]);
         app.world_mut()
             .entity_mut(root1_child1)
-            .push_children(&[root1_child1_grandchild1]);
+            .add_children(&[root1_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root1_child2)
-            .push_children(&[root1_child2_grandchild1]);
+            .add_children(&[root1_child2_grandchild1]);
 
         let root2 = app.world_mut().spawn(VisibilityBundle::default()).id();
         let root2_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
@@ -584,13 +583,13 @@ mod test {
 
         app.world_mut()
             .entity_mut(root2)
-            .push_children(&[root2_child1, root2_child2]);
+            .add_children(&[root2_child1, root2_child2]);
         app.world_mut()
             .entity_mut(root2_child1)
-            .push_children(&[root2_child1_grandchild1]);
+            .add_children(&[root2_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root2_child2)
-            .push_children(&[root2_child2_grandchild1]);
+            .add_children(&[root2_child2_grandchild1]);
 
         app.update();
 
@@ -662,13 +661,13 @@ mod test {
 
         app.world_mut()
             .entity_mut(root1)
-            .push_children(&[root1_child1, root1_child2]);
+            .add_children(&[root1_child1, root1_child2]);
         app.world_mut()
             .entity_mut(root1_child1)
-            .push_children(&[root1_child1_grandchild1]);
+            .add_children(&[root1_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root1_child2)
-            .push_children(&[root1_child2_grandchild1]);
+            .add_children(&[root1_child2_grandchild1]);
 
         app.update();
 
@@ -714,13 +713,13 @@ mod test {
         let id1 = world.spawn(VisibilityBundle::default()).id();
 
         let id2 = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(id1).push_children(&[id2]);
+        world.entity_mut(id1).add_children(&[id2]);
 
         let id3 = world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        world.entity_mut(id2).push_children(&[id3]);
+        world.entity_mut(id2).add_children(&[id3]);
 
         let id4 = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(id3).push_children(&[id4]);
+        world.entity_mut(id3).add_children(&[id4]);
 
         // Test the hierarchy.
 
@@ -787,7 +786,7 @@ mod test {
 
         let parent = world.spawn(()).id();
         let child = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(parent).push_children(&[child]);
+        world.entity_mut(parent).add_children(&[child]);
 
         schedule.run(&mut world);
         world.clear_trackers();

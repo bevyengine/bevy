@@ -32,11 +32,7 @@ use std::{any::TypeId, path::Path, sync::Arc};
 use std::{future::Future, panic::AssertUnwindSafe};
 use thiserror::Error;
 
-// Needed for doc string
-#[allow(unused_imports)]
-use crate::io::{AssetReader, AssetWriter};
-
-/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`]. This can be used to kick off new asset loads and
+/// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
 /// retrieve their current load states.
 ///
 /// The general process to load an asset is:
@@ -76,7 +72,7 @@ pub enum AssetServerMode {
 }
 
 impl AssetServer {
-    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool) -> Self {
         Self::new_with_loaders(
@@ -88,7 +84,7 @@ impl AssetServer {
         )
     }
 
-    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`] storage will watch for changes to
+    /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
         sources: AssetSources,
@@ -265,6 +261,9 @@ impl AssetServer {
     /// Begins loading an [`Asset`] of type `A` stored at `path`. This will not block on the asset load. Instead,
     /// it returns a "strong" [`Handle`]. When the [`Asset`] is loaded (and enters [`LoadState::Loaded`]), it will be added to the
     /// associated [`Assets`] resource.
+    ///
+    /// Note that if the asset at this path is already loaded, this function will return the existing handle,
+    /// and will not waste work spawning a new load task.
     ///
     /// In case the file path contains a hashtag (`#`), the `path` must be specified using [`Path`]
     /// or [`AssetPath`] because otherwise the hashtag would be interpreted as separator between
@@ -895,17 +894,20 @@ impl AssetServer {
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> Option<(LoadState, DependencyLoadState, RecursiveDependencyLoadState)> {
-        self.data
-            .infos
-            .read()
-            .get(id.into())
-            .map(|i| (i.load_state.clone(), i.dep_load_state, i.rec_dep_load_state))
+        self.data.infos.read().get(id.into()).map(|i| {
+            (
+                i.load_state.clone(),
+                i.dep_load_state.clone(),
+                i.rec_dep_load_state.clone(),
+            )
+        })
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
     ///
-    /// Note that this is "just" the root asset load state. To check if an asset _and_ its recursive
-    /// dependencies have loaded, see [`AssetServer::is_loaded_with_dependencies`].
+    /// Note that this is "just" the root asset load state. To get the load state of
+    /// its dependencies or recursive dependencies, see [`AssetServer::get_dependency_load_state`]
+    /// and [`AssetServer::get_recursive_dependency_load_state`] respectively.
     pub fn get_load_state(&self, id: impl Into<UntypedAssetId>) -> Option<LoadState> {
         self.data
             .infos
@@ -914,7 +916,27 @@ impl AssetServer {
             .map(|i| i.load_state.clone())
     }
 
-    /// Retrieves the [`RecursiveDependencyLoadState`] of a given asset `id`.
+    /// Retrieves the [`DependencyLoadState`] of a given asset `id`'s dependencies.
+    ///
+    /// Note that this is only the load state of direct dependencies of the root asset. To get
+    /// the load state of the root asset itself or its recursive dependencies, see
+    /// [`AssetServer::get_load_state`] and [`AssetServer::get_recursive_dependency_load_state`] respectively.
+    pub fn get_dependency_load_state(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Option<DependencyLoadState> {
+        self.data
+            .infos
+            .read()
+            .get(id.into())
+            .map(|i| i.dep_load_state.clone())
+    }
+
+    /// Retrieves the main [`RecursiveDependencyLoadState`] of a given asset `id`'s recursive dependencies.
+    ///
+    /// Note that this is only the load state of recursive dependencies of the root asset. To get
+    /// the load state of the root asset itself or its direct dependencies only, see
+    /// [`AssetServer::get_load_state`] and [`AssetServer::get_dependency_load_state`] respectively.
     pub fn get_recursive_dependency_load_state(
         &self,
         id: impl Into<UntypedAssetId>,
@@ -923,15 +945,30 @@ impl AssetServer {
             .infos
             .read()
             .get(id.into())
-            .map(|i| i.rec_dep_load_state)
+            .map(|i| i.rec_dep_load_state.clone())
     }
 
     /// Retrieves the main [`LoadState`] of a given asset `id`.
+    ///
+    /// This is the same as [`AssetServer::get_load_state`] except the result is unwrapped. If
+    /// the result is None, [`LoadState::NotLoaded`] is returned.
     pub fn load_state(&self, id: impl Into<UntypedAssetId>) -> LoadState {
         self.get_load_state(id).unwrap_or(LoadState::NotLoaded)
     }
 
+    /// Retrieves the [`DependencyLoadState`] of a given asset `id`.
+    ///
+    /// This is the same as [`AssetServer::get_dependency_load_state`] except the result is unwrapped. If
+    /// the result is None, [`DependencyLoadState::NotLoaded`] is returned.
+    pub fn dependency_load_state(&self, id: impl Into<UntypedAssetId>) -> DependencyLoadState {
+        self.get_dependency_load_state(id)
+            .unwrap_or(DependencyLoadState::NotLoaded)
+    }
+
     /// Retrieves the  [`RecursiveDependencyLoadState`] of a given asset `id`.
+    ///
+    /// This is the same as [`AssetServer::get_recursive_dependency_load_state`] except the result is unwrapped. If
+    /// the result is None, [`RecursiveDependencyLoadState::NotLoaded`] is returned.
     pub fn recursive_dependency_load_state(
         &self,
         id: impl Into<UntypedAssetId>,
@@ -940,11 +977,30 @@ impl AssetServer {
             .unwrap_or(RecursiveDependencyLoadState::NotLoaded)
     }
 
-    /// Returns true if the asset and all of its dependencies (recursive) have been loaded.
+    /// Convenience method that returns true if the asset has been loaded.
+    pub fn is_loaded(&self, id: impl Into<UntypedAssetId>) -> bool {
+        matches!(self.load_state(id), LoadState::Loaded)
+    }
+
+    /// Convenience method that returns true if the asset and all of its direct dependencies have been loaded.
+    pub fn is_loaded_with_direct_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
+        matches!(
+            self.get_load_states(id),
+            Some((LoadState::Loaded, DependencyLoadState::Loaded, _))
+        )
+    }
+
+    /// Convenience method that returns true if the asset, all of its dependencies, and all of its recursive
+    /// dependencies have been loaded.
     pub fn is_loaded_with_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
-        let id = id.into();
-        self.load_state(id) == LoadState::Loaded
-            && self.recursive_dependency_load_state(id) == RecursiveDependencyLoadState::Loaded
+        matches!(
+            self.get_load_states(id),
+            Some((
+                LoadState::Loaded,
+                DependencyLoadState::Loaded,
+                RecursiveDependencyLoadState::Loaded
+            ))
+        )
     }
 
     /// Returns an active handle for the given path, if the asset at the given path has already started loading,
@@ -1335,7 +1391,6 @@ pub fn handle_internal_asset_events(world: &mut World) {
 }
 
 /// Internal events for asset load results
-#[allow(clippy::large_enum_variant)]
 pub(crate) enum InternalAssetEvent {
     Loaded {
         id: UntypedAssetId,
@@ -1360,12 +1415,14 @@ pub enum LoadState {
     Loading,
     /// The asset has been loaded and has been added to the [`World`]
     Loaded,
-    /// The asset failed to load.
-    Failed(Box<AssetLoadError>),
+    /// The asset failed to load. The underlying [`AssetLoadError`] is
+    /// referenced by [`Arc`] clones in all related [`DependencyLoadState`]s
+    /// and [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
+    Failed(Arc<AssetLoadError>),
 }
 
 /// The load state of an asset's dependencies.
-#[derive(Component, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub enum DependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
@@ -1373,12 +1430,14 @@ pub enum DependencyLoadState {
     Loading,
     /// Dependencies have all loaded
     Loaded,
-    /// One or more dependencies have failed to load
-    Failed,
+    /// One or more dependencies have failed to load. The underlying [`AssetLoadError`]
+    /// is referenced by [`Arc`] clones in all related [`LoadState`] and
+    /// [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
+    Failed(Arc<AssetLoadError>),
 }
 
 /// The recursive load state of an asset's dependencies.
-#[derive(Component, Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Component, Clone, Debug, Eq, PartialEq)]
 pub enum RecursiveDependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
@@ -1386,8 +1445,11 @@ pub enum RecursiveDependencyLoadState {
     Loading,
     /// Dependencies in this asset's dependency tree have all loaded
     Loaded,
-    /// One or more dependencies have failed to load in this asset's dependency tree
-    Failed,
+    /// One or more dependencies have failed to load in this asset's dependency
+    /// tree. The underlying [`AssetLoadError`] is referenced by [`Arc`] clones
+    /// in all related [`LoadState`]s and [`DependencyLoadState`]s in the asset's
+    /// dependency tree.
+    Failed(Arc<AssetLoadError>),
 }
 
 /// An error that occurs during an [`Asset`] load.

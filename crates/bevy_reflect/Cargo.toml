@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.76.0"
 
 [features]
-default = ["smallvec", "debug"]
+default = ["smallvec", "debug", "alloc"]
 # When enabled, provides Bevy-related reflection implementations
 bevy = ["smallvec", "smol_str"]
 glam = ["dep:glam"]
@@ -25,6 +25,7 @@ debug_stack = []
 documentation = ["bevy_reflect_derive/documentation"]
 # Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
+alloc = []
 
 [dependencies]
 # bevy

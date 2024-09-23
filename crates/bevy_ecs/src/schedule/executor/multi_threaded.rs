@@ -613,9 +613,6 @@ impl ExecutorState {
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: `can_run` returned true for this system, which means
-        // that no other systems currently have access to the world.
-        let world = unsafe { context.environment.world_cell.world_mut() };
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
@@ -626,6 +623,9 @@ impl ExecutorState {
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
                 context.system_completed(system_index, res, system);
             };
@@ -633,6 +633,9 @@ impl ExecutorState {
             context.scope.spawn_on_scope(task);
         } else {
             let task = async move {
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     __rust_begin_short_backtrace::run(&mut **system, world);
                 }));
@@ -782,5 +785,17 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// Regression test for a weird bug flagged by MIRI in
+    /// `spawn_exclusive_system_task`, related to a `&mut World` being captured
+    /// inside an `async` block and somehow remaining alive even after its last use.
+    #[test]
+    fn check_spawn_exclusive_system_task_miri() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
+        schedule.run(&mut world);
     }
 }

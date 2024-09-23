@@ -2,9 +2,11 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        render_resource::{AsBindGroup, ShaderRef},
+        storage::ShaderStorageBuffer,
+    },
 };
-use bevy_render::storage::ShaderStorageBuffer;
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
 
@@ -73,9 +75,9 @@ fn update(
             .map(|i| {
                 let t = time.elapsed_seconds() * 5.0;
                 [
-                    (t + i as f32).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 2.0).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 4.0).sin() / 2.0 + 0.5,
+                    ops::sin(t + i as f32) / 2.0 + 0.5,
+                    ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,
+                    ops::sin(t + i as f32 + 4.0) / 2.0 + 0.5,
                     1.0,
                 ]
             })

@@ -13,8 +13,8 @@ use crate::{
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
-    storage::{Column, ComponentSparseSet, Storages},
-    system::{Res, Resource},
+    storage::{ComponentSparseSet, Storages, Table},
+    system::Resource,
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
@@ -248,7 +248,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's [`Observers`] collection.
-    pub(crate) unsafe fn observers(self) -> &'w Observers {
+    pub(crate) fn observers(self) -> &'w Observers {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.observers
@@ -353,7 +353,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - the [`UnsafeWorldCell`] has permission to access the resource
     /// - no mutable reference to the resource exists at the same time
     #[inline]
-    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Res<'w, R>> {
+    pub unsafe fn get_resource_ref<R: Resource>(self) -> Option<Ref<'w, R>> {
         let component_id = self.components().get_resource_id(TypeId::of::<R>())?;
 
         // SAFETY: caller ensures `self` has permission to access the resource
@@ -371,7 +371,7 @@ impl<'w> UnsafeWorldCell<'w> {
         #[cfg(feature = "track_change_detection")]
         let caller = unsafe { _caller.deref() };
 
-        Some(Res {
+        Some(Ref {
             value,
             ticks,
             #[cfg(feature = "track_change_detection")]
@@ -1002,22 +1002,18 @@ impl<'w> UnsafeEntityCell<'w> {
 
 impl<'w> UnsafeWorldCell<'w> {
     #[inline]
-    /// # Safety:
-    /// - the returned `Column` is only used in ways that this [`UnsafeWorldCell`] has permission for.
-    /// - the returned `Column` is only used in ways that would not conflict with any existing
-    ///   borrows of world data.
-    unsafe fn fetch_table(
-        self,
-        location: EntityLocation,
-        component_id: ComponentId,
-    ) -> Option<&'w Column> {
-        // SAFETY: caller ensures returned data is not misused and we have not created any borrows
-        // of component/resource data
-        unsafe { self.storages() }.tables[location.table_id].get_column(component_id)
+    /// # Safety
+    /// - the returned `Table` is only used in ways that this [`UnsafeWorldCell`] has permission for.
+    /// - the returned `Table` is only used in ways that would not conflict with any existing borrows of world data.
+    unsafe fn fetch_table(self, location: EntityLocation) -> Option<&'w Table> {
+        // SAFETY:
+        // - caller ensures returned data is not misused and we have not created any borrows of component/resource data
+        // - `location` contains a valid `TableId`, so getting the table won't fail
+        unsafe { self.storages().tables.get(location.table_id) }
     }
 
     #[inline]
-    /// # Safety:
+    /// # Safety
     /// - the returned `ComponentSparseSet` is only used in ways that this [`UnsafeWorldCell`] has permission for.
     /// - the returned `ComponentSparseSet` is only used in ways that would not conflict with any existing
     ///   borrows of world data.
@@ -1048,9 +1044,9 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let table = world.fetch_table(location)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_data_unchecked(location.table_row))
+            table.get_component(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
     }
@@ -1074,17 +1070,23 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let table = world.fetch_table(location)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
-                components.get_data_unchecked(location.table_row),
+                table.get_component(component_id, location.table_row)?,
                 TickCells {
-                    added: components.get_added_tick_unchecked(location.table_row),
-                    changed: components.get_changed_tick_unchecked(location.table_row),
+                    added: table
+                        .get_added_tick(component_id, location.table_row)
+                        .debug_checked_unwrap(),
+                    changed: table
+                        .get_changed_tick(component_id, location.table_row)
+                        .debug_checked_unwrap(),
                 },
                 #[cfg(feature = "track_change_detection")]
-                components.get_changed_by_unchecked(location.table_row),
+                table
+                    .get_changed_by(component_id, location.table_row)
+                    .debug_checked_unwrap(),
                 #[cfg(not(feature = "track_change_detection"))]
                 (),
             ))
@@ -1112,9 +1114,9 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let table = world.fetch_table(location)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
-            Some(components.get_ticks_unchecked(location.table_row))
+            table.get_ticks_unchecked(component_id, location.table_row)
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
     }

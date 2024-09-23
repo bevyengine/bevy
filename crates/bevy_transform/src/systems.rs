@@ -79,7 +79,7 @@ pub fn propagate_transforms(
                 // - Since each root entity is unique and the hierarchy is consistent and forest-like,
                 //   other root entities' `propagate_recursive` calls will not conflict with this one.
                 // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
-                #[allow(unsafe_code)]
+                #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
                 unsafe {
                     propagate_recursive(
                         &global_transform,
@@ -107,7 +107,10 @@ pub fn propagate_transforms(
 ///     nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
 ///     is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."
+)]
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
@@ -477,7 +480,7 @@ mod test {
 
         app.world_mut()
             .spawn(TransformBundle::IDENTITY)
-            .push_children(&[child]);
+            .add_children(&[child]);
         std::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),

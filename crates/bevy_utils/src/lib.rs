@@ -1,14 +1,21 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Some utilities, such as futures and cells, require unsafe code."
+)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
 //!
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 /// The utilities prelude.
 ///
@@ -18,8 +25,6 @@ pub mod prelude {
 }
 
 pub mod futures;
-mod short_names;
-pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
@@ -37,8 +42,10 @@ pub use parallel_queue::*;
 pub use tracing;
 pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
-use hashbrown::hash_map::RawEntryMut;
-use std::{
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
+
+use core::{
     any::TypeId,
     fmt::Debug,
     hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
@@ -46,6 +53,7 @@ use std::{
     mem::ManuallyDrop,
     ops::Deref,
 };
+use hashbrown::hash_map::RawEntryMut;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
@@ -56,7 +64,7 @@ mod conditional_send {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
 mod conditional_send {
     pub trait ConditionalSend {}
     impl<T> ConditionalSend for T {}
@@ -66,11 +74,12 @@ pub use conditional_send::*;
 
 /// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
-pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
-impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
+impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-pub type BoxedFuture<'a, T> = std::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
+#[cfg(feature = "alloc")]
+pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 pub type Entry<'a, K, V, S = BuildHasherDefault<AHasher>> = hashbrown::hash_map::Entry<'a, K, V, S>;
@@ -192,7 +201,7 @@ impl<V: PartialEq, H> PartialEq for Hashed<V, H> {
 }
 
 impl<V: Debug, H> Debug for Hashed<V, H> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Hashed")
             .field("hash", &self.hash)
             .field("value", &self.value)
@@ -417,7 +426,7 @@ mod tests {
     fn fast_typeid_hash() {
         struct Hasher;
 
-        impl std::hash::Hasher for Hasher {
+        impl core::hash::Hasher for Hasher {
             fn finish(&self) -> u64 {
                 0
             }
@@ -430,8 +439,11 @@ mod tests {
         Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn stable_hash_within_same_program_execution() {
+        use alloc::vec::Vec;
+
         let mut map_1 = HashMap::new();
         let mut map_2 = HashMap::new();
         for i in 1..10 {

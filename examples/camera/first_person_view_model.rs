@@ -229,10 +229,7 @@ fn spawn_text(mut commands: Commands) {
                     "Press arrow up to decrease the FOV of the world model.\n",
                     "Press arrow down to increase the FOV of the world model."
                 ),
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ));
         });
 }

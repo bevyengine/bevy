@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::Resource,
     world::{Command, Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent, PushChild};
+use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
@@ -380,7 +380,7 @@ impl SceneSpawner {
                         // this case shouldn't happen anyway
                         .unwrap_or(true)
                     {
-                        PushChild {
+                        AddChild {
                             parent,
                             child: entity,
                         }

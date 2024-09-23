@@ -4,7 +4,9 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy_utils::HashMap;
 
-use crate::func::{DynamicFunction, FunctionRegistrationError, IntoFunction};
+use crate::func::{
+    ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,
+};
 
 /// A registry of [reflected functions].
 ///
@@ -282,6 +284,18 @@ impl FunctionRegistry {
         }
     }
 
+    /// Calls the function with the given [name] and [args].
+    ///
+    /// Returns `None` if no function with the given name is registered.
+    /// Otherwise, returns the result of the function call.
+    ///
+    /// [name]: DynamicFunction::name
+    /// [args]: ArgList
+    pub fn call<'a>(&self, name: &str, args: ArgList<'a>) -> Option<FunctionResult<'a>> {
+        let func = self.get(name)?;
+        Some(func.call(args))
+    }
+
     /// Get a reference to a registered function by [name].
     ///
     /// [name]: DynamicFunction::name
@@ -461,6 +475,23 @@ mod tests {
         let function = registry.get(name).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.try_downcast_ref::<i32>(), Some(&321));
+    }
+
+    #[test]
+    fn should_call_function_via_registry() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let mut registry = FunctionRegistry::default();
+        registry.register(add).unwrap();
+
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = registry
+            .call(std::any::type_name_of_val(&add), args)
+            .unwrap();
+        let value = result.unwrap().unwrap_owned();
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]

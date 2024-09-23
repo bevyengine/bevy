@@ -517,33 +517,30 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    let column =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-                        // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // the target table contains the component.
+                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => {
-                            column.initialize(
-                                table_row,
-                                component_ptr,
-                                change_tick,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            );
-                        }
-                        (ComponentStatus::Existing, InsertMode::Replace) => {
-                            column.replace(
-                                table_row,
-                                component_ptr,
-                                change_tick,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            );
-                        }
+                        (ComponentStatus::Added, _) => column.initialize(
+                            table_row,
+                            component_ptr,
+                            change_tick,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        ),
+                        (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
+                            table_row,
+                            component_ptr,
+                            change_tick,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
-                            column.drop(component_ptr);
+                            if let Some(drop_fn) = table.get_drop_for(component_id) {
+                                drop_fn(component_ptr);
+                            }
                         }
                     }
                 }
@@ -1282,7 +1279,7 @@ impl<'w> BundleSpawner<'w> {
         unsafe { &mut self.world.world_mut().entities }
     }
 
-    /// # Safety:
+    /// # Safety
     /// - `Self` must be dropped after running this function as it may invalidate internal pointers.
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {
@@ -1347,11 +1344,13 @@ impl Bundles {
     }
 
     /// # Safety
-    /// A `BundleInfo` with the given `BundleId` must have been initialized for this instance of `Bundles`.
+    /// A [`BundleInfo`] with the given [`BundleId`] must have been initialized for this instance of `Bundles`.
     pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
         self.bundle_infos.get_unchecked(id.0)
     }
 
+    /// # Safety
+    /// This [`BundleId`] must have been initialized with a single [`Component`] (via [`init_component_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
         *self
             .dynamic_component_storages
@@ -1359,6 +1358,8 @@ impl Bundles {
             .debug_checked_unwrap()
     }
 
+    /// # Safety
+    /// This [`BundleId`] must have been initialized with multiple [`Component`]s (via [`init_dynamic_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
         self.dynamic_bundle_storages
             .get_mut(&id)
