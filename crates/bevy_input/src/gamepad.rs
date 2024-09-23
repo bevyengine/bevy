@@ -1320,7 +1320,7 @@ pub fn gamepad_event_processing_system(
 
     for event in raw_events.read() {
         match event {
-            // Connections require inserting/removing commands so they are done in a separate system
+            // Connections require inserting/removing components so they are done in a separate system
             RawGamepadEvent::Connection(_) => {}
             RawGamepadEvent::Axis(RawGamepadAxisChangedEvent {
                 gamepad,
@@ -1559,19 +1559,20 @@ impl GamepadRumbleRequest {
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::{App, PreUpdate};
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::schedule::IntoSystemConfigs;
-
     use super::{
         gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
         AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
-        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
+        GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+        GamepadButtonStateChangedEvent,
         GamepadConnection::{Connected, Disconnected},
         GamepadConnectionEvent, GamepadInfo, GamepadSettings, RawGamepadAxisChangedEvent,
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
+    use crate::ButtonState;
+    use bevy_app::{App, PreUpdate};
+    use bevy_ecs::entity::Entity;
+    use bevy_ecs::event::Events;
+    use bevy_ecs::schedule::IntoSystemConfigs;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,
@@ -1950,6 +1951,23 @@ mod tests {
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(gamepad, Disconnected));
         }
+
+        pub fn send_raw_gamepad_event(&mut self, event: RawGamepadEvent) {
+            self.app
+                .world_mut()
+                .resource_mut::<Events<RawGamepadEvent>>()
+                .send(event);
+        }
+
+        pub fn send_raw_gamepad_event_batch(
+            &mut self,
+            events: impl IntoIterator<Item = RawGamepadEvent>,
+        ) {
+            self.app
+                .world_mut()
+                .resource_mut::<Events<RawGamepadEvent>>()
+                .send_batch(events);
+        }
     }
 
     #[test]
@@ -2114,48 +2132,72 @@ mod tests {
             .expect("be alive");
         assert_eq!(settings.default_button_settings, button_settings);
     }
-    /*
+
     #[test]
     fn reconnection_same_frame_event() {
-
+        let mut ctx = TestContext::new();
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
+        let entity = ctx.send_gamepad_connection_event(None);
+        ctx.send_gamepad_disconnection_event(entity);
+        ctx.update();
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .iter(ctx.app.world())
+                .len(),
+            0
+        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<(Entity, &GamepadSettings)>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
-
 
     #[test]
     fn gamepad_axis_valid() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
-
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        let entity = ctx.send_gamepad_connection_event(None);
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch([
-                RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickY, 0.5),
-                RawGamepadAxisChangedEvent::new(id, GamepadAxisType::RightStickX, 0.6),
-                RawGamepadAxisChangedEvent::new(id, GamepadAxisType::RightZ, -0.4),
-                RawGamepadAxisChangedEvent::new(id, GamepadAxisType::RightStickY, -0.8),
+                RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                    entity,
+                    GamepadAxis::LeftStickY,
+                    0.5,
+                )),
+                RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                    entity,
+                    GamepadAxis::RightStickX,
+                    0.6,
+                )),
+                RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                    entity,
+                    GamepadAxis::RightZ,
+                    -0.4,
+                )),
+                RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                    entity,
+                    GamepadAxis::RightStickY,
+                    -0.8,
+                )),
             ]);
-        app.update();
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             4
@@ -2164,53 +2206,41 @@ mod tests {
 
     #[test]
     fn gamepad_axis_threshold_filter() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
-
         // Set of events to ensure they are being properly filtered
         let base_value = 0.5;
         let events = [
             // Event above threshold
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, base_value),
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
+                base_value,
+            )),
             // Event below threshold, should be filtered
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 base_value + settings.threshold - 0.01,
-            ),
+            )),
             // Event above threshold
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 base_value + settings.threshold + 0.01,
-            ),
+            )),
         ];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             2
@@ -2219,50 +2249,35 @@ mod tests {
 
     #[test]
     fn gamepad_axis_deadzone_filter() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
         // Set of events to ensure they are being properly filtered
         let events = [
             // Event below deadzone upperbound should be filtered
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.deadzone_upperbound - 0.01,
-            ),
+            )),
             // Event above deadzone lowerbound should be filtered
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.deadzone_lowerbound + 0.01,
-            ),
+            )),
         ];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             0
@@ -2271,59 +2286,55 @@ mod tests {
 
     #[test]
     fn gamepad_axis_deadzone_rounded() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
         // Set of events to ensure they are being properly filtered
         let events = [
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, 1.0),
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
+                1.0,
+            )),
             // Event below deadzone upperbound should be rounded to 0
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.deadzone_upperbound - 0.01,
-            ),
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, 1.0),
+            )),
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
+                1.0,
+            )),
             // Event above deadzone lowerbound should be rounded to 0
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.deadzone_lowerbound + 0.01,
-            ),
+            )),
         ];
         let results = [1.0, 0.0, 1.0, 0.0];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
 
-        let events = app.world().resource::<Events<GamepadAxisChangedEvent>>();
-        let mut event_reader = events.get_reader();
+        let events = ctx
+            .app
+            .world()
+            .resource::<Events<GamepadAxisChangedEvent>>();
+        let mut event_reader = events.get_cursor();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
         }
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             4
@@ -2332,52 +2343,45 @@ mod tests {
 
     #[test]
     fn gamepad_axis_livezone_filter() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
         // Set of events to ensure they are being properly filtered
         let events = [
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, 1.0),
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
+                1.0,
+            )),
             // Event above livezone upperbound should be filtered
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.livezone_upperbound + 0.01,
-            ),
-            RawGamepadAxisChangedEvent::new(id, GamepadAxisType::LeftStickX, -1.0),
+            )),
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
+                -1.0,
+            )),
             // Event below livezone lowerbound should be filtered
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.livezone_lowerbound - 0.01,
-            ),
+            )),
         ];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             2
@@ -2386,57 +2390,45 @@ mod tests {
 
     #[test]
     fn gamepad_axis_livezone_rounded() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_axis_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let settings = GamepadSettings::default().default_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
         // Set of events to ensure they are being properly filtered
         let events = [
             // Event above livezone upperbound should be rounded to 1
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.livezone_upperbound + 0.01,
-            ),
+            )),
             // Event below livezone lowerbound should be rounded to -1
-            RawGamepadAxisChangedEvent::new(
-                id,
-                GamepadAxisType::LeftStickX,
+            RawGamepadEvent::Axis(RawGamepadAxisChangedEvent::new(
+                entity,
+                GamepadAxis::LeftStickX,
                 settings.livezone_lowerbound - 0.01,
-            ),
+            )),
         ];
         let results = [1.0, -1.0];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadAxisChangedEvent>>()
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
 
-        let events = app.world().resource::<Events<GamepadAxisChangedEvent>>();
-        let mut event_reader = events.get_reader();
+        let events = ctx
+            .app
+            .world()
+            .resource::<Events<GamepadAxisChangedEvent>>();
+        let mut event_reader = events.get_cursor();
         for (event, result) in event_reader.read(events).zip(results) {
             assert_eq!(event.value, result);
         }
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadAxisChangedEvent>>()
                 .len(),
             2
@@ -2445,186 +2437,162 @@ mod tests {
 
     #[test]
     fn gamepad_buttons_pressed() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_button_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let digital_settings = GamepadSettings::default().default_button_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
-        let events = [RawGamepadButtonChangedEvent::new(
-            id,
-            GamepadButtonType::DPadDown,
+        let events = [RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+            entity,
+            GamepadButton::DPadDown,
             digital_settings.press_threshold,
-        )];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
+        ))];
+        ctx.app
+            .world_mut()
+            .resource_mut::<Events<RawGamepadEvent>>()
             .send_batch(events);
-        app.update();
+        ctx.update();
 
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
-        let events = app
+        let events = ctx
+            .app
             .world()
             .resource::<Events<GamepadButtonStateChangedEvent>>();
-        let mut event_reader = events.get_reader();
+        let mut event_reader = events.get_cursor();
         for event in event_reader.read(events) {
-            assert_eq!(event.button, GamepadButtonType::DPadDown);
+            assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Pressed);
         }
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(buttons.pressed(GamepadButtonType::DPadDown));
-        }
-        app.world_mut()
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
+
+        ctx.app
+            .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
-        app.update();
+        ctx.update();
 
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
         );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
     }
 
     #[test]
     fn gamepad_buttons_just_pressed() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_button_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let digital_settings = GamepadSettings::default().default_button_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
-            .send(RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
-                digital_settings.press_threshold,
-            ));
-        app.update();
+        ctx.send_raw_gamepad_event(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+            entity,
+            GamepadButton::DPadDown,
+            digital_settings.press_threshold,
+        )));
+        ctx.update();
 
         // Check it is flagged for this frame
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(buttons.just_pressed(GamepadButtonType::DPadDown));
-        }
-        app.update();
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
+        ctx.update();
 
         //Check it clears next frame
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(!buttons.just_pressed(GamepadButtonType::DPadDown));
-        }
+        assert_eq!(
+            ctx.app
+                .world_mut()
+                .query::<&Gamepad>()
+                .get(ctx.app.world(), entity)
+                .unwrap()
+                .just_pressed(GamepadButton::DPadDown),
+            false
+        );
     }
     #[test]
     fn gamepad_buttons_released() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_button_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let digital_settings = GamepadSettings::default().default_button_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
-            .send(RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
-                digital_settings.press_threshold,
-            ));
-        app.update();
+        ctx.send_raw_gamepad_event(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+            entity,
+            GamepadButton::DPadDown,
+            digital_settings.press_threshold,
+        )));
+        ctx.update();
 
-        app.world_mut()
+        ctx.app
+            .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
-            .send(RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
-                digital_settings.release_threshold - 0.01,
-            ));
-        app.update();
+        ctx.send_raw_gamepad_event(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+            entity,
+            GamepadButton::DPadDown,
+            digital_settings.release_threshold - 0.01,
+        )));
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             1
         );
-        let events = app
+        let events = ctx
+            .app
             .world()
             .resource::<Events<GamepadButtonStateChangedEvent>>();
-        let mut event_reader = events.get_reader();
+        let mut event_reader = events.get_cursor();
         for event in event_reader.read(events) {
-            assert_eq!(event.button, GamepadButtonType::DPadDown);
+            assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Released);
         }
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(!buttons.pressed(GamepadButtonType::DPadDown));
-        }
-        app.world_mut()
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
+        ctx.app
+            .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
             .clear();
-        app.update();
+        ctx.update();
 
         assert_eq!(
-            app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             0
@@ -2633,134 +2601,101 @@ mod tests {
 
     #[test]
     fn gamepad_buttons_just_released() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_button_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let digital_settings = GamepadSettings::default().default_button_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
-            .send_batch([
-                RawGamepadButtonChangedEvent::new(
-                    id,
-                    GamepadButtonType::DPadDown,
-                    digital_settings.press_threshold,
-                ),
-                RawGamepadButtonChangedEvent::new(
-                    id,
-                    GamepadButtonType::DPadDown,
-                    digital_settings.release_threshold - 0.01,
-                ),
-            ]);
-        app.update();
+        ctx.send_raw_gamepad_event_batch([
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
+                digital_settings.press_threshold,
+            )),
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
+                digital_settings.release_threshold - 0.01,
+            )),
+        ]);
+        ctx.update();
 
         // Check it is flagged for this frame
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(buttons.just_released(GamepadButtonType::DPadDown));
-        }
-        app.update();
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
+        ctx.update();
 
         //Check it clears next frame
-        for buttons in app.world_mut().query::<&GamepadButtons>().iter(app.world()) {
-            assert!(!buttons.just_released(GamepadButtonType::DPadDown));
-        }
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
     }
 
     #[test]
     fn gamepad_buttons_axis() {
-        let mut app = App::new();
-        let app = app
-            .init_resource::<Gamepads>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_systems(
-                PreUpdate,
-                (gamepad_connection_system, gamepad_button_event_system).chain(),
-            );
+        let mut ctx = TestContext::new();
 
         // Create test gamepad
-        let id = GamepadId(0);
+        let entity = ctx.send_gamepad_connection_event(None);
         let digital_settings = GamepadSettings::default().default_button_settings;
         let analog_settings = GamepadSettings::default().default_button_axis_settings;
-        app.world_mut()
-            .resource_mut::<Events<GamepadConnectionEvent>>()
-            .send(GamepadConnectionEvent::new(
-                id,
-                Connected(GamepadInfo {
-                    name: String::from("Gamepad test"),
-                }),
-            ));
 
         // Test events
         let events = [
             // Should trigger event
-            RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
                 digital_settings.press_threshold,
-            ),
+            )),
             // Should trigger event
-            RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
                 digital_settings.release_threshold,
-            ),
+            )),
             // Shouldn't trigger a state changed event
-            RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
                 digital_settings.release_threshold - analog_settings.threshold * 1.01,
-            ),
+            )),
             // Shouldn't trigger any event
-            RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
                 digital_settings.release_threshold - (analog_settings.threshold * 1.5),
-            ),
+            )),
             // Shouldn't trigger a state changed event
-            RawGamepadButtonChangedEvent::new(
-                id,
-                GamepadButtonType::DPadDown,
+            RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                entity,
+                GamepadButton::DPadDown,
                 digital_settings.release_threshold - (analog_settings.threshold * 2.02),
-            ),
+            )),
         ];
-        app.world_mut()
-            .resource_mut::<Events<RawGamepadButtonChangedEvent>>()
-            .send_batch(events);
-        app.update();
+        ctx.send_raw_gamepad_event_batch(events);
+        ctx.update();
         assert_eq!(
-            app.world()
+            ctx.app.world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             2
         );
         assert_eq!(
-            app.world()
+            ctx.app.world()
                 .resource::<Events<GamepadButtonChangedEvent>>()
                 .len(),
             4
         );
     }
-    */
 }
