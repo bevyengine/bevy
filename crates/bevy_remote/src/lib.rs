@@ -175,7 +175,7 @@
 //!
 //! `params`:
 //! - `entity`: The ID of the entity to insert components into.
-//! - `components`: A map associating each component's [fully-qualified type name] with its value.
+//! - `components`: A map associating each component's fully-qualified type name with its value.
 //!
 //! `result`: null.
 //!
@@ -200,7 +200,7 @@
 //! `params` (optional):
 //! - `entity`: The ID of the entity whose components will be listed.
 //!
-//! `result`: An array of [fully-qualified type names] of components.
+//! `result`: An array of fully-qualified type names of components.
 //!
 //! ## Custom methods
 //!
@@ -776,20 +776,18 @@ async fn process_request_batch(
     let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
 
     let serialized = match batch {
-        Ok(batch) => match batch {
-            BrpBatch::Single(request) => {
-                serde_json::to_string(&process_single_request(request, request_sender).await?)?
-            }
-            BrpBatch::Batch(requests) => {
-                let mut responses = Vec::new();
+        Ok(BrpBatch::Single(request)) => {
+            serde_json::to_string(&process_single_request(request, request_sender).await?)?
+        }
+        Ok(BrpBatch::Batch(requests)) => {
+            let mut responses = Vec::new();
 
-                for request in requests {
-                    responses.push(process_single_request(request, request_sender).await?);
-                }
-
-                serde_json::to_string(&responses)?
+            for request in requests {
+                responses.push(process_single_request(request, request_sender).await?);
             }
-        },
+
+            serde_json::to_string(&responses)?
+        }
         Err(err) => {
             let err = BrpResponse::new(
                 None,
