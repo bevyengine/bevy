@@ -1,7 +1,19 @@
 use crate as bevy_reflect;
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
+use assert_type_match::assert_type_match;
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use glam::*;
+
+/// Reflects the given foreign type as an enum and asserts that the variants/fields match up.
+macro_rules! reflect_enum {
+    ($(#[$meta:meta])* enum $ident:ident { $($ty:tt)* } ) => {
+        impl_reflect!($(#[$meta])* enum $ident { $($ty)* });
+
+        #[assert_type_match($ident, test_only)]
+        #[allow(clippy::upper_case_acronyms)]
+        enum $ident { $($ty)* }
+    };
+}
 
 impl_reflect!(
     #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
@@ -330,7 +342,7 @@ impl_reflect!(
     }
 );
 
-impl_reflect!(
+reflect_enum!(
     #[reflect(Debug, PartialEq, Default, Deserialize, Serialize)]
     #[type_path = "glam"]
     enum EulerRot {
@@ -340,6 +352,24 @@ impl_reflect!(
         YZX,
         XYZ,
         XZY,
+        ZYZ,
+        ZXZ,
+        YXY,
+        YZY,
+        XYX,
+        XZX,
+        ZYXEx,
+        ZXYEx,
+        YXZEx,
+        YZXEx,
+        XYZEx,
+        XZYEx,
+        ZYZEx,
+        ZXZEx,
+        YXYEx,
+        YZYEx,
+        XYXEx,
+        XZXEx,
     }
 );
 
