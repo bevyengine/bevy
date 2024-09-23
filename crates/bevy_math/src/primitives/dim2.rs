@@ -1834,7 +1834,7 @@ impl Measured2d for Capsule2d {
     }
 
     /// Get the perimeter of the capsule
-    #[inline(always)]
+    #[inline]
     fn perimeter(&self) -> f32 {
         // 2pi*r + 2l
         2.0 * PI * self.radius + 4.0 * self.half_length
