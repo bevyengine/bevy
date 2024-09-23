@@ -101,6 +101,8 @@ impl Plugin for InputPlugin {
             .add_event::<GamepadButtonStateChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
             .add_event::<RawGamepadEvent>()
+            .add_event::<RawGamepadAxisChangedEvent>()
+            .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadRumbleRequest>()
             .init_resource::<AccumulatedMouseMotion>()
             .init_resource::<AccumulatedMouseScroll>()
