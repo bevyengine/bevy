@@ -257,7 +257,7 @@ use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    system::{Commands, IntoSystem, Res, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, Res, Resource, System, SystemId},
     world::World,
 };
 use bevy_reflect::Reflect;
@@ -307,7 +307,12 @@ pub struct RemotePlugin {
     port: u16,
 
     /// The verbs that the server will recognize and respond to.
-    methods: RwLock<Vec<(String, Box<dyn System<In = Option<Value>, Out = BrpResult>>)>>,
+    methods: RwLock<
+        Vec<(
+            String,
+            Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
+        )>,
+    >,
 }
 
 impl RemotePlugin {
@@ -340,7 +345,7 @@ impl RemotePlugin {
     pub fn with_method<M>(
         mut self,
         name: impl Into<String>,
-        handler: impl IntoSystem<Option<Value>, BrpResult, M>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
         self.methods
             .get_mut()
@@ -428,7 +433,7 @@ pub struct HostPort(pub u16);
 ///
 /// The returned JSON value will be returned as the response. Bevy will
 /// automatically populate the `id` field before sending.
-pub type RemoteMethod = SystemId<Option<Value>, BrpResult>;
+pub type RemoteMethod = SystemId<In<Option<Value>>, BrpResult>;
 
 /// Holds all implementations of methods known to the server.
 ///
