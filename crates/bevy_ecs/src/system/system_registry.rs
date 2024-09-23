@@ -1,8 +1,10 @@
+use crate::bundle::Bundle;
+use crate::change_detection::Mut;
 use crate::entity::Entity;
-use crate::system::{BoxedSystem, IntoSystem};
+use crate::system::{BoxedSystem, IntoSystem, System};
 use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
-use bevy_ecs_macros::Component;
+use bevy_ecs_macros::{Component, Resource};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -102,10 +104,29 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
     }
 }
 
+/// A cached [`SystemId`] distinguished by the unique function type of its system.
+///
+/// This resource is inserted by [`World::register_system_cached`].
+#[derive(Resource)]
+pub struct CachedSystemId<S: System>(pub SystemId<S::In, S::Out>);
+
+/// Creates a [`Bundle`] for a one-shot system entity.
+fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
+    (
+        RegisteredSystem {
+            initialized: false,
+            system,
+        },
+        SystemIdMarker,
+    )
+}
+
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// It's possible to register the same systems more than once, they'll be stored separately.
+    /// It's possible to register multiple copies of the same system by calling this function
+    /// multiple times. If that's not what you want, consider using [`World::register_system_cached`]
+    /// instead.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
@@ -122,23 +143,13 @@ impl World {
     /// Similar to [`Self::register_system`], but allows passing in a [`BoxedSystem`].
     ///
     ///  This is useful if the [`IntoSystem`] implementor has already been turned into a
-    /// [`System`](crate::system::System) trait object and put in a [`Box`].
+    /// [`System`] trait object and put in a [`Box`].
     pub fn register_boxed_system<I: 'static, O: 'static>(
         &mut self,
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
-        SystemId {
-            entity: self
-                .spawn((
-                    RegisteredSystem {
-                        initialized: false,
-                        system,
-                    },
-                    SystemIdMarker,
-                ))
-                .id(),
-            marker: std::marker::PhantomData,
-        }
+        let entity = self.spawn(system_bundle(system)).id();
+        SystemId::from_entity(entity)
     }
 
     /// Removes a registered system and returns the system, if it exists.
@@ -320,6 +331,89 @@ impl World {
         }
         Ok(result)
     }
+
+    /// Registers a system or returns its cached [`SystemId`].
+    ///
+    /// If you want to run the system immediately and you don't need its `SystemId`, see
+    /// [`World::run_system_cached`].
+    ///
+    /// The first time this function is called for a particular system, it will register it and
+    /// store its [`SystemId`] in a [`CachedSystemId`] resource for later. If you would rather
+    /// manage the `SystemId` yourself, or register multiple copies of the same system, use
+    /// [`World::register_system`] instead.
+    ///
+    /// # Limitations
+    ///
+    /// This function only accepts ZST (zero-sized) systems to guarantee that any two systems of
+    /// the same type must be equal. This means that closures that capture the environment, and
+    /// function pointers, are not accepted.
+    ///
+    /// If you want to access values from the environment within a system, consider passing them in
+    /// as inputs via [`World::run_system_cached_with`]. If that's not an option, consider
+    /// [`World::register_system`] instead.
+    pub fn register_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        const {
+            assert!(
+                size_of::<S>() == 0,
+                "Non-ZST systems (e.g. capturing closures, function pointers) cannot be cached.",
+            );
+        }
+
+        if !self.contains_resource::<CachedSystemId<S::System>>() {
+            let id = self.register_system(system);
+            self.insert_resource(CachedSystemId::<S::System>(id));
+            return id;
+        }
+
+        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
+            if let Some(mut entity) = world.get_entity_mut(id.0.entity()) {
+                if !entity.contains::<RegisteredSystem<I, O>>() {
+                    entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
+                }
+            } else {
+                id.0 = world.register_system(system);
+            }
+            id.0
+        })
+    }
+
+    /// Removes a cached system and its [`CachedSystemId`] resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn remove_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        _system: S,
+    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
+        let id = self
+            .remove_resource::<CachedSystemId<S::System>>()
+            .ok_or(RegisteredSystemError::SystemNotCached)?;
+        self.remove_system(id.0)
+    }
+
+    /// Runs a cached system, registering it if necessary.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> Result<O, RegisteredSystemError<(), O>> {
+        self.run_system_cached_with(system, ())
+    }
+
+    /// Runs a cached system with an input, registering it if necessary.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached_with<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        system: S,
+        input: I,
+    ) -> Result<O, RegisteredSystemError<I, O>> {
+        let id = self.register_system_cached(system);
+        self.run_system_with_input(id, input)
+    }
 }
 
 /// The [`Command`] type for [`World::run_system`] or [`World::run_system_with_input`].
@@ -353,7 +447,7 @@ pub struct RunSystemWithInput<I: 'static> {
 pub type RunSystem = RunSystemWithInput<()>;
 
 impl RunSystem {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new(system_id: SystemId) -> Self {
         Self::new_with_input(system_id, ())
     }
@@ -374,16 +468,16 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     }
 }
 
-/// The [`Command`] type for registering one shot systems from [Commands](crate::system::Commands).
+/// The [`Command`] type for registering one shot systems from [`Commands`](crate::system::Commands).
 ///
-/// This command needs an already boxed system to register, and an already spawned entity
+/// This command needs an already boxed system to register, and an already spawned entity.
 pub struct RegisterSystem<I: 'static, O: 'static> {
     system: BoxedSystem<I, O>,
     entity: Entity,
 }
 
 impl<I: 'static, O: 'static> RegisterSystem<I, O> {
-    /// Creates a new [Command] struct, which can be added to [Commands](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
         Self {
             system: Box::new(IntoSystem::into_system(system)),
@@ -394,12 +488,38 @@ impl<I: 'static, O: 'static> RegisterSystem<I, O> {
 
 impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
-        let _ = world.get_entity_mut(self.entity).map(|mut entity| {
-            entity.insert(RegisteredSystem {
-                initialized: false,
-                system: self.system,
-            });
-        });
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert(system_bundle(self.system));
+        }
+    }
+}
+
+/// The [`Command`] type for running a cached one-shot system from
+/// [`Commands`](crate::system::Commands).
+///
+/// See [`World::register_system_cached`] for more information.
+pub struct RunSystemCachedWith<S: System<Out = ()>> {
+    system: S,
+    input: S::In,
+}
+
+impl<S: System<Out = ()>> RunSystemCachedWith<S> {
+    /// Creates a new [`Command`] struct, which can be added to
+    /// [`Commands`](crate::system::Commands).
+    pub fn new<M>(system: impl IntoSystem<S::In, (), M, System = S>, input: S::In) -> Self {
+        Self {
+            system: IntoSystem::into_system(system),
+            input,
+        }
+    }
+}
+
+impl<S: System<Out = ()>> Command for RunSystemCachedWith<S>
+where
+    S::In: Send,
+{
+    fn apply(self, world: &mut World) {
+        let _ = world.run_system_cached_with(self.system, self.input);
     }
 }
 
@@ -411,6 +531,11 @@ pub enum RegisteredSystemError<I = (), O = ()> {
     /// Did you forget to register it?
     #[error("System {0:?} was not registered")]
     SystemIdNotRegistered(SystemId<I, O>),
+    /// A cached system was removed by value, but no system with its type was found.
+    ///
+    /// Did you forget to register it?
+    #[error("Cached system was not found")]
+    SystemNotCached,
     /// A system tried to run itself recursively.
     #[error("System {0:?} tried to run itself recursively")]
     Recursive(SystemId<I, O>),
@@ -425,6 +550,7 @@ impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
             }
+            Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
         }
@@ -624,5 +750,36 @@ mod tests {
         world.spawn(Callback(increment_by, 3));
         let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
+    }
+
+    #[test]
+    fn cached_system() {
+        use crate::system::RegisteredSystemError;
+
+        fn four() -> i32 {
+            4
+        }
+
+        let mut world = World::new();
+        let old = world.register_system_cached(four);
+        let new = world.register_system_cached(four);
+        assert_eq!(old, new);
+
+        let result = world.remove_system_cached(four);
+        assert!(result.is_ok());
+        let new = world.register_system_cached(four);
+        assert_ne!(old, new);
+
+        let output = world.run_system(old);
+        assert!(matches!(
+            output,
+            Err(RegisteredSystemError::SystemIdNotRegistered(x)) if x == old,
+        ));
+        let output = world.run_system(new);
+        assert!(matches!(output, Ok(x) if x == four()));
+        let output = world.run_system_cached(four);
+        assert!(matches!(output, Ok(x) if x == four()));
+        let output = world.run_system_cached_with(four, ());
+        assert!(matches!(output, Ok(x) if x == four()));
     }
 }

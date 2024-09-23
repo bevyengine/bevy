@@ -208,8 +208,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system`](World::run_system)
-/// and run the system by their [`SystemId`](crate::system::SystemId).
+/// If you do need systems to hold onto state between runs, use [`World::run_system_cached`](World::run_system_cached)
+/// or [`World::run_system`](World::run_system).
 ///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
