@@ -1323,6 +1323,10 @@ impl<'w> EntityWorldMut<'w> {
             world.removed_components.send(component_id, self.entity);
         }
 
+        // Observers and on_remove hooks may reserve new entities, which
+        // requires a flush before Entities::free may be called.
+        world.flush_entities();
+
         let location = world
             .entities
             .free(self.entity)
