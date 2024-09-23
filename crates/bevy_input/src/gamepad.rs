@@ -1606,11 +1606,11 @@ mod tests {
     use super::{
         gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
         AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
-        GamepadAxis, GamepadEvent, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+        GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
         GamepadConnection::{Connected, Disconnected},
-        GamepadConnectionEvent, GamepadInfo, GamepadSettings, RawGamepadAxisChangedEvent,
-        RawGamepadButtonChangedEvent, RawGamepadEvent,
+        GamepadConnectionEvent, GamepadEvent, GamepadInfo, GamepadSettings,
+        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
     use bevy_app::{App, PreUpdate};
