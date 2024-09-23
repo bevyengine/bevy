@@ -25,7 +25,7 @@ use thiserror::Error;
 /// [`RawGamepadButtonChangedEvent`] and [`RawGamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
 ///
-/// This event type is not used by `bevy_input`.
+/// This event type is used by `bevy_input` to feed its components.
 #[derive(Event, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -60,8 +60,7 @@ impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
     }
 }
 
-/// Gamepad event for when the "value" (amount of pressure) on the button
-/// changes by an amount larger than the threshold defined in [`GamepadSettings`].
+/// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`]
 #[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -89,8 +88,7 @@ impl RawGamepadButtonChangedEvent {
     }
 }
 
-/// Gamepad event for when the "value" on the axis changes
-/// by an amount larger than the threshold defined in [`GamepadSettings`].
+/// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`]
 #[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -154,7 +152,7 @@ impl GamepadConnectionEvent {
     }
 }
 
-/// Gamepad button digital state changed event.
+/// [`GamepadButton`] event triggered by a digital state change
 #[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -182,7 +180,7 @@ impl GamepadButtonStateChangedEvent {
     }
 }
 
-/// Gamepad analog state changed event
+/// [`GamepadButton`] event triggered by an analog state change
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -213,7 +211,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// A gamepad axis event.
+/// [`GamepadAxis`] event triggered by an analog state change
 #[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -296,9 +294,9 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the [`GamepadId`] identifier or `name`.
+/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the `name` and its [`GamepadButton`] and [`GamepadAxis`].
 ///
-/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](MinimalGamepad) are automatically managed.
+/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](GamepadSettings) are automatically managed.
 ///
 /// # Usage
 ///
@@ -324,14 +322,8 @@ pub enum ButtonSettingsError {
 ///     }
 /// }
 /// ```
-#[derive(Component, Debug /*, Reflect*/)]
+#[derive(Component, Debug)]
 #[require(GamepadSettings)]
-//#[reflect(Debug, PartialEq)]
-/*#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]*/
 pub struct Gamepad {
     info: GamepadInfo,
     /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
@@ -341,13 +333,13 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    /// Delete this after entity as id
-    pub fn new(info: GamepadInfo) -> Self {
+    /// Creates a gamepad with the given metadata
+    fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
-        for button in ALL_BUTTON_TYPES.iter().copied() {
+        for button in GamepadButton::all().iter().copied() {
             analog.set(button.into(), 0.0);
         }
-        for axis_type in ALL_AXIS_TYPES.iter().copied() {
+        for axis_type in GamepadAxis::all().iter().copied() {
             analog.set(axis_type.into(), 0.0);
         }
         Self {
@@ -366,14 +358,14 @@ impl Gamepad {
         self.info.name.as_str()
     }
 
-    /// Returns the position data of the provided [`GamepadAxis`].
+    /// Returns the analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
     ///
-    /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
+    /// This will be clamped between [[`Axis::MIN`],[`Axis::MAX`]].
     pub fn get(&self, input: impl Into<GamepadInput>) -> Option<f32> {
         self.analog.get(input.into())
     }
 
-    /// Returns the unclamped position data of the provided [`GamepadAxis`].
+    /// Returns the unclamped analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
     ///
     /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
     pub fn get_unclamped(&self, input: impl Into<GamepadInput>) -> Option<f32> {
@@ -491,12 +483,12 @@ pub struct GamepadInfo {
     pub name: String,
 }
 
-/// A type of gamepad button.
+/// Represents gamepad input types that are mapped in the range [0.0, 1.0].
 ///
 /// ## Usage
 ///
 /// This is used to determine which button has changed its value when receiving gamepad button events
-/// It is also used in the [`GamepadButtons`].
+/// It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -556,12 +548,39 @@ pub enum GamepadButton {
     Other(u8),
 }
 
+impl GamepadButton {
+    /// Returns an array of all the standard [`GamepadButton`]
+    pub const fn all() -> [GamepadButton; 19] {
+        [
+            GamepadButton::South,
+            GamepadButton::East,
+            GamepadButton::North,
+            GamepadButton::West,
+            GamepadButton::C,
+            GamepadButton::Z,
+            GamepadButton::LeftTrigger,
+            GamepadButton::LeftTrigger2,
+            GamepadButton::RightTrigger,
+            GamepadButton::RightTrigger2,
+            GamepadButton::Select,
+            GamepadButton::Start,
+            GamepadButton::Mode,
+            GamepadButton::LeftThumb,
+            GamepadButton::RightThumb,
+            GamepadButton::DPadUp,
+            GamepadButton::DPadDown,
+            GamepadButton::DPadLeft,
+            GamepadButton::DPadRight,
+        ]
+    }
+}
+
 /// Represents gamepad input types that are mapped in the range [-1.0, 1.0]
 ///
 /// ## Usage
 ///
 /// This is used to determine which axis has changed its value when receiving a
-/// gamepad axis event. It is also used in the [`GamepadAxes`].
+/// gamepad axis event. It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -588,6 +607,22 @@ pub enum GamepadAxis {
     Other(u8),
 }
 
+impl GamepadAxis {
+    /// Returns an array of all the standard [`GamepadAxis`].
+    pub const fn all() -> [GamepadAxis; 6] {
+        [
+            GamepadAxis::LeftStickX,
+            GamepadAxis::LeftStickY,
+            GamepadAxis::LeftZ,
+            GamepadAxis::RightStickX,
+            GamepadAxis::RightStickY,
+            GamepadAxis::RightZ,
+        ]
+    }
+}
+
+/// Encapsulation over [`GamepadAxis`] and [`GamepadButton`]
+// This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum GamepadInput {
     Axis(GamepadAxis),
@@ -610,8 +645,8 @@ impl From<GamepadButton> for GamepadInput {
 ///
 /// ## Usage
 ///
-/// It is used to create a `bevy` component that stores the settings of [`GamepadButton`] in [`GamepadButtons`]
-/// and [`GamepadAxis`] in [`GamepadAxes`]. If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
+/// It is used to create a `bevy` component that stores the settings of [`GamepadButton`] and [`GamepadAxis`] in [`Gamepad`].
+/// If no user defined [`ButtonSettings`], [`AxisSettings`], or [`ButtonAxisSettings`]
 /// are defined, the default settings of each are used as a fallback accordingly.
 ///
 /// ## Note
@@ -637,7 +672,7 @@ pub struct GamepadSettings {
 }
 
 impl GamepadSettings {
-    /// Returns the [`ButtonSettings`] of the `button`.
+    /// Returns the [`ButtonSettings`] of the [`GamepadButton`].
     ///
     /// If no user defined [`ButtonSettings`] are specified the default [`ButtonSettings`] get returned.
     ///
@@ -655,7 +690,7 @@ impl GamepadSettings {
             .unwrap_or(&self.default_button_settings)
     }
 
-    /// Returns the [`AxisSettings`] of the `axis`.
+    /// Returns the [`AxisSettings`] of the [`GamepadAxis`].
     ///
     /// If no user defined [`AxisSettings`] are specified the default [`AxisSettings`] get returned.
     ///
@@ -673,7 +708,7 @@ impl GamepadSettings {
             .unwrap_or(&self.default_axis_settings)
     }
 
-    /// Returns the [`ButtonAxisSettings`] of the `button`.
+    /// Returns the [`ButtonAxisSettings`] of the [`GamepadButton`].
     ///
     /// If no user defined [`ButtonAxisSettings`] are specified the default [`ButtonAxisSettings`] get returned.
     ///
@@ -694,7 +729,7 @@ impl GamepadSettings {
 
 /// Manages settings for gamepad buttons.
 ///
-/// It is used inside [`GamepadSettings`] to define the threshold for a gamepad button
+/// It is used inside [`GamepadSettings`] to define the threshold for a [`GamepadButton`]
 /// to be considered pressed or released. A button is considered pressed if the `press_threshold`
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
@@ -1252,17 +1287,16 @@ impl ButtonAxisSettings {
 
 /// Handles [`GamepadConnectionEvent`]s events.
 ///
-/// On connection, spawns new entities with components representing a [`gamepad`](MinimalGamepad) and inserts them to the [`Gamepads`] resource.
-/// On disconnection, despawns selected entities and removes them from the [`Gamepads`] resource.
+/// On connection, adds the components representing a [`Gamepad`] to the entity.
+/// On disconnection, removes the [`Gamepad`] and other related components.
+/// Entities are left alive and might leave components like [`GamepadSettings`] to preserve state in the case of a reconnection
 ///
 /// ## Note
 ///
-/// Whenever a [`GamepadId`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
+/// Whenever a [`Gamepad`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
 pub fn gamepad_connection_system(
     mut commands: Commands,
-    // gamepads_settings: Query<&GamepadSettings>,
     mut connection_events: EventReader<GamepadConnectionEvent>,
-    //mut preserved_settings: Local<HashMap<GamepadId, GamepadSettings>>,
 ) {
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
@@ -1302,7 +1336,8 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
-/// Consumes [`RawGamepadAxisChangedEvent`]s, filters them using their [`GamepadSettings`] and if successful, updates the [`GamepadAxes`] and sends a [`GamepadAxisChangedEvent`] [`event`](Event).
+/// Consumes [`RawGamepadEvent`] events, filters them using their [`GamepadSettings`] and if successful,
+/// updates the [`Gamepad`] and sends [`GamepadAxisChangedEvent`], [`GamepadButtonStateChangedEvent`], [`GamepadButtonChangedEvent`] events.
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
     mut raw_events: EventReader<RawGamepadEvent>,
@@ -1397,39 +1432,6 @@ pub fn gamepad_event_processing_system(
     }
 }
 
-/// An array of every [`GamepadButton`] variant.
-pub const ALL_BUTTON_TYPES: [GamepadButton; 19] = [
-    GamepadButton::South,
-    GamepadButton::East,
-    GamepadButton::North,
-    GamepadButton::West,
-    GamepadButton::C,
-    GamepadButton::Z,
-    GamepadButton::LeftTrigger,
-    GamepadButton::LeftTrigger2,
-    GamepadButton::RightTrigger,
-    GamepadButton::RightTrigger2,
-    GamepadButton::Select,
-    GamepadButton::Start,
-    GamepadButton::Mode,
-    GamepadButton::LeftThumb,
-    GamepadButton::RightThumb,
-    GamepadButton::DPadUp,
-    GamepadButton::DPadDown,
-    GamepadButton::DPadLeft,
-    GamepadButton::DPadRight,
-];
-
-/// An array of every [`GamepadAxis`] variant.
-pub const ALL_AXIS_TYPES: [GamepadAxis; 6] = [
-    GamepadAxis::LeftStickX,
-    GamepadAxis::LeftStickY,
-    GamepadAxis::LeftZ,
-    GamepadAxis::RightStickX,
-    GamepadAxis::RightStickY,
-    GamepadAxis::RightZ,
-];
-
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GamepadRumbleIntensity {
@@ -1489,7 +1491,7 @@ impl GamepadRumbleIntensity {
     }
 }
 
-/// An event that controls force-feedback rumbling of a [`GamepadId`].
+/// An event that controls force-feedback rumbling of a [`Gamepad`] [`entity`](Entity).
 ///
 /// # Notes
 ///
@@ -2683,13 +2685,15 @@ mod tests {
         ctx.send_raw_gamepad_event_batch(events);
         ctx.update();
         assert_eq!(
-            ctx.app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonStateChangedEvent>>()
                 .len(),
             2
         );
         assert_eq!(
-            ctx.app.world()
+            ctx.app
+                .world()
                 .resource::<Events<GamepadButtonChangedEvent>>()
                 .len(),
             4
