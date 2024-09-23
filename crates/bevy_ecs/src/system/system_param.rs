@@ -1826,7 +1826,7 @@ pub mod lifetimeless {
 /// A helper for using system parameters in generic contexts
 ///
 /// This type is a [`SystemParam`] adapter which always has
-/// `Self::State::Item == Self` (ignoring lifetimes for brevity),
+/// `Self::Item == Self` (ignoring lifetimes for brevity),
 /// no matter the argument [`SystemParam`] (`P`) (other than
 /// that `P` must be `'static`)
 ///
