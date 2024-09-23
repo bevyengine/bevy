@@ -1606,7 +1606,7 @@ mod tests {
     use super::{
         gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
         AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
-        GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+        GamepadAxis, GamepadEvent, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
         GamepadConnection::{Connected, Disconnected},
         GamepadConnectionEvent, GamepadInfo, GamepadSettings, RawGamepadAxisChangedEvent,
@@ -1961,6 +1961,7 @@ mod tests {
                     gamepad_event_processing_system.after(gamepad_connection_system),
                 ),
             )
+            .add_event::<GamepadEvent>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadButtonChangedEvent>()
