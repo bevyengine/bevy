@@ -3,6 +3,7 @@ use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
+use std::ops::{Deref, DerefMut};
 use std::{
     any::TypeId,
     fmt::Debug,
@@ -478,31 +479,18 @@ impl Debug for TypeRegistration {
 }
 
 impl TypeRegistration {
+    /// Creates type registration information for `T`.
+    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
+        Self {
+            data: Default::default(),
+            type_info: T::type_info(),
+        }
+    }
+
     /// Returns the [`TypeId`] of the type.
-    ///
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
-    }
-
-    /// Returns a reference to the value of type `T` in this registration's type
-    /// data.
-    ///
-    /// Returns `None` if no such value exists.
-    pub fn data<T: TypeData>(&self) -> Option<&T> {
-        self.data
-            .get(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_ref())
-    }
-
-    /// Returns a mutable reference to the value of type `T` in this
-    /// registration's type data.
-    ///
-    /// Returns `None` if no such value exists.
-    pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
-        self.data
-            .get_mut(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_mut())
     }
 
     /// Returns a reference to the registration's [`TypeInfo`]
@@ -510,19 +498,123 @@ impl TypeRegistration {
         self.type_info
     }
 
-    /// Inserts an instance of `T` into this registration's type data.
+    /// Inserts an instance of `T` into this registration's [type data].
     ///
     /// If another instance of `T` was previously inserted, it is replaced.
+    ///
+    /// [type data]: TypeData
     pub fn insert<T: TypeData>(&mut self, data: T) {
         self.data.insert(TypeId::of::<T>(), Box::new(data));
     }
 
-    /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
-        Self {
-            data: Default::default(),
-            type_info: T::type_info(),
-        }
+    /// Returns a reference to the value of type `T` in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a dynamic version of this method, see [`data_by_id`].
+    ///
+    /// [type data]: TypeData
+    /// [`data_by_id`]: Self::data_by_id
+    pub fn data<T: TypeData>(&self) -> Option<&T> {
+        self.data
+            .get(&TypeId::of::<T>())
+            .and_then(|value| value.downcast_ref())
+    }
+
+    /// Returns a reference to the value with the given [`TypeId`] in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a static version of this method, see [`data`].
+    ///
+    /// [type data]: TypeData
+    /// [`data`]: Self::data
+    pub fn data_by_id(&self, type_id: TypeId) -> Option<&dyn TypeData> {
+        self.data.get(&type_id).map(Deref::deref)
+    }
+
+    /// Returns a mutable reference to the value of type `T` in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a dynamic version of this method, see [`data_mut_by_id`].
+    ///
+    /// [type data]: TypeData
+    /// [`data_mut_by_id`]: Self::data_mut_by_id
+    pub fn data_mut<T: TypeData>(&mut self) -> Option<&mut T> {
+        self.data
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|value| value.downcast_mut())
+    }
+
+    /// Returns a mutable reference to the value with the given [`TypeId`] in this registration's
+    /// [type data].
+    ///
+    /// Returns `None` if no such value exists.
+    ///
+    /// For a static version of this method, see [`data_mut`].
+    ///
+    /// [type data]: TypeData
+    /// [`data_mut`]: Self::data_mut
+    pub fn data_mut_by_id(&mut self, type_id: TypeId) -> Option<&mut dyn TypeData> {
+        self.data.get_mut(&type_id).map(DerefMut::deref_mut)
+    }
+
+    /// Returns true if this registration contains the given [type data].
+    ///
+    /// For a dynamic version of this method, see [`contains_by_id`].
+    ///
+    /// [type data]: TypeData
+    /// [`contains_by_id`]: Self::contains_by_id
+    pub fn contains<T: TypeData>(&self) -> bool {
+        self.data.contains_key(&TypeId::of::<T>())
+    }
+
+    /// Returns true if this registration contains the given [type data] with [`TypeId`].
+    ///
+    /// For a static version of this method, see [`contains`].
+    ///
+    /// [type data]: TypeData
+    /// [`contains`]: Self::contains
+    pub fn contains_by_id(&self, type_id: TypeId) -> bool {
+        self.data.contains_key(&type_id)
+    }
+
+    /// The total count of [type data] in this registration.
+    ///
+    /// [type data]: TypeData
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Returns true if this registration has no [type data].
+    ///
+    /// [type data]: TypeData
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Returns an iterator over all [type data] in this registration.
+    ///
+    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+    ///
+    /// [type data]: TypeData
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = (TypeId, &dyn TypeData)> {
+        self.data.iter().map(|(id, data)| (*id, data.deref()))
+    }
+
+    /// Returns a mutable iterator over all [type data] in this registration.
+    ///
+    /// The iterator yields a tuple of the [`TypeId`] and its corresponding type data.
+    ///
+    /// [type data]: TypeData
+    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (TypeId, &mut dyn TypeData)> {
+        self.data
+            .iter_mut()
+            .map(|(id, data)| (*id, data.deref_mut()))
     }
 }
 
@@ -754,11 +846,8 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 #[cfg(test)]
 #[allow(unsafe_code)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr};
-    use bevy_ptr::{Ptr, PtrMut};
-
+    use super::*;
     use crate as bevy_reflect;
-    use crate::Reflect;
 
     #[test]
     fn test_reflect_from_ptr() {
@@ -773,7 +862,7 @@ mod test {
         // not required in this situation because we no nobody messed with the TypeRegistry,
         // but in the general case somebody could have replaced the ReflectFromPtr with an
         // instance for another type, so then we'd need to check that the type is the expected one
-        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
+        assert_eq!(reflect_from_ptr.type_id(), TypeId::of::<Foo>());
 
         let mut value = Foo { a: 1.0 };
         {
@@ -803,5 +892,49 @@ mod test {
                 _ => panic!("invalid reflection"),
             }
         }
+    }
+
+    #[test]
+    fn type_data_iter() {
+        #[derive(Reflect)]
+        struct Foo;
+
+        #[derive(Clone)]
+        struct DataA(i32);
+
+        let mut registration = TypeRegistration::of::<Foo>();
+        registration.insert(DataA(123));
+
+        let mut iter = registration.iter();
+
+        let (id, data) = iter.next().unwrap();
+        assert_eq!(id, TypeId::of::<DataA>());
+        assert_eq!(data.downcast_ref::<DataA>().unwrap().0, 123);
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn type_data_iter_mut() {
+        #[derive(Reflect)]
+        struct Foo;
+
+        #[derive(Clone)]
+        struct DataA(i32);
+
+        let mut registration = TypeRegistration::of::<Foo>();
+        registration.insert(DataA(123));
+
+        {
+            let mut iter = registration.iter_mut();
+
+            let (_, data) = iter.next().unwrap();
+            data.downcast_mut::<DataA>().unwrap().0 = 456;
+
+            assert!(iter.next().is_none());
+        }
+
+        let data = registration.data::<DataA>().unwrap();
+        assert_eq!(data.0, 456);
     }
 }
