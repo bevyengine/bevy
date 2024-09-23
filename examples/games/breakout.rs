@@ -323,15 +323,14 @@ fn move_paddle(
     time: Res<Time>,
 ) {
     let mut paddle_transform = query.single_mut();
-    let mut direction = 0.0;
 
-    if keyboard_input.pressed(KeyCode::ArrowLeft) {
-        direction -= 1.0;
-    }
-
-    if keyboard_input.pressed(KeyCode::ArrowRight) {
-        direction += 1.0;
-    }
+    let direction = if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        -1.0
+    } else if keyboard_input.pressed(KeyCode::ArrowRight) {
+        1.0
+    } else {
+        0.0
+    };
 
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position =
