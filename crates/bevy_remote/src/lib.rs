@@ -408,10 +408,16 @@ impl Plugin for RemotePlugin {
 }
 
 /// A resource containing the IP address that Bevy will host on.
+///
+/// Currently, changing this while the application is running has no effect; this merely
+/// reflects the IP address that is set during the setup of the [`RemotePlugin`].
 #[derive(Debug, Resource)]
 pub struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
+///
+/// Currently, changing this while the application is running has no effect; this merely
+/// reflects the host that is set during the setup of the [`RemotePlugin`].
 #[derive(Debug, Resource, Reflect)]
 pub struct HostPort(pub u16);
 
