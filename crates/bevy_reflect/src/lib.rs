@@ -520,7 +520,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
-//! [`Function`]: func::Function
+//! [`Function`]: crate::func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData

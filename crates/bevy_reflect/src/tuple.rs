@@ -732,7 +732,8 @@ all_tuples!(
 #[cfg(feature = "functions")]
 const _: () = {
     macro_rules! impl_get_ownership_tuple {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
+        $(#[$meta])*
         $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
     };
 }
@@ -746,7 +747,8 @@ const _: () = {
     );
 
     macro_rules! impl_from_arg_tuple {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
+        $(#[$meta])*
         $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
@@ -760,7 +762,8 @@ const _: () = {
     );
 
     macro_rules! impl_into_return_tuple {
-    ($($name: ident),+) => {
+    ($(#[$meta:meta])* $($name: ident),+) => {
+        $(#[$meta])*
         $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
