@@ -21,6 +21,8 @@ use crate::{
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
 
+use super::ClusterableObjectOrderData;
+
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
 
@@ -139,18 +141,18 @@ pub(crate) fn assign_objects_to_clusters(
     {
         clusterable_objects.sort_by(|clusterable_object_1, clusterable_object_2| {
             crate::clusterable_object_order(
-                (
-                    &clusterable_object_1.entity,
-                    &clusterable_object_1.shadows_enabled,
-                    &clusterable_object_1.volumetric,
-                    &clusterable_object_1.spot_light_angle.is_some(),
-                ),
-                (
-                    &clusterable_object_2.entity,
-                    &clusterable_object_2.shadows_enabled,
-                    &clusterable_object_2.volumetric,
-                    &clusterable_object_2.spot_light_angle.is_some(),
-                ),
+                ClusterableObjectOrderData {
+                    entity: &clusterable_object_1.entity,
+                    shadows_enabled: &clusterable_object_1.shadows_enabled,
+                    is_volumetric_light: &clusterable_object_1.volumetric,
+                    is_spot_light: &clusterable_object_1.spot_light_angle.is_some(),
+                },
+                ClusterableObjectOrderData {
+                    entity: &clusterable_object_2.entity,
+                    shadows_enabled: &clusterable_object_2.shadows_enabled,
+                    is_volumetric_light: &clusterable_object_2.volumetric,
+                    is_spot_light: &clusterable_object_2.spot_light_angle.is_some(),
+                },
             )
         });
 
