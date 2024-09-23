@@ -1833,9 +1833,8 @@ impl Measured2d for Capsule2d {
         PI * self.radius.squared() + self.to_rectangle().area()
     }
 
-    /// Get the perimeter or circumference of the capsule
+    /// Get the perimeter of the capsule
     #[inline(always)]
-    #[doc(alias = "circumference")]
     fn perimeter(&self) -> f32 {
         // 2pi*r + 2l
         2.0 * PI * self.radius + 4.0 * self.half_length
