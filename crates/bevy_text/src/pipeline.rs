@@ -90,7 +90,12 @@ impl TextPipeline {
                 .ok_or(TextError::NoSuchFont)?;
         }
         let line_height = font_size * 1.2;
-        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
+        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
+        // deallocating the buffer.
+        metrics.font_size = metrics.font_size.max(0.000001);
+        metrics.line_height = metrics.line_height.max(0.000001);
 
         // Load Bevy fonts into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
@@ -108,24 +113,27 @@ impl TextPipeline {
             .into_iter()
             .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
-        spans.extend(
-            sections
-                .iter()
-                .enumerate()
-                .filter(|(_section_index, section)| section.style.font_size > 0.0)
-                .map(|(section_index, section)| {
-                    (
-                        &section.value[..],
-                        get_attrs(
-                            section,
-                            section_index,
-                            font_system,
-                            &self.map_handle_to_font_id,
-                            scale_factor,
-                        ),
-                    )
-                }),
-        );
+        // `metrics.font_size` hack continued: ignore all spans when scale_factor is zero.
+        if scale_factor > 0.0 {
+            spans.extend(
+                sections
+                    .iter()
+                    .enumerate()
+                    .filter(|(_section_index, section)| section.style.font_size > 0.0)
+                    .map(|(section_index, section)| {
+                        (
+                            &section.value[..],
+                            get_attrs(
+                                section,
+                                section_index,
+                                font_system,
+                                &self.map_handle_to_font_id,
+                                scale_factor,
+                            ),
+                        )
+                    }),
+            );
+        }
         let spans_iter = spans.iter().copied();
 
         buffer.set_metrics(font_system, metrics);
