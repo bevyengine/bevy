@@ -387,7 +387,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<'a, E, C>(
+    pub(crate) unsafe fn trigger_observers_with_data<'a, E, T>(
         &mut self,
         event: ComponentId,
         mut entity: Entity,
@@ -395,7 +395,7 @@ impl<'w> DeferredWorld<'w> {
         data: &mut E,
         mut propagate: bool,
     ) where
-        C: Component,
+        T: Traversal,
     {
         loop {
             Observers::invoke::<_>(
@@ -409,7 +409,7 @@ impl<'w> DeferredWorld<'w> {
             if !propagate {
                 break;
             }
-            if let Some(traverse_to) = self.get::<C>(entity).and_then(|arg0: &C| C::traverse(arg0)) {
+            if let Some(traverse_to) = self.get::<T>(entity).and_then(|t: &T| T::traverse(t.???)) {
                 entity = traverse_to;
             } else {
                 break;
