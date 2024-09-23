@@ -60,10 +60,10 @@ pub enum ReflectKind {
     /// Despite not technically being opaque types,
     /// primitives like `u32` `i32` are considered opaque for the purposes of reflection.
     ///
-    /// Additionally, any type that derives [`Reflect`] with the `#[reflect(opaque)]` attribute
+    /// Additionally, any type that [derives `Reflect`] with the `#[reflect(opaque)]` attribute
     /// will be considered an opaque type.
     ///
-    /// [`Reflect`]: crate::Reflect
+    /// [derives `Reflect`]: bevy_reflect_derive::Reflect
     Opaque,
 }
 
