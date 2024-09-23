@@ -17,7 +17,6 @@ use bevy::{
     },
 };
 use crossbeam_channel::{Receiver, Sender};
-use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";

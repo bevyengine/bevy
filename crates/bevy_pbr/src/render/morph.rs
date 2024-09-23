@@ -1,4 +1,4 @@
-use std::{iter, mem, mem::size_of};
+use std::{iter, mem};
 
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;

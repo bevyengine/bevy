@@ -2,12 +2,11 @@
 
 use crate::derive_data::ReflectMeta;
 use crate::serialization::SerializationDataDef;
-use crate::utility::WhereClauseOptions;
+use crate::where_clause_options::WhereClauseOptions;
 use quote::quote;
 use syn::Type;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn impl_get_type_registration<'a>(
     meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,

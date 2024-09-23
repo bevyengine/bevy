@@ -84,7 +84,8 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -112,7 +113,8 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,

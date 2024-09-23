@@ -21,7 +21,6 @@ use bevy_utils::HashMap;
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect(Debug)]
 pub struct TextureAtlasLayout {
-    // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: UVec2,
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<URect>,

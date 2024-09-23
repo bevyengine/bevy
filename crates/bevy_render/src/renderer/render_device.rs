@@ -49,6 +49,28 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(source)
+                if self
+                    .features()
+                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+            {
+                // SAFETY:
+                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behaviour.
+                // No attempt is made to ensure that data is valid SPIR-V.
+                unsafe {
+                    self.device
+                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                            label: desc.label,
+                            source: source.clone(),
+                        })
+                }
+            }
+            _ => self.device.create_shader_module(desc),
+        }
+
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
         self.device.create_shader_module(desc)
     }
 

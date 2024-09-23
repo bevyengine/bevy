@@ -144,10 +144,11 @@ type IdCursor = isize;
 /// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
@@ -450,26 +451,26 @@ pub struct ReserveEntitiesIterator<'a> {
     meta: &'a [EntityMeta],
 
     // Reserved indices formerly in the freelist to hand out.
-    index_iter: std::slice::Iter<'a, u32>,
+    freelist_indices: std::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
-    index_range: std::ops::Range<u32>,
+    new_indices: std::ops::Range<u32>,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.index_iter
+        self.freelist_indices
             .next()
             .map(|&index| {
                 Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
             })
-            .or_else(|| self.index_range.next().map(Entity::from_raw))
+            .or_else(|| self.new_indices.next().map(Entity::from_raw))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.index_iter.len() + self.index_range.len();
+        let len = self.freelist_indices.len() + self.new_indices.len();
         (len, Some(len))
     }
 }
@@ -589,8 +590,8 @@ impl Entities {
 
         ReserveEntitiesIterator {
             meta: &self.meta[..],
-            index_iter: self.pending[freelist_range].iter(),
-            index_range: new_id_start..new_id_end,
+            freelist_indices: self.pending[freelist_range].iter(),
+            new_indices: new_id_start..new_id_end,
         }
     }
 
@@ -1006,7 +1007,6 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {

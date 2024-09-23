@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -45,7 +43,7 @@ pub fn spawn_commands(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..entity_count {
-                    let mut entity = commands
+                    let entity = commands
                         .spawn_empty()
                         .insert_if(A, || black_box(i % 2 == 0))
                         .insert_if(B, || black_box(i % 3 == 0))
