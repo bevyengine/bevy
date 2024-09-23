@@ -37,6 +37,7 @@ impl Plugin for CursorPlugin {
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
+    Hidden,
     /// Custom cursor image.
     Custom(CustomCursor),
     /// System provided cursor icon.
@@ -98,6 +99,7 @@ pub fn update_cursors(
         }
 
         let cursor_source = match cursor.as_ref() {
+            CursorIcon::Hidden => CursorSource::Hidden,
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
                 let cache_key = match handle.id() {
                     AssetId::Index { index, .. } => {
