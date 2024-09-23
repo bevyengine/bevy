@@ -17,7 +17,6 @@ use bevy_utils::{
     tracing::{info, warn},
     Duration, HashMap,
 };
-use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 /// A gamepad event.
@@ -1307,9 +1306,7 @@ pub enum GamepadConnection {
 pub fn gamepad_event_processing_system(
     mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
     mut raw_events: EventReader<RawGamepadEvent>,
-    mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut filtered_events: EventWriter<GamepadAxisChangedEvent>,
-    mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
     mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
     mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
 ) {
