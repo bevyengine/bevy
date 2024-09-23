@@ -250,6 +250,7 @@ fn queue_text(
             scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
+            text.font_smoothing,
             physical_node_size,
             font_atlas_sets,
             texture_atlases,
