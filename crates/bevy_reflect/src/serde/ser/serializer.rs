@@ -154,14 +154,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     {
         #[cfg(feature = "debug_stack")]
         {
-            let info = self.value.get_represented_type_info().ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "type `{}` does not represent any type",
-                    self.value.reflect_type_path(),
-                ))
-            })?;
-
-            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+            if let Some(info) = self.value.get_represented_type_info() {
+                TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+            }
         }
 
         // Handle both Value case and types that have a custom `Serialize`
@@ -199,7 +194,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             ReflectRef::Enum(value) => {
                 EnumSerializer::new(value, self.registry).serialize(serializer)
             }
-            ReflectRef::Value(_) => Err(serializable.err().unwrap()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
+            ReflectRef::Opaque(_) => Err(serializable.err().unwrap()),
         };
 
         #[cfg(feature = "debug_stack")]

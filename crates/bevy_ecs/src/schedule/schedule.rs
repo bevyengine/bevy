@@ -10,6 +10,7 @@ use bevy_utils::{
     tracing::{error, warn},
     HashMap, HashSet,
 };
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
@@ -246,7 +247,7 @@ pub enum Chain {
 /// fn system_one() { println!("System 1 works!") }
 /// fn system_two() { println!("System 2 works!") }
 /// fn system_three() { println!("System 3 works!") }
-///    
+///
 /// fn main() {
 ///     let mut world = World::new();
 ///     let mut schedule = Schedule::default();
@@ -1582,7 +1583,7 @@ impl ScheduleGraph {
 
     #[inline]
     fn get_node_name_inner(&self, id: &NodeId, report_sets: bool) -> String {
-        let mut name = match id {
+        let name = match id {
             NodeId::System(_) => {
                 let name = self.systems[id.index()].get().unwrap().name().to_string();
                 if report_sets {
@@ -1608,9 +1609,10 @@ impl ScheduleGraph {
             }
         };
         if self.settings.use_shortnames {
-            name = bevy_utils::ShortName(&name).to_string();
+            ShortName(&name).to_string()
+        } else {
+            name
         }
-        name
     }
 
     fn anonymous_set_name(&self, id: &NodeId) -> String {
@@ -1893,7 +1895,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {

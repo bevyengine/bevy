@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
-use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
+use crate::{
+    schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
 
 /// Customizes the behavior of an [`AdapterSystem`]
 ///
@@ -28,8 +32,8 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
 ///
 ///     fn adapt(
 ///         &mut self,
-///         input: Self::In,
-///         run_system: impl FnOnce(S::In) -> S::Out,
+///         input: <Self::In as SystemInput>::Inner<'_>,
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
 ///     ) -> Self::Out {
 ///         !run_system(input)
 ///     }
@@ -45,13 +49,17 @@ use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCe
 )]
 pub trait Adapt<S: System>: Send + Sync + 'static {
     /// The [input](System::In) type for an [`AdapterSystem`].
-    type In;
+    type In: SystemInput;
     /// The [output](System::Out) type for an [`AdapterSystem`].
     type Out;
 
     /// When used in an [`AdapterSystem`], this function customizes how the system
     /// is run and how its inputs/outputs are adapted.
-    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(S::In) -> S::Out) -> Self::Out;
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+    ) -> Self::Out;
 }
 
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.
@@ -109,7 +117,11 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
@@ -117,7 +129,7 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: Self::In, world: &mut crate::prelude::World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
         self.func
             .adapt(input, |input| self.system.run(input, world))
     }
@@ -130,6 +142,11 @@ where
     #[inline]
     fn queue_deferred(&mut self, world: crate::world::DeferredWorld) {
         self.system.queue_deferred(world);
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+        self.system.validate_param_unsafe(world)
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
@@ -168,13 +185,17 @@ where
 
 impl<F, S, Out> Adapt<S> for F
 where
-    S: System,
     F: Send + Sync + 'static + FnMut(S::Out) -> Out,
+    S: System,
 {
     type In = S::In;
     type Out = Out;
 
-    fn adapt(&mut self, input: S::In, run_system: impl FnOnce(S::In) -> S::Out) -> Out {
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+    ) -> Out {
         self(run_system(input))
     }
 }

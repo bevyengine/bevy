@@ -72,6 +72,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 pub enum RenderUiSystem {
     ExtractBackgrounds,
     ExtractImages,
+    ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
 }
@@ -97,6 +98,7 @@ pub fn build_ui_render(app: &mut App) {
             (
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
+                RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
             )

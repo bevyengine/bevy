@@ -4,8 +4,8 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::ShortName;
 use crossbeam_channel::{Receiver, Sender};
+use disqualified::ShortName;
 use std::{
     any::TypeId,
     hash::{Hash, Hasher},
