@@ -529,8 +529,8 @@ mod tests {
     #[derive(Component)]
     struct EventPropagating;
 
-    impl<'a> Event for EventPropagating {
-        type Traversal = &'a Parent;
+    impl Event for EventPropagating {
+        type Traversal = &'static Parent;
 
         const AUTO_PROPAGATE: bool = true;
     }
