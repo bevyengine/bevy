@@ -636,7 +636,7 @@ fn build_has_map<'a>(
 /// Given a component ID, return the associated [type path] and `ReflectComponent` if possible.
 ///
 /// The `ReflectComponent` part is the meat of this; the type path is only used for error messages.
-/// 
+///
 /// [type path]: bevy_reflect::TypePath::type_path
 fn reflect_component_from_id(
     component_type_id: TypeId,
