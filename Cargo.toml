@@ -392,11 +392,13 @@ thiserror = "1.0"
 event-listener = "5.3.0"
 hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
+anyhow = "1"
+macro_rules_attribute = "0.2"
+
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-anyhow = "1"
-macro_rules_attribute = "0.2"
 ureq = { version = "2.10.1", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -3396,7 +3398,7 @@ doc-scrape-examples = true
 name = "client"
 description = "A simple command line client that can control Bevy apps via the BRP"
 category = "Remote Protocol"
-wasm = true
+wasm = false
 
 [[example]]
 name = "server"
