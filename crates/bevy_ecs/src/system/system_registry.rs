@@ -2,7 +2,7 @@ use crate::bundle::Bundle;
 use crate::change_detection::Mut;
 use crate::entity::Entity;
 use crate::system::input::SystemInput;
-use crate::system::{BoxedSystem, IntoSystem, System};
+use crate::system::{BoxedSystem, IntoSystem, System, SystemIn};
 use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::{Component, Resource};
@@ -365,10 +365,12 @@ impl World {
     /// If you want to access values from the environment within a system, consider passing them in
     /// as inputs via [`World::run_system_cached_with`]. If that's not an option, consider
     /// [`World::register_system`] instead.
-    pub fn register_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
-        &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+    pub fn register_system_cached<I, O, M, S>(&mut self, system: S) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+        S: IntoSystem<I, O, M> + 'static,
+    {
         const {
             assert!(
                 size_of::<S>() == 0,
@@ -397,10 +399,15 @@ impl World {
     /// Removes a cached system and its [`CachedSystemId`] resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn remove_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn remove_system_cached<I, O, M, S>(
         &mut self,
         _system: S,
-    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
+    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+        S: IntoSystem<I, O, M> + 'static,
+    {
         let id = self
             .remove_resource::<CachedSystemId<S::System>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
@@ -420,11 +427,16 @@ impl World {
     /// Runs a cached system with an input, registering it if necessary.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn run_system_cached_with<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn run_system_cached_with<I, O, M, S>(
         &mut self,
         system: S,
-        input: I,
-    ) -> Result<O, RegisteredSystemError<I, O>> {
+        input: I::Inner<'_>,
+    ) -> Result<O, RegisteredSystemError<I, O>>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+        S: IntoSystem<I, O, M> + 'static,
+    {
         let id = self.register_system_cached(system);
         self.run_system_with_input(id, input)
     }
@@ -525,13 +537,16 @@ where
 /// See [`World::register_system_cached`] for more information.
 pub struct RunSystemCachedWith<S: System<Out = ()>> {
     system: S,
-    input: S::In,
+    input: SystemIn<'static, S>,
 }
 
 impl<S: System<Out = ()>> RunSystemCachedWith<S> {
     /// Creates a new [`Command`] struct, which can be added to
     /// [`Commands`](crate::system::Commands).
-    pub fn new<M>(system: impl IntoSystem<S::In, (), M, System = S>, input: S::In) -> Self {
+    pub fn new<M>(
+        system: impl IntoSystem<S::In, (), M, System = S>,
+        input: SystemIn<'static, S>,
+    ) -> Self {
         Self {
             system: IntoSystem::into_system(system),
             input,
@@ -541,7 +556,7 @@ impl<S: System<Out = ()>> RunSystemCachedWith<S> {
 
 impl<S: System<Out = ()>> Command for RunSystemCachedWith<S>
 where
-    S::In: Send,
+    S::In: SystemInput<Inner<'static>: Send>,
 {
     fn apply(self, world: &mut World) {
         let _ = world.run_system_cached_with(self.system, self.input);
