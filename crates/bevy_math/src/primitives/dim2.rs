@@ -1819,7 +1819,7 @@ impl Capsule2d {
     }
 
     /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
-    #[inline(always)]
+    #[inline]
     pub fn to_rectangle(&self) -> Rectangle {
         Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
     }
