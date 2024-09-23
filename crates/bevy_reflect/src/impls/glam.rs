@@ -1,6 +1,6 @@
 use crate as bevy_reflect;
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
-use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
+use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use glam::*;
 
 impl_reflect!(
@@ -330,6 +330,7 @@ impl_reflect!(
     }
 );
 
+impl_reflect_value!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
 impl_reflect!(
     #[reflect(Debug, PartialEq, Default, Deserialize, Serialize)]
     #[type_path = "glam"]
@@ -343,8 +344,8 @@ impl_reflect!(
     }
 );
 
-impl_reflect_value!(::glam::BVec3A(Debug, Default, Deserialize, Serialize));
-impl_reflect_value!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
+impl_reflect_opaque!(::glam::BVec3A(Debug, Default, Deserialize, Serialize));
+impl_reflect_opaque!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
 
 #[cfg(test)]
 mod tests {
