@@ -310,6 +310,103 @@ pub struct RemotePlugin {
     methods: RwLock<Vec<(String, Box<dyn System<In = Option<Value>, Out = BrpResult>>)>>,
 }
 
+impl RemotePlugin {
+    /// Create a [`RemotePlugin`] with the default address and port but without
+    /// any associated methods.
+    fn empty() -> Self {
+        Self {
+            address: DEFAULT_ADDR,
+            port: DEFAULT_PORT,
+            methods: RwLock::new(vec![]),
+        }
+    }
+
+    /// Set the IP address that the server will use.
+    #[must_use]
+    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
+        self.address = address.into();
+        self
+    }
+
+    /// Set the remote port that the server will listen on.
+    #[must_use]
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    /// Add a remote method to the plugin using the given `name` and `handler`.
+    #[must_use]
+    pub fn with_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<Option<Value>, BrpResult, M>,
+    ) -> Self {
+        self.methods
+            .get_mut()
+            .unwrap()
+            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
+        self
+    }
+}
+
+impl Default for RemotePlugin {
+    fn default() -> Self {
+        Self::empty()
+            .with_method(
+                builtin_methods::BRP_GET_METHOD,
+                builtin_methods::process_remote_get_request,
+            )
+            .with_method(
+                builtin_methods::BRP_QUERY_METHOD,
+                builtin_methods::process_remote_query_request,
+            )
+            .with_method(
+                builtin_methods::BRP_SPAWN_METHOD,
+                builtin_methods::process_remote_spawn_request,
+            )
+            .with_method(
+                builtin_methods::BRP_INSERT_METHOD,
+                builtin_methods::process_remote_insert_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REMOVE_METHOD,
+                builtin_methods::process_remote_remove_request,
+            )
+            .with_method(
+                builtin_methods::BRP_DESTROY_METHOD,
+                builtin_methods::process_remote_destroy_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REPARENT_METHOD,
+                builtin_methods::process_remote_reparent_request,
+            )
+            .with_method(
+                builtin_methods::BRP_LIST_METHOD,
+                builtin_methods::process_remote_list_request,
+            )
+    }
+}
+
+impl Plugin for RemotePlugin {
+    fn build(&self, app: &mut App) {
+        let mut remote_methods = RemoteMethods::new();
+        let plugin_methods = &mut *self.methods.write().unwrap();
+        for (name, system) in plugin_methods.drain(..) {
+            remote_methods.insert(
+                name,
+                app.main_mut().world_mut().register_boxed_system(system),
+            );
+        }
+
+        app.insert_resource(HostAddress(self.address))
+            .insert_resource(HostPort(self.port))
+            .insert_resource(remote_methods)
+            .add_systems(Startup, start_server)
+            .add_systems(Update, process_remote_requests);
+    }
+}
+
 /// A resource containing the IP address that Bevy will host on.
 #[derive(Debug, Resource)]
 pub struct HostAddress(pub IpAddr);
@@ -332,6 +429,24 @@ pub type RemoteMethod = SystemId<Option<Value>, BrpResult>;
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
 #[derive(Debug, Resource, Default)]
 pub struct RemoteMethods(HashMap<String, RemoteMethod>);
+
+impl RemoteMethods {
+    /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
+    pub fn new() -> Self {
+        default()
+    }
+
+    /// Adds a new method, replacing any existing method with that name.
+    ///
+    /// If there was an existing method with that name, returns its handler.
+    pub fn insert(
+        &mut self,
+        method_name: impl Into<String>,
+        handler: RemoteMethod,
+    ) -> Option<RemoteMethod> {
+        self.0.insert(method_name.into(), handler)
+    }
+}
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -554,121 +669,6 @@ pub struct BrpMessage {
 /// processes the messages within.
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
-
-impl RemotePlugin {
-    /// Create a [`RemotePlugin`] with the default address and port but without
-    /// any associated methods.
-    fn empty() -> Self {
-        Self {
-            address: DEFAULT_ADDR,
-            port: DEFAULT_PORT,
-            methods: RwLock::new(vec![]),
-        }
-    }
-
-    /// Set the IP address that the server will use.
-    #[must_use]
-    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
-        self.address = address.into();
-        self
-    }
-
-    /// Set the remote port that the server will listen on.
-    #[must_use]
-    pub fn with_port(mut self, port: u16) -> Self {
-        self.port = port;
-        self
-    }
-
-    /// Add a remote method to the plugin using the given `name` and `handler`.
-    #[must_use]
-    pub fn with_method<M>(
-        mut self,
-        name: impl Into<String>,
-        handler: impl IntoSystem<Option<Value>, BrpResult, M>,
-    ) -> Self {
-        self.methods
-            .get_mut()
-            .unwrap()
-            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
-        self
-    }
-}
-
-impl Default for RemotePlugin {
-    fn default() -> Self {
-        Self::empty()
-            .with_method(
-                builtin_methods::BRP_GET_METHOD,
-                builtin_methods::process_remote_get_request,
-            )
-            .with_method(
-                builtin_methods::BRP_QUERY_METHOD,
-                builtin_methods::process_remote_query_request,
-            )
-            .with_method(
-                builtin_methods::BRP_SPAWN_METHOD,
-                builtin_methods::process_remote_spawn_request,
-            )
-            .with_method(
-                builtin_methods::BRP_INSERT_METHOD,
-                builtin_methods::process_remote_insert_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REMOVE_METHOD,
-                builtin_methods::process_remote_remove_request,
-            )
-            .with_method(
-                builtin_methods::BRP_DESTROY_METHOD,
-                builtin_methods::process_remote_destroy_request,
-            )
-            .with_method(
-                builtin_methods::BRP_REPARENT_METHOD,
-                builtin_methods::process_remote_reparent_request,
-            )
-            .with_method(
-                builtin_methods::BRP_LIST_METHOD,
-                builtin_methods::process_remote_list_request,
-            )
-    }
-}
-
-impl Plugin for RemotePlugin {
-    fn build(&self, app: &mut App) {
-        let mut remote_methods = RemoteMethods::new();
-        let plugin_methods = &mut *self.methods.write().unwrap();
-        for (name, system) in plugin_methods.drain(..) {
-            remote_methods.insert(
-                name,
-                app.main_mut().world_mut().register_boxed_system(system),
-            );
-        }
-
-        app.insert_resource(HostAddress(self.address))
-            .insert_resource(HostPort(self.port))
-            .insert_resource(remote_methods)
-            .add_systems(Startup, start_server)
-            .add_systems(Update, process_remote_requests);
-    }
-}
-
-impl RemoteMethods {
-    /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
-    pub fn new() -> Self {
-        default()
-    }
-
-    /// Adds a new method, replacing any existing method with that name.
-    ///
-    /// If there was an existing method with that name, returns its handler.
-    pub fn insert(
-        &mut self,
-        method_name: impl Into<String>,
-        handler: RemoteMethod,
-    ) -> Option<RemoteMethod> {
-        self.0.insert(method_name.into(), handler)
-    }
-}
 
 /// A system that starts up the Bevy Remote Protocol server.
 fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<HostPort>) {
