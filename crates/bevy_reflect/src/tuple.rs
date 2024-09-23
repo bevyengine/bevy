@@ -469,8 +469,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> core::fmt::R
 }
 
 macro_rules! impl_reflect_tuple {
-    {$(#[$meta:meta])+ $($index:tt : $name:tt),*} => {
-        $(#[$meta])*
+    {$($index:tt : $name:tt),*} => {
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
@@ -522,7 +521,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        $(#[$meta])*
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
@@ -586,7 +584,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        $(#[$meta])*
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
@@ -618,7 +615,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        $(#[$meta])*
         impl <$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
@@ -632,7 +628,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        $(#[$meta])*
         impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
@@ -643,7 +638,6 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        $(#[$meta])*
         impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
@@ -661,19 +655,19 @@ macro_rules! impl_reflect_tuple {
     }
 }
 
-impl_reflect_tuple! {#[doc(fake_variadic)]}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
-impl_reflect_tuple! {#[doc(fake_variadic)] 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
+impl_reflect_tuple! {}
+impl_reflect_tuple! { 0: A}
+impl_reflect_tuple! { 0: A, 1: B}
+impl_reflect_tuple! { 0: A, 1: B, 2: C}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
+impl_reflect_tuple! { 0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 macro_rules! impl_type_path_tuple {
     ($(#[$meta:meta])*) => {
