@@ -663,22 +663,16 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            ticks: match T::STORAGE_TYPE {
-                StorageType::Table => {
-                    // SAFETY: T::STORAGE_TYPE = StorageType::Table
-                    unsafe { StorageSwitch::new_table(None) }
-                }
-                StorageType::SparseSet => {
+            ticks: StorageSwitch::new(
+                || None,
+                || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    let sparse_set =
-                        unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() };
-                    // SAFETY: T::STORAGE_TYPE = StorageType::SparseSet
-                    unsafe { StorageSwitch::new_sparse_set(sparse_set) }
-                }
-            },
+                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                },
+            ),
             last_run,
             this_run,
         }
@@ -719,7 +713,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        fetch.ticks = unsafe { StorageSwitch::new_table(table_ticks) };
+        unsafe { fetch.ticks.set_table(table_ticks) };
     }
 
     #[inline(always)]
@@ -728,26 +722,24 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: T::STORAGE_TYPE = StorageType::Table
-                let table = unsafe { fetch.ticks.table().debug_checked_unwrap() };
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get(table_row.as_usize()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: T::STORAGE_TYPE = StorageType::SparseSet
-                let sparse_set = unsafe { fetch.ticks.sparse_set() };
+            },
+            |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
+            },
+        )
     }
 
     #[inline]
@@ -904,22 +896,16 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
-            ticks: match T::STORAGE_TYPE {
-                StorageType::Table => {
-                    // SAFETY: T::STORAGE_TYPE = StorageType::Table
-                    unsafe { StorageSwitch::new_table(None) }
-                }
-                StorageType::SparseSet => {
+            ticks: StorageSwitch::new(
+                || None,
+                || {
                     // SAFETY: The underlying type associated with `component_id` is `T`,
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    let sparse_set =
-                        unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() };
-                    // SAFETY: T::STORAGE_TYPE = StorageType::SparseSet
-                    unsafe { StorageSwitch::new_sparse_set(sparse_set) }
-                }
-            },
+                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                },
+            ),
             last_run,
             this_run,
         }
@@ -960,7 +946,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                 .into(),
         );
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
-        fetch.ticks = unsafe { StorageSwitch::new_table(table_ticks) };
+        unsafe { fetch.ticks.set_table(table_ticks) };
     }
 
     #[inline(always)]
@@ -969,26 +955,24 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: T::STORAGE_TYPE = StorageType::Table
-                let table = unsafe { fetch.ticks.table().debug_checked_unwrap() };
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let tick = unsafe { table.get(table_row.as_usize()) };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: T::STORAGE_TYPE = StorageType::SparseSet
-                let sparse_set = unsafe { fetch.ticks.sparse_set() };
+            },
+            |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
                     ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
+            },
+        )
     }
 
     #[inline]
