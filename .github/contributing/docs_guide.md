@@ -8,7 +8,7 @@ This guide aims to ensure consistency in the Bevy crates documentation, they sho
 2. The first line is followed by an empty line.
 3. The documentation may contain more details.
 4. Links are usually placed at the end, depending on context (inline links may be useful clarification in a longer documentation block).
-5. The crate attributes (`#![attribute]`) are placed _after_ the documentation.
+5. The crate attributes (`#![attribute]`) are placed _before_ the documentation. Consumers of the documentation are more likely to visit generated docs, rather than reading them in the source files.
 
 The format of the documentation will depend on the kind of the crate.
 
