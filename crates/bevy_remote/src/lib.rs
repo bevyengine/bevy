@@ -26,7 +26,7 @@
 //! }
 //! ```
 //!
-//! The `id` and `method` fields are required. The `param` field may be omitted
+//! The `id` and `method` fields are required. The `params` field may be omitted
 //! for certain methods:
 //!
 //! * `id` is arbitrary JSON data. The server completely ignores its contents,
