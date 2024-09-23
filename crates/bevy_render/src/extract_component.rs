@@ -194,7 +194,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         // TODO: use required components
-        app.observe(|trigger: Trigger<OnAdd, C>, mut commands: Commands | {
+        app.observe(|trigger: Trigger<OnAdd, C>, mut commands: Commands| {
             commands.entity(trigger.entity()).insert(SyncToRenderWorld);
         });
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
