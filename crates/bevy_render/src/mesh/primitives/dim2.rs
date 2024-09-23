@@ -7,6 +7,7 @@ use crate::{
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
+    ops,
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
         RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
@@ -217,7 +218,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
 
 impl Extrudable for CircularSectorMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let (sin, cos) = self.sector.arc.half_angle.sin_cos();
+        let (sin, cos) = ops::sin_cos(self.sector.arc.half_angle);
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
@@ -363,7 +364,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
 
 impl Extrudable for CircularSegmentMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let (sin, cos) = self.segment.arc.half_angle.sin_cos();
+        let (sin, cos) = ops::sin_cos(self.segment.arc.half_angle);
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
@@ -493,7 +494,7 @@ impl MeshBuilder for EllipseMeshBuilder {
         for i in 0..self.resolution {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let x = cos * self.ellipse.half_size.x;
             let y = sin * self.ellipse.half_size.y;
 
@@ -599,7 +600,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         let step = std::f32::consts::TAU / self.resolution as f32;
         for i in 0..=self.resolution {
             let theta = start_angle + (i % self.resolution) as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
             let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
             positions.push(inner_pos);
@@ -915,7 +916,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         for i in 0..resolution {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let (x, y) = (cos * radius, sin * radius + self.capsule.half_length);
 
             positions.push([x, y, 0.0]);
@@ -934,7 +935,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         for i in resolution..vertex_count {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let (x, y) = (cos * radius, sin * radius - self.capsule.half_length);
 
             positions.push([x, y, 0.0]);

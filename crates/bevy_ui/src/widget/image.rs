@@ -12,7 +12,7 @@ use taffy::{MaybeMath, MaybeResolve};
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct UiImageSize {
     /// The size of the image's texture
     ///

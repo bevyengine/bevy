@@ -2,7 +2,7 @@ use crate::derive_data::ReflectMeta;
 use crate::impls::func::from_arg::impl_from_arg;
 use crate::impls::func::get_ownership::impl_get_ownership;
 use crate::impls::func::into_return::impl_into_return;
-use crate::utility::WhereClauseOptions;
+use crate::where_clause_options::WhereClauseOptions;
 use quote::quote;
 
 pub(crate) fn impl_function_traits(

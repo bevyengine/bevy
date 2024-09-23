@@ -1894,7 +1894,9 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///     assert!(param.is::<Res<A>>());
 ///     assert!(!param.is::<Res<B>>());
 ///     assert!(param.downcast_mut::<Res<B>>().is_none());
-///     let foo: Res<A> = param.downcast::<Res<A>>().unwrap();
+///     let res = param.downcast_mut::<Res<A>>().unwrap();
+///     // The type parameter can be left out if it can be determined from use.
+///     let res: Res<A> = param.downcast().unwrap();
 /// }
 ///
 /// let system = (
@@ -1921,7 +1923,7 @@ pub struct DynSystemParam<'w, 's> {
 }
 
 impl<'w, 's> DynSystemParam<'w, 's> {
-    /// # SAFETY
+    /// # Safety
     /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam`.
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_state`](SystemParam::init_state) for the inner system param.
@@ -1942,13 +1944,21 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     }
 
     /// Returns `true` if the inner system param is the same as `T`.
-    pub fn is<T: SystemParam + 'static>(&self) -> bool {
-        self.state.is::<ParamState<T>>()
+    pub fn is<T: SystemParam>(&self) -> bool
+    // See downcast() function for an explanation of the where clause
+    where
+        T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+    {
+        self.state.is::<ParamState<T::Item<'static, 'static>>>()
     }
 
     /// Returns the inner system param if it is the correct type.
     /// This consumes the dyn param, so the returned param can have its original world and state lifetimes.
-    pub fn downcast<T: SystemParam + 'static>(self) -> Option<T::Item<'w, 's>> {
+    pub fn downcast<T: SystemParam>(self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
+    where
+        T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+    {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
         //   and that it has access required by the inner system param.
@@ -1958,7 +1968,11 @@ impl<'w, 's> DynSystemParam<'w, 's> {
 
     /// Returns the inner system parameter if it is the correct type.
     /// This borrows the dyn param, so the returned param is only valid for the duration of that borrow.
-    pub fn downcast_mut<T: SystemParam + 'static>(&mut self) -> Option<T::Item<'_, '_>> {
+    pub fn downcast_mut<'a, T: SystemParam>(&'a mut self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
+    where
+        T::Item<'static, 'static>: SystemParam<Item<'a, 'a> = T> + 'static,
+    {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
         //   and that it has access required by the inner system param.
@@ -1971,9 +1985,11 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     /// but since it only performs read access it can keep the original world lifetime.
     /// This can be useful with methods like [`Query::iter_inner()`] or [`Res::into_inner()`]
     /// to obtain references with the original world lifetime.
-    pub fn downcast_mut_inner<T: ReadOnlySystemParam + 'static>(
-        &mut self,
-    ) -> Option<T::Item<'w, '_>> {
+    pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam>(&'a mut self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
+    where
+        T::Item<'static, 'static>: SystemParam<Item<'w, 'a> = T> + 'static,
+    {
         // SAFETY:
         // - `DynSystemParam::new()` ensures `state` is a `ParamState<T>`, that the world matches,
         //   and that it has access required by the inner system param.
@@ -1982,25 +1998,38 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     }
 }
 
-/// # SAFETY
+/// # Safety
 /// - `state` must be a `ParamState<T>` for some inner `T: SystemParam`.
 /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
 ///   in [`init_state`](SystemParam::init_state) for the inner system param.
 /// - `world` must be the same `World` that was used to initialize
 ///   [`state`](SystemParam::init_state) for the inner system param.
-unsafe fn downcast<'w, 's, T: SystemParam + 'static>(
+unsafe fn downcast<'w, 's, T: SystemParam>(
     state: &'s mut dyn Any,
     system_meta: &SystemMeta,
     world: UnsafeWorldCell<'w>,
     change_tick: Tick,
-) -> Option<T::Item<'w, 's>> {
-    state.downcast_mut::<ParamState<T>>().map(|state| {
-        // SAFETY:
-        // - The caller ensures the world has access for the underlying system param,
-        //   and since the downcast succeeded, the underlying system param is T.
-        // - The caller ensures the `world` matches.
-        unsafe { T::get_param(&mut state.0, system_meta, world, change_tick) }
-    })
+) -> Option<T>
+// We need a 'static version of the SystemParam to use with `Any::downcast_mut()`,
+// and we need a <'w, 's> version to actually return.
+// The type parameter T must be the one we return in order to get type inference from the return value.
+// So we use `T::Item<'static, 'static>` as the 'static version, and require that it be 'static.
+// That means the return value will be T::Item<'static, 'static>::Item<'w, 's>,
+// so we constrain that to be equal to T.
+// Every actual `SystemParam` implementation has `T::Item == T` up to lifetimes,
+// so they should all work with this constraint.
+where
+    T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+{
+    state
+        .downcast_mut::<ParamState<T::Item<'static, 'static>>>()
+        .map(|state| {
+            // SAFETY:
+            // - The caller ensures the world has access for the underlying system param,
+            //   and since the downcast succeeded, the underlying system param is T.
+            // - The caller ensures the `world` matches.
+            unsafe { T::Item::get_param(&mut state.0, system_meta, world, change_tick) }
+        })
 }
 
 /// The [`SystemParam::State`] for a [`DynSystemParam`].
@@ -2322,5 +2351,13 @@ mod tests {
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
+    }
+
+    fn _dyn_system_param_type_inference(mut p: DynSystemParam) {
+        // Make sure the downcast() methods are able to infer their type parameters from the use of the return type.
+        // This is just a compilation test, so there is nothing to run.
+        let _query: Query<()> = p.downcast_mut().unwrap();
+        let _query: Query<()> = p.downcast_mut_inner().unwrap();
+        let _query: Query<()> = p.downcast().unwrap();
     }
 }

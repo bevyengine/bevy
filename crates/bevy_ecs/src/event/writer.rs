@@ -51,7 +51,7 @@ use bevy_ecs::{
 ///     //
 ///     // NOTE: the event won't actually be sent until commands get applied during
 ///     // apply_deferred.
-///     commands.add(|w: &mut World| {
+///     commands.queue(|w: &mut World| {
 ///         w.send_event(MyEvent);
 ///     });
 /// }

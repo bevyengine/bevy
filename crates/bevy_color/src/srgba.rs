@@ -3,7 +3,7 @@ use crate::{
     impl_componentwise_vector_space, Alpha, ColorToComponents, ColorToPacked, Gray, LinearRgba,
     Luminance, Mix, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;
@@ -215,7 +215,7 @@ impl Srgba {
         if value <= 0.04045 {
             value / 12.92 // linear falloff in dark values
         } else {
-            ((value + 0.055) / 1.055).powf(2.4) // gamma curve in other area
+            ops::powf((value + 0.055) / 1.055, 2.4) // gamma curve in other area
         }
     }
 
@@ -228,7 +228,7 @@ impl Srgba {
         if value <= 0.0031308 {
             value * 12.92 // linear falloff in dark values
         } else {
-            (1.055 * value.powf(1.0 / 2.4)) - 0.055 // gamma curve in other area
+            (1.055 * ops::powf(value, 1.0 / 2.4)) - 0.055 // gamma curve in other area
         }
     }
 }

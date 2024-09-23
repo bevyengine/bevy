@@ -14,6 +14,9 @@ use thiserror::Error;
 /// This trait is automatically implemented by the [`#[derive(Reflect)]`](derive@crate::Reflect) macro
 /// and allows type information to be processed without an instance of that type.
 ///
+/// If you need to use this trait as a generic bound along with other reflection traits,
+/// for your convenience, consider using [`Reflectable`] instead.
+///
 /// # Implementing
 ///
 /// While it is recommended to leave implementing this trait to the `#[derive(Reflect)]` macro,
@@ -81,6 +84,7 @@ use thiserror::Error;
 /// # }
 /// ```
 ///
+/// [`Reflectable`]: crate::Reflectable
 /// [utility]: crate::utility
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
@@ -136,6 +140,27 @@ impl MaybeTyped for DynamicArray {}
 
 impl MaybeTyped for DynamicTuple {}
 
+/// Dynamic dispatch for [`Typed`].
+///
+/// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
+///
+/// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide dynamic type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
+pub trait DynamicTyped {
+    /// See [`Typed::type_info`].
+    fn reflect_type_info(&self) -> &'static TypeInfo;
+}
+
+impl<T: Typed> DynamicTyped for T {
+    #[inline]
+    fn reflect_type_info(&self) -> &'static TypeInfo {
+        Self::type_info()
+    }
+}
+
 /// A [`TypeInfo`]-specific error.
 #[derive(Debug, Error)]
 pub enum TypeInfoError {
@@ -151,15 +176,17 @@ pub enum TypeInfoError {
 
 /// Compile-time type information for various reflected types.
 ///
-/// Generally, for any given type, this value can be retrieved one of three ways:
+/// Generally, for any given type, this value can be retrieved in one of four ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`PartialReflect::get_represented_type_info`]
-/// 3. [`TypeRegistry::get_type_info`]
+/// 2. [`DynamicTyped::reflect_type_info`]
+/// 3. [`PartialReflect::get_represented_type_info`]
+/// 4. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
+/// the simplest. If you have a `dyn Reflect` you can use [`DynamicTyped::reflect_type_info`].
+/// If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///

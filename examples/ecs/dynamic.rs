@@ -3,7 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
+use std::{alloc::Layout, io::Write, ptr::NonNull};
 
 use bevy::prelude::*;
 use bevy::{
@@ -41,7 +41,7 @@ query, q  Query for entities
 
     Accesses: 'A' with, '&A' read, '&mut A' write
     Operators: '||' or, ',' and, '?' optional
-    
+
     e.g. &A || &B, &mut C, D, ?E";
 
 fn main() {
@@ -150,8 +150,11 @@ fn main() {
                 let mut query = builder.build();
 
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
+                    #[allow(deprecated)]
                     let terms = filtered_entity
-                        .accessed_components()
+                        .access()
+                        .component_reads_and_writes()
+                        .0
                         .map(|id| {
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();

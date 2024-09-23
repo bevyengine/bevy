@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![allow(unsafe_code)]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
@@ -447,7 +447,8 @@ fn extract(main_world: &mut World, render_world: &mut World) {
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
 
-/// SAFETY: this function must be called from the main thread.
+/// # Safety
+/// This function must be called from the main thread.
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 

@@ -110,7 +110,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 30.0,
+        font_size: 25.0,
         ..default()
     };
     commands.spawn((
@@ -383,7 +383,7 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= (0.04f32).powf(time.delta_seconds());
+        pupil.velocity *= ops::powf(0.04f32, time.delta_seconds());
         // Move the pupil
         translation += pupil.velocity * time.delta_seconds();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.

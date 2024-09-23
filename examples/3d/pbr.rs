@@ -66,7 +66,7 @@ fn setup(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )
@@ -82,7 +82,7 @@ fn setup(
         text: Text::from_section(
             "Metallic",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         ),
@@ -103,7 +103,7 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )

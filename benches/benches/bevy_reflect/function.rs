@@ -1,4 +1,4 @@
-use bevy_reflect::func::{ArgList, IntoFunction, TypedFunction};
+use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
 use bevy_reflect::prelude::*;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
@@ -18,6 +18,11 @@ fn typed(c: &mut Criterion) {
             let capture = 25;
             let closure = |a: i32| a + capture;
             b.iter(|| closure.get_function_info());
+        })
+        .bench_function("closure_mut", |b| {
+            let mut capture = 25;
+            let closure = |a: i32| capture += a;
+            b.iter(|| closure.get_function_info());
         });
 }
 
@@ -30,11 +35,23 @@ fn into(c: &mut Criterion) {
             let capture = 25;
             let closure = |a: i32| a + capture;
             b.iter(|| closure.into_function());
+        })
+        .bench_function("closure_mut", |b| {
+            let mut _capture = 25;
+            let closure = move |a: i32| _capture += a;
+            b.iter(|| closure.into_function_mut());
         });
 }
 
 fn call(c: &mut Criterion) {
     c.benchmark_group("call")
+        .bench_function("trait_object", |b| {
+            b.iter_batched(
+                || Box::new(add) as Box<dyn Fn(i32, i32) -> i32>,
+                |func| func(75, 25),
+                BatchSize::SmallInput,
+            );
+        })
         .bench_function("function", |b| {
             let add = add.into_function();
             b.iter_batched(
@@ -46,6 +63,15 @@ fn call(c: &mut Criterion) {
         .bench_function("closure", |b| {
             let capture = 25;
             let add = (|a: i32| a + capture).into_function();
+            b.iter_batched(
+                || ArgList::new().push_owned(75_i32),
+                |args| add.call(args),
+                BatchSize::SmallInput,
+            );
+        })
+        .bench_function("closure_mut", |b| {
+            let mut capture = 25;
+            let mut add = (|a: i32| capture += a).into_function_mut();
             b.iter_batched(
                 || ArgList::new().push_owned(75_i32),
                 |args| add.call(args),

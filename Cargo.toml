@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.79.0"
+rust-version = "1.81.0"
 
 [workspace]
 exclude = [
@@ -68,6 +68,8 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
+  "bevy_sprite_picking_backend",
+  "bevy_ui_picking_backend",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -87,6 +89,12 @@ default = [
   "sysinfo_plugin",
   "android-game-activity",
 ]
+
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = ["bevy_picking"]
+
+# Provides an implementation for picking ui
+bevy_ui_picking_backend = ["bevy_picking"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -142,6 +150,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -154,6 +163,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_ui_picking_backend",
 ]
 
 # winit window and input backend
@@ -164,6 +174,9 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
+spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -1361,6 +1374,28 @@ category = "Application"
 wasm = false
 
 # Assets
+[[example]]
+name = "alter_mesh"
+path = "examples/asset/alter_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_mesh]
+name = "Alter Mesh"
+description = "Shows how to modify the underlying asset of a Mesh after spawning."
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "alter_sprite"
+path = "examples/asset/alter_sprite.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_sprite]
+name = "Alter Sprite"
+description = "Shows how to modify texture assets after spawning."
+category = "Assets"
+wasm = false
+
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
@@ -3273,7 +3308,6 @@ description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
 
-
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
@@ -3442,12 +3476,14 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "animation_masks"
@@ -3459,6 +3495,17 @@ name = "Animation Masks"
 description = "Demonstrates animation masks"
 category = "Animation"
 wasm = true
+
+[[example]]
+name = "pcss"
+path = "examples/3d/pcss.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pcss]
+name = "Percentage-closer soft shadows"
+description = "Demonstrates percentage-closer soft shadows (PCSS)"
+category = "3D Rendering"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"

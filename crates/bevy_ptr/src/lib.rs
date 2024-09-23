@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -11,9 +11,9 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Formatter, Pointer},
     marker::PhantomData,
-    mem::{align_of, ManuallyDrop},
-    num::NonZero,
-    ptr::NonNull,
+    mem::ManuallyDrop,
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
@@ -312,7 +312,6 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -368,7 +367,6 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -455,7 +453,6 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// If possible, it is strongly encouraged to use the other more type-safe functions
     /// over this function.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -535,11 +532,12 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
-pub fn dangling_with_align(align: NonZero<usize>) -> NonNull<u8> {
+pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZero<usize>`.
-    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
+    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilised
+    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {

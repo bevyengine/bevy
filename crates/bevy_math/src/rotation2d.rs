@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use glam::FloatExt;
 
 use crate::{
@@ -100,6 +102,26 @@ impl Rot2 {
     };
 
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-π, π]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    /// # use std::f32::consts::{FRAC_PI_2, PI};
+    ///
+    /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
+    /// let rot2 = Rot2::radians(-FRAC_PI_2);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::radians(PI);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
         let (sin, cos) = ops::sin_cos(radians);
@@ -107,9 +129,53 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-180°, 180°]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::degrees(270.0);
+    /// let rot2 = Rot2::degrees(-90.0);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::degrees(180.0);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
         Self::radians(degrees.to_radians())
+    }
+
+    /// Creates a [`Rot2`] from a counterclockwise fraction of a full turn of 360 degrees.
+    ///
+    /// # Note
+    ///
+    /// The input rotation will always be clamped to the range `(-50%, 50%]` by design.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::Rot2;
+    /// # use approx::assert_relative_eq;
+    ///
+    /// let rot1 = Rot2::turn_fraction(0.75);
+    /// let rot2 = Rot2::turn_fraction(-0.25);
+    /// assert_relative_eq!(rot1, rot2);
+    ///
+    /// let rot3 = Rot2::turn_fraction(0.5);
+    /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// ```
+    #[inline]
+    pub fn turn_fraction(fraction: f32) -> Self {
+        Self::radians(TAU * fraction)
     }
 
     /// Creates a [`Rot2`] from the sine and cosine of an angle in radians.
@@ -139,6 +205,12 @@ impl Rot2 {
     #[inline]
     pub fn as_degrees(self) -> f32 {
         self.as_radians().to_degrees()
+    }
+
+    /// Returns the rotation as a fraction of a full 360 degree turn.
+    #[inline]
+    pub fn as_turn_fraction(self) -> f32 {
+        self.as_radians() / TAU
     }
 
     /// Returns the sine and cosine of the rotation angle in radians.
@@ -437,25 +509,31 @@ impl approx::UlpsEq for Rot2 {
 
 #[cfg(test)]
 mod tests {
+    use std::f32::consts::FRAC_PI_2;
+
     use approx::assert_relative_eq;
 
     use crate::{Dir2, Rot2, Vec2};
 
     #[test]
     fn creation() {
-        let rotation1 = Rot2::radians(std::f32::consts::FRAC_PI_2);
+        let rotation1 = Rot2::radians(FRAC_PI_2);
         let rotation2 = Rot2::degrees(90.0);
         let rotation3 = Rot2::from_sin_cos(1.0, 0.0);
+        let rotation4 = Rot2::turn_fraction(0.25);
 
         // All three rotations should be equal
         assert_relative_eq!(rotation1.sin, rotation2.sin);
         assert_relative_eq!(rotation1.cos, rotation2.cos);
         assert_relative_eq!(rotation1.sin, rotation3.sin);
         assert_relative_eq!(rotation1.cos, rotation3.cos);
+        assert_relative_eq!(rotation1.sin, rotation4.sin);
+        assert_relative_eq!(rotation1.cos, rotation4.cos);
 
         // The rotation should be 90 degrees
-        assert_relative_eq!(rotation1.as_radians(), std::f32::consts::FRAC_PI_2);
+        assert_relative_eq!(rotation1.as_radians(), FRAC_PI_2);
         assert_relative_eq!(rotation1.as_degrees(), 90.0);
+        assert_relative_eq!(rotation1.as_turn_fraction(), 0.25);
     }
 
     #[test]
@@ -467,11 +545,20 @@ mod tests {
     }
 
     #[test]
+    fn rotation_range() {
+        // the rotation range is `(-180, 180]` and the constructors
+        // normalize the rotations to that range
+        assert_relative_eq!(Rot2::radians(3.0 * FRAC_PI_2), Rot2::radians(-FRAC_PI_2));
+        assert_relative_eq!(Rot2::degrees(270.0), Rot2::degrees(-90.0));
+        assert_relative_eq!(Rot2::turn_fraction(0.75), Rot2::turn_fraction(-0.25));
+    }
+
+    #[test]
     fn add() {
         let rotation1 = Rot2::degrees(90.0);
         let rotation2 = Rot2::degrees(180.0);
 
-        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the ]-180, 180] range
+        // 90 deg + 180 deg becomes -90 deg after it wraps around to be within the `(-180, 180]` range
         assert_eq!((rotation1 * rotation2).as_degrees(), -90.0);
     }
 

@@ -1,6 +1,6 @@
 use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl};
+use crate::ident::ident_or_index;
 use crate::impls::impl_assertions;
-use crate::utility::ident_or_index;
 use crate::{
     from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME,
 };

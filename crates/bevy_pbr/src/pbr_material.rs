@@ -1,6 +1,6 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
-use bevy_math::{vec2, Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
+use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
@@ -1068,10 +1068,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         emissive[3] = self.emissive_exposure_weight;
 
         // Doing this up front saves having to do this repeatedly in the fragment shader.
-        let anisotropy_rotation = vec2(
-            self.anisotropy_rotation.cos(),
-            self.anisotropy_rotation.sin(),
-        );
+        let anisotropy_rotation = Vec2::from_angle(self.anisotropy_rotation);
 
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_vec4(),

@@ -31,7 +31,7 @@ impl From<Color> for ClearColorConfig {
 /// This color appears as the "background" color for simple apps,
 /// when there are portions of the screen with nothing rendered.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Debug)]
 pub struct ClearColor(pub Color);
 
 /// Match the dark gray bevy website code block color by default.

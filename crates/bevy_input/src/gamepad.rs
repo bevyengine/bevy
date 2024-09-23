@@ -2,6 +2,8 @@
 
 use crate::{Axis, ButtonInput, ButtonState};
 use bevy_ecs::event::{Event, EventReader, EventWriter};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
@@ -384,7 +386,11 @@ impl GamepadAxis {
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Resource)
+)]
 
 pub struct GamepadSettings {
     /// The default button settings.
