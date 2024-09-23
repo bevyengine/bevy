@@ -27,7 +27,8 @@ impl Plugin for StoragePlugin {
 
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value(Default)]
+#[reflect(opaque)]
+#[reflect(Default, Debug)]
 pub struct ShaderStorageBuffer {
     /// Optional data used to initialize the buffer.
     pub data: Option<Vec<u8>>,

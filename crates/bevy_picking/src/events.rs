@@ -73,7 +73,7 @@ impl<E> Event for Pointer<E>
 where
     E: Debug + Clone + Reflect,
 {
-    type Traversal = Parent;
+    type Traversal = &'static Parent;
 
     const AUTO_PROPAGATE: bool = true;
 }

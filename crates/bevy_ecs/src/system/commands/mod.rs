@@ -14,7 +14,7 @@ use crate::{
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
-    system::{RunSystemWithInput, SystemId},
+    system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
         EntityWorldMut, FromWorld, SpawnBatchIter, World,
@@ -713,7 +713,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + 'static,
+    {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
@@ -766,15 +769,14 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_system<
-        I: 'static + Send,
-        O: 'static + Send,
-        M,
-        S: IntoSystem<I, O, M> + 'static,
-    >(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
@@ -792,15 +794,12 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn run_system_cached_with<
-        I: 'static + Send,
+    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + Send + 'static,
         M: 'static,
         S: IntoSystem<I, (), M> + 'static,
-    >(
-        &mut self,
-        system: S,
-        input: I,
-    ) {
+    {
         self.queue(RunSystemCachedWith::new(system, input));
     }
 

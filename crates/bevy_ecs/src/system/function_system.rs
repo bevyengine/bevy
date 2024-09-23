@@ -4,7 +4,10 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
-    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
+    system::{
+        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
+        SystemParamItem,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
@@ -237,7 +240,7 @@ macro_rules! impl_build_system {
             /// This method signature allows type inference of closure parameters for a system with input.
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
             pub fn build_system_with_input<
-                Input,
+                Input: SystemInput,
                 Out: 'static,
                 Marker,
                 F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
@@ -612,7 +615,11 @@ where
     }
 
     #[inline]
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out {
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
 
@@ -731,19 +738,21 @@ where
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::StaticSystemInput;
 ///
 /// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
 /// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
+/// ) -> impl FnMut(StaticSystemInput<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AMarker>,
-///     B: SystemParamFunction<BMarker, In = A::Out>,
+///     B: SystemParamFunction<BMarker>,
+///     for<'a> B::In: SystemInput<Inner<'a> = A::Out>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
-///     move |In(a_in), mut params| {
+///     move |StaticSystemInput(a_in), mut params| {
 ///         let shared = a.run(a_in, params.p0());
 ///         b.run(shared, params.p1())
 ///     }
@@ -778,9 +787,8 @@ where
     label = "invalid system"
 )]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
-    /// The input type to this system. See [`System::In`].
-    type In;
-
+    /// The input type of this system. See [`System::In`].
+    type In: SystemInput;
     /// The return type of this system. See [`System::Out`].
     type Out;
 
@@ -788,17 +796,27 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     type Param: SystemParam;
 
     /// Executes this system once. See [`System::run`] or [`System::run_unsafe`].
-    fn run(&mut self, input: Self::In, param_value: SystemParamItem<Self::Param>) -> Self::Out;
+    fn run(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        param_value: SystemParamItem<Self::Param>,
+    ) -> Self::Out;
 }
+
+/// A marker type used to distinguish function systems with and without input.
+#[doc(hidden)]
+pub struct HasSystemInput;
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
+        impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
-        for <'a> &'a mut Func:
+            Func: Send + Sync + 'static,
+            for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(SystemParamItem<$param>),*) -> Out, Out: 'static
+                FnMut($(SystemParamItem<$param>),*) -> Out,
+            Out: 'static
         {
             type In = ();
             type Out = Out;
@@ -821,27 +839,30 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(In<Input>, $($param,)*) -> Out> for Func
+        impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
-        for <'a> &'a mut Func:
-                FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
+            Func: Send + Sync + 'static,
+            for <'a> &'a mut Func:
+                FnMut(In, $($param),*) -> Out +
+                FnMut(In::Param<'_>, $(SystemParamItem<$param>),*) -> Out,
+            In: SystemInput + 'static,
+            Out: 'static
         {
-            type In = Input;
+            type In = In;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<Input, Out, $($param,)*>(
-                    mut f: impl FnMut(In<Input>, $($param,)*)->Out,
-                    input: In<Input>,
+                fn call_inner<In: SystemInput, Out, $($param,)*>(
+                    mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
+                    input: In::Inner<'_>,
                     $($param: $param,)*
                 )->Out{
-                    f(input, $($param,)*)
+                    f(In::wrap(input), $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, In(input), $($param),*)
+                call_inner(self, input, $($param),*)
             }
         }
     };
@@ -857,7 +878,7 @@ mod tests {
 
     #[test]
     fn into_system_type_id_consistency() {
-        fn test<T, In, Out, Marker>(function: T)
+        fn test<T, In: SystemInput, Out, Marker>(function: T)
         where
             T: IntoSystem<In, Out, Marker> + Copy,
         {

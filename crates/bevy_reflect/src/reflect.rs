@@ -1,8 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, ReflectKind,
+    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
-    ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -178,7 +177,7 @@ where
     ///   a `List`, while `value` is a `Struct`).
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is a value type and `self` cannot be downcast to `T`
+    /// - If `T` is an opaque type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
@@ -266,7 +265,7 @@ where
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
             #[cfg(feature = "functions")]
             ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
-            ReflectRef::Value(_) => write!(f, "Reflect({})", self.reflect_type_path()),
+            ReflectRef::Opaque(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -497,7 +496,7 @@ impl Debug for dyn Reflect {
 impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
