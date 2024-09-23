@@ -568,18 +568,18 @@ impl ExecutorState {
 
         should_run &= system_conditions_met;
 
-        // SAFETY:
-        // - The caller ensures that `world` has permission to read any data
-        //   required by the system.
-        // - `update_archetype_component_access` has been called for system.
-        let valid_params = unsafe { system.validate_param_unsafe(world) };
-
-        if !valid_params {
-            warn_system_skipped!("System", system.name());
-            self.skipped_systems.insert(system_index);
+        if should_run {
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the system.
+            // - `update_archetype_component_access` has been called for system.
+            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            if !valid_params {
+                warn_system_skipped!("System", system.name());
+                self.skipped_systems.insert(system_index);
+            }
+            should_run &= valid_params;
         }
-
-        should_run &= valid_params;
 
         should_run
     }
