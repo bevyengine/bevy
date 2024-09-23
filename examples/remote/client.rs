@@ -4,7 +4,7 @@
 use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
 use bevy::remote::{
-    builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams},
+    builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
     BrpRequest, DEFAULT_ADDR, DEFAULT_PORT,
 };
 
@@ -45,7 +45,7 @@ fn main() -> AnyhowResult<()> {
 
     let req = BrpRequest {
         jsonrpc: String::from("2.0"),
-        method: String::from("bevy/query"),
+        method: String::from(BRP_QUERY_METHOD),
         id: Some(ureq::json!(1)),
         params: Some(
             serde_json::to_value(BrpQueryParams {

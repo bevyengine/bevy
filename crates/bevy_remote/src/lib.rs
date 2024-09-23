@@ -216,7 +216,7 @@
 //!         .add_plugins(
 //!             // `default` adds all of the built-in methods, while `with_method` extends them
 //!             RemotePlugin::default()
-//!                 .with_method("super_user/cool_method".to_owned(), path::to::my::cool::handler)
+//!                 .with_method("super_user/cool_method", path::to::my::cool::handler)
 //!                 // ... more methods can be added by chaining `with_method`
 //!         )
 //!         .add_systems(
@@ -289,10 +289,14 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 const CHANNEL_SIZE: usize = 16;
 
 /// Add this plugin to your [`App`] to allow remote connections to inspect and modify entities.
+/// This the main plugin for `bevy_remote`. See the [crate-level documentation] for details on
+/// the protocol and its default methods.
 ///
 /// The defaults are:
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
+///
+/// [crate-level documentation]: crate
 pub struct RemotePlugin {
     /// The address that Bevy will use.
     address: IpAddr,
@@ -446,7 +450,7 @@ impl BrpError {
 
     /// An arbitrary component error. Possibly related to reflection.
     #[must_use]
-    pub fn component_error(error: anyhow::Error) -> Self {
+    pub fn component_error<E: ToString>(error: E) -> Self {
         Self {
             code: error_codes::COMPONENT_ERROR,
             message: error.to_string(),
@@ -477,6 +481,9 @@ impl BrpError {
 
 /// Error codes used by BRP.
 pub mod error_codes {
+    // JSON-RPC errors
+    // Note that the range -32728 to -32000 (inclusive) is reserved by the JSON-RPC specification.
+
     /// Invalid JSON.
     pub const PARSE_ERROR: i16 = -32700;
 
@@ -492,7 +499,7 @@ pub mod error_codes {
     /// Internal error.
     pub const INTERNAL_ERROR: i16 = -32603;
 
-    // Bevy errors
+    // Bevy errors (i.e. application errors)
 
     /// Entity not found.
     pub const ENTITY_NOT_FOUND: i16 = -23401;
@@ -575,13 +582,13 @@ impl RemotePlugin {
     #[must_use]
     pub fn with_method<M>(
         mut self,
-        name: String,
+        name: impl Into<String>,
         handler: impl IntoSystem<Option<Value>, BrpResult, M>,
     ) -> Self {
         self.methods
             .get_mut()
             .unwrap()
-            .push((name, Box::new(IntoSystem::into_system(handler))));
+            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
         self
     }
 }
@@ -590,35 +597,35 @@ impl Default for RemotePlugin {
     fn default() -> Self {
         Self::empty()
             .with_method(
-                "bevy/get".to_owned(),
+                builtin_methods::BRP_GET_METHOD,
                 builtin_methods::process_remote_get_request,
             )
             .with_method(
-                "bevy/query".to_owned(),
+                builtin_methods::BRP_QUERY_METHOD,
                 builtin_methods::process_remote_query_request,
             )
             .with_method(
-                "bevy/spawn".to_owned(),
+                builtin_methods::BRP_SPAWN_METHOD,
                 builtin_methods::process_remote_spawn_request,
             )
             .with_method(
-                "bevy/insert".to_owned(),
+                builtin_methods::BRP_INSERT_METHOD,
                 builtin_methods::process_remote_insert_request,
             )
             .with_method(
-                "bevy/remove".to_owned(),
+                builtin_methods::BRP_REMOVE_METHOD,
                 builtin_methods::process_remote_remove_request,
             )
             .with_method(
-                "bevy/destroy".to_owned(),
+                builtin_methods::BRP_DESTROY_METHOD,
                 builtin_methods::process_remote_destroy_request,
             )
             .with_method(
-                "bevy/reparent".to_owned(),
+                builtin_methods::BRP_REPARENT_METHOD,
                 builtin_methods::process_remote_reparent_request,
             )
             .with_method(
-                "bevy/list".to_owned(),
+                builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
             )
     }

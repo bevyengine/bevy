@@ -23,6 +23,30 @@ use serde_json::Value;
 
 use crate::{error_codes, BrpError, BrpResult};
 
+/// The method path for a `bevy/get` request.
+pub const BRP_GET_METHOD: &str = "bevy/get";
+
+/// The method path for a `bevy/query` request.
+pub const BRP_QUERY_METHOD: &str = "bevy/query";
+
+/// The method path for a `bevy/spawn` request.
+pub const BRP_SPAWN_METHOD: &str = "bevy/spawn";
+
+/// The method path for a `bevy/insert` request.
+pub const BRP_INSERT_METHOD: &str = "bevy/insert";
+
+/// The method path for a `bevy/remove` request.
+pub const BRP_REMOVE_METHOD: &str = "bevy/remove";
+
+/// The method path for a `bevy/destroy` request.
+pub const BRP_DESTROY_METHOD: &str = "bevy/destroy";
+
+/// The method path for a `bevy/reparent` request.
+pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
+
+/// The method path for a `bevy/list` request.
+pub const BRP_LIST_METHOD: &str = "bevy/list";
+
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
