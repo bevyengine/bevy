@@ -23,8 +23,7 @@ pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
 pub mod globals;
-pub mod gpu_component_array_buffer;
-pub mod mesh;
+pub mod gpu_component_array_buffer;pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
 pub mod primitives;
