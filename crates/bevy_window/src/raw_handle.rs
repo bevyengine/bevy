@@ -50,7 +50,6 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 /// thread-safe.
 #[derive(Debug, Clone, Component)]
 pub struct RawHandleWrapper {
-    _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
     pub window_handle: RawWindowHandle,
     /// Raw handle to the display server.
@@ -63,7 +62,6 @@ impl RawHandleWrapper {
         window: &WindowWrapper<W>,
     ) -> Result<RawHandleWrapper, HandleError> {
         Ok(RawHandleWrapper {
-            _window: window.reference.clone(),
             window_handle: window.window_handle()?.as_raw(),
             display_handle: window.display_handle()?.as_raw(),
         })
