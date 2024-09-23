@@ -330,7 +330,6 @@ impl_reflect!(
     }
 );
 
-impl_reflect_value!(::glam::BVec4A(Debug, Default, Deserialize, Serialize));
 impl_reflect!(
     #[reflect(Debug, PartialEq, Default, Deserialize, Serialize)]
     #[type_path = "glam"]
