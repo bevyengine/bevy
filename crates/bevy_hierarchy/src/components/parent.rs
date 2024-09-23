@@ -80,7 +80,7 @@ impl Deref for Parent {
 ///
 /// [event propagation]: bevy_ecs::observer::Trigger::propagate
 impl Traversal for &Parent {
-    fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>) -> Option<Entity> {
         Some(item.0)
     }
 }

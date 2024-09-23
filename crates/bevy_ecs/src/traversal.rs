@@ -1,6 +1,9 @@
 //! A trait for components that let you traverse the ECS.
 
-use crate::{entity::Entity, query::ReadOnlyQueryData};
+use crate::{
+    entity::Entity,
+    query::{ReadOnlyQueryData, ReleaseStateQueryData},
+};
 
 /// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
@@ -16,13 +19,13 @@ use crate::{entity::Entity, query::ReadOnlyQueryData};
 /// [specify the direction]: crate::event::Event::Traversal
 /// [event propagation]: crate::observer::Trigger::propagate
 /// [observers]: crate::observer::Observer
-pub trait Traversal: ReadOnlyQueryData {
+pub trait Traversal: ReadOnlyQueryData + ReleaseStateQueryData {
     /// Returns the next entity to visit.
-    fn traverse(item: Self::Item<'_>) -> Option<Entity>;
+    fn traverse(item: Self::Item<'_, '_>) -> Option<Entity>;
 }
 
 impl Traversal for () {
-    fn traverse(_: Self::Item<'_>) -> Option<Entity> {
+    fn traverse(_: Self::Item<'_, '_>) -> Option<Entity> {
         None
     }
 }
