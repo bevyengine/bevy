@@ -7,7 +7,7 @@ This guide aims to ensure consistency in the Bevy crates documentation, they sho
 1. The first line is a single sentence that summarizes the crate role in the Bevy ecosystem.
 2. The first line is followed by an empty line.
 3. The documentation may contain more details.
-4. Links are placed at the end to clarify documentation reading.
+4. Links are usually placed at the end, depending on context (inline links may be useful clarification in a longer documentation block).
 5. The crate attributes (`#![attribute]`) are placed _after_ the documentation.
 
 The format of the documentation will depend on the kind of the crate.
