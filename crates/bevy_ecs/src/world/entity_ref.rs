@@ -1049,7 +1049,6 @@ impl<'w> EntityWorldMut<'w> {
     /// this fn as if the code here was written inline
     ///
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
-    ///
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
     #[allow(clippy::too_many_arguments)]
@@ -1488,7 +1487,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
-    ///
     /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {
@@ -2787,9 +2785,13 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use std::panic::AssertUnwindSafe;
 
-    use crate::system::RunSystemOnce as _;
-    use crate::world::{FilteredEntityMut, FilteredEntityRef};
-    use crate::{self as bevy_ecs, component::ComponentId, prelude::*, system::assert_is_system};
+    use crate::{
+        self as bevy_ecs,
+        component::ComponentId,
+        prelude::*,
+        system::{assert_is_system, RunSystemOnce as _},
+        world::{FilteredEntityMut, FilteredEntityRef},
+    };
 
     use super::{EntityMutExcept, EntityRefExcept};
 

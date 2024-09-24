@@ -64,7 +64,6 @@ pub struct Wireframe;
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///
 /// This overrides the [`WireframeConfig::default_color`].
-//
 // TODO: consider caching materials based on this color.
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.

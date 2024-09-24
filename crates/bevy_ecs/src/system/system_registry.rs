@@ -1,10 +1,11 @@
-use crate::bundle::Bundle;
-use crate::change_detection::Mut;
-use crate::entity::Entity;
-use crate::system::input::SystemInput;
-use crate::system::{BoxedSystem, IntoSystem, System, SystemIn};
-use crate::world::{Command, World};
-use crate::{self as bevy_ecs};
+use crate::{
+    bundle::Bundle,
+    change_detection::Mut,
+    entity::Entity,
+    system::{input::SystemInput, BoxedSystem, IntoSystem, System, SystemIn},
+    world::{Command, World},
+    {self as bevy_ecs},
+};
 use bevy_ecs_macros::{Component, Resource};
 use thiserror::Error;
 

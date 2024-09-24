@@ -144,7 +144,7 @@ impl FunctionRegistry {
     ///
     /// Another approach could be to use the [type name] of the function,
     /// however, it should be noted that anonymous functions and closures
-    ///are not guaranteed to have unique type names.
+    /// are not guaranteed to have unique type names.
     ///
     /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
     /// on the function and inserting it into the registry using the [`register`] method.

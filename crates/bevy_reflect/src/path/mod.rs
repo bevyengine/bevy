@@ -355,7 +355,6 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-///
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
@@ -407,7 +406,6 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    ///
     pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {

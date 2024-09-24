@@ -1,17 +1,15 @@
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_render::extract_component::ExtractComponentPlugin;
-use bevy_render::render_asset::RenderAssetPlugin;
-use bevy_render::render_resource::Shader;
-use bevy_render::ExtractSchedule;
 use bevy_render::{
+    extract_component::ExtractComponentPlugin,
+    render_asset::RenderAssetPlugin,
     render_graph::RenderGraphApp,
     render_resource::{
-        Buffer, BufferDescriptor, BufferUsages, PipelineCache, SpecializedComputePipelines,
+        Buffer, BufferDescriptor, BufferUsages, PipelineCache, Shader, SpecializedComputePipelines,
     },
     renderer::RenderDevice,
-    Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 mod buffers;
@@ -29,8 +27,10 @@ use pipeline::{
 #[allow(deprecated)]
 pub use settings::{AutoExposure, AutoExposureSettings};
 
-use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
-use crate::core_3d::graph::{Core3d, Node3d};
+use crate::{
+    auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve,
+    core_3d::graph::{Core3d, Node3d},
+};
 
 /// Plugin for the auto exposure feature.
 ///

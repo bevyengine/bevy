@@ -3,10 +3,10 @@ use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
-use std::ops::{Deref, DerefMut};
 use std::{
     any::TypeId,
     fmt::Debug,
+    ops::{Deref, DerefMut},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -279,7 +279,6 @@ impl TypeRegistry {
     /// given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     #[inline]
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
@@ -289,7 +288,6 @@ impl TypeRegistry {
     /// the given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }

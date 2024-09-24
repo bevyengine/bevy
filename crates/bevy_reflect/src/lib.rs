@@ -694,11 +694,12 @@ mod tests {
         marker::PhantomData,
     };
 
-    use super::prelude::*;
-    use super::*;
+    use super::{prelude::*, *};
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
-    use crate::utility::GenericTypePathCell;
+    use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer},
+        utility::GenericTypePathCell,
+    };
 
     #[test]
     fn try_apply_should_detect_kinds() {
@@ -1899,10 +1900,8 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(None, info.docs());
 
-            /*
-             * Block comments do not count as doc comments,
-             * and are therefore not reflected.
-             */
+            // Block comments do not count as doc comments,
+            // and are therefore not reflected.
             #[derive(Reflect)]
             struct SomeOtherStruct;
 

@@ -12,7 +12,6 @@
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
-//!
 
 #[cfg(feature = "alloc")]
 extern crate alloc;

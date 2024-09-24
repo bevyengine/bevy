@@ -1,5 +1,8 @@
 use crate::{App, AppError, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
+use bevy_utils::{
+    tracing::{debug, warn},
+    TypeIdMap,
+};
 use std::any::TypeId;
 
 /// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.

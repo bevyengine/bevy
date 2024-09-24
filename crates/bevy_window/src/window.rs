@@ -962,7 +962,6 @@ pub enum MonitorSelection {
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
-///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(
