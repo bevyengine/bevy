@@ -1,5 +1,4 @@
-use std::borrow::Cow;
-use std::ops::Not;
+use std::{borrow::Cow, ops::Not};
 
 use crate::system::{
     Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
@@ -1116,11 +1115,11 @@ pub mod common_conditions {
         CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
-        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
+        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
             let changed = *prev != new;
             *prev = new;
             changed
-        })
+        }))
     }
 
     /// Generates a [`Condition`] that returns true when the result of
@@ -1172,11 +1171,13 @@ pub mod common_conditions {
         CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
-        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let now_true = *prev != new && new == to;
-            *prev = new;
-            now_true
-        })
+        IntoSystem::into_system(condition.pipe(
+            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+                let now_true = *prev != new && new == to;
+                *prev = new;
+                now_true
+            },
+        ))
     }
 }
 
@@ -1351,12 +1352,14 @@ where
 mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::schedule::IntoSystemConfigs;
-    use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
-    use bevy_ecs_macros::Event;
-    use bevy_ecs_macros::Resource;
+    use crate::{
+        change_detection::ResMut,
+        component::Component,
+        schedule::{IntoSystemConfigs, Schedule},
+        system::Local,
+        world::World,
+    };
+    use bevy_ecs_macros::{Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);

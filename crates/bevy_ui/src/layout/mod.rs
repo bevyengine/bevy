@@ -447,43 +447,43 @@ fn approx_round_layout_coords(value: Vec2) -> Vec2 {
 mod tests {
     use taffy::TraversePartialTree;
 
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
+    use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
-    use bevy_ecs::query::Without;
-    use bevy_ecs::schedule::apply_deferred;
-    use bevy_ecs::schedule::IntoSystemConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::system::RunSystemOnce;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{
+        entity::Entity,
+        event::Events,
+        prelude::{Commands, Component, In, Query, With},
+        query::Without,
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        system::RunSystemOnce,
+        world::World,
+    };
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
-    use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::OrthographicProjection;
-    use bevy_render::prelude::Camera;
-    use bevy_render::texture::Image;
-    use bevy_transform::prelude::GlobalTransform;
-    use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
-    use bevy_utils::prelude::default;
-    use bevy_utils::HashMap;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
+    use bevy_render::{
+        camera::{ManualTextureViews, OrthographicProjection},
+        prelude::Camera,
+        texture::Image,
+    };
+    use bevy_transform::{
+        prelude::GlobalTransform,
+        systems::{propagate_transforms, sync_simple_transforms},
+    };
+    use bevy_utils::{prelude::default, HashMap};
+    use bevy_window::{
+        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
+        WindowScaleFactorChanged,
+    };
 
-    use crate::layout::approx_round_layout_coords;
-    use crate::layout::ui_surface::UiSurface;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
+    use crate::{
+        layout::{approx_round_layout_coords, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::update_target_camera_system,
+        ContentSize,
+    };
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {

@@ -1,8 +1,7 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
 use fixedbitset::FixedBitSet;
-use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
 /// to read, when used to store [`SparseSetIndex`].
@@ -1277,8 +1276,9 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::AccessFilters;
-    use crate::query::{Access, AccessConflicts, FilteredAccess, FilteredAccessSet};
+    use crate::query::{
+        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+    };
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
 

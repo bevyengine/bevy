@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
 
-    //root node
+    // root node
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // header
                     parent.spawn((
                         TextBundle::from_section(
-                            "Horizontally Scrolling list (Shift + Mousewheel)",
+                            "Horizontally Scrolling list (Ctrl + Mousewheel)",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: FONT_SIZE,
@@ -286,7 +286,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
 
-                    //Nested scrolls example
+                    // Nested scrolls example
                     parent
                         .spawn(NodeBundle {
                             style: Style {
@@ -391,7 +391,8 @@ pub fn update_scroll_position(
             MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
         };
 
-        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
+        if keyboard_input.pressed(KeyCode::ControlLeft)
+            || keyboard_input.pressed(KeyCode::ControlRight)
         {
             std::mem::swap(&mut dx, &mut dy);
         }

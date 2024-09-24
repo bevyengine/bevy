@@ -1,25 +1,24 @@
 // Temporary workaround for impl_reflect!(Option/Result false-positive
 #![allow(unused_qualifications)]
 
-use crate::std_traits::ReflectDefault;
-use crate::utility::{
-    reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
-};
 use crate::{
     self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
-    reflect::impl_full_reflect, set_apply, set_partial_eq, set_try_apply, ApplyError, Array,
-    ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped, OpaqueInfo,
-    PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed,
+    reflect::impl_full_reflect,
+    set_apply, set_partial_eq, set_try_apply,
+    std_traits::ReflectDefault,
+    utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
+    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
+    FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
+    OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
-use std::fmt;
 use std::{
     any::Any,
     borrow::Cow,
     collections::VecDeque,
+    fmt,
     hash::{BuildHasher, Hash, Hasher},
     path::Path,
 };
@@ -2225,17 +2224,17 @@ crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, PartialReflect};
     use crate::{
-        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
-        VariantType,
+        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
+        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
-    use bevy_utils::HashMap;
-    use bevy_utils::{Duration, Instant};
+    use bevy_utils::{Duration, HashMap, Instant};
     use static_assertions::assert_impl_all;
-    use std::collections::BTreeMap;
-    use std::f32::consts::{PI, TAU};
-    use std::path::Path;
+    use std::{
+        collections::BTreeMap,
+        f32::consts::{PI, TAU},
+        path::Path,
+    };
 
     #[test]
     fn can_serialize_duration() {

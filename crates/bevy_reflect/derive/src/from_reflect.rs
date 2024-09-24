@@ -1,10 +1,12 @@
-use crate::container_attributes::REFLECT_DEFAULT;
-use crate::derive_data::ReflectEnum;
-use crate::enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder};
-use crate::field_attributes::DefaultBehavior;
-use crate::ident::ident_or_index;
-use crate::where_clause_options::WhereClauseOptions;
-use crate::{ReflectMeta, ReflectStruct};
+use crate::{
+    container_attributes::REFLECT_DEFAULT,
+    derive_data::ReflectEnum,
+    enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
+    field_attributes::DefaultBehavior,
+    ident::ident_or_index,
+    where_clause_options::WhereClauseOptions,
+    ReflectMeta, ReflectStruct,
+};
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};

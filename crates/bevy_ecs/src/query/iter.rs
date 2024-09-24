@@ -1005,7 +1005,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    ///
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'w>) -> K,
@@ -1582,7 +1581,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
     /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.
-    ///.
+    /// .
     /// It is always safe for shared access.
     #[inline]
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
