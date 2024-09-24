@@ -1160,4 +1160,26 @@ mod tests {
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
     }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14467
+    // Fails prior to https://github.com/bevyengine/bevy/pull/15398
+    #[test]
+    fn observer_on_remove_during_despawn_spawn_empty() {
+        let mut world = World::new();
+
+        // Observe the removal of A - this will run during despawn
+        world.observe(|_: Trigger<OnRemove, A>, mut cmd: Commands| {
+            // Spawn a new entity - this reserves a new ID and requires a flush
+            // afterward before Entities::free can be called.
+            cmd.spawn_empty();
+        });
+
+        let ent = world.spawn(A).id();
+
+        // Despawn our entity, which runs the OnRemove observer and allocates a
+        // new Entity.
+        // Should not panic - if it does, then Entities was not flushed properly
+        // after the observer's spawn_empty.
+        world.despawn(ent);
+    }
 }

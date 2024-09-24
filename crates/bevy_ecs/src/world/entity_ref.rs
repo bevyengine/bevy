@@ -1297,7 +1297,6 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
         let world = self.world;
-        world.flush_entities();
         let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
@@ -1322,6 +1321,10 @@ impl<'w> EntityWorldMut<'w> {
         for component_id in archetype.components() {
             world.removed_components.send(component_id, self.entity);
         }
+
+        // Observers and on_remove hooks may reserve new entities, which
+        // requires a flush before Entities::free may be called.
+        world.flush_entities();
 
         let location = world
             .entities
