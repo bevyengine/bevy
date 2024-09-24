@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::{ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System};
 use crate::{
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -60,6 +60,40 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
         input: <Self::In as SystemInput>::Inner<'_>,
         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
     ) -> Self::Out;
+}
+
+/// An [`IntoSystem`] creating an instance of [`AdapterSystem`].
+#[derive(Clone)]
+pub struct IntoAdapterSystem<Func, S> {
+    func: Func,
+    system: S,
+}
+
+impl<Func, S> IntoAdapterSystem<Func, S> {
+    /// Creates a new [`IntoSystem`] that uses `func` to adapt `system`, via the [`Adapt`] trait.
+    pub const fn new(func: Func, system: S) -> Self {
+        Self { func, system }
+    }
+}
+
+#[doc(hidden)]
+pub struct IsAdapterSystemMarker;
+
+impl<Func, S, I, O, M> IntoSystem<Func::In, Func::Out, (IsAdapterSystemMarker, I, O, M)>
+    for IntoAdapterSystem<Func, S>
+where
+    Func: Adapt<S::System>,
+    I: SystemInput,
+    S: IntoSystem<I, O, M>,
+{
+    type System = AdapterSystem<Func, S::System>;
+
+    // Required method
+    fn into_system(this: Self) -> Self::System {
+        let system = IntoSystem::into_system(this.system);
+        let name = system.name();
+        AdapterSystem::new(this.func, system, name)
+    }
 }
 
 /// A [`System`] that takes the output of `S` and transforms it by applying `Func` to it.

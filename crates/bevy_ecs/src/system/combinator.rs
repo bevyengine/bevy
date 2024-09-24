@@ -10,7 +10,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -270,6 +270,40 @@ where
     /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
     fn clone(&self) -> Self {
         CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+    }
+}
+
+/// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+pub struct IntoPipeSystem<A, B> {
+    a: A,
+    b: B,
+}
+
+impl<A, B> IntoPipeSystem<A, B> {
+    /// Creates a new [`IntoSystem`] that pipes two inner systems.
+    pub const fn new(a: A, b: B) -> Self {
+        Self { a, b }
+    }
+}
+
+#[doc(hidden)]
+pub struct IsPipeSystemMarker;
+
+impl<A, B, IA, OA, IB, OB, MA, MB> IntoSystem<IA, OB, (IsPipeSystemMarker, OA, IB, MA, MB)>
+    for IntoPipeSystem<A, B>
+where
+    IA: SystemInput,
+    A: IntoSystem<IA, OA, MA>,
+    B: IntoSystem<IB, OB, MB>,
+    for<'a> IB: SystemInput<Inner<'a> = OA>,
+{
+    type System = PipeSystem<A::System, B::System>;
+
+    fn into_system(this: Self) -> Self::System {
+        let system_a = IntoSystem::into_system(this.a);
+        let system_b = IntoSystem::into_system(this.b);
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
