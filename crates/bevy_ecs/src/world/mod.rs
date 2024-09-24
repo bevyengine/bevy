@@ -31,7 +31,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Tick,
+        Components, RequiredComponentConstructor, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -274,6 +274,45 @@ impl World {
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
         // SAFETY: We just created this component
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The [`Default`] `constructor` will be used for the creation of `R`.
+    ///
+    /// If a custom constructor is desired, use [`World::register_component_requirement_with`] instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a required component for `T`.
+    ///
+    /// [required component]: Component#required-components
+    pub fn register_component_requirement<T: Component, R: Component + Default>(&mut self) {
+        self.register_component_requirement_with::<T, R>(R::default);
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The given `constructor` will be used for the creation of `R`.
+    ///
+    /// If a [`Default`] constructor is desired, use [`World::register_component_requirement`] instead.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a required component for `T`.
+    pub fn register_component_requirement_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) {
+        let requiree = self.init_component::<T>();
+        let required = self.init_component::<R>();
+
+        self.components
+            .register_component_requirement_with(required, requiree, constructor, 0);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.

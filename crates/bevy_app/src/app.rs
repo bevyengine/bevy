@@ -756,6 +756,46 @@ impl App {
         self
     }
 
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The [`Default`] `constructor` will be used for the creation of `R`.
+    ///
+    /// If a custom constructor is desired, use [`World::register_component_requirement_with`] instead.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a required component for `T`.
+    ///
+    /// [required component]: Component#required-components
+    pub fn register_component_requirement<T: Component, R: Component + Default>(
+        &mut self,
+    ) -> &mut Self {
+        self.world_mut().register_component_requirement::<T, R>();
+        self
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The given `constructor` will be used for the creation of `R`.
+    ///
+    /// If a [`Default`] constructor is desired, use [`World::register_component_requirement`] instead.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a required component for `T`.
+    pub fn register_component_requirement_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) -> &mut Self {
+        self.world_mut()
+            .register_component_requirement_with::<T, R>(constructor);
+        self
+    }
+
     /// Returns a reference to the [`World`].
     pub fn world(&self) -> &World {
         self.main().world()

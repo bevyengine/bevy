@@ -82,15 +82,19 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         for require in requires {
             let ident = &require.path;
             register_recursive_requires.push(quote! {
-                <#ident as Component>::register_required_components(components, storages, required_components);
+                <#ident as Component>::register_required_components(components, storages, required_components, 0);
             });
             if let Some(func) = &require.func {
                 register_required.push(quote! {
-                    required_components.register(components, storages, || { let x: #ident = #func().into(); x });
+                    let requiree = components.init_component::<Self>(storages);
+                    let required = components.init_component::<#ident>(storages);
+                    components.register_component_requirement_with(requiree, required, || { let x: #ident = #func().into(); x }, inheritance_depth + 1);
                 });
             } else {
                 register_required.push(quote! {
-                    required_components.register(components, storages, <#ident as Default>::default);
+                    let requiree = components.init_component::<Self>(storages);
+                    let required = components.init_component::<#ident>(storages);
+                    components.register_component_requirement_with(requiree, required, <#ident as Default>::default, inheritance_depth + 1);
                 });
             }
         }
@@ -119,7 +123,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn register_required_components(
                 components: &mut #bevy_ecs_path::component::Components,
                 storages: &mut #bevy_ecs_path::storage::Storages,
-                required_components: &mut #bevy_ecs_path::component::RequiredComponents
+                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
+                inheritance_depth: u16,
             ) {
                 #(#register_required)*
                 #(#register_recursive_requires)*

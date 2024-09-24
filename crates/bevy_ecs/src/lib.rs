@@ -2024,6 +2024,99 @@ mod tests {
         assert!(e.contains::<Y>());
     }
 
+    #[test]
+    fn runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component)]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        fn new_z() -> Z {
+            Z(7)
+        }
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - Y requires Z with custom constructor
+        world.register_component_requirement::<X, Y>();
+        world.register_component_requirement_with::<Y, Z>(new_z);
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn runtime_required_components_panic_with_duplicate() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // This should panic: Tried to register Y as a requirement for X, but the requirement already exists.
+        world.register_component_requirement::<X, Y>();
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]
