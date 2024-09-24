@@ -161,9 +161,9 @@ pub struct Atmosphere {
     rayleigh_scattering: Vec3,
 
     mie_density_exp_scale: f32,
-    mie_scattering: f32,       //units: km^-1
-    mie_absorption: f32,       //units: km^-1
-    mie_phase_function_g: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
+    mie_scattering: f32, //units: km^-1
+    mie_absorption: f32, //units: km^-1
+    mie_asymmetry: f32,  //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
 
     ozone_layer_center_altitude: f32, //units: km
     ozone_layer_half_width: f32,      //units: km
@@ -188,7 +188,7 @@ impl Atmosphere {
         mie_density_exp_scale: -1.0 / 1.2,
         mie_scattering: 0.03996,
         mie_absorption: 0.000444,
-        mie_phase_function_g: 0.8,
+        mie_asymmetry: 0.8,
         ozone_layer_center_altitude: 25.0,
         ozone_layer_half_width: 15.0,
         ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),

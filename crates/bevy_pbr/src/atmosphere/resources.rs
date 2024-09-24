@@ -26,6 +26,8 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 
+use crate::LightMeta;
+
 use super::{shaders, Atmosphere, AtmosphereSettings};
 
 #[derive(Resource)]
@@ -352,6 +354,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     layouts: Res<AtmosphereBindGroupLayouts>,
     samplers: Res<AtmosphereSamplers>,
     view_uniforms: Res<ViewUniforms>,
+    lights_uniforms: Res<LightMeta>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
     mut commands: Commands,
@@ -368,6 +371,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .uniforms
         .binding()
         .expect("Failed to prepare atmosphere bind groups. View uniform buffer missing");
+
+    let lights_binding = lights_uniforms
+        .view_gpu_lights
+        .binding()
+        .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
 
     for (entity, textures) in &views {
         let transmittance_lut = render_device.create_bind_group(
@@ -394,6 +402,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::sequential((
                 atmosphere_binding.clone(),
                 settings_binding.clone(),
+                view_binding.clone(),
+                lights_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &samplers.transmittance_lut,
                 &textures.multiscattering_lut.default_view,
@@ -407,6 +417,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::sequential((
                 atmosphere_binding.clone(),
                 settings_binding.clone(),
+                view_binding.clone(),
+                lights_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &samplers.transmittance_lut,
                 &textures.multiscattering_lut.default_view,

@@ -71,8 +71,9 @@ fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
     let v = sqrt(2 * abs(lat) * FRAC_PI) * sign(lat) * 0.5 + 0.5;
 }
 
+//TODO:
 fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
-    //TODO:
+    return vec2(0.0)
 }
 
 fn sample_transmittance_lut(atmosphere: Atmosphere, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
@@ -166,7 +167,7 @@ fn sample_local_inscattering(atmosphere: Atmosphere, lights: Lights, transmittan
         let mu_light = light_dir.y;
         let neg_LdotV = dot(view_dir, light_dir);
         let rayleigh_phase = rayleigh(neg_LdotV);
-        let mie_phase = henyey_greenstein(neg(LdotV));
+        let mie_phase = henyey_greenstein(neg(LdotV), atmosphere.mie);
         let phase = rayleigh_phase + mie_phase; //TODO: check this
 
         let ground_dist = distance_to_bottom_atmosphere_boundary(atmosphere, r, mu_light);

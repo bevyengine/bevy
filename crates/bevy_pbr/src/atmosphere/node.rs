@@ -11,6 +11,8 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
+use crate::ViewLightsUniformOffset;
+
 use super::{
     resources::{AtmosphereBindGroups, AtmospherePipelines, AtmosphereTextures},
     Atmosphere, AtmosphereSettings,
@@ -29,15 +31,23 @@ impl ViewNode for AtmosphereNode {
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
         Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<ViewUniformOffset>,
+        Read<ViewLightsUniformOffset>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (textures, lut_settings, bind_groups, atmosphere_uniform_index, lut_uniform_index): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            textures,
+            settings,
+            bind_groups,
+            atmosphere_uniforms_offset,
+            settings_uniforms_offset,
+            view_uniforms_offset,
+            lights_uniforms_offset,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipelines = world.resource::<AtmospherePipelines>();
@@ -77,7 +87,7 @@ impl ViewNode for AtmosphereNode {
             transmittance_lut_pass.set_bind_group(
                 0,
                 &bind_groups.transmittance_lut,
-                &[atmosphere_uniform_index.index()],
+                &[atmosphere_uniforms_offset.index()],
             );
             transmittance_lut_pass.draw(0..3, 0..1);
         }
@@ -93,15 +103,18 @@ impl ViewNode for AtmosphereNode {
             multiscattering_lut_pass.set_bind_group(
                 0,
                 &bind_groups.multiscattering_lut,
-                &[atmosphere_uniform_index.index(), lut_uniform_index.index()],
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
             );
 
             const MULTISCATTERING_WORKGROUP_SIZE: u32 = 16;
-            let workgroups_x = lut_settings
+            let workgroups_x = settings
                 .multiscattering_lut_size
                 .x
                 .div_ceil(MULTISCATTERING_WORKGROUP_SIZE);
-            let workgroups_y = lut_settings
+            let workgroups_y = settings
                 .multiscattering_lut_size
                 .y
                 .div_ceil(MULTISCATTERING_WORKGROUP_SIZE);
@@ -124,7 +137,12 @@ impl ViewNode for AtmosphereNode {
             sky_view_lut_pass.set_bind_group(
                 0,
                 &bind_groups.sky_view_lut,
-                &[atmosphere_uniform_index.index(), lut_uniform_index.index()],
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
             );
             sky_view_lut_pass.draw(0..3, 0..1);
         }
@@ -138,24 +156,29 @@ impl ViewNode for AtmosphereNode {
             aerial_view_lut_pass.set_bind_group(
                 0,
                 &bind_groups.aerial_view_lut,
-                &[atmosphere_uniform_index.index()],
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                    view_uniforms_offset.offset,
+                    lights_uniforms_offset.offset,
+                ],
             );
 
-            const AERIAL_VIEW_WORKGROUP_SIZE: u32 = 4;
-            let workgroups_x = lut_settings
+            const AERIAL_VIEW_WORKGROUP_SIZE: u32 = 16;
+            let workgroups_x = settings
                 .aerial_view_lut_size
                 .x
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
-            let workgroups_y = lut_settings
+            let workgroups_y = settings
                 .aerial_view_lut_size
                 .y
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
-            let workgroups_z = lut_settings
-                .aerial_view_lut_size
-                .z
-                .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
 
-            aerial_view_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, workgroups_z);
+            aerial_view_lut_pass.dispatch_workgroups(
+                workgroups_x,
+                workgroups_y,
+                settings.aerial_view_lut_size.z,
+            );
         }
 
         render_context.command_encoder().pop_debug_group();
