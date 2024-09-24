@@ -2206,6 +2206,9 @@ impl World {
 
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
+    ///
+    /// This will panic if any of the queued commands are [`spawn`](Commands::spawn),
+    /// instead use [`flush`](Self::flush) if there is a chance of this.
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
