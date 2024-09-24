@@ -852,6 +852,25 @@ mod tests {
     }
 
     #[test]
+    fn cached_system_adapters() {
+        fn four() -> i32 {
+            4
+        }
+
+        fn double(In(i): In<i32>) -> i32 {
+            i * 2
+        }
+
+        let mut world = World::new();
+
+        let output = world.run_system_cached(four.pipe(double));
+        assert!(matches!(output, Ok(8)));
+
+        let output = world.run_system_cached(four.map(|i| i * 2));
+        assert!(matches!(output, Ok(8)));
+    }
+
+    #[test]
     fn system_with_input_ref() {
         fn with_ref(InRef(input): InRef<u8>, mut counter: ResMut<Counter>) {
             counter.0 += *input;
