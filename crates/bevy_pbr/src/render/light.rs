@@ -641,9 +641,7 @@ pub fn prepare_lights(
 
     let point_light_volumetric_enabled_count = point_lights
         .iter()
-        .filter(|(_, light, _)| {
-            (light.volumetric || light.shadows_enabled) && light.spot_light_angles.is_none()
-        })
+        .filter(|(_, light, _)| light.volumetric && light.spot_light_angles.is_none())
         .count()
         .min(max_texture_cubes);
 
@@ -669,7 +667,7 @@ pub fn prepare_lights(
 
     let spot_light_volumetric_enabled_count = point_lights
         .iter()
-        .filter(|(_, light, _)| (light.volumetric) && light.spot_light_angles.is_some())
+        .filter(|(_, light, _)| light.volumetric && light.spot_light_angles.is_some())
         .count()
         .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
 
@@ -744,8 +742,7 @@ pub fn prepare_lights(
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
                 || (light.spot_light_angles.is_some()
-                    && index - point_light_volumetric_enabled_count
-                        < spot_light_volumetric_enabled_count))
+                    && index - point_light_count < spot_light_volumetric_enabled_count))
         {
             flags |= PointLightFlags::VOLUMETRIC;
         }
