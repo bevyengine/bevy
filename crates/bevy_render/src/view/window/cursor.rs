@@ -1,10 +1,9 @@
-use bevy_app::{App, Last, Plugin, Update};
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    event::EventReader,
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
@@ -29,7 +28,7 @@ impl Plugin for CursorPlugin {
         app.register_type::<CursorIcon>()
             .init_resource::<CustomCursorCache>()
             .add_systems(Last, update_cursors)
-            .add_systems(Update, add_cursor_to_windows);
+            .observe(add_cursor_to_windows);
 
         app.observe(on_remove_cursor_icon);
     }
@@ -227,11 +226,7 @@ fn image_to_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
 /// would just be created automatically with the [`Window`] component, now however, this
 /// has to be made with the creation of the window so that users can set the visibility
 /// of it after the window is created.
-fn add_cursor_to_windows(
-    mut commands: Commands,
-    mut ev_window_created: EventReader<WindowCreated>,
-) {
-    for WindowCreated { window: entity } in ev_window_created.read() {
-        commands.entity(*entity).insert(CursorIcon::default());
-    }
+fn add_cursor_to_windows(ev_window_created: Trigger<WindowCreated>, mut commands: Commands) {
+    let WindowCreated { window: entity } = ev_window_created.event();
+    commands.entity(*entity).insert(CursorIcon::default());
 }

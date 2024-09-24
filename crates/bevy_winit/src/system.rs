@@ -119,6 +119,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         }
 
         window_created_events.send(WindowCreated { window: entity });
+        commands.trigger(WindowCreated { window: entity });
     }
 }
 
