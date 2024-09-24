@@ -63,7 +63,6 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///
 /// See the documentation for individual builders for more examples.
 ///
-/// ```
 /// # List of Builders
 ///
 /// [`ParamBuilder`] can be used for parameters that don't require any special building.
