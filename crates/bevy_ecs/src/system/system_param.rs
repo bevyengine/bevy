@@ -6,10 +6,10 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
-        QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
+        ReadOnlyQueryData,
     },
-    storage::{ResourceData, SparseSetIndex},
+    storage::ResourceData,
     system::{Query, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
