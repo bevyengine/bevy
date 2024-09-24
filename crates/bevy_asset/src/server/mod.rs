@@ -429,12 +429,11 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
-            match server.load_internal(owned_handle, path, false, None).await {
+            match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     id,
                     loaded_asset: LoadedAsset::new_with_dependencies(
