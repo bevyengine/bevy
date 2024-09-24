@@ -5,6 +5,7 @@
 
 use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::prelude::*;
+use bevy::render::view::cursor::CursorIcon;
 use bevy::window::CursorGrabMode;
 use std::{f32::consts::*, fmt};
 
@@ -100,7 +101,7 @@ Freecam Controls:
 #[allow(clippy::too_many_arguments)]
 fn run_camera_controller(
     time: Res<Time>,
-    mut windows: Query<&mut Window>,
+    mut windows_and_cursors: Query<(&mut Window, &mut CursorIcon)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -193,18 +194,18 @@ fn run_camera_controller(
         // Handle cursor grab
         if cursor_grab_change {
             if cursor_grab {
-                for mut window in &mut windows {
+                for (mut window, mut cursor_icon) in &mut windows_and_cursors {
                     if !window.focused {
                         continue;
                     }
 
                     window.cursor_options.grab_mode = CursorGrabMode::Locked;
-                    window.cursor_options.visible = false;
+                    *cursor_icon = CursorIcon::Hidden;
                 }
             } else {
-                for mut window in &mut windows {
+                for (mut window, mut cursor_icon) in &mut windows_and_cursors {
                     window.cursor_options.grab_mode = CursorGrabMode::None;
-                    window.cursor_options.visible = true;
+                    *cursor_icon = CursorIcon::default();
                 }
             }
         }
