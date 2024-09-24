@@ -786,7 +786,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + Send + 'static>(
+        &mut self,
+        system: S,
+    ) {
         self.run_system_cached_with(system, ());
     }
 
@@ -798,7 +801,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
         M: 'static,
-        S: IntoSystem<I, (), M> + 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
     {
         self.queue(RunSystemCachedWith::new(system, input));
     }
