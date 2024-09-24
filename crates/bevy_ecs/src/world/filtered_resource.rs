@@ -58,7 +58,7 @@ use bevy_ptr::UnsafeCellDeref;
 /// # world.run_system_once(system);
 /// ```
 ///
-/// This can be used alongside ordinary [`Res`] and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
+/// This can be used alongside ordinary [`Res`](crate::system::Res) and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, system::*};
@@ -300,7 +300,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// # world.run_system_once(system);
 /// ```
 ///
-/// This can be used alongside ordinary [`Res`] and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
+/// This can be used alongside ordinary [`Res`](crate::system::ResMut) and [`ResMut`](crate::system::ResMut) parameters if they do not conflict.
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, system::*};
