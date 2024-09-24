@@ -392,7 +392,7 @@ pub fn update_scroll_position(
         };
 
         if keyboard_input.pressed(KeyCode::ControlLeft)
-            || keyboard_input.pressed(KeyCode::ControlLeft)
+            || keyboard_input.pressed(KeyCode::ControlRight)
         {
             std::mem::swap(&mut dx, &mut dy);
         }
