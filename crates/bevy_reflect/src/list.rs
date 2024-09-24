@@ -95,7 +95,7 @@ pub trait List: PartialReflect {
     fn iter(&self) -> ListIter;
 
     /// Drain the elements of this list to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
@@ -228,8 +228,8 @@ impl List for DynamicList {
         ListIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.values
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.values.drain(..).collect()
     }
 
     fn clone_dynamic(&self) -> DynamicList {

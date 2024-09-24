@@ -71,8 +71,8 @@ where
         ListIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.into_iter()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.drain(..)
             .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             .collect()
     }
