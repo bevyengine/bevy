@@ -132,7 +132,6 @@ impl Debug for CustomAttribute {
 /// * `$attributes` - The name of the field containing the [`CustomAttributes`].
 /// * `$term` - (Optional) The term used to describe the type containing the custom attributes.
 ///   This is purely used to generate better documentation. Defaults to `"item"`.
-///
 macro_rules! impl_custom_attribute_methods {
     ($self:ident . $attributes:ident, $term:literal) => {
         $crate::attributes::impl_custom_attribute_methods!($self, &$self.$attributes, "item");
@@ -178,8 +177,7 @@ pub(crate) use impl_custom_attribute_methods;
 mod tests {
     use super::*;
     use crate as bevy_reflect;
-    use crate::type_info::Typed;
-    use crate::{TypeInfo, VariantInfo};
+    use crate::{type_info::Typed, TypeInfo, VariantInfo};
     use std::ops::RangeInclusive;
 
     #[derive(Reflect, PartialEq, Debug)]

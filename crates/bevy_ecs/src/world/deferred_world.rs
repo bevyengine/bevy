@@ -148,8 +148,8 @@ impl<'w> DeferredWorld<'w> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
+                "Requested resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<R>()
@@ -178,8 +178,8 @@ impl<'w> DeferredWorld<'w> {
         match self.get_non_send_resource_mut() {
             Some(x) => x,
             None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
+                "Requested non-send resource {} does not exist in the `World`.
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
                 std::any::type_name::<R>()
             ),
@@ -387,7 +387,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
         event: ComponentId,
         mut entity: Entity,
@@ -395,7 +395,7 @@ impl<'w> DeferredWorld<'w> {
         data: &mut E,
         mut propagate: bool,
     ) where
-        C: Traversal,
+        T: Traversal,
     {
         loop {
             Observers::invoke::<_>(
@@ -409,7 +409,11 @@ impl<'w> DeferredWorld<'w> {
             if !propagate {
                 break;
             }
-            if let Some(traverse_to) = self.get::<C>(entity).and_then(C::traverse) {
+            if let Some(traverse_to) = self
+                .get_entity(entity)
+                .and_then(|entity| entity.get_components::<T>())
+                .and_then(T::traverse)
+            {
                 entity = traverse_to;
             } else {
                 break;

@@ -36,7 +36,9 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The ECS prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
@@ -61,9 +63,9 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
-            System, SystemParamBuilder, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
+            Resource, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
@@ -75,23 +77,22 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::Or;
-    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
+        prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
-        world::{EntityRef, Mut, World},
+        world::{EntityMut, EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
+        num::NonZero,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -621,7 +622,6 @@ mod tests {
                 .collect::<HashSet<_>>(),
             HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
         );
-
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
@@ -1659,7 +1659,7 @@ mod tests {
         );
 
         let e4_mismatched_generation =
-            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
+            Entity::from_raw_and_generation(3, NonZero::<u32>::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1754,7 +1754,8 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
+        let invalid_e2 =
+            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 

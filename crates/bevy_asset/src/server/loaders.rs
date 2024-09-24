@@ -4,13 +4,15 @@ use crate::{
 };
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::{
+    tracing::{error, warn},
+    HashMap, TypeIdMap,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, TypeIdMap};
 use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
 

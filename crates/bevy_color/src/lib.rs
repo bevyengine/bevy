@@ -57,7 +57,6 @@
 //! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
-//!
 #![doc = include_str!("../docs/conversion.md")]
 //! <div>
 #![doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -92,6 +91,7 @@
 
 mod color;
 pub mod color_difference;
+mod color_gradient;
 mod color_ops;
 mod color_range;
 mod hsla;
@@ -110,23 +110,18 @@ mod test_colors;
 mod testing;
 mod xyza;
 
-/// Commonly used color types and traits.
+/// The color prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    pub use crate::color::*;
-    pub use crate::color_ops::*;
-    pub use crate::hsla::*;
-    pub use crate::hsva::*;
-    pub use crate::hwba::*;
-    pub use crate::laba::*;
-    pub use crate::lcha::*;
-    pub use crate::linear_rgba::*;
-    pub use crate::oklaba::*;
-    pub use crate::oklcha::*;
-    pub use crate::srgba::*;
-    pub use crate::xyza::*;
+    pub use crate::{
+        color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
+        oklaba::*, oklcha::*, srgba::*, xyza::*,
+    };
 }
 
 pub use color::*;
+pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
 pub use hsla::*;

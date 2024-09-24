@@ -1,7 +1,7 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Set, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
+    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
+    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -11,100 +11,6 @@ use std::{
 use thiserror::Error;
 
 use crate::utility::NonGenericTypeInfoCell;
-
-macro_rules! impl_reflect_enum {
-    ($name:ident$(<$lifetime:lifetime>)?) => {
-        impl $name$(<$lifetime>)? {
-            /// Returns the "kind" of this reflected type without any information.
-            pub fn kind(&self) -> ReflectKind {
-                match self {
-                    Self::Struct(_) => ReflectKind::Struct,
-                    Self::TupleStruct(_) => ReflectKind::TupleStruct,
-                    Self::Tuple(_) => ReflectKind::Tuple,
-                    Self::List(_) => ReflectKind::List,
-                    Self::Array(_) => ReflectKind::Array,
-                    Self::Map(_) => ReflectKind::Map,
-                    Self::Set(_) => ReflectKind::Set,
-                    Self::Enum(_) => ReflectKind::Enum,
-                    Self::Value(_) => ReflectKind::Value,
-                }
-            }
-        }
-
-        impl From<$name$(<$lifetime>)?> for ReflectKind {
-            fn from(value: $name) -> Self {
-                match value {
-                    $name::Struct(_) => Self::Struct,
-                    $name::TupleStruct(_) => Self::TupleStruct,
-                    $name::Tuple(_) => Self::Tuple,
-                    $name::List(_) => Self::List,
-                    $name::Array(_) => Self::Array,
-                    $name::Map(_) => Self::Map,
-                    $name::Set(_) => Self::Set,
-                    $name::Enum(_) => Self::Enum,
-                    $name::Value(_) => Self::Value,
-                }
-            }
-        }
-    };
-}
-
-/// An immutable enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
-pub enum ReflectRef<'a> {
-    Struct(&'a dyn Struct),
-    TupleStruct(&'a dyn TupleStruct),
-    Tuple(&'a dyn Tuple),
-    List(&'a dyn List),
-    Array(&'a dyn Array),
-    Map(&'a dyn Map),
-    Set(&'a dyn Set),
-    Enum(&'a dyn Enum),
-    Value(&'a dyn PartialReflect),
-}
-impl_reflect_enum!(ReflectRef<'_>);
-
-/// A mutable enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
-pub enum ReflectMut<'a> {
-    Struct(&'a mut dyn Struct),
-    TupleStruct(&'a mut dyn TupleStruct),
-    Tuple(&'a mut dyn Tuple),
-    List(&'a mut dyn List),
-    Array(&'a mut dyn Array),
-    Map(&'a mut dyn Map),
-    Set(&'a mut dyn Set),
-    Enum(&'a mut dyn Enum),
-    Value(&'a mut dyn PartialReflect),
-}
-impl_reflect_enum!(ReflectMut<'_>);
-
-/// An owned enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
-pub enum ReflectOwned {
-    Struct(Box<dyn Struct>),
-    TupleStruct(Box<dyn TupleStruct>),
-    Tuple(Box<dyn Tuple>),
-    List(Box<dyn List>),
-    Array(Box<dyn Array>),
-    Map(Box<dyn Map>),
-    Set(Box<dyn Set>),
-    Enum(Box<dyn Enum>),
-    Value(Box<dyn PartialReflect>),
-}
-impl_reflect_enum!(ReflectOwned);
 
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
@@ -142,35 +48,11 @@ pub enum ApplyError {
     },
 }
 
-/// A zero-sized enumuration of the "kinds" of a reflected type.
-///
-/// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
-/// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ReflectKind {
-    Struct,
-    TupleStruct,
-    Tuple,
-    List,
-    Array,
-    Map,
-    Set,
-    Enum,
-    Value,
-}
-
-impl std::fmt::Display for ReflectKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReflectKind::Struct => f.pad("struct"),
-            ReflectKind::TupleStruct => f.pad("tuple struct"),
-            ReflectKind::Tuple => f.pad("tuple"),
-            ReflectKind::List => f.pad("list"),
-            ReflectKind::Array => f.pad("array"),
-            ReflectKind::Map => f.pad("map"),
-            ReflectKind::Set => f.pad("set"),
-            ReflectKind::Enum => f.pad("enum"),
-            ReflectKind::Value => f.pad("value"),
+impl From<ReflectKindMismatchError> for ApplyError {
+    fn from(value: ReflectKindMismatchError) -> Self {
+        Self::MismatchedKinds {
+            from_kind: value.received,
+            to_kind: value.expected,
         }
     }
 }
@@ -188,6 +70,9 @@ impl std::fmt::Display for ReflectKind {
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Enum`]: crate::Enum
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
@@ -275,6 +160,13 @@ where
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
     /// [introspection subtrait]: crate#the-introspection-subtraits
+    /// [`Struct`]: crate::Struct
+    /// [`TupleStruct`]: crate::TupleStruct
+    /// [`Tuple`]: crate::Tuple
+    /// [`Enum`]: crate::Enum
+    /// [`List`]: crate::List
+    /// [`Array`]: crate::Array
+    /// [`Map`]: crate::Map
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
     ///
@@ -285,7 +177,7 @@ where
     ///   a `List`, while `value` is a `Struct`).
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is a value type and `self` cannot be downcast to `T`
+    /// - If `T` is an opaque type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
@@ -330,6 +222,12 @@ where
     /// or [`Enum::clone_dynamic`], respectively.
     /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
     /// use those subtraits' respective `clone_dynamic` methods.
+    ///
+    /// [`Struct::clone_dynamic`]: crate::Struct::clone_dynamic
+    /// [`TupleStruct::clone_dynamic`]: crate::TupleStruct::clone_dynamic
+    /// [`Enum::clone_dynamic`]: crate::Enum::clone_dynamic
+    /// [`List`]: crate::List
+    /// [`Map`]: crate::Map
     fn clone_value(&self) -> Box<dyn PartialReflect>;
 
     /// Returns a hash of the value (which includes the type).
@@ -352,6 +250,8 @@ where
     /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
     /// where `type_path` is the [type path] of the underlying type.
     ///
+    /// [`List`]: crate::List
+    /// [`Map`]: crate::Map
     /// [type path]: TypePath::type_path
     fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.reflect_ref() {
@@ -361,8 +261,11 @@ where
             ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
+            ReflectRef::Set(dyn_set) => set_debug(dyn_set, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.reflect_type_path()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
+            ReflectRef::Opaque(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
     }
 
@@ -399,16 +302,23 @@ where
 /// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful traits for reflection,
 /// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
+/// If you need to use this trait as a generic bound along with other reflection traits,
+/// for your convenience, consider using [`Reflectable`] instead.
+///
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro]: bevy_reflect_derive::Reflect
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Enum`]: crate::Enum
+/// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + Any {
+pub trait Reflect: PartialReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
@@ -586,7 +496,7 @@ impl Debug for dyn Reflect {
 impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 

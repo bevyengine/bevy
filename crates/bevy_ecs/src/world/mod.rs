@@ -19,8 +19,8 @@ pub use crate::{
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
-    EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
-    OccupiedEntry, VacantEntry,
+    EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
+    FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
 };
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -40,7 +40,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Res, Resource},
+    system::{Commands, Resource},
     world::{command_queue::RawCommandQueue, error::TryRunScheduleError},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -61,7 +61,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
-/// Should be used with [`Commands::add`].
+/// Should be used with [`Commands::queue`].
 ///
 /// # Usage
 ///
@@ -83,7 +83,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// }
 ///
 /// fn some_system(mut commands: Commands) {
-///     commands.add(AddToCounter(42));
+///     commands.queue(AddToCounter(42));
 /// }
 /// ```
 pub trait Command: Send + 'static {
@@ -162,6 +162,8 @@ impl Drop for World {
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
+        // SAFETY: Pointers in internal command queue are only invalidated here
+        drop(unsafe { Box::from_raw(self.command_queue.panic_recovery.as_ptr()) });
     }
 }
 
@@ -1475,8 +1477,16 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
+    #[inline]
+    pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -1485,8 +1495,16 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(ResourceData::is_present)
-            .unwrap_or(false)
+            .is_some_and(ResourceData::is_present)
+    }
+
+    /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
+    #[inline]
+    pub fn contains_non_send_by_id(&self, component_id: ComponentId) -> bool {
+        self.storages
+            .non_send_resources
+            .get(component_id)
+            .is_some_and(ResourceData::is_present)
     }
 
     /// Returns `true` if a resource of type `R` exists and was added since the world's
@@ -1499,8 +1517,7 @@ impl World {
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
             .get_resource_id(TypeId::of::<R>())
-            .map(|component_id| self.is_resource_added_by_id(component_id))
-            .unwrap_or(false)
+            .is_some_and(|component_id| self.is_resource_added_by_id(component_id))
     }
 
     /// Returns `true` if a resource with id `component_id` exists and was added since the world's
@@ -1610,7 +1627,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Res<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -1658,7 +1675,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Res<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2398,7 +2415,7 @@ impl World {
     }
 
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
-    /// invalidating all [`Entity`] and resource fetches such as [`Res`], [`ResMut`](crate::system::ResMut)
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
         self.clear_resources();
@@ -2500,7 +2517,7 @@ impl World {
     ///    total += info.layout().size();
     /// }
     /// println!("Total size: {} bytes", total);
-    /// # assert_eq!(total, std::mem::size_of::<A>() + std::mem::size_of::<B>());
+    /// # assert_eq!(total, size_of::<A>() + size_of::<B>());
     /// ```
     ///
     /// ## Dynamically running closures for resources matching specific `TypeId`s

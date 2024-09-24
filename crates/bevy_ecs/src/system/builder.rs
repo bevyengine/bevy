@@ -63,6 +63,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///
 /// See the documentation for individual builders for more examples.
 ///
+/// ```
 /// # List of Builders
 ///
 /// [`ParamBuilder`] can be used for parameters that don't require any special building.
@@ -289,7 +290,8 @@ unsafe impl<
 }
 
 macro_rules! impl_system_param_builder_tuple {
-    ($(($param: ident, $builder: ident)),*) => {
+    ($(#[$meta:meta])* $(($param: ident, $builder: ident)),*) => {
+        $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
             fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
@@ -302,7 +304,14 @@ macro_rules! impl_system_param_builder_tuple {
     };
 }
 
-all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_param_builder_tuple,
+    0,
+    16,
+    P,
+    B
+);
 
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
@@ -314,6 +323,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 }
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
+///
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a [`Vec`] of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
 ///
@@ -520,9 +530,11 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::entity::Entities;
-    use crate::prelude::{Component, Query};
-    use crate::system::{Local, RunSystemOnce};
+    use crate::{
+        entity::Entities,
+        prelude::{Component, Query},
+        system::{Local, RunSystemOnce},
+    };
 
     use super::*;
 

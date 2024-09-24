@@ -221,9 +221,8 @@ impl<'m> SceneEntityMapper<'m> {
 
 #[cfg(test)]
 mod tests {
-    use crate::entity::DynEntityMapper;
     use crate::{
-        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
+        entity::{DynEntityMapper, Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
     use bevy_utils::assert_object_safe;

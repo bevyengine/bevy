@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
 use bevy_asset::Handle;

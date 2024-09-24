@@ -37,6 +37,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod cross;
+pub mod curves;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;
@@ -50,7 +51,9 @@ mod pipeline_2d;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
 
-/// The `bevy_gizmos` prelude.
+/// The gizmos prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_render")]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
@@ -240,6 +243,9 @@ impl AppGizmoBuilder for App {
 
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
+
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()

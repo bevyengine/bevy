@@ -116,6 +116,7 @@ mod commands;
 mod exclusive_function_system;
 mod exclusive_system_param;
 mod function_system;
+mod input;
 mod observer_system;
 mod query;
 #[allow(clippy::module_inception)]
@@ -133,6 +134,7 @@ pub use commands::*;
 pub use exclusive_function_system::*;
 pub use exclusive_system_param::*;
 pub use function_system::*;
+pub use input::*;
 pub use observer_system::*;
 pub use query::*;
 pub use system::*;
@@ -163,7 +165,7 @@ use crate::world::World;
     message = "`{Self}` is not a valid system with input `{In}` and output `{Out}`",
     label = "invalid system"
 )]
-pub trait IntoSystem<In, Out, Marker>: Sized {
+pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
 
@@ -174,9 +176,11 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
-        B: IntoSystem<Out, Final, MarkerB>,
+        Out: 'static,
+        B: IntoSystem<BIn, BOut, MarkerB>,
+        for<'a> BIn: SystemInput<Inner<'a> = Out>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
@@ -227,34 +231,6 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
     }
 }
 
-/// Wrapper type to mark a [`SystemParam`] as an input.
-///
-/// [`System`]s may take an optional input which they require to be passed to them when they
-/// are being [`run`](System::run). For [`FunctionSystems`](FunctionSystem) the input may be marked
-/// with this `In` type, but only the first param of a function may be tagged as an input. This also
-/// means a system can only have one or zero input parameters.
-///
-/// # Examples
-///
-/// Here is a simple example of a system that takes a [`usize`] returning the square of it.
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-///
-/// fn main() {
-///     let mut square_system = IntoSystem::into_system(square);
-///
-///     let mut world = World::default();
-///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
-/// }
-///
-/// fn square(In(input): In<usize>) -> usize {
-///     input * input
-/// }
-/// ```
-pub struct In<In>(pub In);
-
 /// Ensure that a given function is a [system](System).
 ///
 /// This should be used when writing doc examples,
@@ -279,7 +255,7 @@ pub struct In<In>(pub In);
 ///
 /// assert_is_system(my_system);
 /// ```
-pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
+pub fn assert_is_system<In: SystemInput, Out: 'static, Marker>(
     system: impl IntoSystem<In, Out, Marker>,
 ) {
     let mut system = IntoSystem::into_system(system);
@@ -312,8 +288,10 @@ pub fn assert_is_system<In: 'static, Out: 'static, Marker>(
 ///
 /// assert_is_read_only_system(my_system);
 /// ```
-pub fn assert_is_read_only_system<In: 'static, Out: 'static, Marker, S>(system: S)
+pub fn assert_is_read_only_system<In, Out, Marker, S>(system: S)
 where
+    In: SystemInput,
+    Out: 'static,
     S: IntoSystem<In, Out, Marker>,
     S::System: ReadOnlySystem,
 {
@@ -332,27 +310,11 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
     system.run((), &mut world);
 }
 
-impl<T> std::ops::Deref for In<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> std::ops::DerefMut for In<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bevy_utils::default;
     use std::any::TypeId;
 
-    use crate::prelude::EntityRef;
-    use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -360,7 +322,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -371,7 +333,7 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
-        world::{FromWorld, World},
+        world::{EntityMut, FromWorld, World},
     };
 
     #[derive(Resource, PartialEq, Debug)]
@@ -1501,13 +1463,10 @@ mod tests {
         // set up system and verify its access is empty
         system.initialize(&mut world);
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // add some entities with archetypes that should match and save their ids
         expected_ids.insert(
@@ -1531,13 +1490,10 @@ mod tests {
 
         // update system and verify its accesses are correct
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // one more round
         expected_ids.insert(
@@ -1549,13 +1505,10 @@ mod tests {
         );
         world.spawn((A, B, D));
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        assert_eq!(
-            system
-                .archetype_component_access()
-                .component_reads()
-                .collect::<HashSet<_>>(),
-            expected_ids
-        );
+        let archetype_component_access = system.archetype_component_access();
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
     }
 
     #[test]
