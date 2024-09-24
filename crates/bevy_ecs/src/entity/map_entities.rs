@@ -293,6 +293,23 @@ mod tests {
     }
 
     #[test]
+    fn entity_mapper_no_panic() {
+        let mut world = World::new();
+        // "Dirty" the `Entities`, requiring a flush afterward.
+        world.entities.reserve_entity();
+        assert!(world.entities.needs_flush());
+
+        // Create and exercise a SceneEntityMapper - should not panic because it flushes
+        // `Entities` first.
+        SceneEntityMapper::world_scope(&mut Default::default(), &mut world, |_, m| {
+            m.map_entity(Entity::PLACEHOLDER);
+        });
+
+        // The SceneEntityMapper should leave `Entities` in a flushed state.
+        assert!(!world.entities.needs_flush());
+    }
+
+    #[test]
     fn dyn_entity_mapper_object_safe() {
         assert_object_safe::<dyn DynEntityMapper>();
     }
