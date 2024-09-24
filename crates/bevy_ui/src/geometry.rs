@@ -1,8 +1,6 @@
 use bevy_math::Vec2;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use std::ops::Neg;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use std::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -207,7 +205,6 @@ impl Val {
 ///
 /// # Examples
 
-///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.

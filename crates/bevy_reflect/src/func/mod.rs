@@ -159,8 +159,10 @@ mod return_type;
 mod tests {
     use alloc::borrow::Cow;
 
-    use crate::func::args::{ArgError, ArgList, Ownership};
-    use crate::TypePath;
+    use crate::{
+        func::args::{ArgError, ArgList, Ownership},
+        TypePath,
+    };
 
     use super::*;
 

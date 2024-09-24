@@ -2,19 +2,21 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
-use bevy_render::render_resource::binding_types::{
-    sampler, texture_2d, texture_3d, uniform_buffer,
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{
+    camera::Camera,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_asset::{RenderAssetUsages, RenderAssets},
+    render_resource::{
+        binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
+        *,
+    },
+    renderer::RenderDevice,
+    texture::{CompressedImageFormats, FallbackImage, GpuImage, Image, ImageSampler, ImageType},
+    view::{ExtractedView, ViewTarget, ViewUniform},
+    Render, RenderApp, RenderSet,
 };
-use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::{CompressedImageFormats, GpuImage, Image, ImageSampler, ImageType};
-use bevy_render::view::{ExtractedView, ViewTarget, ViewUniform};
-use bevy_render::{camera::Camera, texture::FallbackImage};
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
 #[cfg(not(feature = "tonemapping_luts"))]
 use bevy_utils::tracing::error;
 use bitflags::bitflags;

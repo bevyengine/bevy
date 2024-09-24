@@ -1,9 +1,10 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::type_info::impl_type_methods;
-use crate::{DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType};
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+};
 use bevy_utils::HashMap;
-use std::slice::Iter;
-use std::sync::Arc;
+use std::{slice::Iter, sync::Arc};
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///
@@ -150,7 +151,6 @@ impl EnumInfo {
     /// # Arguments
     ///
     /// * `variants`: The variants of this enum in the order they are defined
-    ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()

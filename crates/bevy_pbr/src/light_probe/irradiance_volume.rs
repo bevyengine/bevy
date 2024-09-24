@@ -145,8 +145,7 @@ use bevy_render::{
 use std::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,

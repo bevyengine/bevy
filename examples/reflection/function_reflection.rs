@@ -6,11 +6,13 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-use bevy::reflect::func::{
-    ArgList, DynamicFunction, DynamicFunctionMut, FunctionInfo, FunctionResult, IntoFunction,
-    IntoFunctionMut, Return,
+use bevy::reflect::{
+    func::{
+        ArgList, DynamicFunction, DynamicFunctionMut, FunctionInfo, FunctionResult, IntoFunction,
+        IntoFunctionMut, Return,
+    },
+    PartialReflect, Reflect,
 };
-use bevy::reflect::{PartialReflect, Reflect};
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.

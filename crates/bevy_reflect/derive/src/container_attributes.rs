@@ -5,16 +5,17 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]`.
 
-use crate::attribute_parser::terminated_parser;
-use crate::custom_attributes::CustomAttributes;
-use crate::derive_data::ReflectTraitToImpl;
+use crate::{
+    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
+    derive_data::ReflectTraitToImpl,
+};
 use bevy_macro_utils::fq_std::{FQAny, FQOption};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
-use syn::ext::IdentExt;
-use syn::parse::ParseStream;
-use syn::spanned::Spanned;
-use syn::{parenthesized, token, Expr, LitBool, MetaList, MetaNameValue, Path, Token, WhereClause};
+use syn::{
+    ext::IdentExt, parenthesized, parse::ParseStream, spanned::Spanned, token, Expr, LitBool,
+    MetaList, MetaNameValue, Path, Token, WhereClause,
+};
 
 mod kw {
     syn::custom_keyword!(from_reflect);
@@ -178,7 +179,6 @@ impl TypePathAttrs {
 /// ```
 ///
 /// > __Note:__ Registering a custom function only works for special traits.
-///
 #[derive(Default, Clone)]
 pub(crate) struct ContainerAttributes {
     debug: TraitImpl,

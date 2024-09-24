@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
 
-    //root node
+    // root node
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -286,7 +286,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 });
                         });
 
-                    //Nested scrolls example
+                    // Nested scrolls example
                     parent
                         .spawn(NodeBundle {
                             style: Style {

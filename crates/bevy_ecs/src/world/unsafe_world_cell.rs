@@ -568,7 +568,6 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
-    ///
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeWorldCell`] has permission to access the resource mutably
@@ -589,7 +588,6 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
-    ///
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     ///

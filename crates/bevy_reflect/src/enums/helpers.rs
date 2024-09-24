@@ -1,7 +1,8 @@
-use crate::PartialReflect;
-use crate::{utility::reflect_hasher, Enum, ReflectRef, VariantType};
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
+use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 /// Returns the `u64` hash of the given [enum](Enum).
 #[inline]

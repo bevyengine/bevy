@@ -1,8 +1,11 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::serde::TypedReflectSerializer;
-use crate::{Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType};
-use serde::ser::{SerializeStructVariant, SerializeTupleVariant};
-use serde::Serialize;
+use crate::{
+    serde::{ser::error_utils::make_custom_error, TypedReflectSerializer},
+    Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType,
+};
+use serde::{
+    ser::{SerializeStructVariant, SerializeTupleVariant},
+    Serialize,
+};
 
 /// A serializer for [`Enum`] values.
 pub(super) struct EnumSerializer<'a> {

@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
+use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc, sync::Arc};
 
 use crate::Task;
 

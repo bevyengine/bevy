@@ -13,34 +13,33 @@ pub mod keyframes;
 pub mod transition;
 mod util;
 
-use std::any::{Any, TypeId};
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::iter;
+use std::{
+    any::{Any, TypeId},
+    cell::RefCell,
+    collections::BTreeMap,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    iter,
+};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_ecs::world::EntityMutExcept;
+use bevy_ecs::{
+    entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
+};
 use bevy_math::FloatExt;
-use bevy_reflect::utility::NonGenericTypeInfoCell;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_reflect::{
-    ApplyError, DynamicStruct, FieldIter, FromReflect, FromType, GetTypeRegistration, NamedField,
-    PartialReflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct,
-    StructInfo, TypeInfo, TypePath, TypeRegistration, Typed,
+    prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,
+    FromReflect, FromType, GetTypeRegistration, NamedField, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, StructInfo,
+    TypeInfo, TypePath, TypeRegistration, Typed,
 };
 use bevy_time::Time;
-use bevy_transform::prelude::Transform;
-use bevy_transform::TransformSystem;
+use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_ui::UiSystem;
-use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
+    hashbrown::HashMap,
     tracing::{trace, warn},
     NoOpHash,
 };
