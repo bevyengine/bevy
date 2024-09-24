@@ -8,18 +8,16 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId},
+    system::{IntoObserverSystem, SystemId, SystemInput},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use std::{
     fmt::Debug,
-    process::{ExitCode, Termination},
-};
-use std::{
-    num::NonZeroU8,
+    num::NonZero,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+    process::{ExitCode, Termination},
 };
 use thiserror::Error;
 
@@ -40,7 +38,6 @@ pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
 }
 
-#[allow(clippy::needless_doctest_main)]
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
 /// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
 ///
@@ -303,10 +300,14 @@ impl App {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.main_mut().register_system(system)
     }
 
@@ -1061,14 +1062,14 @@ pub enum AppExit {
     Success,
     /// The [`App`] experienced an unhandleable error.
     /// Holds the exit code we expect our app to return.
-    Error(NonZeroU8),
+    Error(NonZero<u8>),
 }
 
 impl AppExit {
     /// Creates a [`AppExit::Error`] with a error code of 1.
     #[must_use]
     pub const fn error() -> Self {
-        Self::Error(NonZeroU8::MIN)
+        Self::Error(NonZero::<u8>::MIN)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
@@ -1089,7 +1090,7 @@ impl AppExit {
     /// [`AppExit::Error`] is constructed.
     #[must_use]
     pub const fn from_code(code: u8) -> Self {
-        match NonZeroU8::new(code) {
+        match NonZero::<u8>::new(code) {
             Some(code) => Self::Error(code),
             None => Self::Success,
         }
@@ -1115,7 +1116,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
+    use std::{iter, marker::PhantomData, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},

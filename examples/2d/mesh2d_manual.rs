@@ -8,7 +8,8 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    math::FloatOrd,
+    ecs::entity::EntityHashMap,
+    math::{ops, FloatOrd},
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute, RenderMesh},
@@ -33,7 +34,6 @@ use bevy::{
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup, WithMesh2d,
     },
-    utils::EntityHashMap,
 };
 use std::f32::consts::PI;
 
@@ -80,7 +80,7 @@ fn star(
         // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
         // Add the vertex position.
-        v_pos.push([r * a.sin(), r * a.cos(), 0.0]);
+        v_pos.push([r * ops::sin(a), r * ops::cos(a), 0.0]);
     }
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
@@ -291,7 +291,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderColoredMesh2dInstances(EntityHashMap<Entity, RenderMesh2dInstance>);
+pub struct RenderColoredMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {

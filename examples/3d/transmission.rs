@@ -23,9 +23,10 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::*,
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
+        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
+    math::ops,
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
@@ -36,7 +37,7 @@ use bevy::{
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
 };
 use rand::random;
 
@@ -363,7 +364,7 @@ fn setup(
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             ..default()
         },
-        BloomSettings::default(),
+        Bloom::default(),
     ));
 
     // Controls Text
@@ -521,14 +522,13 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
-            commands.entity(camera_entity).insert((
-                TemporalJitter::default(),
-                TemporalAntiAliasSettings::default(),
-            ));
+            commands
+                .entity(camera_entity)
+                .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(TemporalJitter, TemporalAntiAliasSettings)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
 
@@ -579,7 +579,7 @@ fn example_control_system(
             0.0
         };
 
-    camera_transform.translation *= distance_change.exp();
+    camera_transform.translation *= ops::exp(distance_change);
 
     camera_transform.rotate_around(
         Vec3::ZERO,
@@ -643,9 +643,9 @@ fn flicker_system(
     time: Res<Time>,
 ) {
     let s = time.elapsed_seconds();
-    let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
-    let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
-    let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
+    let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
+    let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
+    let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);

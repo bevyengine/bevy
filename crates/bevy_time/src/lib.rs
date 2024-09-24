@@ -11,7 +11,6 @@ pub mod common_conditions;
 mod fixed;
 mod real;
 mod stopwatch;
-#[allow(clippy::module_inception)]
 mod time;
 mod timer;
 mod virt;
@@ -23,17 +22,19 @@ pub use time::*;
 pub use timer::*;
 pub use virt::*;
 
+/// The time prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Time Prelude.
     #[doc(hidden)]
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{
-    event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents,
+use bevy_ecs::{
+    event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
+    prelude::*,
 };
-use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
@@ -42,9 +43,9 @@ use crossbeam_channel::{Receiver, Sender};
 #[derive(Default)]
 pub struct TimePlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 /// Updates the elapsed time. Any system that interacts with [`Time`] component should run after
 /// this.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystem;
 
 impl Plugin for TimePlugin {

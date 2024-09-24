@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
-        font_size: 16.,
+        font_size: 13.,
         color: Color::BLACK,
         ..default()
     };
@@ -139,6 +139,6 @@ fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        2.0f32.powf(5. * x - 5.)
+        ops::powf(2.0f32, 5. * x - 5.)
     }
 }

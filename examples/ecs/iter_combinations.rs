@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
+use bevy::{color::palettes::css::ORANGE_RED, math::FloatPow, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -50,7 +50,7 @@ fn generate_bodies(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
         let radius: f32 = rng.gen_range(0.1..0.7);
-        let mass_value = radius.powi(3) * 10.;
+        let mass_value = FloatPow::cubed(radius) * 10.;
 
         let position = Vec3::new(
             rng.gen_range(-1.0..1.0),
@@ -58,7 +58,7 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).cbrt()
+            * ops::cbrt(rng.gen_range(0.2f32..1.0))
             * 15.;
 
         commands.spawn(BodyBundle {

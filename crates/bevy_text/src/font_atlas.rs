@@ -3,12 +3,12 @@ use bevy_math::{IVec2, UVec2};
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
+    texture::{Image, ImageSampler},
 };
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
 use bevy_utils::HashMap;
 
-use crate::{GlyphAtlasLocation, TextError};
+use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -39,8 +39,9 @@ impl FontAtlas {
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
         size: UVec2,
+        font_smoothing: FontSmoothing,
     ) -> FontAtlas {
-        let texture = textures.add(Image::new_fill(
+        let mut image = Image::new_fill(
             Extent3d {
                 width: size.x,
                 height: size.y,
@@ -51,7 +52,11 @@ impl FontAtlas {
             TextureFormat::Rgba8UnormSrgb,
             // Need to keep this image CPU persistent in order to add additional glyphs later on
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-        ));
+        );
+        if font_smoothing == FontSmoothing::None {
+            image.sampler = ImageSampler::nearest();
+        }
+        let texture = textures.add(image);
         let texture_atlas = texture_atlases_layout.add(TextureAtlasLayout::new_empty(size));
         Self {
             texture_atlas,

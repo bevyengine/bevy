@@ -1,14 +1,17 @@
 use bevy_reflect_derive::impl_type_path;
 
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    self as bevy_reflect,
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
-use std::sync::Arc;
+use std::{
+    fmt::{Debug, Formatter},
+    slice::Iter,
+    sync::Arc,
+};
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
 ///
@@ -71,7 +74,6 @@ impl TupleStructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
@@ -314,18 +316,14 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.try_apply(value)?;
-                }
+        let tuple_struct = value.reflect_ref().as_tuple_struct()?;
+
+        for (i, value) in tuple_struct.iter_fields().enumerate() {
+            if let Some(v) = self.field_mut(i) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::TupleStruct,
-            });
         }
+
         Ok(())
     }
 

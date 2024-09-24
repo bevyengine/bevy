@@ -3,9 +3,10 @@
 use bevy::{
     color::palettes::basic::GRAY,
     core_pipeline::{
-        bloom::{BloomCompositeMode, BloomSettings},
+        bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
+    math::ops,
     prelude::*,
 };
 use std::{
@@ -37,7 +38,7 @@ fn setup_scene(
             ..default()
         },
         // 3. Enable bloom for the camera
-        BloomSettings::NATURAL,
+        Bloom::NATURAL,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -101,120 +102,113 @@ fn setup_scene(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
+    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom_settings = camera.single_mut();
+    let bloom = camera.single_mut();
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
 
-    match bloom_settings {
-        (entity, Some(mut bloom_settings)) => {
-            *text = "BloomSettings (Toggle: Space)\n".to_string();
-            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
+    match bloom {
+        (entity, Some(mut bloom)) => {
+            *text = "Bloom (Toggle: Space)\n".to_string();
+            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
-                bloom_settings.low_frequency_boost
+                bloom.low_frequency_boost
             ));
             text.push_str(&format!(
                 "(E/D) Low-frequency boost curvature: {}\n",
-                bloom_settings.low_frequency_boost_curvature
+                bloom.low_frequency_boost_curvature
             ));
             text.push_str(&format!(
                 "(R/F) High-pass frequency: {}\n",
-                bloom_settings.high_pass_frequency
+                bloom.high_pass_frequency
             ));
             text.push_str(&format!(
                 "(T/G) Mode: {}\n",
-                match bloom_settings.composite_mode {
+                match bloom.composite_mode {
                     BloomCompositeMode::EnergyConserving => "Energy-conserving",
                     BloomCompositeMode::Additive => "Additive",
                 }
             ));
-            text.push_str(&format!(
-                "(Y/H) Threshold: {}\n",
-                bloom_settings.prefilter_settings.threshold
-            ));
+            text.push_str(&format!("(Y/H) Threshold: {}\n", bloom.prefilter.threshold));
             text.push_str(&format!(
                 "(U/J) Threshold softness: {}\n",
-                bloom_settings.prefilter_settings.threshold_softness
+                bloom.prefilter.threshold_softness
             ));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<BloomSettings>();
+                commands.entity(entity).remove::<Bloom>();
             }
 
             let dt = time.delta_seconds();
 
             if keycode.pressed(KeyCode::KeyA) {
-                bloom_settings.intensity -= dt / 10.0;
+                bloom.intensity -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyQ) {
-                bloom_settings.intensity += dt / 10.0;
+                bloom.intensity += dt / 10.0;
             }
-            bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
+            bloom.intensity = bloom.intensity.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::KeyS) {
-                bloom_settings.low_frequency_boost -= dt / 10.0;
+                bloom.low_frequency_boost -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyW) {
-                bloom_settings.low_frequency_boost += dt / 10.0;
+                bloom.low_frequency_boost += dt / 10.0;
             }
-            bloom_settings.low_frequency_boost = bloom_settings.low_frequency_boost.clamp(0.0, 1.0);
+            bloom.low_frequency_boost = bloom.low_frequency_boost.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::KeyD) {
-                bloom_settings.low_frequency_boost_curvature -= dt / 10.0;
+                bloom.low_frequency_boost_curvature -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyE) {
-                bloom_settings.low_frequency_boost_curvature += dt / 10.0;
+                bloom.low_frequency_boost_curvature += dt / 10.0;
             }
-            bloom_settings.low_frequency_boost_curvature =
-                bloom_settings.low_frequency_boost_curvature.clamp(0.0, 1.0);
+            bloom.low_frequency_boost_curvature =
+                bloom.low_frequency_boost_curvature.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::KeyF) {
-                bloom_settings.high_pass_frequency -= dt / 10.0;
+                bloom.high_pass_frequency -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyR) {
-                bloom_settings.high_pass_frequency += dt / 10.0;
+                bloom.high_pass_frequency += dt / 10.0;
             }
-            bloom_settings.high_pass_frequency = bloom_settings.high_pass_frequency.clamp(0.0, 1.0);
+            bloom.high_pass_frequency = bloom.high_pass_frequency.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::KeyG) {
-                bloom_settings.composite_mode = BloomCompositeMode::Additive;
+                bloom.composite_mode = BloomCompositeMode::Additive;
             }
             if keycode.pressed(KeyCode::KeyT) {
-                bloom_settings.composite_mode = BloomCompositeMode::EnergyConserving;
+                bloom.composite_mode = BloomCompositeMode::EnergyConserving;
             }
 
             if keycode.pressed(KeyCode::KeyH) {
-                bloom_settings.prefilter_settings.threshold -= dt;
+                bloom.prefilter.threshold -= dt;
             }
             if keycode.pressed(KeyCode::KeyY) {
-                bloom_settings.prefilter_settings.threshold += dt;
+                bloom.prefilter.threshold += dt;
             }
-            bloom_settings.prefilter_settings.threshold =
-                bloom_settings.prefilter_settings.threshold.max(0.0);
+            bloom.prefilter.threshold = bloom.prefilter.threshold.max(0.0);
 
             if keycode.pressed(KeyCode::KeyJ) {
-                bloom_settings.prefilter_settings.threshold_softness -= dt / 10.0;
+                bloom.prefilter.threshold_softness -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::KeyU) {
-                bloom_settings.prefilter_settings.threshold_softness += dt / 10.0;
+                bloom.prefilter.threshold_softness += dt / 10.0;
             }
-            bloom_settings.prefilter_settings.threshold_softness = bloom_settings
-                .prefilter_settings
-                .threshold_softness
-                .clamp(0.0, 1.0);
+            bloom.prefilter.threshold_softness = bloom.prefilter.threshold_softness.clamp(0.0, 1.0);
         }
 
         (entity, None) => {
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::NATURAL);
+                commands.entity(entity).insert(Bloom::NATURAL);
             }
         }
     }
@@ -226,6 +220,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            (transform.translation.x + transform.translation.z + time.elapsed_seconds()).sin();
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
     }
 }

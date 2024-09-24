@@ -1,7 +1,9 @@
-use crate::archetype::ArchetypeComponentId;
-use crate::change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
-use crate::storage::{blob_vec::BlobVec, SparseSet};
+use crate::{
+    archetype::ArchetypeComponentId,
+    change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut},
+    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    storage::{blob_vec::BlobVec, SparseSet},
+};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
@@ -25,7 +27,10 @@ pub struct ResourceData<const SEND: bool> {
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
     fn drop(&mut self) {
-        if self.is_present() {
+        // For Non Send resources we need to validate that correct thread
+        // is dropping the resource. This validation is not needed in case
+        // of SEND resources. Or if there is no data.
+        if !SEND && self.is_present() {
             // If this thread is already panicking, panicking again will cause
             // the entire process to abort. In this case we choose to avoid
             // dropping or checking this altogether and just leak the column.

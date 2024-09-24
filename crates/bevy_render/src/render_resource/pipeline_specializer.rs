@@ -1,15 +1,17 @@
-use crate::mesh::MeshVertexBufferLayoutRef;
-use crate::render_resource::CachedComputePipelineId;
 use crate::{
-    mesh::MissingVertexAttributeError,
+    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError},
     render_resource::{
-        CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
-        VertexBufferLayout,
+        CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
+        RenderPipelineDescriptor, VertexBufferLayout,
     },
 };
 use bevy_ecs::system::Resource;
-use bevy_utils::hashbrown::hash_map::VacantEntry;
-use bevy_utils::{default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap};
+use bevy_utils::{
+    default,
+    hashbrown::hash_map::{RawEntryMut, VacantEntry},
+    tracing::error,
+    Entry, HashMap,
+};
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 

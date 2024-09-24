@@ -1,7 +1,6 @@
 //! Plays animations from a skinned glTF.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     animation::{animate_targets, RepeatAnimation},

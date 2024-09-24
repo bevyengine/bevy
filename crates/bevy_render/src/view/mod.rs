@@ -5,13 +5,12 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
-use crate::camera::NormalizedRenderTarget;
-use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, TemporalJitter,
+        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -123,7 +122,8 @@ impl Plugin for ViewPlugin {
                 (
                     prepare_view_attachments
                         .in_set(RenderSet::ManageViews)
-                        .before(prepare_view_targets),
+                        .before(prepare_view_targets)
+                        .after(prepare_windows),
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
@@ -165,7 +165,7 @@ impl Plugin for ViewPlugin {
     Hash,
     Debug,
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -209,7 +209,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
