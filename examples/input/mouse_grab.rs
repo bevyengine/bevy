@@ -19,7 +19,9 @@ fn grab_mouse(
     // There are cases where we can have multiple windows and cursors,
     // but not in this example. Keeping the naming convention since it
     // exists in other examples
-    let (mut window, mut cursor) = windows_and_cursors.single_mut();
+    let Ok((mut window, mut cursor)) = windows_and_cursors.get_single_mut() else {
+        return;
+    };
 
     if mouse.just_pressed(MouseButton::Left) {
         *cursor = CursorIcon::Hidden;

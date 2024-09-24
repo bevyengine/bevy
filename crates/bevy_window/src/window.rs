@@ -126,7 +126,7 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default, Debug)]
 pub struct Window {
-    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
+    /// The cursor options of this window. Cursor icons are set with the `CursorIcon` component on the
     /// window entity.
     pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
