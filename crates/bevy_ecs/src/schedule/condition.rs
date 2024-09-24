@@ -1115,11 +1115,11 @@ pub mod common_conditions {
         CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
-        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
+        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
             let changed = *prev != new;
             *prev = new;
             changed
-        })
+        }))
     }
 
     /// Generates a [`Condition`] that returns true when the result of
@@ -1171,11 +1171,13 @@ pub mod common_conditions {
         CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
-        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let now_true = *prev != new && new == to;
-            *prev = new;
-            now_true
-        })
+        IntoSystem::into_system(condition.pipe(
+            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+                let now_true = *prev != new && new == to;
+                *prev = new;
+                now_true
+            },
+        ))
     }
 }
 
