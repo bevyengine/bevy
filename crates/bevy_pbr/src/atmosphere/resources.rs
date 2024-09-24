@@ -26,7 +26,7 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 
-use crate::LightMeta;
+use crate::{GpuLights, LightMeta};
 
 use super::{shaders, Atmosphere, AtmosphereSettings};
 
@@ -59,7 +59,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     uniform_buffer::<Atmosphere>(true),
                     uniform_buffer::<AtmosphereSettings>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut. need sampler?;
+                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
                     sampler(SamplerBindingType::Filtering),
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 ),
@@ -73,9 +73,11 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     uniform_buffer::<Atmosphere>(true),
                     uniform_buffer::<AtmosphereSettings>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GpuLights>(true),
+                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
                     sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering_lut
+                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering lut and sampler
                     sampler(SamplerBindingType::Filtering),
                 ),
             ),
@@ -87,10 +89,12 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::COMPUTE,
                 (
                     uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereSettings>(true), //TODO: maybe unnecessary?
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut
+                    uniform_buffer::<AtmosphereSettings>(true),
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<GpuLights>(true),
+                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
                     sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering_lut
+                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering lut and sampler
                     sampler(SamplerBindingType::Filtering),
                     texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 ),
@@ -108,7 +112,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
 
 #[derive(Resource)]
 pub struct AtmosphereSamplers {
-    //TODO: maybe this is redundant, but I'm guessing you can't bind samplers more than once at the same time
+    //TODO: maybe redundant? could probably include a single sampler alongside layout.
     pub transmittance_lut: Sampler,
     pub multiscattering_lut: Sampler,
     pub sky_view_lut: Sampler,

@@ -1,4 +1,11 @@
-#import bevy_pbr::atmosphere::types::{Atmosphere, AtmosphereSettings};
+#import bevy_pbr::{
+    atmosphere::{
+        types::{Atmosphere, AtmosphereSettings},
+        functions::{distance_to_top_atmosphere_boundary, sample_atmosphere, sample_local_inscattering}
+    }
+    mesh_view_types::Lights
+}
+#import bevy_render::view::View;
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
 @group(0) @binding(0) var<uniform> atmosphere: Atmosphere;

@@ -174,11 +174,7 @@ impl ViewNode for AtmosphereNode {
                 .y
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
 
-            aerial_view_lut_pass.dispatch_workgroups(
-                workgroups_x,
-                workgroups_y,
-                settings.aerial_view_lut_size.z,
-            );
+            aerial_view_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
         }
 
         render_context.command_encoder().pop_debug_group();

@@ -20,7 +20,7 @@ struct Atmosphere {
     ozone_layer_center_altitude: f32, //units: km
     ozone_layer_half_width: f32, //units: km
     ozone_absorption: vec3<f32>, //ozone absorption. units: km^-1
-};
+}
 
 struct AtmosphereSettings {
     transmittance_lut_size: vec2<f32>,

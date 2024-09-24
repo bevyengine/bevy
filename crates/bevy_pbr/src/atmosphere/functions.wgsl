@@ -1,6 +1,9 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_pbr::atmosphere::types::Atmosphere,
+#import bevy_pbr::{
+    atmosphere::types::Atmosphere,
+    mesh_view_types::Lights,
+}
 
 // Mapping from view height (r) and zenith cos angle (mu) to UV coordinates in the transmittance LUT
 // Assuming r between ground and top atmosphere boundary, and mu = cos(zenith_angle)
@@ -61,8 +64,8 @@ fn multiscattering_lut_r_mu_to_uv(atmosphere: Atmosphere, r: f32, mu: f32) -> ve
 }
 
 fn multiscattering_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
-    let r = lerp(0, atmosphere.top_radius - atmosphere.bottom_radius, uv.v);
-    let mu = uv.u * 2 - 1;
+    let r = (atmosphere.top_radius - atmosphere.bottom_radius) * uv.y;
+    let mu = uv.x * 2 - 1;
     return vec2(r, mu);
 }
 
@@ -73,7 +76,7 @@ fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
 
 //TODO:
 fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
-    return vec2(0.0)
+    return vec2(0.0);
 }
 
 fn sample_transmittance_lut(atmosphere: Atmosphere, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
@@ -112,7 +115,7 @@ struct AtmosphereSample {
     scattering: vec3<f32>,
     absorption: vec3<f32>,
     extinction: vec3<f32>
-};
+}
 
 //prob fine to return big struct because of inlining
 fn sample_atmosphere(atmosphere: Atmosphere, view_height: f32) -> AtmosphereSample {
@@ -152,7 +155,7 @@ const FRAC_3_16_PI: f32 = 0.0596831036594607509;
 const FRAC_4_PI: f32 = 0.07957747154594767;
 
 fn rayleigh(neg_LdotV: f32) -> f32 {
-    FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
+    return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
 }
 
 fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
@@ -163,9 +166,8 @@ fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
 fn sample_local_inscattering(atmosphere: Atmosphere, lights: Lights, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler, view_height: f32, view_dir: vec3<f32>) -> vec3<f32> {
     for (let light_i = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
-        let light_dir = (*light).direction_to_light
-        let mu_light = light_dir.y;
-        let neg_LdotV = dot(view_dir, light_dir);
+        let mu_light = (*light).direction_to_light.y;
+        let neg_LdotV = dot(view_dir, (*light).direction_to_light);
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg(LdotV), atmosphere.mie);
         let phase = rayleigh_phase + mie_phase; //TODO: check this
