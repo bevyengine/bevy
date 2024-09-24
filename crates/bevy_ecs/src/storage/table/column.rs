@@ -6,6 +6,7 @@ use crate::{
 use bevy_ptr::PtrMut;
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+///
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
 ///
 /// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe

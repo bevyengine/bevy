@@ -9,6 +9,7 @@ use bevy::remote::{
 };
 
 /// Struct containing the command-line arguments that can be passed to this example.
+///
 /// The components are passed by their full type names positionally, while `host`
 /// and `port` are optional arguments which should correspond to those used on
 /// the server.

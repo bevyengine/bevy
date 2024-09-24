@@ -369,6 +369,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
 }
 
 /// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+///
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(

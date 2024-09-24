@@ -14,6 +14,7 @@ pub(crate) enum LogEntry {
 }
 
 /// A "write ahead" logger that helps ensure asset importing is transactional.
+///
 /// Prior to processing an asset, we write to the log to indicate it has started
 /// After processing an asset, we write to the log to indicate it has finished.
 /// On startup, the log can be read to determine if any transactions were incomplete.

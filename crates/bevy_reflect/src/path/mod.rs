@@ -571,7 +571,7 @@ mod tests {
         }
     }
 
-    fn access_field(field: &'static str) -> Access {
+    fn access_field(field: &'static str) -> Access<'static> {
         Access::Field(field.into())
     }
 

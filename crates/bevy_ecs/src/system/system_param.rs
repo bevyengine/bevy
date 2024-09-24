@@ -1970,6 +1970,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
 unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
 /// A [`SystemParam`] with a type that can be configured at runtime.
+///
 /// To be useful, this must be configured using a [`DynParamBuilder`](crate::system::DynParamBuilder) to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
 ///
 /// # Examples
