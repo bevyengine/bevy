@@ -9,7 +9,6 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, Resource, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 
 /// A Plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
@@ -159,7 +158,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                 }
                 EntityRecord::Removed(e) => {
                     if let Some(ec) = render_world.get_entity_mut(e) {
-                        ec.despawn_recursive();
+                        ec.despawn();
                     };
                 }
             }
