@@ -314,18 +314,14 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.try_apply(value)?;
-                }
+        let tuple_struct = value.reflect_ref().as_tuple_struct()?;
+
+        for (i, value) in tuple_struct.iter_fields().enumerate() {
+            if let Some(v) = self.field_mut(i) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::TupleStruct,
-            });
         }
+
         Ok(())
     }
 

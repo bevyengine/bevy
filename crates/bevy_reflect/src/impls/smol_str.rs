@@ -1,8 +1,8 @@
 use crate::{self as bevy_reflect};
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
-use bevy_reflect_derive::impl_reflect_value;
+use bevy_reflect_derive::impl_reflect_opaque;
 
-impl_reflect_value!(::smol_str::SmolStr(
+impl_reflect_opaque!(::smol_str::SmolStr(
     Debug,
     Hash,
     PartialEq,

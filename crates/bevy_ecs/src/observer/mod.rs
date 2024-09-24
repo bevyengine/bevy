@@ -13,6 +13,7 @@ use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -90,7 +91,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
     /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
-    /// use `TraverseNone` which ends the path immediately and prevents propagation.
+    /// use `()` which ends the path immediately and prevents propagation.
     ///
     /// To enable propagation, you must:
     /// + Set [`Event::Traversal`] to the component you want to propagate along.
@@ -119,6 +120,20 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
             .field("trigger", &self.trigger)
             .field("_marker", &self._marker)
             .finish()
+    }
+}
+
+impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+    type Target = E;
+
+    fn deref(&self) -> &Self::Target {
+        self.event
+    }
+}
+
+impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.event
     }
 }
 
@@ -349,14 +364,39 @@ impl World {
         self.spawn(Observer::new(system))
     }
 
-    /// Triggers the given `event`, which will run any observers watching for it.
+    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+    ///
+    /// While event types commonly implement [`Copy`],
+    /// those that don't will be consumed and will no longer be accessible.
+    /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     pub fn trigger(&mut self, event: impl Event) {
         TriggerEvent { event, targets: () }.trigger(self);
     }
 
-    /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
+    /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
+    ///
+    /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
+    /// or use the event after it has been modified by observers.
+    pub fn trigger_ref(&mut self, event: &mut impl Event) {
+        TriggerEvent { event, targets: () }.trigger_ref(self);
+    }
+
+    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    ///
+    /// While event types commonly implement [`Copy`],
+    /// those that don't will be consumed and will no longer be accessible.
+    /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         TriggerEvent { event, targets }.trigger(self);
+    }
+
+    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// which will run any [`Observer`]s watching for it.
+    ///
+    /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
+    /// or use the event after it has been modified by observers.
+    pub fn trigger_targets_ref(&mut self, event: &mut impl Event, targets: impl TriggerTargets) {
+        TriggerEvent { event, targets }.trigger_ref(self);
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -507,6 +547,11 @@ mod tests {
     #[derive(Event)]
     struct EventA;
 
+    #[derive(Event)]
+    struct EventWithData {
+        counter: usize,
+    }
+
     #[derive(Resource, Default)]
     struct Order(Vec<&'static str>);
 
@@ -520,9 +565,9 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for Parent {
-        fn traverse(&self) -> Option<Entity> {
-            Some(self.0)
+    impl Traversal for &'_ Parent {
+        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+            Some(item.0)
         }
     }
 
@@ -530,7 +575,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traversal = Parent;
+        type Traversal = &'static Parent;
 
         const AUTO_PROPAGATE: bool = true;
     }
@@ -650,6 +695,39 @@ mod tests {
             vec!["add_a", "add_b", "remove_a", "remove_b"],
             world.resource::<Order>().0
         );
+    }
+
+    #[test]
+    fn observer_trigger_ref() {
+        let mut world = World::new();
+
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 1);
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 2);
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 4);
+        // This flush is required for the last observer to be called when triggering the event,
+        // due to `World::observe` returning `WorldEntityMut`.
+        world.flush();
+
+        let mut event = EventWithData { counter: 0 };
+        world.trigger_ref(&mut event);
+        assert_eq!(7, event.counter);
+    }
+
+    #[test]
+    fn observer_trigger_targets_ref() {
+        let mut world = World::new();
+
+        world.observe(|mut trigger: Trigger<EventWithData, A>| trigger.event_mut().counter += 1);
+        world.observe(|mut trigger: Trigger<EventWithData, B>| trigger.event_mut().counter += 2);
+        world.observe(|mut trigger: Trigger<EventWithData, A>| trigger.event_mut().counter += 4);
+        // This flush is required for the last observer to be called when triggering the event,
+        // due to `World::observe` returning `WorldEntityMut`.
+        world.flush();
+
+        let mut event = EventWithData { counter: 0 };
+        let component_a = world.init_component::<A>();
+        world.trigger_targets_ref(&mut event, component_a);
+        assert_eq!(5, event.counter);
     }
 
     #[test]
@@ -1081,5 +1159,27 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14467
+    // Fails prior to https://github.com/bevyengine/bevy/pull/15398
+    #[test]
+    fn observer_on_remove_during_despawn_spawn_empty() {
+        let mut world = World::new();
+
+        // Observe the removal of A - this will run during despawn
+        world.observe(|_: Trigger<OnRemove, A>, mut cmd: Commands| {
+            // Spawn a new entity - this reserves a new ID and requires a flush
+            // afterward before Entities::free can be called.
+            cmd.spawn_empty();
+        });
+
+        let ent = world.spawn(A).id();
+
+        // Despawn our entity, which runs the OnRemove observer and allocates a
+        // new Entity.
+        // Should not panic - if it does, then Entities was not flushed properly
+        // after the observer's spawn_empty.
+        world.despawn(ent);
     }
 }
