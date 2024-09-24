@@ -837,6 +837,21 @@ mod tests {
     }
 
     #[test]
+    fn cached_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) {
+            counter.0 = 1;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+
+        assert_eq!(world.resource::<Counter>().0, 1);
+    }
+
+    #[test]
     fn system_with_input_ref() {
         fn with_ref(InRef(input): InRef<u8>, mut counter: ResMut<Counter>) {
             counter.0 += *input;
