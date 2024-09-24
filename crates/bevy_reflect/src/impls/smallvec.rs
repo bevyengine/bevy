@@ -194,15 +194,15 @@ where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
-            }
-            Some(new_list)
-        } else {
-            None
+        let ref_list = reflect.reflect_ref().as_list().ok()?;
+
+        let mut new_list = Self::with_capacity(ref_list.len());
+
+        for field in ref_list.iter() {
+            new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
         }
+
+        Some(new_list)
     }
 }
 

@@ -249,7 +249,7 @@ mod tests {
     use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};
     use bevy_app::App;
     use bevy_ecs::reflect::AppTypeRegistry;
-    use bevy_reflect::{Reflect, ReflectMut};
+    use bevy_reflect::Reflect;
 
     #[derive(Asset, Reflect)]
     struct AssetType {
@@ -278,13 +278,13 @@ mod tests {
         };
 
         let handle = reflect_asset.add(app.world_mut(), &value);
-        let ReflectMut::Struct(strukt) = reflect_asset
+        // struct is a reserved keyword, so we can't use it here
+        let strukt = reflect_asset
             .get_mut(app.world_mut(), handle)
             .unwrap()
             .reflect_mut()
-        else {
-            unreachable!();
-        };
+            .as_struct()
+            .unwrap();
         strukt
             .field_mut("field")
             .unwrap()

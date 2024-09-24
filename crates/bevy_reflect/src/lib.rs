@@ -156,7 +156,7 @@
 //! ```
 //! # use bevy_reflect::{PartialReflect, ReflectRef};
 //! let my_tuple: Box<dyn PartialReflect> = Box::new((1, 2, 3));
-//! let ReflectRef::Tuple(my_tuple) = my_tuple.reflect_ref() else { unreachable!() };
+//! let my_tuple = my_tuple.reflect_ref().as_tuple().unwrap();
 //! assert_eq!(3, my_tuple.field_len());
 //! ```
 //!
@@ -164,15 +164,17 @@
 //! we can just use the matching [`PartialReflect::as_partial_reflect`], [`PartialReflect::as_partial_reflect_mut`],
 //! or [`PartialReflect::into_partial_reflect`] methods.
 //!
-//! ## Value Types
+//! ## Opaque Types
 //!
-//! Types that do not fall under one of the above subtraits,
-//! such as for primitives (e.g. `bool`, `usize`, etc.)
-//! and simple types (e.g. `String`, `Duration`),
-//! are referred to as _value_ types
-//! since methods like [`PartialReflect::reflect_ref`] return a [`ReflectRef::Value`] variant.
-//! While most other types contain their own `dyn Reflect` fields and data,
-//! these types generally cannot be broken down any further.
+//! Some types don't fall under a particular subtrait.
+//!
+//! These types hide their internal structure to reflection,
+//! either because it is not possible, difficult, or not useful to reflect its internals.
+//! Such types are known as _opaque_ types.
+//!
+//! This includes truly opaque types like `String` or `Instant`,
+//! but also includes all the primitive types (e.g.  `bool`, `usize`, etc.)
+//! since they can't be broken down any further.
 //!
 //! # Dynamic Types
 //!
@@ -198,7 +200,7 @@
 //!
 //! They are most commonly used as "proxies" for other types,
 //! where they contain the same data as— and therefore, represent— a concrete type.
-//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-value types,
+//! The [`PartialReflect::clone_value`] method will return a dynamic type for all non-opaque types,
 //! allowing all types to essentially be "cloned".
 //! And since dynamic types themselves implement [`PartialReflect`],
 //! we may pass them around just like most other reflected types.
@@ -398,7 +400,7 @@
 //! The `TypedReflectSerializer` will simply output the serialized data.
 //!
 //! The `ReflectDeserializer` can be used to deserialize this map and return a `Box<dyn Reflect>`,
-//! where the underlying type will be a dynamic type representing some concrete type (except for value types).
+//! where the underlying type will be a dynamic type representing some concrete type (except for opaque types).
 //!
 //! Again, it's important to remember that dynamic types may need to be converted to their concrete counterparts
 //! in order to be used in certain cases.
@@ -545,6 +547,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod kind;
 mod list;
 mod map;
 mod path;
@@ -552,7 +555,6 @@ mod reflect;
 mod reflectable;
 mod remote;
 mod set;
-mod short_name;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -561,6 +563,8 @@ mod type_path;
 mod type_registry;
 
 mod impls {
+    mod std;
+
     #[cfg(feature = "glam")]
     mod glam;
     #[cfg(feature = "petgraph")]
@@ -569,10 +573,10 @@ mod impls {
     mod smallvec;
     #[cfg(feature = "smol_str")]
     mod smol_str;
-
-    mod std;
     #[cfg(feature = "uuid")]
     mod uuid;
+    #[cfg(feature = "wgpu-types")]
+    mod wgpu_types;
 }
 
 pub mod attributes;
@@ -603,6 +607,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use kind::*;
 pub use list::*;
 pub use map::*;
 pub use path::*;
@@ -619,7 +624,6 @@ pub use type_registry::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
-pub use short_name::ShortName;
 
 extern crate alloc;
 
@@ -676,6 +680,7 @@ pub mod __macro_exports {
 mod tests {
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    use disqualified::ShortName;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
@@ -773,11 +778,8 @@ mod tests {
 
         // nested retrieval
         let c = foo.field("c").unwrap();
-        if let ReflectRef::Struct(value) = c.reflect_ref() {
-            assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
-        } else {
-            panic!("Expected a struct.");
-        }
+        let value = c.reflect_ref().as_struct().unwrap();
+        assert_eq!(*value.get_field::<u32>("x").unwrap(), 1);
 
         // patch Foo with a dynamic struct
         let mut dynamic_struct = DynamicStruct::default();
@@ -1792,7 +1794,7 @@ mod tests {
         // Cow<'static, str>
         type MyCowStr = Cow<'static, str>;
 
-        let info = MyCowStr::type_info().as_value().unwrap();
+        let info = MyCowStr::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyCowStr>());
         assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
@@ -1837,7 +1839,7 @@ mod tests {
         // Value
         type MyValue = String;
 
-        let info = MyValue::type_info().as_value().unwrap();
+        let info = MyValue::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyValue>());
         assert_eq!(MyValue::type_path(), info.type_path());
@@ -1956,7 +1958,7 @@ mod tests {
 
             #[derive(Clone)]
             struct SomePrimitive;
-            impl_reflect_value!(
+            impl_reflect_opaque!(
                 /// Some primitive for which we have attributed custom documentation.
                 (in bevy_reflect::tests) SomePrimitive
             );
@@ -2156,27 +2158,6 @@ bevy_reflect::tests::Test {
         #[derive(Hash, PartialEq, Reflect)]
         #[reflect(Debug, Hash)]
         #[reflect(PartialEq)]
-        struct Foo(i32);
-
-        impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                write!(f, "Foo")
-            }
-        }
-
-        let foo = Foo(123);
-        let foo: &dyn PartialReflect = &foo;
-
-        assert!(foo.reflect_hash().is_some());
-        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
-        assert_eq!("Foo".to_string(), format!("{foo:?}"));
-    }
-
-    #[test]
-    fn multiple_reflect_value_lists() {
-        #[derive(Clone, Hash, PartialEq, Reflect)]
-        #[reflect_value(Debug, Hash)]
-        #[reflect_value(PartialEq)]
         struct Foo(i32);
 
         impl Debug for Foo {
@@ -2591,7 +2572,8 @@ bevy_reflect::tests::Test {
         // === Remote Wrapper === //
         #[reflect_remote(external_crate::TheirType)]
         #[derive(Clone, Debug, Default)]
-        #[reflect_value(Debug, Default)]
+        #[reflect(opaque)]
+        #[reflect(Debug, Default)]
         struct MyType {
             pub value: String,
         }
