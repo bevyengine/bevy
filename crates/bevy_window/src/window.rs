@@ -126,8 +126,7 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default, Debug)]
 pub struct Window {
-    /// The cursor options of this window. Cursor icons are set with the `CursorIcon` component on the
-    /// window entity.
+    /// The cursor options of this window. See `bevy_render` on how to change the cursor to a custom or system one.
     pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,

@@ -44,21 +44,21 @@ pub enum CursorIcon {
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change the [`bevy_window::window::Window`]
+    ///     To stop the cursor from leaving the window, change the [`bevy_window::Window`]
     ///     entity's
-    ///     [`bevy_window::window::CursorOptions::grab_mode`] to
-    ///     [`bevy_window::window::CursorGrabMode::Locked`] or
-    ///     [`bevy_window::window::CursorGrabMode::Confined`]
+    ///     [`bevy_window::CursorOptions`] [`bevy_window::CursorGrabMode`] to
+    ///     [`bevy_window::CursorGrabMode::Locked`] or
+    ///     [`bevy_window::CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     ///
     /// # Note for developers
     ///
-    /// This was originally part of the [`bevy_window::window::CursorOptions`] component
+    /// This was originally part of the [`bevy_window::CursorOptions`] component
     /// as the `visible` field but it was moved out after adding Custom cursors. Before,
     /// since we only had system cursors provided by the OS, this was heavily tied into
     /// the implementation provided by [`bevy_winit`]. Now, you can think of this as part
-    /// of the [`bevy_render`] level, hence the drift from the original [`bevy_winit`]
+    /// of the `bevy_render` level, hence the drift from the original [`bevy_winit`]
     /// coupled API.
     Hidden,
     /// Custom cursor image.
@@ -222,7 +222,7 @@ fn image_to_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
     }
 }
 
-/// We need to add this here becase we can't do it inside of [`bevy_winit`] due to issues
+/// We need to add this here because we can't do it inside of [`bevy_winit`] due to issues
 /// with circular dependencies. Before we had custom cursors, these cursor related options
 /// would just be created automatically with the [`Window`] component, now however, this
 /// has to be made with the creation of the window so that users can set the visibility
