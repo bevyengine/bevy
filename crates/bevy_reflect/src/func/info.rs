@@ -2,9 +2,11 @@ use alloc::borrow::Cow;
 
 use bevy_utils::all_tuples;
 
-use crate::func::args::{ArgInfo, GetOwnership, Ownership};
-use crate::type_info::impl_type_methods;
-use crate::{Type, TypePath};
+use crate::{
+    func::args::{ArgInfo, GetOwnership, Ownership},
+    type_info::impl_type_methods,
+    Type, TypePath,
+};
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

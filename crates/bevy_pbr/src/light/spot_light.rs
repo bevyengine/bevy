@@ -1,6 +1,7 @@
 use super::*;
 
 /// A light that emits light in a given direction from a central point.
+///
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).

@@ -1,7 +1,9 @@
 //! The animation graph, which allows animations to be blended together.
 
-use std::io::{self, Write};
-use std::ops::{Index, IndexMut};
+use std::{
+    io::{self, Write},
+    ops::{Index, IndexMut},
+};
 
 use bevy_asset::{io::Reader, Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};

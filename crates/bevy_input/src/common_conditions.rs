@@ -47,7 +47,6 @@ use std::hash::Hash;
 /// fn pause_menu() {
 ///     println!("in pause menu");
 /// }
-///
 /// ```
 pub fn input_toggle_active<T>(
     default: bool,

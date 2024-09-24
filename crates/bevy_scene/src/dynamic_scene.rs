@@ -1,7 +1,6 @@
 use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -209,13 +208,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::{Entity, EntityHashMap, EntityMapper, MapEntities};
-    use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
-    use bevy_ecs::system::Resource;
-    use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
+    use bevy_ecs::{
+        component::Component,
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        reflect::{
+            AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectMapEntitiesResource,
+            ReflectResource,
+        },
+        system::Resource,
+        world::{Command, World},
+    };
     use bevy_hierarchy::{AddChild, Parent};
     use bevy_reflect::Reflect;
 
+    use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
     #[derive(Resource, Reflect, Debug)]
@@ -346,5 +352,52 @@ mod tests {
                 .get(),
             "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
         );
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14300
+    // Fails before the fix in https://github.com/bevyengine/bevy/pull/15405
+    #[test]
+    fn no_panic_in_map_entities_after_pending_entity_in_hook() {
+        #[derive(Default, Component, Reflect)]
+        #[reflect(Component)]
+        struct A;
+
+        #[derive(Component, Reflect)]
+        #[reflect(Component, MapEntities)]
+        struct B(pub Entity);
+
+        impl MapEntities for B {
+            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+                self.0 = entity_mapper.map_entity(self.0);
+            }
+        }
+
+        let reg = AppTypeRegistry::default();
+        {
+            let mut reg_write = reg.write();
+            reg_write.register::<A>();
+            reg_write.register::<B>();
+        }
+
+        let mut scene_world = World::new();
+        scene_world.insert_resource(reg.clone());
+        scene_world.spawn((B(Entity::PLACEHOLDER), A));
+        let scene = DynamicScene::from_world(&scene_world);
+
+        let mut dst_world = World::new();
+        dst_world
+            .register_component_hooks::<A>()
+            .on_add(|mut world, _, _| {
+                world.commands().spawn_empty();
+            });
+        dst_world.insert_resource(reg.clone());
+
+        // Should not panic.
+        // Prior to fix, the `Entities::alloc` call in
+        // `EntityMapper::map_entity` would panic due to pending entities from the observer
+        // not having been flushed.
+        scene
+            .write_to_world(&mut dst_world, &mut Default::default())
+            .unwrap();
     }
 }

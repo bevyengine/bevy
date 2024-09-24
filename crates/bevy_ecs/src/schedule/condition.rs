@@ -1,8 +1,8 @@
-use std::borrow::Cow;
-use std::ops::Not;
+use std::{borrow::Cow, ops::Not};
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
+    SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -57,7 +57,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// fn identity() -> impl Condition<(), bool> {
+/// fn identity() -> impl Condition<(), In<bool>> {
 ///     IntoSystem::into_system(|In(x)| x)
 /// }
 ///
@@ -70,7 +70,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # world.insert_resource(DidRun(false));
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
-pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
+pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
     ///
@@ -79,7 +79,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```should_panic
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource, PartialEq)]
@@ -89,7 +89,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
-    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // The `resource_equals` run condition will fail since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );
@@ -130,7 +130,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     ///
     /// # Examples
     ///
-    /// ```should_panic
+    /// ```
     /// use bevy_ecs::prelude::*;
     ///
     /// #[derive(Resource, PartialEq)]
@@ -140,7 +140,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # let mut world = World::new();
     /// # fn my_system() {}
     /// app.add_systems(
-    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // The `resource_equals` run condition will fail since we don't initialize `R`,
     ///     // just like if we used `Res<R>` in a system.
     ///     my_system.run_if(resource_equals(R(0))),
     /// );
@@ -466,12 +466,12 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     }
 }
 
-impl<Marker, In, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
+impl<Marker, In: SystemInput, F> Condition<Marker, In> for F where F: sealed::Condition<Marker, In> {}
 
 mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem};
+    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
 
-    pub trait Condition<Marker, In>:
+    pub trait Condition<Marker, In: SystemInput>:
         IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
     {
         // This associated type is necessary to let the compiler
@@ -479,7 +479,7 @@ mod sealed {
         type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
     }
 
-    impl<Marker, In, F> Condition<Marker, In> for F
+    impl<Marker, In: SystemInput, F> Condition<Marker, In> for F
     where
         F: IntoSystem<In, bool, Marker>,
         F::System: ReadOnlySystem,
@@ -496,7 +496,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{In, IntoSystem, Local, Res, Resource, System},
+        system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
 
     /// A [`Condition`]-satisfying system that returns `true`
@@ -1110,14 +1110,16 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed<Marker, CIn, C: Condition<Marker, CIn>>(
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
+    pub fn condition_changed<Marker, CIn, C>(condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput,
+        C: Condition<Marker, CIn>,
+    {
+        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
             let changed = *prev != new;
             *prev = new;
             changed
-        })
+        }))
     }
 
     /// Generates a [`Condition`] that returns true when the result of
@@ -1164,36 +1166,40 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_changed_to<Marker, CIn, C: Condition<Marker, CIn>>(
-        to: bool,
-        condition: C,
-    ) -> impl Condition<(), CIn> {
-        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let now_true = *prev != new && new == to;
-            *prev = new;
-            now_true
-        })
+    pub fn condition_changed_to<Marker, CIn, C>(to: bool, condition: C) -> impl Condition<(), CIn>
+    where
+        CIn: SystemInput,
+        C: Condition<Marker, CIn>,
+    {
+        IntoSystem::into_system(condition.pipe(
+            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+                let now_true = *prev != new && new == to;
+                *prev = new;
+                now_true
+            },
+        ))
     }
 }
 
 /// Invokes [`Not`] with the output of another system.
 ///
 /// See [`common_conditions::not`] for examples.
-pub type NotSystem<T> = AdapterSystem<NotMarker, T>;
+pub type NotSystem<S> = AdapterSystem<NotMarker, S>;
 
 /// Used with [`AdapterSystem`] to negate the output of a system via the [`Not`] operator.
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct NotMarker;
 
-impl<T: System> Adapt<T> for NotMarker
-where
-    T::Out: Not,
-{
-    type In = T::In;
-    type Out = <T::Out as Not>::Output;
+impl<S: System<Out: Not>> Adapt<S> for NotMarker {
+    type In = S::In;
+    type Out = <S::Out as Not>::Output;
 
-    fn adapt(&mut self, input: Self::In, run_system: impl FnOnce(T::In) -> T::Out) -> Self::Out {
+    fn adapt(
+        &mut self,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
+    ) -> Self::Out {
         !run_system(input)
     }
 }
@@ -1221,7 +1227,7 @@ pub struct AndMarker;
 
 impl<In, A, B> Combine<A, B> for AndMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1229,9 +1235,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
     ) -> Self::Out {
         a(input) && b(input)
     }
@@ -1242,7 +1248,7 @@ pub struct NandMarker;
 
 impl<In, A, B> Combine<A, B> for NandMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1250,9 +1256,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) && b(input))
     }
@@ -1263,7 +1269,7 @@ pub struct NorMarker;
 
 impl<In, A, B> Combine<A, B> for NorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1271,9 +1277,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) || b(input))
     }
@@ -1284,7 +1290,7 @@ pub struct OrMarker;
 
 impl<In, A, B> Combine<A, B> for OrMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1292,9 +1298,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         a(input) || b(input)
     }
@@ -1305,7 +1311,7 @@ pub struct XnorMarker;
 
 impl<In, A, B> Combine<A, B> for XnorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1313,9 +1319,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         !(a(input) ^ b(input))
     }
@@ -1326,7 +1332,7 @@ pub struct XorMarker;
 
 impl<In, A, B> Combine<A, B> for XorMarker
 where
-    In: Copy,
+    for<'a> In: SystemInput<Inner<'a>: Copy>,
     A: System<In = In, Out = bool>,
     B: System<In = In, Out = bool>,
 {
@@ -1334,9 +1340,9 @@ where
     type Out = bool;
 
     fn combine(
-        input: Self::In,
-        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
-        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+        input: <Self::In as SystemInput>::Inner<'_>,
+        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
+        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
     ) -> Self::Out {
         a(input) ^ b(input)
     }
@@ -1346,12 +1352,14 @@ where
 mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::schedule::IntoSystemConfigs;
-    use crate::system::Local;
-    use crate::{change_detection::ResMut, schedule::Schedule, world::World};
-    use bevy_ecs_macros::Event;
-    use bevy_ecs_macros::Resource;
+    use crate::{
+        change_detection::ResMut,
+        component::Component,
+        schedule::{IntoSystemConfigs, Schedule},
+        system::Local,
+        world::World,
+    };
+    use bevy_ecs_macros::{Event, Resource};
 
     #[derive(Resource, Default)]
     struct Counter(usize);

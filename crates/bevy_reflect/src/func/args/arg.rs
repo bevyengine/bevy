@@ -1,5 +1,7 @@
-use crate::func::args::{ArgError, FromArg, Ownership};
-use crate::{PartialReflect, Reflect, TypePath};
+use crate::{
+    func::args::{ArgError, FromArg, Ownership},
+    PartialReflect, Reflect, TypePath,
+};
 use std::ops::Deref;
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].

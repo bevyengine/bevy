@@ -1,5 +1,4 @@
 use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
-use bevy_reflect::prelude::*;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
 criterion_group!(benches, typed, into, call, clone);

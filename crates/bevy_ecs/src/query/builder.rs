@@ -1,7 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::component::StorageType;
-use crate::{component::ComponentId, prelude::*};
+use crate::{
+    component::{ComponentId, StorageType},
+    prelude::*,
+};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
 
@@ -32,7 +34,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
-///```
+/// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,
@@ -275,8 +277,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::*;
-    use crate::world::FilteredEntityRef;
+    use crate::{prelude::*, world::FilteredEntityRef};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);

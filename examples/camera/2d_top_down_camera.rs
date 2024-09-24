@@ -9,10 +9,12 @@
 //! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::math::vec3;
-use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::{
+    core_pipeline::bloom::Bloom,
+    math::vec3,
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;

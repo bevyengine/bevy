@@ -79,8 +79,8 @@ impl Deref for Parent {
 /// `Parent::traverse` will never form loops in properly-constructed hierarchies.
 ///
 /// [event propagation]: bevy_ecs::observer::Trigger::propagate
-impl Traversal for Parent {
-    fn traverse(&self) -> Option<Entity> {
-        Some(self.0)
+impl Traversal for &Parent {
+    fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+        Some(item.0)
     }
 }

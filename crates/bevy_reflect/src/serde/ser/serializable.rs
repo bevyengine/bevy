@@ -1,5 +1,6 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
+use crate::{
+    serde::ser::error_utils::make_custom_error, PartialReflect, ReflectSerialize, TypeRegistry,
+};
 use serde::ser::Error;
 use std::ops::Deref;
 

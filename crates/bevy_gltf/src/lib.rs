@@ -107,8 +107,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,

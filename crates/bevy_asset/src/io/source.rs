@@ -4,8 +4,10 @@ use crate::{
 };
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_utils::tracing::{error, warn};
-use bevy_utils::{Duration, HashMap};
+use bevy_utils::{
+    tracing::{error, warn},
+    Duration, HashMap,
+};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 

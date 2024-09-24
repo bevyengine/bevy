@@ -169,6 +169,7 @@ fn spawn_text(mut commands: Commands) {
 }
 
 /// Handle keyboard input and accumulate it in the `AccumulatedInput` component.
+///
 /// There are many strategies for how to handle all the input that happened since the last fixed timestep.
 /// This is a very simple one: we just accumulate the input and average it out by normalizing it.
 fn handle_input(

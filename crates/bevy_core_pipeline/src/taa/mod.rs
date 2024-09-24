@@ -15,8 +15,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
