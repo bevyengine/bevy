@@ -1,93 +1,69 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::pbr_bindings
-#import bevy_pbr::mesh_bindings
+#import bevy_pbr::{
+    pbr_functions::alpha_discard,
+    pbr_fragment::pbr_input_from_standard_material,
+}
 
-#import bevy_pbr::utils
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::lighting
-#import bevy_pbr::shadows
-#import bevy_pbr::pbr_functions
+#ifdef PREPASS_PIPELINE
+#import bevy_pbr::{
+    prepass_io::{VertexOutput, FragmentOutput},
+    pbr_deferred_functions::deferred_output,
+}
+#else
+#import bevy_pbr::{
+    forward_io::{VertexOutput, FragmentOutput},
+    pbr_functions,
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
+    pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
+}
+#endif
 
-struct FragmentInput {
-    [[builtin(front_facing)]] is_front: bool;
-    [[builtin(position)]] frag_coord: vec4<f32>;
-    [[location(0)]] world_position: vec4<f32>;
-    [[location(1)]] world_normal: vec3<f32>;
-    [[location(2)]] uv: vec2<f32>;
-#ifdef VERTEX_TANGENTS
-    [[location(3)]] world_tangent: vec4<f32>;
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif
-#ifdef VERTEX_COLORS
-    [[location(4)]] color: vec4<f32>;
-#endif
-};
 
-[[stage(fragment)]]
-fn fragment(in: FragmentInput) -> [[location(0)]] vec4<f32> {
-    var output_color: vec4<f32> = material.base_color;
-#ifdef VERTEX_COLORS
-    output_color = output_color * in.color;
+@fragment
+fn fragment(
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    @builtin(position) frag_coord: vec4<f32>,
+#else
+    in: VertexOutput,
+    @builtin(front_facing) is_front: bool,
 #endif
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
+) -> FragmentOutput {
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    let in = resolve_vertex_output(frag_coord);
+    let is_front = true;
+#endif
+
+    // If we're in the crossfade section of a visibility range, conditionally
+    // discard the fragment according to the visibility pattern.
+#ifdef VISIBILITY_RANGE_DITHER
+    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+#endif
+
+    // generate a PbrInput struct from the StandardMaterial bindings
+    var pbr_input = pbr_input_from_standard_material(in, is_front);
+
+    // alpha discard
+    pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
+
+#ifdef PREPASS_PIPELINE
+    // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
+    let out = deferred_output(in, pbr_input);
+#else
+    // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
+    // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader
+    var out: FragmentOutput;
+    if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        out.color = apply_pbr_lighting(pbr_input);
+    } else {
+        out.color = pbr_input.material.base_color;
     }
 
-    // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
-        // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
-        // the material members
-        var pbr_input: PbrInput;
-
-        pbr_input.material.base_color = output_color;
-        pbr_input.material.reflectance = material.reflectance;
-        pbr_input.material.flags = material.flags;
-        pbr_input.material.alpha_cutoff = material.alpha_cutoff;
-
-        // TODO use .a for exposure compensation in HDR
-        var emissive: vec4<f32> = material.emissive;
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
-            emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
-        }
-        pbr_input.material.emissive = emissive;
-
-        var metallic: f32 = material.metallic;
-        var perceptual_roughness: f32 = material.perceptual_roughness;
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
-            let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv);
-            // Sampling from GLTF standard channels for now
-            metallic = metallic * metallic_roughness.b;
-            perceptual_roughness = perceptual_roughness * metallic_roughness.g;
-        }
-        pbr_input.material.metallic = metallic;
-        pbr_input.material.perceptual_roughness = perceptual_roughness;
-
-        var occlusion: f32 = 1.0;
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
-        }
-        pbr_input.occlusion = occlusion;
-
-        pbr_input.frag_coord = in.frag_coord;
-        pbr_input.world_position = in.world_position;
-        pbr_input.world_normal = in.world_normal;
-
-        pbr_input.is_orthographic = view.projection[3].w == 1.0;
-
-        pbr_input.N = prepare_normal(
-            material.flags,
-            in.world_normal,
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            in.world_tangent,
+    // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
+    // note this does not include fullscreen postprocessing effects like bloom.
+    out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
-#endif
-            in.uv,
-            in.is_front,
-        );
-        pbr_input.V = calculate_view(in.world_position, pbr_input.is_orthographic);
 
-        output_color = tone_mapping(pbr(pbr_input));
-    }
-
-    return output_color;
+    return out;
 }

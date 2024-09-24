@@ -1,62 +1,105 @@
-use crate::Reflect;
-use std::any::{Any, TypeId};
-use std::borrow::Cow;
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::type_info::impl_type_methods;
+use crate::{MaybeTyped, PartialReflect, Type, TypeInfo, TypePath};
+use std::sync::Arc;
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
-    name: Cow<'static, str>,
-    type_name: &'static str,
-    type_id: TypeId,
+    name: &'static str,
+    type_info: fn() -> Option<&'static TypeInfo>,
+    ty: Type,
+    custom_attributes: Arc<CustomAttributes>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(name: &'static str) -> Self {
         Self {
-            name: name.into(),
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            name,
+            type_info: T::maybe_type_info,
+            ty: Type::of::<T>(),
+            custom_attributes: Arc::new(CustomAttributes::default()),
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this field.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
         }
     }
 
     /// The name of the field.
-    pub fn name(&self) -> &Cow<'static, str> {
-        &self.name
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
-    /// The [type name] of the field.
+    /// The [`TypeInfo`] of the field.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    ///
+    /// Returns `None` if the field does not contain static type information,
+    /// such as for dynamic types.
+    pub fn type_info(&self) -> Option<&'static TypeInfo> {
+        (self.type_info)()
     }
 
-    /// The [`TypeId`] of the field.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
+    impl_type_methods!(ty);
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 
-    /// Check if the given type matches the field type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_custom_attribute_methods!(self.custom_attributes, "field");
 }
 
 /// The unnamed field of a reflected tuple or tuple struct.
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
-    type_name: &'static str,
-    type_id: TypeId,
+    type_info: fn() -> Option<&'static TypeInfo>,
+    ty: Type,
+    custom_attributes: Arc<CustomAttributes>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect>(index: usize) -> Self {
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            type_info: T::maybe_type_info,
+            ty: Type::of::<T>(),
+            custom_attributes: Arc::new(CustomAttributes::default()),
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this field.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
         }
     }
 
@@ -65,20 +108,22 @@ impl UnnamedField {
         self.index
     }
 
-    /// The [type name] of the field.
+    /// The [`TypeInfo`] of the field.
     ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    ///
+    /// Returns `None` if the field does not contain static type information,
+    /// such as for dynamic types.
+    pub fn type_info(&self) -> Option<&'static TypeInfo> {
+        (self.type_info)()
     }
 
-    /// The [`TypeId`] of the field.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
+    impl_type_methods!(ty);
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 
-    /// Check if the given type matches the field type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_custom_attribute_methods!(self.custom_attributes, "field");
 }

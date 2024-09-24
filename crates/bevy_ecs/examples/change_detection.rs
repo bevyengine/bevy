@@ -1,14 +1,15 @@
+//! In this example we will simulate a population of entities. In every tick we will:
+//! 1. spawn a new entity with a certain possibility
+//! 2. age all entities
+//! 3. despawn entities with age > 2
+//!
+//! To demonstrate change detection, there are some console outputs based on changes in
+//! the `EntityCounter` resource and updated Age components
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
-// In this example we will simulate a population of entities. In every tick we will:
-// 1. spawn a new entity with a certain possibility
-// 2. age all entities
-// 3. despawn entities with age > 2
-//
-// To demonstrate change detection, there are some console outputs based on changes in
-// the EntityCounter resource and updated Age components
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
     let mut world = World::new();
@@ -16,31 +17,28 @@ fn main() {
     // Add the counter resource to remember how many entities where spawned
     world.insert_resource(EntityCounter { value: 0 });
 
-    // Create a new Schedule, which defines an execution strategy for Systems
+    // Create a new Schedule, which stores systems and controls their relative ordering
     let mut schedule = Schedule::default();
-    // Create a Stage to add to our Schedule. Each Stage in a schedule runs all of its systems
-    // before moving on to the next Stage
-    let mut update = SystemStage::parallel();
 
-    // Add systems to the Stage to execute our app logic
+    // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
-    update.add_system(spawn_entities.label(SimulationSystem::Spawn));
-    update.add_system(print_counter_when_changed.after(SimulationSystem::Spawn));
-    update.add_system(age_all_entities.label(SimulationSystem::Age));
-    update.add_system(remove_old_entities.after(SimulationSystem::Age));
-    update.add_system(print_changed_entities.after(SimulationSystem::Age));
-    // Add the Stage with our systems to the Schedule
-    schedule.add_stage("update", update);
+    schedule.add_systems((
+        spawn_entities.in_set(SimulationSet::Spawn),
+        print_counter_when_changed.after(SimulationSet::Spawn),
+        age_all_entities.in_set(SimulationSet::Age),
+        remove_old_entities.after(SimulationSet::Age),
+        print_changed_entities.after(SimulationSet::Age),
+    ));
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
 
 // This struct will be used as a Resource keeping track of the total amount of spawned entities
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct EntityCounter {
     pub value: i32,
 }
@@ -51,9 +49,9 @@ struct Age {
     frames: i32,
 }
 
-// System labels to enforce a run order of our systems
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
-enum SimulationSystem {
+// System sets can be used to group systems and configured to control relative ordering
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+enum SimulationSet {
     Spawn,
     Age,
 }
@@ -63,8 +61,8 @@ enum SimulationSystem {
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
     if rand::thread_rng().gen_bool(0.6) {
-        let entity_id = commands.spawn().insert(Age::default()).id();
-        println!("    spawning {:?}", entity_id);
+        let entity_id = commands.spawn(Age::default()).id();
+        println!("    spawning {entity_id:?}");
         entity_counter.value += 1;
     }
 }
@@ -79,32 +77,32 @@ fn print_changed_entities(
     entity_with_added_component: Query<Entity, Added<Age>>,
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
-    for entity in entity_with_added_component.iter() {
-        println!("    {:?} has it's first birthday!", entity);
+    for entity in &entity_with_added_component {
+        println!("    {entity:?} has it's first birthday!");
     }
-    for (entity, value) in entity_with_mutated_component.iter() {
-        println!("    {:?} is now {:?} frames old", entity, value);
+    for (entity, value) in &entity_with_mutated_component {
+        println!("    {entity:?} is now {value:?} frames old");
     }
 }
 
 // This system iterates over all entities and increases their age in every frame
 fn age_all_entities(mut entities: Query<&mut Age>) {
-    for mut age in entities.iter_mut() {
+    for mut age in &mut entities {
         age.frames += 1;
     }
 }
 
 // This system iterates over all entities in every frame and despawns entities older than 2 frames
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
-    for (entity, age) in entities.iter() {
+    for (entity, age) in &entities {
         if age.frames > 2 {
-            println!("    despawning {:?} due to age > 2", entity);
+            println!("    despawning {entity:?} due to age > 2");
             commands.entity(entity).despawn();
         }
     }
 }
 
-// This system will print the new counter value everytime it was changed since
+// This system will print the new counter value every time it was changed since
 // the last execution of the system.
 fn print_counter_when_changed(entity_counter: Res<EntityCounter>) {
     if entity_counter.is_changed() {

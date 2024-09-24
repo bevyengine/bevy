@@ -60,7 +60,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let empty_base = |_: usize| || HashMap::<u64, u64>::default();
+    let empty_base = |_: usize| HashMap::<u64, u64>::default;
 
     let key_range_base = |size: usize| {
         move || {
@@ -136,7 +136,7 @@ fn dynamic_map_apply(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let empty_base = |_: usize| || DynamicMap::default();
+    let empty_base = |_: usize| DynamicMap::default;
 
     let key_range_base = |size: usize| {
         move || {
@@ -240,8 +240,8 @@ fn dynamic_map_get(criterion: &mut Criterion) {
                 }
 
                 bencher.iter(|| {
-                    for i in 0..size {
-                        let key = black_box(&keys[i]);
+                    for key in keys.iter().take(size) {
+                        let key = black_box(key);
                         assert!(map.get(key).is_some());
                     }
                 });
@@ -262,7 +262,7 @@ fn dynamic_map_insert(criterion: &mut Criterion) {
             &size,
             |bencher, &size| {
                 bencher.iter_batched(
-                    || DynamicMap::default(),
+                    DynamicMap::default,
                     |mut map| {
                         for i in 0..size as u64 {
                             let key = black_box(i);

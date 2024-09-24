@@ -1,0 +1,6 @@
+(
+    text: "c",
+    dependencies: [],
+    embedded_dependencies: ["a.cool.ron", "foo/b.cool.ron"],
+    dependencies_with_settings: [],
+)

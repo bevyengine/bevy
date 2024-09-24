@@ -6,7 +6,7 @@ macro_rules! create_entities {
             #[derive(Component)]
             struct $variants(f32);
             for _ in 0..20 {
-                $world.spawn().insert_bundle(($variants(0.0), Data(1.0)));
+                $world.spawn(($variants(0.0), Data(1.0)));
             }
         )*
     };
@@ -27,6 +27,7 @@ impl<'w> Benchmark<'w> {
         Self(world, query)
     }
 
+    #[inline(never)]
     pub fn run(&mut self) {
         for mut data in self.1.iter_mut(&mut self.0) {
             data.0 *= 2.0;

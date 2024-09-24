@@ -2,4 +2,4 @@ mod children;
 mod parent;
 
 pub use children::Children;
-pub use parent::{Parent, PreviousParent};
+pub use parent::Parent;

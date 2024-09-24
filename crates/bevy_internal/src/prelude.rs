@@ -1,12 +1,16 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
-    input::prelude::*, log::prelude::*, math::prelude::*, reflect::prelude::*, scene::prelude::*,
-    time::prelude::*, transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
+    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
+    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, HeadlessPlugins,
     MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_asset")]
+pub use crate::asset::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_audio")]
@@ -15,6 +19,10 @@ pub use crate::audio::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_animation")]
 pub use crate::animation::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_color")]
+pub use crate::color::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_core_pipeline")]
@@ -29,6 +37,10 @@ pub use crate::pbr::prelude::*;
 pub use crate::render::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_scene")]
+pub use crate::scene::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_sprite")]
 pub use crate::sprite::prelude::*;
 
@@ -41,9 +53,21 @@ pub use crate::text::prelude::*;
 pub use crate::ui::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub use crate::dynamic_plugin::*;
+#[cfg(feature = "bevy_gizmos")]
+pub use crate::gizmos::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_state")]
+pub use crate::state::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_gltf")]
+pub use crate::gltf::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_picking")]
+pub use crate::picking::prelude::*;

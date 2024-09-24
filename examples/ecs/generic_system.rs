@@ -9,10 +9,11 @@
 //! For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
-use bevy::{ecs::component::Component, prelude::*};
+use bevy::prelude::*;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, States)]
 enum AppState {
+    #[default]
     MainMenu,
     InGame,
 }
@@ -21,7 +22,7 @@ enum AppState {
 struct TextToPrint(String);
 
 #[derive(Component, Deref, DerefMut)]
-struct PrinterTick(bevy::prelude::Timer);
+struct PrinterTick(Timer);
 
 #[derive(Component)]
 struct MenuClose;
@@ -32,41 +33,38 @@ struct LevelUnload;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state(AppState::MainMenu)
-        .add_startup_system(setup_system)
-        .add_system(print_text_system)
-        .add_system_set(
-            SystemSet::on_update(AppState::MainMenu).with_system(transition_to_in_game_system),
+        .init_state::<AppState>()
+        .add_systems(Startup, setup_system)
+        .add_systems(
+            Update,
+            (
+                print_text_system,
+                transition_to_in_game_system.run_if(in_state(AppState::MainMenu)),
+            ),
         )
-        // add the cleanup systems
-        .add_system_set(
-            // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
-            SystemSet::on_exit(AppState::MainMenu).with_system(cleanup_system::<MenuClose>),
-        )
-        .add_system_set(
-            SystemSet::on_exit(AppState::InGame).with_system(cleanup_system::<LevelUnload>),
-        )
+        // Cleanup systems.
+        // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
+        .add_systems(OnExit(AppState::MainMenu), cleanup_system::<MenuClose>)
+        .add_systems(OnExit(AppState::InGame), cleanup_system::<LevelUnload>)
         .run();
 }
 
 fn setup_system(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint(
-            "I will print until you press space.".to_string(),
-        ))
-        .insert(MenuClose);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will print until you press space.".to_string()),
+        MenuClose,
+    ));
 
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint("I will always print".to_string()))
-        .insert(LevelUnload);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will always print".to_string()),
+        LevelUnload,
+    ));
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
-    for (mut timer, text) in query.iter_mut() {
+    for (mut timer, text) in &mut query {
         if timer.tick(time.delta()).just_finished() {
             info!("{}", text.0);
         }
@@ -74,18 +72,18 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 }
 
 fn transition_to_in_game_system(
-    mut state: ResMut<State<AppState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
-        state.set(AppState::InGame).unwrap();
+        next_state.set(AppState::InGame);
     }
 }
 
 // Type arguments on functions come after the function name, but before ordinary arguments.
 // Here, the `Component` trait is a trait bound on T, our generic type
 fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
-    for e in query.iter() {
+    for e in &query {
         commands.entity(e).despawn_recursive();
     }
 }

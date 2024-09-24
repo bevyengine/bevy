@@ -4,7 +4,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{DynamicList, ReflectRef},
+    reflect::{DynamicList, PartialReflect, ReflectRef},
     utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -24,32 +24,43 @@ pub struct A {
     z: HashMap<String, f32>,
 }
 
-/// Deriving reflect on a unit struct will implement `Reflect` and `Struct` traits
+/// Deriving reflect on a unit struct will implement the `Reflect` and `Struct` traits
 #[derive(Reflect)]
 pub struct B;
 
-/// Deriving reflect on a tuple struct will implement `Reflect` and `TupleStruct` traits
+/// Deriving reflect on a tuple struct will implement the `Reflect` and `TupleStruct` traits
 #[derive(Reflect)]
 pub struct C(usize);
 
+/// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
+#[derive(Reflect)]
+#[allow(dead_code)]
+enum D {
+    A,
+    B(usize),
+    C { value: f32 },
+}
+
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::hash()`, `Reflect::partial_eq()`, and
-/// `Reflect::serialize()`. You can force these implementations to use the actual trait
+/// These are exposed via methods like `PartialReflect::reflect_hash()`,
+/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
+/// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
 #[reflect(Hash, Serialize, PartialEq)]
-pub struct D {
+pub struct E {
     x: usize,
 }
 
-/// By default, deriving with Reflect assumes the type is a "struct". You can tell reflect to treat
-/// your type as a "value type" by using the `reflect_value` attribute instead of `reflect`. It is
-/// generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
-/// traits on `reflect_value` types to ensure that these values behave as expected when nested
-/// underneath Reflect-ed structs.
+/// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
+/// You can tell reflect to treat your type instead as a "value type" by using the `reflect_value`
+/// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)
+/// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
+/// that these values behave as expected when nested underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
-pub enum E {
+#[allow(dead_code)]
+enum F {
     X,
     Y,
 }
@@ -82,6 +93,9 @@ fn setup() {
         // with fields via their indices. Tuple is automatically implemented for tuples of
         // arity 12 or less.
         ReflectRef::Tuple(_) => {}
+        // `Enum` is a trait automatically implemented for enums that derive Reflect. This trait allows you
+        // to interact with the current variant and its fields (if it has any)
+        ReflectRef::Enum(_) => {}
         // `List` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.
@@ -94,6 +108,16 @@ fn setup() {
         // This exposes "map" operations on your type, such as getting / inserting by key.
         // Map is automatically implemented for relevant core types like HashMap<K, V>
         ReflectRef::Map(_) => {}
+        // `Set` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "set" operations on your type, such as getting / inserting by value.
+        // Set is automatically implemented for relevant core types like HashSet<T>
+        ReflectRef::Set(_) => {}
+        // `Function` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "function" operations on your type, such as calling it with arguments.
+        // This trait is automatically implemented for types like DynamicFunction.
+        // This variant only exists if the `reflect_functions` feature is enabled.
+        #[cfg(feature = "reflect_functions")]
+        ReflectRef::Function(_) => {}
         // `Value` types do not implement any of the other traits above. They are simply a Reflect
         // implementation. Value is implemented for core types like i32, usize, f32, and
         // String.

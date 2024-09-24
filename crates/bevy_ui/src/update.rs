@@ -1,68 +1,17 @@
 //! This module contains systems that update the UI when something changes
 
-use crate::{CalculatedClip, Overflow, Style};
+use crate::{CalculatedClip, Display, OverflowAxis, Style, TargetCamera};
 
 use super::Node;
 use bevy_ecs::{
     entity::Entity,
-    query::{With, Without},
+    query::{Changed, With, Without},
     system::{Commands, Query},
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::Vec2;
-use bevy_sprite::Rect;
-use bevy_transform::components::{GlobalTransform, Transform};
-
-/// The resolution of Z values for UI
-pub const UI_Z_STEP: f32 = 0.001;
-
-/// Updates transforms of nodes to fit with the z system
-pub fn ui_z_system(
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<&mut Transform, With<Node>>,
-    children_query: Query<&Children>,
-) {
-    let mut current_global_z = 0.0;
-    for entity in root_node_query.iter() {
-        current_global_z = update_hierarchy(
-            &children_query,
-            &mut node_query,
-            entity,
-            current_global_z,
-            current_global_z,
-        );
-    }
-}
-
-fn update_hierarchy(
-    children_query: &Query<&Children>,
-    node_query: &mut Query<&mut Transform, With<Node>>,
-    entity: Entity,
-    parent_global_z: f32,
-    mut current_global_z: f32,
-) -> f32 {
-    current_global_z += UI_Z_STEP;
-    if let Ok(mut transform) = node_query.get_mut(entity) {
-        let new_z = current_global_z - parent_global_z;
-        // only trigger change detection when the new value is different
-        if transform.translation.z != new_z {
-            transform.translation.z = new_z;
-        }
-    }
-    if let Ok(children) = children_query.get(entity) {
-        let current_parent_global_z = current_global_z;
-        for child in children.iter().cloned() {
-            current_global_z = update_hierarchy(
-                children_query,
-                node_query,
-                child,
-                current_parent_global_z,
-                current_global_z,
-            );
-        }
-    }
-    current_global_z
-}
+use bevy_math::Rect;
+use bevy_transform::components::GlobalTransform;
+use bevy_utils::HashSet;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -71,7 +20,7 @@ pub fn update_clipping_system(
     mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     children_query: Query<&Children>,
 ) {
-    for root_node in root_node_query.iter() {
+    for root_node in &root_node_query {
         update_clipping(
             &mut commands,
             &children_query,
@@ -87,156 +36,148 @@ fn update_clipping(
     children_query: &Query<&Children>,
     node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
-    clip: Option<Rect>,
+    mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let (node, global_transform, style, calculated_clip) = node_query.get_mut(entity).unwrap();
-    // Update this node's CalculatedClip component
-    match (clip, calculated_clip) {
-        (None, None) => {}
-        (None, Some(_)) => {
-            commands.entity(entity).remove::<CalculatedClip>();
-        }
-        (Some(clip), None) => {
-            commands.entity(entity).insert(CalculatedClip { clip });
-        }
-        (Some(clip), Some(mut old_clip)) => {
-            *old_clip = CalculatedClip { clip };
-        }
+    let Ok((node, global_transform, style, maybe_calculated_clip)) = node_query.get_mut(entity)
+    else {
+        return;
+    };
+
+    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
+    if style.display == Display::None {
+        maybe_inherited_clip = Some(Rect::default());
     }
 
-    // Calculate new clip for its children
-    let children_clip = match style.overflow {
-        Overflow::Visible => clip,
-        Overflow::Hidden => {
-            let node_center = global_transform.translation.truncate();
-            let node_rect = Rect {
-                min: node_center - node.size / 2.,
-                max: node_center + node.size / 2.,
-            };
-            if let Some(clip) = clip {
-                Some(Rect {
-                    min: Vec2::max(clip.min, node_rect.min),
-                    max: Vec2::min(clip.max, node_rect.max),
-                })
-            } else {
-                Some(node_rect)
+    // Update this node's CalculatedClip component
+    if let Some(mut calculated_clip) = maybe_calculated_clip {
+        if let Some(inherited_clip) = maybe_inherited_clip {
+            // Replace the previous calculated clip with the inherited clipping rect
+            if calculated_clip.clip != inherited_clip {
+                *calculated_clip = CalculatedClip {
+                    clip: inherited_clip,
+                };
             }
+        } else {
+            // No inherited clipping rect, remove the component
+            commands.entity(entity).remove::<CalculatedClip>();
         }
+    } else if let Some(inherited_clip) = maybe_inherited_clip {
+        // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
+        commands.entity(entity).try_insert(CalculatedClip {
+            clip: inherited_clip,
+        });
+    }
+
+    // Calculate new clip rectangle for children nodes
+    let children_clip = if style.overflow.is_visible() {
+        // When `Visible`, children might be visible even when they are outside
+        // the current node's boundaries. In this case they inherit the current
+        // node's parent clip. If an ancestor is set as `Hidden`, that clip will
+        // be used; otherwise this will be `None`.
+        maybe_inherited_clip
+    } else {
+        // If `maybe_inherited_clip` is `Some`, use the intersection between
+        // current node's clip and the inherited clip. This handles the case
+        // of nested `Overflow::Hidden` nodes. If parent `clip` is not
+        // defined, use the current node's clip.
+        let mut node_rect = node.logical_rect(global_transform);
+        if style.overflow.x == OverflowAxis::Visible {
+            node_rect.min.x = -f32::INFINITY;
+            node_rect.max.x = f32::INFINITY;
+        }
+        if style.overflow.y == OverflowAxis::Visible {
+            node_rect.min.y = -f32::INFINITY;
+            node_rect.max.y = f32::INFINITY;
+        }
+        Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
     };
 
     if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
+        for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use bevy_ecs::{
-        component::Component,
-        schedule::{Schedule, Stage, SystemStage},
-        system::{CommandQueue, Commands},
-        world::World,
+pub fn update_target_camera_system(
+    mut commands: Commands,
+    changed_root_nodes_query: Query<
+        (Entity, Option<&TargetCamera>),
+        (With<Node>, Without<Parent>, Changed<TargetCamera>),
+    >,
+    changed_children_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Changed<Children>)>,
+    children_query: Query<&Children, With<Node>>,
+    node_query: Query<Option<&TargetCamera>, With<Node>>,
+) {
+    // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
+    // and updates done for changed_children_query can overlap with itself or with root_node_query
+    let mut updated_entities = HashSet::new();
+
+    // Assuming that TargetCamera is manually set on the root node only,
+    // update root nodes first, since it implies the biggest change
+    for (root_node, target_camera) in &changed_root_nodes_query {
+        update_children_target_camera(
+            root_node,
+            target_camera,
+            &node_query,
+            &children_query,
+            &mut commands,
+            &mut updated_entities,
+        );
+    }
+
+    // If the root node TargetCamera was changed, then every child is updated
+    // by this point, and iteration will be skipped.
+    // Otherwise, update changed children
+    for (parent, target_camera) in &changed_children_query {
+        update_children_target_camera(
+            parent,
+            target_camera,
+            &node_query,
+            &children_query,
+            &mut commands,
+            &mut updated_entities,
+        );
+    }
+}
+
+fn update_children_target_camera(
+    entity: Entity,
+    camera_to_set: Option<&TargetCamera>,
+    node_query: &Query<Option<&TargetCamera>, With<Node>>,
+    children_query: &Query<&Children, With<Node>>,
+    commands: &mut Commands,
+    updated_entities: &mut HashSet<Entity>,
+) {
+    let Ok(children) = children_query.get(entity) else {
+        return;
     };
-    use bevy_hierarchy::BuildChildren;
-    use bevy_transform::components::Transform;
 
-    use crate::Node;
+    for &child in children {
+        // Skip if the child has already been updated or update is not needed
+        if updated_entities.contains(&child)
+            || camera_to_set == node_query.get(child).ok().flatten()
+        {
+            continue;
+        }
 
-    use super::{ui_z_system, UI_Z_STEP};
+        match camera_to_set {
+            Some(camera) => {
+                commands.entity(child).try_insert(camera.clone());
+            }
+            None => {
+                commands.entity(child).remove::<TargetCamera>();
+            }
+        }
+        updated_entities.insert(child);
 
-    #[derive(Component, PartialEq, Debug, Clone)]
-    struct Label(&'static str);
-
-    fn node_with_transform(name: &'static str) -> (Label, Node, Transform) {
-        (Label(name), Node::default(), Transform::identity())
-    }
-
-    fn node_without_transform(name: &'static str) -> (Label, Node) {
-        (Label(name), Node::default())
-    }
-
-    fn get_steps(transform: &Transform) -> u32 {
-        (transform.translation.z / UI_Z_STEP).round() as u32
-    }
-
-    #[test]
-    fn test_ui_z_system() {
-        let mut world = World::default();
-        let mut queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut queue, &world);
-        commands.spawn_bundle(node_with_transform("0"));
-
-        commands
-            .spawn_bundle(node_with_transform("1"))
-            .with_children(|parent| {
-                parent
-                    .spawn_bundle(node_with_transform("1-0"))
-                    .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-0-0"));
-                        parent.spawn_bundle(node_without_transform("1-0-1"));
-                        parent.spawn_bundle(node_with_transform("1-0-2"));
-                    });
-                parent.spawn_bundle(node_with_transform("1-1"));
-                parent
-                    .spawn_bundle(node_without_transform("1-2"))
-                    .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("1-2-0"));
-                        parent.spawn_bundle(node_with_transform("1-2-1"));
-                        parent
-                            .spawn_bundle(node_with_transform("1-2-2"))
-                            .with_children(|_| ());
-                        parent.spawn_bundle(node_with_transform("1-2-3"));
-                    });
-                parent.spawn_bundle(node_with_transform("1-3"));
-            });
-
-        commands
-            .spawn_bundle(node_without_transform("2"))
-            .with_children(|parent| {
-                parent
-                    .spawn_bundle(node_with_transform("2-0"))
-                    .with_children(|_parent| ());
-                parent
-                    .spawn_bundle(node_with_transform("2-1"))
-                    .with_children(|parent| {
-                        parent.spawn_bundle(node_with_transform("2-1-0"));
-                    });
-            });
-        queue.apply(&mut world);
-
-        let mut schedule = Schedule::default();
-        let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(ui_z_system);
-        schedule.add_stage("update", update_stage);
-        schedule.run(&mut world);
-
-        let mut actual_result = world
-            .query::<(&Label, &Transform)>()
-            .iter(&world)
-            .map(|(name, transform)| (name.clone(), get_steps(transform)))
-            .collect::<Vec<(Label, u32)>>();
-        actual_result.sort_unstable_by_key(|(name, _)| name.0);
-        let expected_result = vec![
-            (Label("0"), 1),
-            (Label("1"), 1),
-            (Label("1-0"), 1),
-            (Label("1-0-0"), 1),
-            // 1-0-1 has no transform
-            (Label("1-0-2"), 3),
-            (Label("1-1"), 5),
-            // 1-2 has no transform
-            (Label("1-2-0"), 1),
-            (Label("1-2-1"), 2),
-            (Label("1-2-2"), 3),
-            (Label("1-2-3"), 4),
-            (Label("1-3"), 11),
-            // 2 has no transform
-            (Label("2-0"), 1),
-            (Label("2-1"), 2),
-            (Label("2-1-0"), 1),
-        ];
-        assert_eq!(actual_result, expected_result);
+        update_children_target_camera(
+            child,
+            camera_to_set,
+            node_query,
+            children_query,
+            commands,
+            updated_entities,
+        );
     }
 }

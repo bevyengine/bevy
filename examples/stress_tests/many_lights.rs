@@ -1,32 +1,43 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
+use std::f64::consts::PI;
+
 use bevy::{
+    color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{ExtractedPointLight, GlobalLightMeta},
+    pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
-    render::{camera::ScalingMode, RenderApp, RenderStage},
-    window::PresentMode,
+    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: 1024.0,
-            height: 768.0,
-            title: "many_lights".to_string(),
-            present_mode: PresentMode::Immediate,
-            ..default()
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    title: "many_lights".into(),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
+                ..default()
+            }),
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+            LogVisibleLights,
+        ))
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::Continuous,
+            unfocused_mode: UpdateMode::Continuous,
         })
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_camera)
-        .add_system(print_light_count)
-        .add_plugin(LogVisibleLights)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (move_camera, print_light_count))
         .run();
 }
 
@@ -35,24 +46,23 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
-    const LIGHT_INTENSITY: f32 = 5.0;
+    const LIGHT_INTENSITY: f32 = 1000.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: RADIUS,
-            subdivisions: 9,
-        })),
-        material: materials.add(StandardMaterial::from(Color::WHITE)),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
+        material: materials.add(Color::WHITE),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
-        base_color: Color::PINK,
+        base_color: DEEP_PINK.into(),
         ..default()
     });
 
@@ -60,11 +70,15 @@ fn setup(
     // the same number of visible meshes regardless of the viewing angle.
     // NOTE: f64 is used to avoid precision issues that produce visual artifacts in the distribution
     let golden_ratio = 0.5f64 * (1.0f64 + 5.0f64.sqrt());
-    let mut rng = thread_rng();
-    for i in 0..N_LIGHTS {
+
+    // Spawn N_LIGHTS many lights
+    commands.spawn_batch((0..N_LIGHTS).map(move |i| {
+        let mut rng = thread_rng();
+
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn_bundle(PointLightBundle {
+
+        PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
@@ -73,30 +87,29 @@ fn setup(
             },
             transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
             ..default()
-        });
-    }
+        }
+    }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => commands.spawn_bundle(Camera3dBundle {
+        Some("orthographic") => commands.spawn(Camera3dBundle {
             projection: OrthographicProjection {
-                scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
+                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             ..default()
         }),
-        _ => commands.spawn_bundle(Camera3dBundle::default()),
+        _ => commands.spawn(Camera3dBundle::default()),
     };
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
@@ -111,8 +124,9 @@ fn setup(
 const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        PI * 2. * (i as f64 / golden_ratio),
+        ops::acos((1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)) as f32)
+            as f64,
     )
 }
 
@@ -135,7 +149,7 @@ fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Q
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        info!("Lights: {}", lights.iter().len(),);
+        info!("Lights: {}", lights.iter().len());
     }
 }
 
@@ -143,14 +157,11 @@ struct LogVisibleLights;
 
 impl Plugin for LogVisibleLights {
     fn build(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
-        render_app
-            .add_system_to_stage(RenderStage::Extract, extract_time)
-            .add_system_to_stage(RenderStage::Prepare, print_visible_light_count);
+        render_app.add_systems(Render, print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 
@@ -159,7 +170,7 @@ fn print_visible_light_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
-    global_light_meta: Res<GlobalLightMeta>,
+    global_light_meta: Res<GlobalClusterableObjectMeta>,
 ) {
     timer.0.tick(time.delta());
 
@@ -172,14 +183,10 @@ fn print_visible_light_count(
     }
 }
 
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(time.into_inner().clone());
-}
-
 struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }

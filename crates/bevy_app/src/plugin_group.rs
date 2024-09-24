@@ -1,11 +1,171 @@
-use crate::{App, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, HashMap};
+use crate::{App, AppError, Plugin};
+use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
 use std::any::TypeId;
 
+/// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
+///
+/// Every plugin must implement the [`Default`] trait.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_app::*;
+/// #
+/// # mod velocity {
+/// #     use bevy_app::*;
+/// #     #[derive(Default)]
+/// #     pub struct VelocityPlugin;
+/// #     impl Plugin for VelocityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod collision {
+/// #     pub mod capsule {
+/// #         use bevy_app::*;
+/// #         #[derive(Default)]
+/// #         pub struct CapsuleCollisionPlugin;
+/// #         impl Plugin for CapsuleCollisionPlugin { fn build(&self, _: &mut App) {} }
+/// #     }
+/// # }
+/// #
+/// # #[derive(Default)]
+/// # pub struct TickratePlugin;
+/// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// # mod features {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct ForcePlugin;
+/// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod web {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct WebCompatibilityPlugin;
+/// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod internal {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct InternalPlugin;
+/// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// plugin_group! {
+///     /// Doc comments and annotations are supported: they will be added to the generated plugin
+///     /// group.
+///     #[derive(Debug)]
+///     pub struct PhysicsPlugins {
+///         // If referencing a plugin within the same module, you must prefix it with a colon `:`.
+///         :TickratePlugin,
+///         // If referencing a plugin within a different module, there must be three colons `:::`
+///         // between the final module and the plugin name.
+///         collision::capsule:::CapsuleCollisionPlugin,
+///         velocity:::VelocityPlugin,
+///         // If you feature-flag a plugin, it will be automatically documented. There can only be
+///         // one automatically documented feature flag, and it must be first. All other
+///         // `#[cfg()]` attributes must be wrapped by `#[custom()]`.
+///         #[cfg(feature = "external_forces")]
+///         features:::ForcePlugin,
+///         // More complicated `#[cfg()]`s and annotations are not supported by automatic doc
+///         // generation, in which case you must wrap it in `#[custom()]`.
+///         #[custom(cfg(target_arch = "wasm32"))]
+///         web:::WebCompatibilityPlugin,
+///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
+///         // must be last.
+///         #[doc(hidden)]
+///         internal:::InternalPlugin
+///     }
+///     /// You may add doc comments after the plugin group as well. They will be appended after
+///     /// the documented list of plugins.
+/// }
+/// ```
+#[macro_export]
+macro_rules! plugin_group {
+    {
+        $(#[$group_meta:meta])*
+        $vis:vis struct $group:ident {
+            $(
+                $(#[cfg(feature = $plugin_feature:literal)])?
+                $(#[custom($plugin_meta:meta)])*
+                $($plugin_path:ident::)* : $plugin_name:ident
+            ),*
+            $(
+                $(,)?$(
+                    #[doc(hidden)]
+                    $(#[cfg(feature = $hidden_plugin_feature:literal)])?
+                    $(#[custom($hidden_plugin_meta:meta)])*
+                    $($hidden_plugin_path:ident::)* : $hidden_plugin_name:ident
+                ),+
+            )?
+
+            $(,)?
+        }
+        $($(#[doc = $post_doc:literal])+)?
+    } => {
+        $(#[$group_meta])*
+        ///
+        $(#[doc = concat!(
+            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+            $(, " - with feature `", $plugin_feature, "`")?
+        )])*
+        $(
+            ///
+            $(#[doc = $post_doc])+
+        )?
+        $vis struct $group;
+
+        impl $crate::PluginGroup for $group {
+            fn build(self) -> $crate::PluginGroupBuilder {
+                let mut group = $crate::PluginGroupBuilder::start::<Self>();
+
+                $(
+                    $(#[cfg(feature = $plugin_feature)])?
+                    $(#[$plugin_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($plugin_path::)*$plugin_name>();
+                        };
+
+                        group = group.add(<$($plugin_path::)*$plugin_name>::default());
+                    }
+                )*
+                $($(
+                    $(#[cfg(feature = $hidden_plugin_feature)])?
+                    $(#[$hidden_plugin_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
+                        };
+
+                        group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
+                    }
+                )+)?
+
+                group
+            }
+        }
+    };
+}
+
 /// Combines multiple [`Plugin`]s into a single unit.
-pub trait PluginGroup {
+///
+/// If you want an easier, but slightly more restrictive, method of implementing this trait, you
+/// may be interested in the [`plugin_group!`] macro.
+pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
-    fn build(&mut self, group: &mut PluginGroupBuilder);
+    fn build(self) -> PluginGroupBuilder;
+    /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
+    fn name() -> String {
+        std::any::type_name::<Self>().to_string()
+    }
+    /// Sets the value of the given [`Plugin`], if it exists
+    fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
+        self.build().set(plugin)
+    }
 }
 
 struct PluginEntry {
@@ -13,19 +173,39 @@ struct PluginEntry {
     enabled: bool,
 }
 
+impl PluginGroup for PluginGroupBuilder {
+    fn build(self) -> PluginGroupBuilder {
+        self
+    }
+}
+
+/// Helper method to get the [`TypeId`] of a value without having to name its type.
+fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
+    TypeId::of::<T>()
+}
+
 /// Facilitates the creation and configuration of a [`PluginGroup`].
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.
-#[derive(Default)]
 pub struct PluginGroupBuilder {
-    plugins: HashMap<TypeId, PluginEntry>,
+    group_name: String,
+    plugins: TypeIdMap<PluginEntry>,
     order: Vec<TypeId>,
 }
 
 impl PluginGroupBuilder {
+    /// Start a new builder for the [`PluginGroup`].
+    pub fn start<PG: PluginGroup>() -> Self {
+        Self {
+            group_name: PG::name(),
+            plugins: Default::default(),
+            order: Default::default(),
+        }
+    }
+
     /// Finds the index of a target [`Plugin`]. Panics if the target's [`TypeId`] is not found.
-    fn index_of<Target: Plugin>(&mut self) -> usize {
+    fn index_of<Target: Plugin>(&self) -> usize {
         let index = self
             .order
             .iter()
@@ -43,13 +223,25 @@ impl PluginGroupBuilder {
     // Insert the new plugin as enabled, and removes its previous ordering if it was
     // already present
     fn upsert_plugin_state<T: Plugin>(&mut self, plugin: T, added_at_index: usize) {
-        if let Some(entry) = self.plugins.insert(
+        self.upsert_plugin_entry_state(
             TypeId::of::<T>(),
             PluginEntry {
                 plugin: Box::new(plugin),
                 enabled: true,
             },
-        ) {
+            added_at_index,
+        );
+    }
+
+    // Insert the new plugin entry as enabled, and removes its previous ordering if it was
+    // already present
+    fn upsert_plugin_entry_state(
+        &mut self,
+        key: TypeId,
+        plugin: PluginEntry,
+        added_at_index: usize,
+    ) {
+        if let Some(entry) = self.plugins.insert(key, plugin) {
             if entry.enabled {
                 warn!(
                     "You are replacing plugin '{}' that was not disabled.",
@@ -60,7 +252,7 @@ impl PluginGroupBuilder {
                 .order
                 .iter()
                 .enumerate()
-                .find(|(i, ty)| *i != added_at_index && **ty == TypeId::of::<T>())
+                .find(|(i, ty)| *i != added_at_index && **ty == key)
                 .map(|(i, _)| i)
             {
                 self.order.remove(to_remove);
@@ -68,21 +260,62 @@ impl PluginGroupBuilder {
         }
     }
 
+    /// Sets the value of the given [`Plugin`], if it exists.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`Plugin`] does not exist.
+    pub fn set<T: Plugin>(mut self, plugin: T) -> Self {
+        let entry = self.plugins.get_mut(&TypeId::of::<T>()).unwrap_or_else(|| {
+            panic!(
+                "{} does not exist in this PluginGroup",
+                std::any::type_name::<T>(),
+            )
+        });
+        entry.plugin = Box::new(plugin);
+        self
+    }
+
     /// Adds the plugin [`Plugin`] at the end of this [`PluginGroupBuilder`]. If the plugin was
     /// already in the group, it is removed from its previous place.
-    pub fn add<T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    // This is not confusing, clippy!
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "This does not emulate the `+` operator, but is more akin to pushing to a stack."
+    )]
+    pub fn add<T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
         self.upsert_plugin_state(plugin, target_index);
         self
     }
 
+    /// Adds a [`PluginGroup`] at the end of this [`PluginGroupBuilder`]. If the plugin was
+    /// already in the group, it is removed from its previous place.
+    pub fn add_group(mut self, group: impl PluginGroup) -> Self {
+        let Self {
+            mut plugins, order, ..
+        } = group.build();
+
+        for plugin_id in order {
+            self.upsert_plugin_entry_state(
+                plugin_id,
+                plugins.remove(&plugin_id).unwrap(),
+                self.order.len(),
+            );
+
+            self.order.push(plugin_id);
+        }
+
+        self
+    }
+
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] before the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_before<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    pub fn add_before<Target: Plugin>(mut self, plugin: impl Plugin) -> Self {
         let target_index = self.index_of::<Target>();
-        self.order.insert(target_index, TypeId::of::<T>());
+        self.order.insert(target_index, type_id_of_val(&plugin));
         self.upsert_plugin_state(plugin, target_index);
         self
     }
@@ -90,9 +323,9 @@ impl PluginGroupBuilder {
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] after the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_after<Target: Plugin, T: Plugin>(&mut self, plugin: T) -> &mut Self {
+    pub fn add_after<Target: Plugin>(mut self, plugin: impl Plugin) -> Self {
         let target_index = self.index_of::<Target>() + 1;
-        self.order.insert(target_index, TypeId::of::<T>());
+        self.order.insert(target_index, type_id_of_val(&plugin));
         self.upsert_plugin_state(plugin, target_index);
         self
     }
@@ -102,8 +335,8 @@ impl PluginGroupBuilder {
     /// [`Plugin`]s within a [`PluginGroup`] are enabled by default. This function is used to
     /// opt back in to a [`Plugin`] after [disabling](Self::disable) it. If there are no plugins
     /// of type `T` in this group, it will panic.
-    pub fn enable<T: Plugin>(&mut self) -> &mut Self {
-        let mut plugin_entry = self
+    pub fn enable<T: Plugin>(mut self) -> Self {
+        let plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
             .expect("Cannot enable a plugin that does not exist.");
@@ -116,8 +349,8 @@ impl PluginGroupBuilder {
     /// still be used for ordering with [`add_before`](Self::add_before) or
     /// [`add_after`](Self::add_after), or it can be [re-enabled](Self::enable). If there are no
     /// plugins of type `T` in this group, it will panic.
-    pub fn disable<T: Plugin>(&mut self) -> &mut Self {
-        let mut plugin_entry = self
+    pub fn disable<T: Plugin>(mut self) -> Self {
+        let plugin_entry = self
             .plugins
             .get_mut(&TypeId::of::<T>())
             .expect("Cannot disable a plugin that does not exist.");
@@ -127,12 +360,25 @@ impl PluginGroupBuilder {
 
     /// Consumes the [`PluginGroupBuilder`] and [builds](Plugin::build) the contained [`Plugin`]s
     /// in the order specified.
-    pub fn finish(self, app: &mut App) {
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
+    #[track_caller]
+    pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.get(ty) {
+            if let Some(entry) = self.plugins.remove(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    entry.plugin.build(app);
+                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                        app.add_boxed_plugin(entry.plugin)
+                    {
+                        panic!(
+                            "Error adding plugin {} in group {}: plugin was already added in application",
+                            plugin_name,
+                            self.group_name
+                        );
+                    }
                 }
             }
         }
@@ -140,7 +386,7 @@ impl PluginGroupBuilder {
 }
 
 /// A plugin group which doesn't do anything. Useful for examples:
-/// ```rust
+/// ```
 /// # use bevy_app::prelude::*;
 /// use bevy_app::NoopPluginGroup as MinimalPlugins;
 ///
@@ -152,13 +398,15 @@ impl PluginGroupBuilder {
 pub struct NoopPluginGroup;
 
 impl PluginGroup for NoopPluginGroup {
-    fn build(&mut self, _: &mut PluginGroupBuilder) {}
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::PluginGroupBuilder;
-    use crate::{App, Plugin};
+    use crate::{App, NoopPluginGroup, Plugin};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -177,10 +425,10 @@ mod tests {
 
     #[test]
     fn basic_ordering() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC);
 
         assert_eq!(
             group.order,
@@ -194,10 +442,10 @@ mod tests {
 
     #[test]
     fn add_after() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add_after::<PluginA, PluginC>(PluginC);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add_after::<PluginA>(PluginC);
 
         assert_eq!(
             group.order,
@@ -211,10 +459,10 @@ mod tests {
 
     #[test]
     fn add_before() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add_before::<PluginB, PluginC>(PluginC);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add_before::<PluginB>(PluginC);
 
         assert_eq!(
             group.order,
@@ -228,11 +476,11 @@ mod tests {
 
     #[test]
     fn readd() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add(PluginB);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add(PluginB);
 
         assert_eq!(
             group.order,
@@ -246,11 +494,11 @@ mod tests {
 
     #[test]
     fn readd_after() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add_after::<PluginA, PluginC>(PluginC);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add_after::<PluginA>(PluginC);
 
         assert_eq!(
             group.order,
@@ -264,11 +512,11 @@ mod tests {
 
     #[test]
     fn readd_before() {
-        let mut group = PluginGroupBuilder::default();
-        group.add(PluginA);
-        group.add(PluginB);
-        group.add(PluginC);
-        group.add_before::<PluginB, PluginC>(PluginC);
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB)
+            .add(PluginC)
+            .add_before::<PluginB>(PluginC);
 
         assert_eq!(
             group.order,
@@ -276,6 +524,50 @@ mod tests {
                 std::any::TypeId::of::<PluginA>(),
                 std::any::TypeId::of::<PluginC>(),
                 std::any::TypeId::of::<PluginB>(),
+            ]
+        );
+    }
+
+    #[test]
+    fn add_basic_subgroup() {
+        let group_a = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginB);
+
+        let group_b = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add_group(group_a)
+            .add(PluginC);
+
+        assert_eq!(
+            group_b.order,
+            vec![
+                std::any::TypeId::of::<PluginA>(),
+                std::any::TypeId::of::<PluginB>(),
+                std::any::TypeId::of::<PluginC>(),
+            ]
+        );
+    }
+
+    #[test]
+    fn add_conflicting_subgroup() {
+        let group_a = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginA)
+            .add(PluginC);
+
+        let group_b = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add(PluginB)
+            .add(PluginC);
+
+        let group = PluginGroupBuilder::start::<NoopPluginGroup>()
+            .add_group(group_a)
+            .add_group(group_b);
+
+        assert_eq!(
+            group.order,
+            vec![
+                std::any::TypeId::of::<PluginA>(),
+                std::any::TypeId::of::<PluginB>(),
+                std::any::TypeId::of::<PluginC>(),
             ]
         );
     }

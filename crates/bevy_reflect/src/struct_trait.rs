@@ -1,57 +1,63 @@
-use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
-use bevy_utils::{Entry, HashMap};
-use std::fmt::{Debug, Formatter};
-use std::{
-    any::{Any, TypeId},
-    borrow::Cow,
-    slice::Iter,
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::type_info::impl_type_methods;
+use crate::{
+    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
+use bevy_reflect_derive::impl_type_path;
+use bevy_utils::HashMap;
+use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
+use std::{borrow::Cow, slice::Iter};
 
-/// A reflected Rust regular struct type.
+/// A trait used to power [struct-like] operations via [reflection].
 ///
-/// Implementors of this trait allow their fields to be addressed by name as
-/// well as by index.
+/// This trait uses the [`Reflect`] trait to allow implementors to have their fields
+/// be dynamically addressed by both name and index.
 ///
-/// This trait is automatically implemented for `struct` types with named fields
-/// when using `#[derive(Reflect)]`.
+/// When using [`#[derive(Reflect)]`](derive@crate::Reflect) on a standard struct,
+/// this trait will be automatically implemented.
+/// This goes for [unit structs] as well.
 ///
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Struct};
+/// use bevy_reflect::{PartialReflect, Reflect, Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
-///     bar: String,
+///     bar: u32,
 /// }
 ///
-/// # fn main() {
-/// let foo = Foo { bar: "Hello, world!".to_string() };
+/// let foo = Foo { bar: 123 };
 ///
 /// assert_eq!(foo.field_len(), 1);
 /// assert_eq!(foo.name_at(0), Some("bar"));
 ///
-/// let bar = foo.field("bar").unwrap();
-/// assert_eq!(bar.downcast_ref::<String>(), Some(&"Hello, world!".to_string()));
-/// # }
+/// let field: &dyn PartialReflect = foo.field("bar").unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123));
 /// ```
-pub trait Struct: Reflect {
+///
+/// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
+/// [reflection]: crate
+
+/// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
+pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
-    /// Reflect`.
-    fn field(&self, name: &str) -> Option<&dyn Reflect>;
+    /// PartialReflect`.
+    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
 
     /// Returns a mutable reference to the value of the field named `name` as a
-    /// `&mut dyn Reflect`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
+    /// `&mut dyn PartialReflect`.
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
 
     /// Returns a reference to the value of the field with index `index` as a
-    /// `&dyn Reflect`.
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+    /// `&dyn PartialReflect`.
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
 
     /// Returns a mutable reference to the value of the field with index `index`
-    /// as a `&mut dyn Reflect`.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    /// as a `&mut dyn PartialReflect`.
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
 
     /// Returns the name of the field with index `index`.
     fn name_at(&self, index: usize) -> Option<&str>;
@@ -59,20 +65,23 @@ pub trait Struct: Reflect {
     /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
 
-    /// Returns an iterator over the values of the struct's fields.
+    /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
 }
 
-/// A container for compile-time struct info.
+/// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
-    type_name: &'static str,
-    type_id: TypeId,
+    ty: Type,
     fields: Box<[NamedField]>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+    field_names: Box<[&'static str]>,
+    field_indices: HashMap<&'static str, usize>,
+    custom_attributes: Arc<CustomAttributes>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl StructInfo {
@@ -82,22 +91,43 @@ impl StructInfo {
     ///
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| {
-                let name = field.name().clone();
-                (name, index)
-            })
+            .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
+        let field_names = fields.iter().map(NamedField::name).collect();
+
         Self {
-            type_name: std::any::type_name::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            field_names,
             field_indices,
+            custom_attributes: Arc::new(CustomAttributes::default()),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this struct.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this struct.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field with the given name.
@@ -127,22 +157,15 @@ impl StructInfo {
         self.fields.len()
     }
 
-    /// The [type name] of the struct.
-    ///
-    /// [type name]: std::any::type_name
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
+    impl_type_methods!(ty);
+
+    /// The docstring of this struct, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 
-    /// The [`TypeId`] of the struct.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the struct type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_custom_attribute_methods!(self.custom_attributes, "struct");
 }
 
 /// An iterator over the field values of a struct.
@@ -161,11 +184,11 @@ impl<'a> FieldIter<'a> {
 }
 
 impl<'a> Iterator for FieldIter<'a> {
-    type Item = &'a dyn Reflect;
+    type Item = &'a dyn PartialReflect;
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.struct_val.field_at(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -209,85 +232,99 @@ pub trait GetField {
 
 impl<S: Struct> GetField for S {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
-        self.field(name).and_then(|value| value.downcast_ref::<T>())
+        self.field(name)
+            .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
-            .and_then(|value| value.downcast_mut::<T>())
+            .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 impl GetField for dyn Struct {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
-        self.field(name).and_then(|value| value.downcast_ref::<T>())
+        self.field(name)
+            .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
-            .and_then(|value| value.downcast_mut::<T>())
+            .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
 
 /// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
-    name: String,
-    fields: Vec<Box<dyn Reflect>>,
+    represented_type: Option<&'static TypeInfo>,
+    fields: Vec<Box<dyn PartialReflect>>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 impl DynamicStruct {
-    /// Returns the type name of the struct.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    /// Sets the [type] to be represented by this `DynamicStruct`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given [type] is not a [`TypeInfo::Struct`].
+    ///
+    /// [type]: TypeInfo
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        if let Some(represented_type) = represented_type {
+            assert!(
+                matches!(represented_type, TypeInfo::Struct(_)),
+                "expected TypeInfo::Struct but received: {:?}",
+                represented_type
+            );
+        }
 
-    /// Sets the type name of the struct.
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.represented_type = represented_type;
     }
 
     /// Inserts a field named `name` with value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert_boxed(&mut self, name: &str, value: Box<dyn Reflect>) {
-        let name = Cow::Owned(name.to_string());
-        match self.field_indices.entry(name) {
-            Entry::Occupied(entry) => {
-                self.fields[*entry.get()] = value;
-            }
-            Entry::Vacant(entry) => {
-                self.fields.push(value);
-                self.field_names.push(entry.key().clone());
-                entry.insert(self.fields.len() - 1);
-            }
+    pub fn insert_boxed<'a>(
+        &mut self,
+        name: impl Into<Cow<'a, str>>,
+        value: Box<dyn PartialReflect>,
+    ) {
+        let name: Cow<str> = name.into();
+        if let Some(index) = self.field_indices.get(&name) {
+            self.fields[*index] = value;
+        } else {
+            self.fields.push(value);
+            self.field_indices
+                .insert(Cow::Owned(name.clone().into_owned()), self.fields.len() - 1);
+            self.field_names.push(Cow::Owned(name.into_owned()));
         }
     }
 
     /// Inserts a field named `name` with the typed value `value` into the struct.
     ///
     /// If the field already exists, it is overwritten.
-    pub fn insert<T: Reflect>(&mut self, name: &str, value: T) {
-        if let Some(index) = self.field_indices.get(name) {
-            self.fields[*index] = Box::new(value);
-        } else {
-            self.insert_boxed(name, Box::new(value));
-        }
+    pub fn insert<'a, T: PartialReflect>(&mut self, name: impl Into<Cow<'a, str>>, value: T) {
+        self.insert_boxed(name, Box::new(value));
+    }
+
+    /// Gets the index of the field with the given name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.field_indices.get(name).copied()
     }
 }
 
 impl Struct for DynamicStruct {
     #[inline]
-    fn field(&self, name: &str) -> Option<&dyn Reflect> {
+    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
         self.field_indices
             .get(name)
             .map(|index| &*self.fields[*index])
     }
 
     #[inline]
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect> {
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
         if let Some(index) = self.field_indices.get(name) {
             Some(&mut *self.fields[*index])
         } else {
@@ -296,18 +333,18 @@ impl Struct for DynamicStruct {
     }
 
     #[inline]
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
         self.fields.get(index).map(|value| &**value)
     }
 
     #[inline]
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         self.fields.get_mut(index).map(|value| &mut **value)
     }
 
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(|name| name.as_ref())
+        self.field_names.get(index).map(AsRef::as_ref)
     }
 
     #[inline]
@@ -325,7 +362,7 @@ impl Struct for DynamicStruct {
 
     fn clone_dynamic(&self) -> DynamicStruct {
         DynamicStruct {
-            name: self.name.clone(),
+            represented_type: self.get_represented_type_info(),
             field_names: self.field_names.clone(),
             field_indices: self.field_indices.clone(),
             fields: self
@@ -337,45 +374,57 @@ impl Struct for DynamicStruct {
     }
 }
 
-impl Reflect for DynamicStruct {
+impl PartialReflect for DynamicStruct {
     #[inline]
-    fn type_name(&self) -> &str {
-        &self.name
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 
     #[inline]
-    fn get_type_info(&self) -> &'static TypeInfo {
-        <Self as Typed>::type_info()
-    }
-
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn as_any(&self) -> &dyn Any {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
+    }
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        None
+    }
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
+            for (i, value) in struct_value.iter_fields().enumerate() {
+                let name = struct_value.name_at(i).unwrap();
+                if let Some(v) = self.field_mut(name) {
+                    v.try_apply(value)?;
+                }
+            }
+        } else {
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Struct,
+            });
+        }
+        Ok(())
     }
 
     #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
-        Box::new(self.clone_dynamic())
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Struct
     }
 
     #[inline]
@@ -388,25 +437,17 @@ impl Reflect for DynamicStruct {
         ReflectMut::Struct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
-                }
-            }
-        } else {
-            panic!("Attempted to apply non-struct type to struct type.");
-        }
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Struct(self)
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
+    #[inline]
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new(self.clone_dynamic())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         struct_partial_eq(self, value)
     }
 
@@ -415,7 +456,14 @@ impl Reflect for DynamicStruct {
         struct_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
+
+impl_type_path!((in bevy_reflect) DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -423,25 +471,51 @@ impl Debug for DynamicStruct {
     }
 }
 
-impl Typed for DynamicStruct {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+impl<'a, N> FromIterator<(N, Box<dyn PartialReflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
+    /// Create a dynamic struct that doesn't represent a type from the
+    /// field name, field value pairs.
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
     }
 }
 
-/// Compares a [`Struct`] with a [`Reflect`] value.
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn PartialReflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn PartialReflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
+/// Compares a [`Struct`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        struct_value
-    } else {
+pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> Option<bool> {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref() else {
         return Some(false);
     };
 
@@ -452,8 +526,9 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
     for (i, value) in struct_value.iter_fields().enumerate() {
         let name = struct_value.name_at(i).unwrap();
         if let Some(field_value) = a.field(name) {
-            if let Some(false) | None = field_value.reflect_partial_eq(value) {
-                return Some(false);
+            let eq_result = field_value.reflect_partial_eq(value);
+            if let failed @ (Some(false) | None) = eq_result {
+                return failed;
             }
         } else {
             return Some(false);
@@ -483,8 +558,13 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let mut debug = f.debug_struct(dyn_struct.type_name());
+pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_struct(
+        dyn_struct
+            .get_represented_type_info()
+            .map(TypeInfo::type_path)
+            .unwrap_or("_"),
+    );
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();
         debug.field(
@@ -493,4 +573,32 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) ->
         );
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect, Default)]
+    struct MyStruct {
+        a: (),
+        b: (),
+        c: (),
+    }
+    #[test]
+    fn next_index_increment() {
+        let my_struct = MyStruct::default();
+        let mut iter = my_struct.iter_fields();
+        iter.index = iter.len() - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        let prev_index = iter.index;
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+    }
 }

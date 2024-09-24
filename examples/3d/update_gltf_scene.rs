@@ -1,13 +1,14 @@
 //! Update a scene from a glTF file, either by spawning the scene as a child of another entity,
 //! or by accessing the entities of the scene.
 
-use bevy::prelude::*;
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
 
 fn main() {
     App::new()
+        .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup)
-        .add_system(move_scene_entities)
+        .add_systems(Startup, setup)
+        .add_systems(Update, move_scene_entities)
         .run();
 }
 
@@ -15,30 +16,45 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        directional_light: DirectionalLight {
+            shadows_enabled: true,
+            ..default()
+        },
         ..default()
     });
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(1.05, 0.9, 1.5)
-            .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-0.5, 0.9, 1.5)
+                .looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
+            ..default()
+        },
+        EnvironmentMapLight {
+            diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
+            specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            intensity: 150.0,
+            ..default()
+        },
+    ));
 
     // Spawn the scene as a child of this entity at the given transform
-    commands.spawn_bundle(SceneBundle {
-        transform: Transform::from_xyz(0.0, 0.0, -1.0),
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+    commands.spawn(SceneBundle {
+        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ..default()
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
-    commands
-        .spawn_bundle(SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+    commands.spawn((
+        SceneBundle {
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             ..default()
-        })
-        .insert(MovedScene);
+        },
+        MovedScene,
+    ));
 }
 
 // This system will move all entities that are descendants of MovedScene (which will be all entities spawned in the scene)
@@ -48,26 +64,17 @@ fn move_scene_entities(
     children: Query<&Children>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for moved_scene_entity in moved_scene.iter() {
+    for moved_scene_entity in &moved_scene {
         let mut offset = 0.;
-        iter_hierarchy(moved_scene_entity, &children, &mut |entity| {
+        for entity in children.iter_descendants(moved_scene_entity) {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
-                    offset * time.seconds_since_startup().sin() as f32 / 20.,
+                    offset * ops::sin(time.elapsed_seconds()) / 20.,
                     0.,
-                    time.seconds_since_startup().cos() as f32 / 20.,
+                    ops::cos(time.elapsed_seconds()) / 20.,
                 );
-                offset += 1.0;
+                offset += 0.5;
             }
-        });
-    }
-}
-
-fn iter_hierarchy(entity: Entity, children_query: &Query<&Children>, f: &mut impl FnMut(Entity)) {
-    (f)(entity);
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().copied() {
-            iter_hierarchy(child, children_query, f);
         }
     }
 }
