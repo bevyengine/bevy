@@ -10,36 +10,35 @@
 @group(0) @binding(6) var multiscattering_lut: texture_2d<f32>;
 @group(0) @binding(7) var multiscattering_lut_sampler: sampler;
 
-//from core_pipeline skybox.wgsl
-fn coords_to_ray_direction_horizon_oriented(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32> {
-    // Using world positions of the fragment and camera to calculate a ray direction
-    // breaks down at large translations. This code only needs to know the ray direction.
-    // The ray direction is along the direction from the camera to the fragment position.
-    // In view space, the camera is at the origin, so the view space ray direction is
-    // along the direction of the fragment position - (0,0,0) which is just the
-    // fragment position.
-    // Use the position on the near clipping plane to avoid -inf world position
-    // because the far plane of an infinite reverse projection is at infinity.
-    let view_position_homogeneous = view.view_from_clip * vec4(
-        coords_to_viewport_uv(position, viewport) * vec2(2.0, -2.0) + vec2(-1.0, 1.0),
-        1.0,
-        1.0,
-    );
+fn magically_get_view_direction(in: FullscreenVertexOutput) -> vec3<f32> { //TODO: HOW
+    return vec3(0.0);
+}
 
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
-    // equivalent to rotating the skybox itself.
-    var view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
-    view_ray_direction = (uniforms.transform * vec4(view_ray_direction, 1.0)).xyz;
-
-    // Transforming the view space ray direction by the view matrix, transforms the
-    // direction to world space. Note that the w element is set to 0.0, as this is a
-    // vector direction, not a position, That causes the matrix multiplication to ignore
-    // the translations from the view matrix.
-    let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
-
-    return normalize(ray_direction);
+fn magically_get_view_position() -> vec3<f32> {
+    return vec3(0.0);
 }
 
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec3<f32> {
+    let view_dir = magically_get_view_direction(in);
+    let view_pos = magically_get_view_position();
+
+    let atmosphere_dist = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
+    let step_length = atmosphere_dist / f32(settings.sky_view_lut_samples);
+
+    let inscattered_illuminance = vec3(0.0);
+    for (let step_i = 0u; step_i < settings.sky_view_lut_samples; step_i++) {
+        let pos = view_pos + step_length * view_dir;
+        let r = pos.y;
+
+        let local_atmosphere = sample_atmosphere(atmosphere, r);
+        let local_illuminance = sample_local_inscattering(
+            atmosphere, lights, transmittance_lut, transmittance_lut_sampler,
+            multiscattering_lut, multiscattering_lut_sampler, r, view_dir
+        );
+
+        inscattered_illuminance += local_atmosphere.scattering * local_illuminance * step_length;
+    }
+
+    return inscattered_illuminance;
 }

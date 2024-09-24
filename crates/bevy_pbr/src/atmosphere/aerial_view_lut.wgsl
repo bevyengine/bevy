@@ -33,7 +33,7 @@ fn main(@builtin(global_invocation_id) idx: vec2<u32>) {
     let in_scattering = vec3(0.0);
     let clip_xy = (vec2<f32>(idx) + 0.5) / settings.aerial_view_lut_size.xy;
     let prev_world_z = 0;
-    let direction_to_camera = view.world_from_clip * vec4(clip_xy, 1.0, 0.0); //TODO: check this
+    let view_dir = view.world_from_clip * vec4(clip_xy, 1.0, 0.0); //TODO: check this
 
     let inscattered_illuminance = vec3(0.0);
     for (let slice_i = settings.aerial_view_lut_size.z - 1; z >= 0; slice_i--) { //reversed loop to make coords match reversed Z
@@ -43,38 +43,21 @@ fn main(@builtin(global_invocation_id) idx: vec2<u32>) {
 
             let world_pos = (view.world_from_clip * clip_pos).xyz;
 
-            //see note on `depth_ndc_to_view_z`. Both of these are negative, so to get the (positive) difference we flip the order of subtraction
-            let step_length = prev_world_z - world_pos.z;
+            //TODO: see note on `depth_ndc_to_view_z`. Both of these are negative, so to get the (positive) difference we flip the subtraction
+            let step_length = prev_world_z - world_pos.z; //TODO: completely wrong. Needs to be ziew space or at least world space depth
             prev_world_z = world_pos.z;
 
-            let view_height = world_pos.y;
+            let r = world_pos.y;
             let local_atmosphere = sample_atmosphere(atmosphere, view_height);
 
             optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
 
             let transmittance_to_sample = exp(-optical_depth);
 
-            let local_illuminance = vec3(0.0);
-            for (let i = 0u; i < lights.n_directional_lights; i++) {
-                let light = &lights.directional_lights[i];
-                let mu_light = (*light).direction_to_light.y; //cosine of azimuth angle to light.
-
-                let neg_LdotV = dot(direction_to_camera, (*light).direction_to_light);
-                let rayleigh_phase = rayleigh(neg_LdotV);
-                let mie_phase = henyey_greenstein(neg(LdotV));
-                let phase = rayleigh_phase + mie_phase; //TODO: check this
-
-                let ground_dist = distance_to_bottom_atmosphere_boundary(atmosphere, r, mu_light);
-                let atmosphere_dist = distance_to_top_atmosphere_boundary(atmosphere, r, mu_light);
-                let vis = step(atmosphere_dist, ground_dist); //TODO: need to check that the intersection tests return infinity on a miss
-                let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, r, mu_light);
-                let shadow_factor = transmittance_to_light * f32(vis);
-
-                let psi_ms = sample_multiscattering_lut(atmosphere, multiscattering_lut, multiscattering_lut_sampler, r, mu_light)
-
-                local_illuminance += (transmittance_to_sample * shadow_factor * phase + psi_ms) * (*light).color;
-            }
-
+            let local_illuminance = sample_local_inscattering(
+                atmosphere, lights, transmittance_lut, transmittance_lut_sampler,
+                multiscattering_lut, multiscattering_lut_sampler, r, view_dir
+            );
             inscattered_illuminance += local_atmosphere.scattering * local_illuminance * step_length;
             let mean_transmittance = 0.33333333333 * (transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b);
 

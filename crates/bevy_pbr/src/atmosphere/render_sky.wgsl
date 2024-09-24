@@ -43,6 +43,5 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
 fn main(in: FullscreenVertexOutput) -> @location(0) vec3<f32> {
     let ray_direction = coords_to_ray_direction(in.uv, view.viewport);
 
-
     textureSample(sky_view_lut, sky_view_lut_sampler, in.uv)
 }

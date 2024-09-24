@@ -2,7 +2,6 @@
 
 #import bevy_pbr::atmosphere::types::Atmosphere,
 
-
 // Mapping from view height (r) and zenith cos angle (mu) to UV coordinates in the transmittance LUT
 // Assuming r between ground and top atmosphere boundary, and mu = cos(zenith_angle)
 // Chosen to increase precision near the ground and to work around a discontinuity at the horizon
@@ -55,23 +54,36 @@ fn transmittance_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f
     return vec2<f32>(r, mu);
 }
 
-fn multiscattering_lut_r_mu_to_uv(atmosphere: Atmosphere, r_mu: vec3<f32>) -> vec3<f32> {
+fn multiscattering_lut_r_mu_to_uv(atmosphere: Atmosphere, r: f32, mu: f32) -> vec2<f32> {
+    let u = 0.5 + 0.5 * mu;
+    let v = saturate(r / (atmosphere.top_radius - atmosphere.bottom_radius));
+    return vec2(u, v);
 }
 
 fn multiscattering_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
+    let r = lerp(0, atmosphere.top_radius - atmosphere.bottom_radius, uv.v);
+    let mu = uv.u * 2 - 1;
+    return vec2(r, mu);
 }
 
-fn sample_transmittance_lut(atmosphere: Atmosphere, lut: texture_2d<f32>, smp: sampler, position: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
-    let r = position.y;
-    let mu = dir_to_light.y;
+fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
+    let u = long * FRAC_PI + 0.5;
+    let v = sqrt(2 * abs(lat) * FRAC_PI) * sign(lat) * 0.5 + 0.5;
+}
+
+fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
+    //TODO:
+}
+
+fn sample_transmittance_lut(atmosphere: Atmosphere, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
-    return textureSample(smp, lut).rgb;
+    return textureSample(transmittance_lut, transmittance_lut_sampler, uv).rgb;
 }
 
-fn sample_multiscattering_lut(atmosphere: Atmosphere, lut: texture_3d<f32>, smp: sampler, position: vec3<f32>, dir: vec3<f32>) -> vec3<f32> {
+fn sample_multiscattering_lut(atmosphere: Atmosphere, multiscattering_lut: texture_3d<f32>, multiscattering_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
+    let uv = multiscattering_lut_r_mu_to_uv(r, mu);
+    return textureSample(multiscattering_lut, multiscattering_lut_sampler, uv).rgba;
 }
-
-
 
 /// Simplified ray-sphere intersection
 /// where:
@@ -129,6 +141,9 @@ fn sample_atmosphere(atmosphere: Atmosphere, view_height: f32) -> AtmosphereSamp
     return result;
 }
 
+// 1 / π
+const FRAC_PI: f32 = 0.31830988618379067153;
+
 // 3 / (16π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509;
 
@@ -139,8 +154,27 @@ fn rayleigh(neg_LdotV: f32) -> f32 {
     FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
 }
 
-fn henyey_greenstein(neg_LdotV: f32) -> f32 {
-    let g = volumetric_fog.scattering_asymmetry;
+fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
+}
+
+fn sample_local_inscattering(atmosphere: Atmosphere, lights: Lights, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler, view_height: f32, view_dir: vec3<f32>) -> vec3<f32> {
+    for (let light_i = 0u; light_i < lights.n_directional_lights; light_i++) {
+        let light = &lights.directional_lights[light_i];
+        let light_dir = (*light).direction_to_light
+        let mu_light = light_dir.y;
+        let neg_LdotV = dot(view_dir, light_dir);
+        let rayleigh_phase = rayleigh(neg_LdotV);
+        let mie_phase = henyey_greenstein(neg(LdotV));
+        let phase = rayleigh_phase + mie_phase; //TODO: check this
+
+        let ground_dist = distance_to_bottom_atmosphere_boundary(atmosphere, r, mu_light);
+        let atmosphere_dist = distance_to_top_atmosphere_boundary(atmosphere, r, mu_light);
+        let vis = step(atmosphere_dist, ground_dist); //TODO: need to check that the intersection tests return infinity on a miss
+        let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, r, mu_light);
+        let shadow_factor = transmittance_to_light * vis;
+
+        local_illuminance += (transmittance_to_sample * shadow_factor * phase + psi_ms) * (*light).color;
+    }
 }
