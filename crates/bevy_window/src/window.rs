@@ -549,16 +549,6 @@ impl WindowResizeConstraints {
 )]
 #[reflect(Debug, Default)]
 pub struct CursorOptions {
-    /// Whether the cursor is visible or not.
-    ///
-    /// ## Platform-specific
-    ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
-    /// - **`macOS`**: The cursor is hidden only when the window is focused.
-    /// - **`iOS`** and **`Android`** do not have cursors
-    pub visible: bool,
-
     /// Whether or not the cursor is locked by or confined within the window.
     ///
     /// ## Platform-specific
@@ -581,7 +571,6 @@ pub struct CursorOptions {
 impl Default for CursorOptions {
     fn default() -> Self {
         CursorOptions {
-            visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
         }

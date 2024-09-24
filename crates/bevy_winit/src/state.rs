@@ -1,5 +1,4 @@
-use approx::relative_eq;
-use bevy_app::{App, AppExit, PluginsState};
+use approx::relative_eq; use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::event::{EventCursor, EventWriter};

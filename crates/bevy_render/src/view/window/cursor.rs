@@ -38,6 +38,26 @@ impl Plugin for CursorPlugin {
 #[reflect(Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
     /// Makes the cursor hidden
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
+    ///     To stop the cursor from leaving the window, change the [`bevy_window::window::Window`]
+    ///     entity's
+    ///     [`bevy_window::window::CursorOptions::grab_mode`] to
+    ///     [`bevy_window::window::CursorGrabMode::Locked`] or
+    ///     [`bevy_window::window::CursorGrabMode::Confined`]
+    /// - **`macOS`**: The cursor is hidden only when the window is focused.
+    /// - **`iOS`** and **`Android`** do not have cursors
+    ///
+    /// # Note for developers
+    ///
+    /// This was originally part of the [`bevy_window::window::CursorOptions`] component
+    /// as the `visible` field but it was moved out after adding Custom cursors. Before,
+    /// since we only had system cursors provided by the OS, this was heavily tied into
+    /// the implementation provided by [`bevy_winit`]. Now, you can think of this as part
+    /// of the [`bevy_render`] level, hence the drift from the original [`bevy_winit`]
+    /// coupled API.
     Hidden,
     /// Custom cursor image.
     Custom(CustomCursor),

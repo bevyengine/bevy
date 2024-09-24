@@ -251,8 +251,6 @@ impl WinitWindows {
             attempt_grab(&winit_window, window.cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor_options.visible);
-
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
         if !window.cursor_options.hit_test {
