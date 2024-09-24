@@ -28,6 +28,14 @@ impl Default for AppSettings {
     }
 }
 
+// Define a struct to store parameters for the point light's movement.
+#[derive(Component)]
+struct MoveBackAndForthHorizontally {
+    min_x: f32,
+    max_x: f32,
+    speed: f32,
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -41,7 +49,7 @@ fn main() {
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
-        .add_systems(Update, move_directional_light)
+        .add_systems(Update, (move_directional_light, move_point_light))
         .add_systems(Update, adjust_app_settings)
         .run();
 }
@@ -83,17 +91,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Add the point light
     commands
-        .spawn(PointLightBundle {
-            point_light: PointLight {
-                shadows_enabled: true,
-                range: 50.0,
-                color: RED.into(),
-                intensity: 1000.0,
+        .spawn((
+            PointLightBundle {
+                point_light: PointLight {
+                    shadows_enabled: true,
+                    range: 150.0,
+                    color: RED.into(),
+                    intensity: 1000.0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(-0.4, 1.9, 1.0),
                 ..default()
             },
-            transform: Transform::from_xyz(-0.4, 1.9, 1.0),
-            ..default()
-        })
+            MoveBackAndForthHorizontally {
+                min_x: -1.93,
+                max_x: -0.4,
+                speed: -0.2,
+            },
+        ))
         .insert(VolumetricLight);
 
     // Add the spot light
@@ -192,6 +207,29 @@ fn move_directional_light(
     let delta_quat = Quat::from_euler(EulerRot::XZY, delta_theta.y, 0.0, delta_theta.x);
     for mut transform in directional_lights.iter_mut() {
         transform.rotate(delta_quat);
+    }
+}
+
+// Toggle point light movement between left and right.
+fn move_point_light(
+    timer: Res<Time>,
+    mut objects: Query<(&mut Transform, &mut MoveBackAndForthHorizontally)>,
+) {
+    for (mut transform, mut move_data) in objects.iter_mut() {
+        let mut translation = transform.translation;
+        let mut need_toggle = false;
+        translation.x += move_data.speed * timer.delta_seconds();
+        if translation.x > move_data.max_x {
+            translation.x = move_data.max_x;
+            need_toggle = true;
+        } else if translation.x < move_data.min_x {
+            translation.x = move_data.min_x;
+            need_toggle = true;
+        }
+        if need_toggle {
+            move_data.speed = -move_data.speed;
+        }
+        transform.translation = translation;
     }
 }
 
