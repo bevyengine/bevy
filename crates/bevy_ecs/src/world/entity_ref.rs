@@ -1297,7 +1297,6 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
         let world = self.world;
-        world.flush_entities();
         let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
