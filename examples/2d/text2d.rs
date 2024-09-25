@@ -7,9 +7,10 @@
 
 use bevy::{
     color::palettes::css::*,
+    math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{BreakLineOn, TextBounds},
+    text::{BreakLineOn, FontSmoothing, TextBounds},
 };
 
 fn main() {
@@ -36,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 60.0,
+        font_size: 50.0,
         ..default()
     };
     let text_justification = JustifyText::Center;
@@ -72,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate text wrapping
     let slightly_smaller_text_style = TextStyle {
         font,
-        font_size: 42.0,
+        font_size: 35.0,
         ..default()
     };
     let box_size = Vec2::new(300.0, 200.0);
@@ -96,6 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     )],
                     justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::WordBoundary,
+                    ..default()
                 },
                 // Wrap text in the rectangle
                 text_2d_bounds: TextBounds::from(box_size),
@@ -126,6 +128,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     )],
                     justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::AnyCharacter,
+                    ..default()
                 },
                 // Wrap text in the rectangle
                 text_2d_bounds: TextBounds::from(other_box_size),
@@ -134,6 +137,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
         });
+
+    // Demonstrate font smoothing off
+    commands.spawn(Text2dBundle {
+        text: Text::from_section("FontSmoothing::None", slightly_smaller_text_style.clone())
+            .with_font_smoothing(FontSmoothing::None),
+        transform: Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        ..default()
+    });
 
     for (text_anchor, color) in [
         (Anchor::TopLeft, Color::Srgba(RED)),
@@ -164,8 +175,8 @@ fn animate_translation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
-        transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
-        transform.translation.y = 100.0 * time.elapsed_seconds().cos();
+        transform.translation.x = 100.0 * ops::sin(time.elapsed_seconds()) - 400.0;
+        transform.translation.y = 100.0 * ops::cos(time.elapsed_seconds());
     }
 }
 
@@ -174,7 +185,7 @@ fn animate_rotation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
+        transform.rotation = Quat::from_rotation_z(ops::cos(time.elapsed_seconds()));
     }
 }
 
@@ -185,7 +196,7 @@ fn animate_scale(
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
-        let scale = (time.elapsed_seconds().sin() + 1.1) * 2.0;
+        let scale = (ops::sin(time.elapsed_seconds()) + 1.1) * 2.0;
         transform.scale.x = scale;
         transform.scale.y = scale;
     }

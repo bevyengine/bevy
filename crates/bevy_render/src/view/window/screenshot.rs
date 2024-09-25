@@ -1,41 +1,43 @@
 use super::ExtractedWindows;
-use crate::camera::{
-    ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget,
-};
-use crate::render_asset::RenderAssets;
-use crate::render_resource::{BindGroupEntries, BufferUsages, TextureUsages, TextureView};
-use crate::texture::{GpuImage, OutputColorAttachment};
-use crate::view::{
-    prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces,
-};
 use crate::{
+    camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     prelude::{Image, Shader},
-    render_asset::RenderAssetUsages,
+    render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
-        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
+        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::TextureFormatPixelInfo,
+    texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
+    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::event::event_update_system;
-use bevy_ecs::system::SystemState;
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::{
+    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::tracing::{error, info, warn};
-use bevy_utils::{default, HashSet};
+use bevy_utils::{
+    default,
+    tracing::{error, info, warn},
+    HashSet,
+};
 use bevy_window::{PrimaryWindow, WindowRef};
-use std::ops::Deref;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::{borrow::Cow, path::Path};
+use std::{
+    borrow::Cow,
+    ops::Deref,
+    path::Path,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+};
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
 };

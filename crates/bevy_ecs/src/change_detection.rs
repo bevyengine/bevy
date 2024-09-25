@@ -8,10 +8,12 @@ use crate::{
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::ThinSlicePtr;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::mem;
-use std::ops::{Deref, DerefMut};
 #[cfg(feature = "track_change_detection")]
 use std::{cell::UnsafeCell, panic::Location};
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -102,7 +104,6 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -581,6 +582,19 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
+            #[cfg(feature = "track_change_detection")]
+            changed_by: res.changed_by,
+        }
+    }
+}
+
+impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
+    /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
+    /// while losing the specificity of `Res` for resources.
+    fn from(res: Res<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks,
             #[cfg(feature = "track_change_detection")]
             changed_by: res.changed_by,
         }

@@ -1,13 +1,11 @@
 use std::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
-use bevy_utils::hashbrown::HashTable;
+use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -473,18 +471,14 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Set(set_value) = b.reflect_ref() {
-        for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.clone_value());
-            }
+    let set_value = b.reflect_ref().as_set()?;
+
+    for b_value in set_value.iter() {
+        if a.get(b_value).is_none() {
+            a.insert_boxed(b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Set,
-        });
     }
+
     Ok(())
 }
 

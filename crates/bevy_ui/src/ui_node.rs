@@ -24,7 +24,7 @@ use thiserror::Error;
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -150,6 +150,48 @@ impl Default for Node {
     }
 }
 
+/// The scroll position of the node.
+///
+/// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
+/// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
+/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct ScrollPosition {
+    /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
+    pub offset_x: f32,
+    /// How far down the node is scrolled, in pixels. (0 = not scrolled / scrolled to top)
+    pub offset_y: f32,
+}
+
+impl ScrollPosition {
+    pub const DEFAULT: Self = Self {
+        offset_x: 0.0,
+        offset_y: 0.0,
+    };
+}
+
+impl Default for ScrollPosition {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<&ScrollPosition> for Vec2 {
+    fn from(scroll_pos: &ScrollPosition) -> Self {
+        Vec2::new(scroll_pos.offset_x, scroll_pos.offset_y)
+    }
+}
+
+impl From<&Vec2> for ScrollPosition {
+    fn from(vec: &Vec2) -> Self {
+        ScrollPosition {
+            offset_x: vec.x,
+            offset_y: vec.y,
+        }
+    }
+}
+
 /// Describes the style of a UI container node
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
@@ -169,7 +211,7 @@ impl Default for Node {
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -865,6 +907,29 @@ impl Overflow {
     pub const fn is_visible(&self) -> bool {
         self.x.is_visible() && self.y.is_visible()
     }
+
+    pub const fn scroll() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Scroll,
+        }
+    }
+
+    /// Scroll overflowing items on the x axis
+    pub const fn scroll_x() -> Self {
+        Self {
+            x: OverflowAxis::Scroll,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Scroll overflowing items on the y axis
+    pub const fn scroll_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Scroll,
+        }
+    }
 }
 
 impl Default for Overflow {
@@ -888,6 +953,8 @@ pub enum OverflowAxis {
     Clip,
     /// Hide overflowing items by influencing layout and then clipping.
     Hidden,
+    /// Scroll overflowing items.
+    Scroll,
 }
 
 impl OverflowAxis {
@@ -1684,7 +1751,7 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1711,7 +1778,7 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
 
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1737,7 +1804,7 @@ impl Default for BorderColor {
 }
 
 #[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1822,7 +1889,7 @@ impl Outline {
 
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
@@ -1926,7 +1993,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -1946,7 +2013,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),
@@ -2002,7 +2069,7 @@ impl Default for ZIndex {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, PartialEq, Default)]
+#[reflect(Component, PartialEq, Default, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2298,6 +2365,7 @@ mod tests {
 }
 
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
+///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
 /// rendered to this camera's [`bevy_render::camera::RenderTarget`].
 ///
@@ -2306,6 +2374,7 @@ mod tests {
 ///
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Debug, PartialEq)]
 pub struct TargetCamera(pub Entity);
 
 impl TargetCamera {
@@ -2379,4 +2448,32 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
                 .map(|(e, _)| e)
         })
     }
+}
+
+/// Marker for controlling whether Ui is rendered with or without anti-aliasing
+/// in a camera. By default, Ui is always anti-aliased.
+///
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`bevy_text::Text`] component.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2dBundle::default(),
+///         // This will cause all Ui in this camera to be rendered without
+///         // anti-aliasing
+///         UiAntiAlias::Off,
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
+pub enum UiAntiAlias {
+    /// UI will render with anti-aliasing
+    #[default]
+    On,
+    /// UI will render without anti-aliasing
+    Off,
 }

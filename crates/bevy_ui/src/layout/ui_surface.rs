@@ -2,15 +2,17 @@ use std::fmt;
 
 use taffy::TaffyTree;
 
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::prelude::Resource;
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    prelude::Resource,
+};
 use bevy_hierarchy::Children;
 use bevy_math::UVec2;
-use bevy_utils::default;
-use bevy_utils::tracing::warn;
+use bevy_utils::{default, tracing::warn};
 
-use crate::layout::convert;
-use crate::{LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style};
+use crate::{
+    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {

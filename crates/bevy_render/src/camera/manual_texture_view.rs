@@ -1,8 +1,7 @@
-use crate::extract_resource::ExtractResource;
-use crate::render_resource::TextureView;
-use crate::texture::BevyDefault;
-use bevy_ecs::system::Resource;
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use crate::{
+    extract_resource::ExtractResource, render_resource::TextureView, texture::BevyDefault,
+};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
@@ -10,7 +9,7 @@ use wgpu::TextureFormat;
 
 /// A unique id that corresponds to a specific [`ManualTextureView`] in the [`ManualTextureViews`] collection.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq, Hash)]
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A manually managed [`TextureView`] for use as a [`crate::camera::RenderTarget`].

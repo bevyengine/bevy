@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -11,7 +11,7 @@
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
 mod sprite;
@@ -78,7 +78,7 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
 /// A convenient alias for `With<Mesh2dHandle>>`, for use with
@@ -134,7 +134,7 @@ impl Plugin for SpritePlugin {
                 ),
             );
 
-        #[cfg(feature = "bevy_picking")]
+        #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(picking_backend::SpritePickingBackend);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

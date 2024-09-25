@@ -3,8 +3,10 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::DEFAULT_CIRCLE_RESOLUTION,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
 use std::f32::consts::{FRAC_PI_2, TAU};
@@ -114,8 +116,7 @@ fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<I
     (0..=resolution)
         .map(move |n| arc_angle * n as f32 / resolution as f32)
         .map(|angle| angle + FRAC_PI_2)
-        .map(f32::sin_cos)
-        .map(|(sin, cos)| Vec2::new(cos, sin))
+        .map(Vec2::from_angle)
         .map(move |vec2| vec2 * radius)
 }
 

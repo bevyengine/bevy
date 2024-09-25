@@ -132,7 +132,7 @@
 //!
 //! [Why ambient cubes?]: #why-ambient-cubes
 
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
@@ -145,7 +145,7 @@ use bevy_render::{
 use std::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
@@ -166,6 +166,7 @@ pub(crate) const IRRADIANCE_VOLUMES_ARE_USABLE: bool = cfg!(not(target_arch = "w
 ///
 /// See [`crate::irradiance_volume`] for detailed information.
 #[derive(Clone, Default, Reflect, Component, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct IrradianceVolume {
     /// The 3D texture that represents the ambient cubes, encoded in the format
     /// described in [`crate::irradiance_volume`].

@@ -3,8 +3,7 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
-use bevy_utils::tracing::warn;
-use bevy_utils::{Duration, HashMap};
+use bevy_utils::{tracing::warn, Duration, HashMap};
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
 use parking_lot::RwLock;
 use std::{

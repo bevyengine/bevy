@@ -56,6 +56,7 @@ git checkout v0.4.0
   - [Movement](#movement)
   - [Picking](#picking)
   - [Reflection](#reflection)
+  - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [State](#state)
@@ -156,6 +157,7 @@ Example | Description
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
+[Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
@@ -186,6 +188,7 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
@@ -218,6 +221,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning.
+[Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
@@ -375,6 +380,13 @@ Example | Description
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
 
+## Remote Protocol
+
+Example | Description
+--- | ---
+[client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
+[server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
+
 ## Scene
 
 Example | Description
@@ -482,6 +494,7 @@ Example | Description
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
+[Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout

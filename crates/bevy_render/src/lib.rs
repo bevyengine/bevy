@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![allow(unsafe_code)]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
@@ -71,14 +71,12 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
-use crate::mesh::RenderMesh;
-use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin},
+    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, RenderInstance, WgpuWrapper},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -203,6 +201,7 @@ impl Render {
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
+///
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`] for more details.
@@ -447,7 +446,8 @@ fn extract(main_world: &mut World, render_world: &mut World) {
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
 
-/// SAFETY: this function must be called from the main thread.
+/// # Safety
+/// This function must be called from the main thread.
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 

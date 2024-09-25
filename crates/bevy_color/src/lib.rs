@@ -57,7 +57,6 @@
 //! a form of chromaticity, while `y` defines an illuminance level.
 //!
 //! See also the [Wikipedia article on color spaces](https://en.wikipedia.org/wiki/Color_space).
-//!
 #![doc = include_str!("../docs/conversion.md")]
 //! <div>
 #![doc = include_str!("../docs/diagrams/model_graph.svg")]
@@ -115,18 +114,10 @@ mod xyza;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    pub use crate::color::*;
-    pub use crate::color_ops::*;
-    pub use crate::hsla::*;
-    pub use crate::hsva::*;
-    pub use crate::hwba::*;
-    pub use crate::laba::*;
-    pub use crate::lcha::*;
-    pub use crate::linear_rgba::*;
-    pub use crate::oklaba::*;
-    pub use crate::oklcha::*;
-    pub use crate::srgba::*;
-    pub use crate::xyza::*;
+    pub use crate::{
+        color::*, color_ops::*, hsla::*, hsva::*, hwba::*, laba::*, lcha::*, linear_rgba::*,
+        oklaba::*, oklcha::*, srgba::*, xyza::*,
+    };
 }
 
 pub use color::*;

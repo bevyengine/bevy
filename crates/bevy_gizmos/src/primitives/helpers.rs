@@ -1,6 +1,6 @@
 use std::f32::consts::TAU;
 
-use bevy_math::Vec2;
+use bevy_math::{ops, Vec2};
 
 /// Calculates the `nth` coordinate of a circle.
 ///
@@ -9,7 +9,7 @@ use bevy_math::Vec2;
 /// and proceeds counter-clockwise.
 pub(crate) fn single_circle_coordinate(radius: f32, resolution: u32, nth_point: u32) -> Vec2 {
     let angle = nth_point as f32 * TAU / resolution as f32;
-    let (x, y) = angle.sin_cos();
+    let (x, y) = ops::sin_cos(angle);
     Vec2::new(x, y) * radius
 }
 

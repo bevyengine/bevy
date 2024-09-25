@@ -24,12 +24,11 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, warn_once};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -92,7 +91,8 @@ pub struct ComputedCameraValues {
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -136,7 +136,7 @@ impl Exposure {
     /// <https://google.github.io/filament/Filament.md.html#imagingpipeline/physicallybasedcamera/exposure>
     #[inline]
     pub fn exposure(&self) -> f32 {
-        (-self.ev100).exp2() / 1.2
+        ops::exp2(-self.ev100) / 1.2
     }
 }
 
@@ -170,9 +170,10 @@ pub struct PhysicalCameraParameters {
 impl PhysicalCameraParameters {
     /// Calculate the [EV100](https://en.wikipedia.org/wiki/Exposure_value).
     pub fn ev100(&self) -> f32 {
-        (self.aperture_f_stops * self.aperture_f_stops * 100.0
-            / (self.shutter_speed_s * self.sensitivity_iso))
-            .log2()
+        ops::log2(
+            self.aperture_f_stops * self.aperture_f_stops * 100.0
+                / (self.shutter_speed_s * self.sensitivity_iso),
+        )
     }
 }
 
@@ -226,7 +227,7 @@ pub enum ViewportConversionError {
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -613,7 +614,8 @@ impl Default for CameraOutputMode {
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component, Debug)]
+#[reflect(opaque)]
+#[reflect(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -900,7 +902,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {

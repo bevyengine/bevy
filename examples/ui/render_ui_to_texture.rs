@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
-use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()

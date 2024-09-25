@@ -13,8 +13,7 @@ use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -187,13 +186,24 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
