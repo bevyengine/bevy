@@ -279,6 +279,50 @@ pub struct ChildBuilder<'a> {
     add_children: AddChildren,
 }
 
+/// Provides helper methods for getting the [`Commands`] struct used to create the provided child
+/// builder. Useful for accessing an extension trait or method on commands from within the child
+/// builder
+///
+/// # Example
+///
+/// This example creates three entities and then triggers an event for an observer
+///
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::Trigger;
+/// # use bevy_ecs::Event;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_hierarchy::{ChildBuild, BuildChildren};
+/// # #[derive(Event)]
+/// # struct AllChildrenCreated;
+/// # #[derive(Bundle)]
+/// # struct MyBundle {}
+/// # #[derive(Bundle)]
+/// # struct MyChildBundle {}
+/// #
+/// # fn test(mut commands: Commands) {
+/// // See source for the full imports so that you can run this example
+/// commands.spawn(MyBundle {}).with_children(|child_builder| {
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.commands_mut().trigger(AllChildrenCreated);
+/// });
+/// # }
+/// ```
+impl<'a> ChildBuilder<'a> {
+    /// Returns the [`Commands`] used to create this [`ChildBuilder`] object, usually from calling
+    /// [`Commands::spawn`], spawning an entity. The lifetime used in `commands_mut` and `commands`
+    /// is longer than `Self`
+    pub fn commands_mut(&mut self) -> &mut Commands<'a, 'a> {
+        &mut self.commands
+    }
+
+    /// Same as above, except non-mutable
+    pub fn commands(&self) -> &Commands<'a, 'a> {
+        &self.commands
+    }
+}
+
 /// Trait for building children entities and adding them to a parent entity. This is used in
 /// implementations of [`BuildChildren`] as a bound on the [`Builder`](BuildChildren::Builder)
 /// associated type. The closure passed to [`BuildChildren::with_children`] accepts an
@@ -532,6 +576,41 @@ impl BuildChildren for EntityCommands<'_> {
 pub struct WorldChildBuilder<'w> {
     world: &'w mut World,
     parent: Entity,
+}
+
+/// Helper functions to get the associated [`World`]
+///
+/// # Example
+///
+/// ```
+/// #[derive(Component)]
+/// struct MyComponent;
+/// // Has to be run as an exclusive system
+/// fn test_system(mut world: World) {
+///     world.spawn(MyComponent).with_children(|world_child_builder| {
+///         let mut world = world_child_builder.world_mut();
+///         // Do something with world..
+///     });
+/// }
+/// ```
+impl<'w> WorldChildBuilder<'w> {
+    /// Mutable access to the `World` this `WorldChildBuilder` was created with. The lifetime of the
+    /// world that is returned is the same lifetime of the `World` that this was created with. As a
+    /// result it will most likely outlive `Self`.
+    pub fn world_mut<'a>(&'a mut self) -> &'a mut World
+    where
+        'w: 'a,
+    {
+        self.world
+    }
+
+    /// Same as above, except non mutable
+    pub fn world<'a>(&'a self) -> &World
+    where
+        'w: 'a,
+    {
+        &self.world
+    }
 }
 
 impl ChildBuild for WorldChildBuilder<'_> {
@@ -1297,5 +1376,26 @@ mod tests {
         world.entity_mut(a).with_child(c).with_child(d);
 
         assert_num_children(world, a, 3);
+    }
+
+    #[test]
+    fn get_world_from_world_child_builder() {
+        let mut world = World::new();
+
+        world.spawn_empty().with_children(|world_child_builder| {
+            let mut _world_mut_clone = world_child_builder.world_mut();
+            let _world_clone = world_child_builder.world();
+        });
+    }
+
+    #[test]
+    fn get_commands_from_child_builder() {
+        let world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.spawn_empty().with_children(|child_builder| {
+            let mut _commands_mut_clone = child_builder.commands_mut();
+            let mut _commands_clone = child_builder.commands();
+        });
     }
 }
