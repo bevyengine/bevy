@@ -16,7 +16,6 @@ impl Prepare for DocCheckNightlyCommand {
             ),
             "Please fix the warnings and errors in the above output.",
         )
-        .with_env_var("RUSTDOCFLAGS", "-D warnings --cfg=docsrs")
-        .with_env_var("RUSTFLAGS", "--cfg docsrs_dep")]
+        .with_env_var("RUSTDOCFLAGS", "-D warnings --cfg=docsrs")]
     }
 }

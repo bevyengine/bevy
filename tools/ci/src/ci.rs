@@ -75,7 +75,6 @@ impl CI {
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
-                cmds.append(&mut commands::DocCheckNightlyCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));

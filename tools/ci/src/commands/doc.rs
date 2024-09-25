@@ -1,5 +1,5 @@
 use crate::{
-    commands::{DocCheckCommand, DocCheckNightlyCommand, DocTestCommand},
+    commands::{DocCheckCommand, DocTestCommand},
     Flag, Prepare, PreparedCommand,
 };
 use argh::FromArgs;
@@ -14,7 +14,6 @@ impl Prepare for DocCommand {
         let mut commands = vec![];
         commands.append(&mut DocTestCommand::default().prepare(sh, flags));
         commands.append(&mut DocCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut DocCheckNightlyCommand::default().prepare(sh, flags));
         commands
     }
 }
