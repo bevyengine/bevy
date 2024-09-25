@@ -15,12 +15,12 @@ use winit::{
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
-use crate::winit_monitors::WinitMonitors;
 use crate::{
     accessibility::{
         prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
     },
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
+    winit_monitors::WinitMonitors,
 };
 
 /// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
@@ -393,7 +393,7 @@ pub fn winit_window_position(
 ) -> Option<PhysicalPosition<i32>> {
     match position {
         WindowPosition::Automatic => {
-            /* Window manager will handle position */
+            // Window manager will handle position
             None
         }
         WindowPosition::Centered(monitor_selection) => {

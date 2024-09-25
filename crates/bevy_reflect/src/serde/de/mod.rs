@@ -21,18 +21,15 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::any::TypeId;
-    use std::f32::consts::PI;
-    use std::ops::RangeInclusive;
+    use std::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
 
-    use serde::de::DeserializeSeed;
-    use serde::Deserialize;
+    use serde::{de::DeserializeSeed, Deserialize};
 
     use bevy_utils::{HashMap, HashSet};
 
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
     use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
         DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
     };
 

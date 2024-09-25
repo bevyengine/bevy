@@ -96,7 +96,6 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// // all events were processed
     /// assert_eq!(counter.into_inner(), 4950);
     /// ```
-    ///
     #[cfg(feature = "multi_threaded")]
     pub fn par_read(&mut self) -> EventMutParIter<'_, E> {
         self.reader.par_read_mut(&mut self.events)

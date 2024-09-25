@@ -14,8 +14,10 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::{entity::Entity, world::World};
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    world::World,
+};
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
@@ -43,23 +45,25 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::{error, info_span, warn};
-use bevy_utils::{HashMap, HashSet};
-use gltf::image::Source;
+use bevy_utils::{
+    tracing::{error, info_span, warn},
+    HashMap, HashSet,
+};
 use gltf::{
     accessor::Iter,
+    image::Source,
+    json,
     mesh::{util::ReadIndices, Mode},
     texture::{Info, MagFilter, MinFilter, TextureTransform, WrappingMode},
-    Material, Node, Primitive, Semantic,
+    Document, Material, Node, Primitive, Semantic,
 };
-use gltf::{json, Document};
 use serde::{Deserialize, Serialize};
 use serde_json::{value, Value};
 #[cfg(feature = "bevy_animation")]
 use smallvec::SmallVec;
-use std::io::Error;
 use std::{
     collections::VecDeque,
+    io::Error,
     path::{Path, PathBuf},
 };
 use thiserror::Error;

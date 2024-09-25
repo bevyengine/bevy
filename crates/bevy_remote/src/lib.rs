@@ -295,6 +295,7 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 const CHANNEL_SIZE: usize = 16;
 
 /// Add this plugin to your [`App`] to allow remote connections to inspect and modify entities.
+///
 /// This the main plugin for `bevy_remote`. See the [crate-level documentation] for details on
 /// the protocol and its default methods.
 ///

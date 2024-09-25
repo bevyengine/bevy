@@ -127,6 +127,7 @@ impl Sphere {
 }
 
 /// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+///
 /// This bisecting plane partitions 3D space into two infinite regions,
 /// the half-space is one of those regions and excludes the bisecting plane.
 ///

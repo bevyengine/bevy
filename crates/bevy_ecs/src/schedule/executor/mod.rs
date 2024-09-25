@@ -2,9 +2,11 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
-pub use self::simple::SimpleExecutor;
-pub use self::single_threaded::SingleThreadedExecutor;
+pub use self::{
+    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
+    simple::SimpleExecutor,
+    single_threaded::SingleThreadedExecutor,
+};
 
 use fixedbitset::FixedBitSet;
 
@@ -127,6 +129,7 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
 }
 
 /// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
+///
 /// The full callstack will still be visible with `RUST_BACKTRACE=full`.
 /// They are specialized for `System::run` & co instead of being generic over closures because this avoids an
 /// extra frame in the backtrace.

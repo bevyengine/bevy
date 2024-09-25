@@ -324,6 +324,7 @@ pub enum ImageSamplerBorderColor {
 }
 
 /// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+///
 /// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.

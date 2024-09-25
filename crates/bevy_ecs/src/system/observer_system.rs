@@ -5,9 +5,7 @@ use crate::{
 
 use super::IntoSystem;
 
-/// Implemented for systems that have an [`Observer`] as the first argument.
-///
-/// [`Observer`]: crate::observer::Observer
+/// Implemented for [`System`]s that have a [`Trigger`] as the first argument.
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = ()>:
     System<In = Trigger<'static, E, B>, Out = Out> + Send + 'static
 {
