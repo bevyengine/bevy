@@ -252,23 +252,26 @@ use std::{
     sync::RwLock,
 };
 
-use anyhow::Result as AnyhowResult;
+use anyhow::{bail, Result as AnyhowResult};
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    component::Component,
     entity::Entity,
     system::{Commands, In, IntoSystem, Res, Resource, System, SystemId},
-    world::World,
+    world::{Mut, World},
 };
 use bevy_reflect::Reflect;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{prelude::default, HashMap};
+use futures_util::SinkExt;
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
     server::conn::http1,
     service, Request, Response,
 };
+use hyper_tungstenite::HyperWebsocket;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use smol::{
@@ -279,6 +282,7 @@ use smol_hyper::rt::{FuturesIo, SmolTimer};
 use std::net::{TcpListener, TcpStream};
 
 pub mod builtin_methods;
+pub mod error_codes;
 
 /// The default port that Bevy will listen on.
 ///
@@ -313,6 +317,13 @@ pub struct RemotePlugin {
             Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
         )>,
     >,
+
+    streaming_methods: RwLock<
+        Vec<(
+            String,
+            Box<dyn System<In = In<Option<Value>>, Out = Option<BrpResult>>>,
+        )>,
+    >,
 }
 
 impl RemotePlugin {
@@ -323,6 +334,7 @@ impl RemotePlugin {
             address: DEFAULT_ADDR,
             port: DEFAULT_PORT,
             methods: RwLock::new(vec![]),
+            streaming_methods: RwLock::new(vec![]),
         }
     }
 
@@ -348,6 +360,18 @@ impl RemotePlugin {
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
         self.methods
+            .get_mut()
+            .unwrap()
+            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
+        self
+    }
+    #[must_use]
+    pub fn with_stream_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, Option<BrpResult>, M>,
+    ) -> Self {
+        self.streaming_methods
             .get_mut()
             .unwrap()
             .push((name.into(), Box::new(IntoSystem::into_system(handler))));
@@ -400,7 +424,16 @@ impl Plugin for RemotePlugin {
         for (name, system) in plugin_methods.drain(..) {
             remote_methods.insert(
                 name,
-                app.main_mut().world_mut().register_boxed_system(system),
+                RemoteMethod::Normal(app.main_mut().world_mut().register_boxed_system(system)),
+            );
+        }
+
+        let plugin_methods = &mut *self.streaming_methods.write().unwrap();
+
+        for (name, system) in plugin_methods.drain(..) {
+            remote_methods.insert(
+                name.clone(),
+                RemoteMethod::Stream(app.main_mut().world_mut().register_boxed_system(system)),
             );
         }
 
@@ -433,7 +466,11 @@ pub struct HostPort(pub u16);
 ///
 /// The returned JSON value will be returned as the response. Bevy will
 /// automatically populate the `id` field before sending.
-pub type RemoteMethod = SystemId<In<Option<Value>>, BrpResult>;
+#[derive(Debug, Clone)]
+pub enum RemoteMethod {
+    Normal(SystemId<In<Option<Value>>, BrpResult>),
+    Stream(SystemId<In<Option<Value>>, Option<BrpResult>>),
+}
 
 /// Holds all implementations of methods known to the server.
 ///
@@ -607,41 +644,6 @@ impl BrpError {
     }
 }
 
-/// Error codes used by BRP.
-pub mod error_codes {
-    // JSON-RPC errors
-    // Note that the range -32728 to -32000 (inclusive) is reserved by the JSON-RPC specification.
-
-    /// Invalid JSON.
-    pub const PARSE_ERROR: i16 = -32700;
-
-    /// JSON sent is not a valid request object.
-    pub const INVALID_REQUEST: i16 = -32600;
-
-    /// The method does not exist / is not available.
-    pub const METHOD_NOT_FOUND: i16 = -32601;
-
-    /// Invalid method parameter(s).
-    pub const INVALID_PARAMS: i16 = -32602;
-
-    /// Internal error.
-    pub const INTERNAL_ERROR: i16 = -32603;
-
-    // Bevy errors (i.e. application errors)
-
-    /// Entity not found.
-    pub const ENTITY_NOT_FOUND: i16 = -23401;
-
-    /// Could not reflect or find component.
-    pub const COMPONENT_ERROR: i16 = -23402;
-
-    /// Could not find component in entity.
-    pub const COMPONENT_NOT_PRESENT: i16 = -23403;
-
-    /// Cannot reparent an entity to itself.
-    pub const SELF_REPARENT: i16 = -23404;
-}
-
 /// The result of a request.
 pub type BrpResult = Result<Value, BrpError>;
 
@@ -681,6 +683,9 @@ pub struct BrpMessage {
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
+#[derive(Debug, Component, Clone)]
+struct ActiveStream(BrpMessage, RemoteMethod);
+
 /// A system that starts up the Bevy Remote Protocol server.
 fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<HostPort>) {
     // Create the channel and the mailbox.
@@ -703,33 +708,94 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpMailbox>().try_recv() {
-        // Fetch the handler for the method. If there's no such handler
-        // registered, return an error.
-        let methods = world.resource::<RemoteMethods>();
-
-        let Some(handler) = methods.0.get(&message.method) else {
-            let _ = message.sender.send_blocking(Err(BrpError {
-                code: error_codes::METHOD_NOT_FOUND,
-                message: format!("Method `{}` not found", message.method),
-                data: None,
-            }));
-            continue;
-        };
-
-        // Execute the handler, and send the result back to the client.
-        let result = match world.run_system_with_input(*handler, message.params) {
-            Ok(result) => result,
-            Err(error) => {
+        world.resource_scope(|world, methods: Mut<RemoteMethods>| {
+            // Fetch the handler for the method. If there's no such handler
+            // registered, return an error.
+            let Some(handler) = methods.0.get(&message.method) else {
                 let _ = message.sender.send_blocking(Err(BrpError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("Failed to run method handler: {error}"),
+                    code: error_codes::METHOD_NOT_FOUND,
+                    message: format!("Method `{}` not found", message.method),
                     data: None,
                 }));
-                continue;
-            }
-        };
+                return;
+            };
 
-        let _ = message.sender.send_blocking(result);
+            let result = match handler {
+                RemoteMethod::Normal(system_id) => {
+                    let r = world.run_system_with_input(*system_id, message.params);
+                    r
+                }
+                RemoteMethod::Stream(system_id) => {
+                    world.spawn(ActiveStream(
+                        message.clone(),
+                        RemoteMethod::Stream(*system_id),
+                    ));
+
+                    return;
+                }
+            };
+
+            // Execute the handler, and send the result back to the client.
+            let result = match result {
+                Ok(result) => result,
+                Err(error) => {
+                    let _ = message.sender.send_blocking(Err(BrpError {
+                        code: error_codes::INTERNAL_ERROR,
+                        message: format!("Failed to run method handler: {error}"),
+                        data: None,
+                    }));
+                    return;
+                }
+            };
+
+            let _ = message.sender.send_blocking(result);
+        });
+    }
+
+    let streams: Vec<_> = world
+        .query::<(Entity, &ActiveStream)>()
+        .iter(world)
+        .map(|item| (item.0, item.1.clone()))
+        .collect();
+
+    let to_remove: Vec<_> = streams
+        .into_iter()
+        .filter_map(|(entity, stream)| match stream.1 {
+            RemoteMethod::Stream(system_id) => {
+                let message = stream.0;
+                let result = world.run_system_with_input(system_id, message.params);
+
+                let should_remove = match result {
+                    Ok(handler_result) => {
+                        if let Some(handler_result) = handler_result {
+                            let handler_err = handler_result.is_err();
+                            let channel_result = message.sender.send_blocking(handler_result);
+
+                            // Remove the entity when the handler return error or channel closed
+                            handler_err || channel_result.is_err()
+                        } else {
+                            false
+                        }
+                    }
+                    Err(error) => {
+                        let _ = message.sender.send_blocking(Err(BrpError {
+                            code: error_codes::INTERNAL_ERROR,
+                            message: format!("Failed to run method handler: {error}"),
+                            data: None,
+                        }));
+
+                        true
+                    }
+                };
+
+                should_remove.then_some(entity)
+            }
+            _ => unreachable!(),
+        })
+        .collect();
+
+    for entity in to_remove {
+        world.despawn(entity);
     }
 }
 
@@ -752,7 +818,6 @@ async fn listen(
 ) -> AnyhowResult<()> {
     loop {
         let (client, _) = listener.accept().await?;
-
         let request_sender = request_sender.clone();
         IoTaskPool::get()
             .spawn(async move {
@@ -767,25 +832,58 @@ async fn handle_client(
     request_sender: Sender<BrpMessage>,
 ) -> AnyhowResult<()> {
     http1::Builder::new()
+        .keep_alive(true)
         .timer(SmolTimer::new())
         .serve_connection(
             FuturesIo::new(client),
-            service::service_fn(|request| process_request_batch(request, &request_sender)),
+            service::service_fn(|request| process_request(request, &request_sender)),
         )
+        .with_upgrades()
         .await?;
 
     Ok(())
 }
 
-/// A helper function for the Bevy Remote Protocol server that handles a batch
-/// of requests coming from a client.
-async fn process_request_batch(
-    request: Request<Incoming>,
+async fn process_request(
+    mut request: Request<Incoming>,
     request_sender: &Sender<BrpMessage>,
 ) -> AnyhowResult<Response<Full<Bytes>>> {
-    let batch_bytes = request.into_body().collect().await?.to_bytes();
-    let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
+    if hyper_tungstenite::is_upgrade_request(&request) {
+        let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
+        let body = match validate_websocket_request(&request) {
+            Ok(body) => body,
+            Err(err) => {
+                let response = (serde_json::to_string(&BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: format!("{err}"),
+                    data: None,
+                })?);
 
+                return Ok(Response::new(Full::new(response.into_bytes().into())));
+            }
+        };
+
+        let request_sender = request_sender.clone();
+
+        IoTaskPool::get()
+            .spawn(async move { process_brp_websocket(websocket, request_sender, body).await })
+            .detach();
+
+        return Ok(response);
+    }
+    let batch_bytes = request.into_body().collect().await?.to_bytes();
+    let serialized = process_brp_batch(batch_bytes, request_sender).await?;
+
+    Ok(Response::new(Full::new(serialized)))
+}
+
+/// A helper function for the Bevy Remote Protocol server that handles a batch
+/// of requests coming from a client.
+async fn process_brp_batch(
+    bytes: Bytes,
+    request_sender: &Sender<BrpMessage>,
+) -> AnyhowResult<Bytes> {
+    let batch: Result<BrpBatch, _> = serde_json::from_slice(&bytes);
     let serialized = match batch {
         Ok(BrpBatch::Single(request)) => {
             serde_json::to_string(&process_single_request(request, request_sender).await?)?
@@ -799,23 +897,14 @@ async fn process_request_batch(
 
             serde_json::to_string(&responses)?
         }
-        Err(err) => {
-            let err = BrpResponse::new(
-                None,
-                Err(BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: err.to_string(),
-                    data: None,
-                }),
-            );
-
-            serde_json::to_string(&err)?
-        }
+        Err(err) => serde_json::to_string(&BrpError {
+            code: error_codes::INVALID_REQUEST,
+            message: err.to_string(),
+            data: None,
+        })?,
     };
 
-    Ok(Response::new(Full::new(Bytes::from(
-        serialized.as_bytes().to_owned(),
-    ))))
+    Ok(Bytes::from(serialized.as_bytes().to_owned()))
 }
 
 /// A helper function for the Bevy Remote Protocol server that processes a single
@@ -864,4 +953,73 @@ async fn process_single_request(
 
     let result = result_receiver.recv().await?;
     Ok(BrpResponse::new(request.id, result))
+}
+
+async fn process_brp_websocket(
+    websocket: HyperWebsocket,
+    request_sender: Sender<BrpMessage>,
+    request: BrpRequest,
+) -> AnyhowResult<()> {
+    let mut websocket = websocket.await?;
+
+    let (result_sender, result_receiver) = channel::bounded(1);
+
+    let id = request.id;
+
+    let _ = request_sender
+        .send(BrpMessage {
+            method: request.method,
+            params: request.params,
+            sender: result_sender,
+        })
+        .await;
+
+    while let Ok(result) = result_receiver.recv().await {
+        let response = serde_json::to_string(&BrpResponse::new(id.clone(), result))?;
+        websocket.send(tungstenite::Message::text(response)).await?;
+    }
+
+    Ok(())
+}
+
+fn validate_websocket_request(request: &Request<Incoming>) -> AnyhowResult<BrpRequest> {
+    let body = request
+        .uri()
+        .query()
+        .map(|query| {
+            // Simple query string parsing
+            let mut map = HashMap::new();
+            for pair in query.split('&') {
+                let mut it = pair.split('=').take(2);
+                let (k, v) = match (it.next(), it.next()) {
+                    (Some(k), Some(v)) => (k, v),
+                    _ => continue,
+                };
+                map.insert(k, v);
+            }
+            map
+        })
+        .and_then(|query| query.get("body").cloned())
+        .ok_or_else(|| anyhow::anyhow!("Missing body"))?;
+
+    let body = urlencoding::decode(body)?.into_owned();
+    let batch = serde_json::from_str(&body).map_err(|err| anyhow::anyhow!(err))?;
+
+    let body = match batch {
+        BrpBatch::Batch(_vec) => {
+            anyhow::bail!("Batch requests are not supported for streaming")
+        }
+        BrpBatch::Single(value) => value,
+    };
+
+    match serde_json::from_value::<BrpRequest>(body) {
+        Ok(req) => {
+            if req.jsonrpc != "2.0" {
+                anyhow::bail!("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`")
+            }
+
+            Ok(req)
+        }
+        Err(err) => anyhow::bail!(err),
+    }
 }

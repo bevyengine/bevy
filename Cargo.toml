@@ -394,6 +394,8 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
+tungstenite = "0.24"
+urlencoding = "2"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"

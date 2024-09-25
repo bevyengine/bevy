@@ -27,6 +27,10 @@ hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 http-body-util = "0.1"
+tungstenite = "0.24"
+hyper-tungstenite = "0.15"
+futures-util = "0.3"
+urlencoding = "2"
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
