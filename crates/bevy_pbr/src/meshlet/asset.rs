@@ -40,7 +40,7 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
-    /// Bitstream-packed vertex positions for meshlet vertices.
+    /// Quantized and bitstream-packed vertex positions for meshlet vertices.
     pub(crate) vertex_positions: Arc<[u8]>,
     /// Octahedral-encoded and 2x16snorm packed normals for meshlet vertices.
     pub(crate) vertex_normals: Arc<[u32]>,
@@ -70,9 +70,21 @@ pub struct Meshlet {
     /// The amount of triangles in this meshlet.
     pub triangle_count: u8,
     /// Number of bits used to quantize vertex positions within this meshlet.
-    pub bits_per_vertex_position_channel: u8,
+    pub quantization_bits: u8,
+    /// Number of bits used to to store the X channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_x: u8,
+    /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_y: u8,
+    /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_z: u8,
     /// Unused. (TODO: Get rid of this in the disk representation?)
-    pub padding: u8,
+    pub padding: u16,
+    /// Minimum quantized X channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_x: f32,
+    /// Minimum quantized Y channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_y: f32,
+    /// Minimum quantized Z channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_z: f32,
 }
 
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
