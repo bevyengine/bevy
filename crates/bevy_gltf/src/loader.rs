@@ -4,10 +4,7 @@ use crate::{
 };
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{
-    animation_curves::{RotationCurve, ScaleCurve, TranslationCurve, WeightsCurve},
-    AnimationTarget, AnimationTargetId, VariableCurve,
-};
+use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -270,7 +267,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::gltf_curves::*;
+        use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
         use bevy_math::curve::{constant_curve, Interval, UnevenSampleAutoCurve};
         use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
