@@ -102,18 +102,18 @@ fn setup(
     image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
     let image = images.add(image);
 
-    commands
-        .spawn((buffer.clone(), Readback))
-        .observe(|trigger: Trigger<ReadbackComplete>| {
+    commands.spawn(Readback::buffer(buffer.clone())).observe(
+        |trigger: Trigger<ReadbackComplete>| {
             info!("Buffer {:?}", trigger.event());
-        });
+        },
+    );
     commands.insert_resource(ReadbackBuffer(buffer));
 
-    commands
-        .spawn((image.clone(), Readback))
-        .observe(|trigger: Trigger<ReadbackComplete>| {
+    commands.spawn(Readback::texture(image.clone())).observe(
+        |trigger: Trigger<ReadbackComplete>| {
             info!("Image {:?}", trigger.event());
-        });
+        },
+    );
     commands.insert_resource(ReadbackImage(image));
 }
 

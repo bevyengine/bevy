@@ -6,7 +6,7 @@ use crate::{
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     texture::{GpuImage, TextureFormatPixelInfo},
-    Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
@@ -18,8 +18,7 @@ use bevy_ecs::{
     entity::Entity,
     event::Event,
     prelude::{Component, Resource, World},
-    query::With,
-    system::{Commands, Query, Res},
+    system::{Query, Res},
 };
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
@@ -39,10 +38,7 @@ impl Plugin for GpuReadbackPlugin {
             render_app
                 .init_resource::<GpuReadbackBufferPool>()
                 .init_resource::<GpuReadbacks>()
-                .add_systems(
-                    ExtractSchedule,
-                    (extract_readbacks, sync_readbacks).ambiguous_with_all(),
-                )
+                .add_systems(ExtractSchedule, sync_readbacks.ambiguous_with_all())
                 .add_systems(
                     Render,
                     (
@@ -58,8 +54,23 @@ impl Plugin for GpuReadbackPlugin {
 ///
 /// The entity must also have a `Handle<Image>` or `Handle<ShaderStorageBuffer>` component, which
 /// will be read back asynchronously to the cpu and trigger a [`ReadbackComplete`] observer.
-#[derive(Component, ExtractComponent, Clone, Debug, Default)]
-pub struct Readback;
+#[derive(Component, ExtractComponent, Clone, Debug)]
+pub enum Readback {
+    Texture(Handle<Image>),
+    Buffer(Handle<ShaderStorageBuffer>),
+}
+
+impl Readback {
+    /// Create a readback component for a texture using the given handle.
+    pub fn texture(image: Handle<Image>) -> Self {
+        Self::Texture(image)
+    }
+
+    /// Create a readback component for a buffer using the given handle.
+    pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
+        Self::Buffer(buffer)
+    }
+}
 
 /// An event that is triggered when a gpu readback is complete.
 ///
@@ -124,7 +135,6 @@ impl GpuReadbackBufferPool {
                 }
             }
 
-            bevy_utils::tracing::info!("Buffers: {:?}", buffers);
             // Remove buffers that haven't been used for MAX_UNUSED_FRAMES
             buffers.retain(|(_, _, frames_unused)| *frames_unused < MAX_UNUSED_FRAMES);
         }
@@ -158,29 +168,6 @@ struct GpuReadback {
     pub tx: Sender<(Entity, Buffer, Vec<u8>)>,
 }
 
-fn extract_readbacks(
-    mut commands: Commands,
-    query: Extract<
-        Query<
-            (
-                Entity,
-                Option<&Handle<Image>>,
-                Option<&Handle<ShaderStorageBuffer>>,
-            ),
-            With<Readback>,
-        >,
-    >,
-) {
-    for (entity, maybe_image, maybe_buffer) in query.iter() {
-        if let Some(image) = maybe_image {
-            commands.get_or_spawn(entity).insert(image.clone());
-        }
-        if let Some(buffer) = maybe_buffer {
-            commands.get_or_spawn(entity).insert(buffer.clone());
-        }
-    }
-}
-
 fn sync_readbacks(
     mut main_world: ResMut<MainWorld>,
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
@@ -205,62 +192,57 @@ fn prepare_buffers(
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     ssbos: Res<RenderAssets<GpuShaderStorageBuffer>>,
-    handles: Query<
-        (
-            Entity,
-            Option<&Handle<Image>>,
-            Option<&Handle<ShaderStorageBuffer>>,
-        ),
-        With<Readback>,
-    >,
+    handles: Query<(Entity, &Readback)>,
 ) {
-    for (entity, maybe_image, maybe_buffer) in handles.iter() {
-        if let Some(image) = maybe_image {
-            if let Some(gpu_image) = gpu_images.get(image) {
-                let size = Extent3d {
-                    width: gpu_image.size.x,
-                    height: gpu_image.size.y,
-                    ..default()
-                };
-                let layout = layout_data(size.width, size.height, gpu_image.texture_format);
-                let buffer = buffer_pool.get(
-                    &render_device,
-                    get_aligned_size(
-                        size.width,
-                        size.height,
-                        gpu_image.texture_format.pixel_size() as u32,
-                    ) as u64,
-                );
-                let (tx, rx) = async_channel::bounded(1);
-                readbacks.requested.push(GpuReadback {
-                    entity,
-                    src: ReadbackSource::Texture {
-                        texture: gpu_image.texture.clone(),
-                        layout,
-                        size,
-                    },
-                    buffer,
-                    rx,
-                    tx,
-                });
+    for (entity, readback) in handles.iter() {
+        match readback {
+            Readback::Texture(image) => {
+                if let Some(gpu_image) = gpu_images.get(image) {
+                    let size = Extent3d {
+                        width: gpu_image.size.x,
+                        height: gpu_image.size.y,
+                        ..default()
+                    };
+                    let layout = layout_data(size.width, size.height, gpu_image.texture_format);
+                    let buffer = buffer_pool.get(
+                        &render_device,
+                        get_aligned_size(
+                            size.width,
+                            size.height,
+                            gpu_image.texture_format.pixel_size() as u32,
+                        ) as u64,
+                    );
+                    let (tx, rx) = async_channel::bounded(1);
+                    readbacks.requested.push(GpuReadback {
+                        entity,
+                        src: ReadbackSource::Texture {
+                            texture: gpu_image.texture.clone(),
+                            layout,
+                            size,
+                        },
+                        buffer,
+                        rx,
+                        tx,
+                    });
+                }
             }
-        }
-        if let Some(buffer) = maybe_buffer {
-            if let Some(ssbo) = ssbos.get(buffer) {
-                let size = ssbo.buffer.size();
-                let buffer = buffer_pool.get(&render_device, size);
-                let (tx, rx) = async_channel::bounded(1);
-                readbacks.requested.push(GpuReadback {
-                    entity,
-                    src: ReadbackSource::Buffer {
-                        src_start: 0,
-                        dst_start: 0,
-                        buffer: ssbo.buffer.clone(),
-                    },
-                    buffer,
-                    rx,
-                    tx,
-                });
+            Readback::Buffer(buffer) => {
+                if let Some(ssbo) = ssbos.get(buffer) {
+                    let size = ssbo.buffer.size();
+                    let buffer = buffer_pool.get(&render_device, size);
+                    let (tx, rx) = async_channel::bounded(1);
+                    readbacks.requested.push(GpuReadback {
+                        entity,
+                        src: ReadbackSource::Buffer {
+                            src_start: 0,
+                            dst_start: 0,
+                            buffer: ssbo.buffer.clone(),
+                        },
+                        buffer,
+                        rx,
+                        tx,
+                    });
+                }
             }
         }
     }
