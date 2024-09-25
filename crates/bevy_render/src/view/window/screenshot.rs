@@ -39,9 +39,7 @@ use std::{
         Arc, Mutex,
     },
 };
-use wgpu::{
-    CommandEncoder, Extent3d, TextureFormat,
-};
+use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
