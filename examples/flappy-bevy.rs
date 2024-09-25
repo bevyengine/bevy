@@ -1,6 +1,7 @@
 //! A simplified Flappy Bird but with many birds. Press space to flap.
 
 use bevy::ecs::system::RunSystemOnce;
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::math::bounding::{Aabb2d, BoundingCircle, IntersectsVolume};
 use bevy::window::PrimaryWindow;
 use bevy::{ecs::world::Command, prelude::*};
@@ -27,10 +28,16 @@ fn main() {
             ..Default::default()
         }),
         ..Default::default()
-    }))
-    .add_systems(Startup, load_assets);
-
-    app.add_plugins((asset_plugin, bird_plugin, physics_plugin, terrain_plugin));
+    }));
+    app.init_state::<GameState>();
+    app.enable_state_scoped_entities::<GameState>();
+    app.add_plugins((
+        asset_plugin,
+        bird_plugin,
+        physics_plugin,
+        terrain_plugin,
+        game_over_plugin,
+    ));
     app.configure_sets(
         FixedUpdate,
         AppSet::Physics.run_if(in_state(GameState::Playing)),
@@ -153,17 +160,20 @@ fn spawn_bird(
             transform: Transform::from_translation(config.translation).with_scale(Vec3::splat(0.1)),
             ..default()
         },
+        StateScoped(GameState::Playing),
         Velocity(config.velocity),
     ));
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, cameras: Query<&Camera>) {
+    dbg!(cameras.iter().count());
     commands.queue(SpawnBird {
         translation: Vec3::ZERO,
         velocity: Vec2::ZERO,
     });
 
     commands.spawn((
+        Name::new("Camera"),
         Camera2dBundle::default(),
         MovementController {
             intent: Vec2::new(1.0, 0.0),
@@ -171,6 +181,7 @@ fn setup(mut commands: Commands) {
             // We never need to move the camera vertically.
             vertical_speed: 0.0,
         },
+        StateScoped(GameState::Playing),
         Velocity(Vec2::new(CAMERA_SPEED, 0.0)),
     ));
 }
@@ -193,9 +204,15 @@ fn reproduction(
     mut commands: Commands,
     birds: Query<(&Transform, &Velocity), With<Bird>>,
     flock_settings: Res<FlockSettings>,
+    mut next_state: ResMut<NextState<GameState>>,
     time: Res<Time>,
 ) {
     let bird_count = birds.iter().count();
+    if bird_count == 0 {
+        next_state.set(GameState::Over);
+        return;
+    }
+
     if bird_count < flock_settings.max_birds {
         for (transform, velocity) in &birds {
             if random::<f32>() < flock_settings.reproduction_chance * time.delta_seconds() {
@@ -216,9 +233,7 @@ fn physics_plugin(app: &mut App) {
     app.init_resource::<PhysicsSettings>();
     app.add_systems(
         FixedUpdate,
-        (check_for_collisions, apply_movement, drift, velocity)
-            .chain()
-            .in_set(AppSet::Physics),
+        (check_for_collisions, apply_movement, drift, velocity).in_set(AppSet::Physics),
     );
 }
 
@@ -435,8 +450,10 @@ fn spawn_terrain(
     ] {
         let pillar_origin = Vec2::new(x_pos, (top_y_pos + bottom_y_pos) * 0.5);
         let pillar_size = Vec2::new(pillar_width, bottom_y_pos - top_y_pos);
-        commands
-            .spawn(SpriteBundle {
+        commands.spawn((
+            Name::new("Obstacle"),
+            Obstacle,
+            SpriteBundle {
                 sprite: Sprite {
                     color: Color::srgb(0.25, 0.25, 0.75),
                     ..default()
@@ -444,8 +461,9 @@ fn spawn_terrain(
                 transform: Transform::from_translation(pillar_origin.extend(0.0))
                     .with_scale(pillar_size.extend(1.0)),
                 ..default()
-            })
-            .insert(Obstacle);
+            },
+            StateScoped(GameState::Playing),
+        ));
     }
 }
 
@@ -466,4 +484,52 @@ fn terrain_cleanup(
             commands.entity(obstacle).despawn();
         }
     }
+}
+
+// Game Over Plugin
+fn game_over_plugin(app: &mut App) {
+    app.add_systems(OnEnter(GameState::Over), spawn_text);
+    app.add_systems(
+        Update,
+        restart_game
+            .run_if(input_just_pressed(KeyCode::Space))
+            .run_if(in_state(GameState::Over)),
+    );
+}
+
+fn spawn_text(mut commands: Commands) {
+    // It's convenient to spawn a temporary camera here just for the UI, so we can cleanly destroy
+    // the game camera whose position we've been manipulating. However, in a larger game you might
+    // have a dedicated UI camera, or simply one you retain throughout all states.
+    commands.spawn((
+        Name::new("UI Camera"),
+        Camera2dBundle::default(),
+        IsDefaultUiCamera,
+        StateScoped(GameState::Over),
+    ));
+    commands
+        .spawn((
+            Name::new("Game Over Notice"),
+            NodeBundle {
+                style: Style {
+                    align_items: AlignItems::Center,
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::Center,
+                    width: Val::Percent(100.0),
+                    ..default()
+                },
+                ..default()
+            },
+            StateScoped(GameState::Over),
+        ))
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "game over :: hit space to restart",
+                TextStyle::default(),
+            ));
+        });
+}
+
+fn restart_game(mut next_state: ResMut<NextState<GameState>>) {
+    next_state.set(GameState::Playing);
 }

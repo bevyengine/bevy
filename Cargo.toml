@@ -2040,6 +2040,17 @@ description = "Demonstrates how to create a loading screen that waits for all as
 category = "Games"
 wasm = true
 
+[[example]]
+name = "flappy_bevy"
+path = "examples/games/flappy_bevy.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.flappy_bevy]
+name = "Flappy Bevy"
+description = "It's Flappy Bird, but an entire flock."
+category = "Games"
+wasm = true
+
 # Input
 [[example]]
 name = "char_input_events"
