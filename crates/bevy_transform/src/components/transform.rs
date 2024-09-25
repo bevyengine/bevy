@@ -288,33 +288,25 @@ impl Transform {
         self.local_z()
     }
 
-    /// Moves the entity within its local space using the provided translation vector.
+    /// Moves the ['Transform'] within its local space using the provided translation vector.
     ///
-    /// This method directly adjusts the entity's position using the `translation` vector,
-    /// without considering the entity's current rotation. The translation happens in the
-    /// entity's local coordinate system, meaning the movement occurs along its local
-    /// axes (`x`, `y`, and `z`), regardless of the entity's orientation.
-    ///
-    /// # Parameters
-    /// - `translation`: A `Vec3` that represents the desired movement along the entity's
-    ///   local axes. Each component (`x`, `y`, `z`) corresponds to movement along the
-    ///   entity's local right, up, and forward directions, respectively.
+    /// This method directly adjusts the ['Transform'] position using the `translation` vector,
+    /// without considering the ['Transform'] current rotation. The translation happens in the
+    /// ['Transform'] local coordinate system, meaning the movement occurs along its local
+    /// axes (`x`, `y`, and `z`), regardless of the ['Transform'] orientation.
+    #[inline]
     pub fn translate(&mut self, translation: Vec3) {
         self.translation += translation;
     }
 
-    /// Moves the entity within its local space, considering its rotation and orientation.
+    /// Moves the ['Transform'] within its local space, considering its rotation and orientation.
     ///
-    /// This method translates the entity based on its current rotation, so the movement
-    /// happens relative to the direction the entity is facing. The `translation` vector is
-    /// transformed by the entity's rotation, allowing for natural directional movement.
-    /// For instance, moving "forward" means moving along the entity's forward direction
+    /// This method translates the ['Transform'] based on its current rotation, so the movement
+    /// happens relative to the direction the ['Transform'] is facing. The `translation` vector is
+    /// transformed by the ['Transform'] rotation, allowing for natural directional movement.
+    /// For instance, moving "forward" means moving along the ['Transform'] forward direction
     /// based on its current orientation, rather than just along the local z-axis.
-    ///
-    /// # Parameters
-    /// - `translation`: A `Vec3` that represents the movement relative to the entity's local
-    ///   axes, but modified by the entity's current rotation. This means the movement will
-    ///   be aligned with the entity's orientation in the world space.
+    #[inline]
     pub fn translate_with_local_rotation(&mut self, translation: Vec3) {
         self.translation += self.rotation * translation;
     }
