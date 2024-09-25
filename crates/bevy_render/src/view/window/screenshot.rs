@@ -8,11 +8,19 @@ use crate::texture::{GpuImage, OutputColorAttachment};
 use crate::view::{
     prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces,
 };
-use crate::{gpu_readback, prelude::{Image, Shader}, render_asset::RenderAssetUsages, render_resource::{
-    binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
-    CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
-    SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
-}, renderer::RenderDevice, texture::TextureFormatPixelInfo, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
+use crate::{
+    gpu_readback,
+    prelude::{Image, Shader},
+    render_asset::RenderAssetUsages,
+    render_resource::{
+        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
+        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
+    },
+    renderer::RenderDevice,
+    texture::TextureFormatPixelInfo,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -375,7 +383,8 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32) as u64,
+        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32)
+            as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -665,7 +674,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                 // Our buffer has been padded because we needed to align to a multiple of 256.
                 // We remove this padding here
                 let initial_row_bytes = width as usize * pixel_size;
-                let buffered_row_bytes = gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
+                let buffered_row_bytes =
+                    gpu_readback::align_byte_size(width * pixel_size as u32) as usize;
 
                 let mut take_offset = buffered_row_bytes;
                 let mut place_offset = initial_row_bytes;

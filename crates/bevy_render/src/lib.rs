@@ -24,6 +24,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -38,7 +39,6 @@ mod spatial_bundle;
 pub mod storage;
 pub mod texture;
 pub mod view;
-pub mod gpu_readback;
 
 /// The render prelude.
 ///
@@ -72,6 +72,9 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::gpu_readback::GpuReadbackPlugin;
+use crate::mesh::RenderMesh;
+use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
@@ -90,7 +93,6 @@ use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
 };
-use crate::gpu_readback::GpuReadbackPlugin;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
