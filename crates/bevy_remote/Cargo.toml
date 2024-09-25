@@ -29,7 +29,7 @@ serde_json = { version = "1" }
 http-body-util = "0.1"
 tungstenite = "0.24"
 hyper-tungstenite = "0.15"
-futures-util = "0.3"
+futures-util = { version = "0.3", default-features = false }
 urlencoding = "2"
 
 # dependencies that will not compile on wasm

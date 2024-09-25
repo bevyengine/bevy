@@ -252,7 +252,7 @@ use std::{
     sync::RwLock,
 };
 
-use anyhow::{bail, Result as AnyhowResult};
+use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -859,11 +859,11 @@ async fn process_request(
         let body = match validate_websocket_request(&request) {
             Ok(body) => body,
             Err(err) => {
-                let response = (serde_json::to_string(&BrpError {
+                let response = serde_json::to_string(&BrpError {
                     code: error_codes::INVALID_REQUEST,
                     message: format!("{err}"),
                     data: None,
-                })?);
+                })?;
 
                 return Ok(Response::new(Full::new(response.into_bytes().into())));
             }
