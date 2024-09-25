@@ -32,15 +32,18 @@ mod default;
 mod object_safe;
 pub use object_safe::assert_object_safe;
 mod once;
+#[cfg(feature = "std")]
 mod parallel_queue;
+mod time;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use hashbrown;
+#[cfg(feature = "std")]
 pub use parallel_queue::*;
+pub use time::*;
 pub use tracing;
-pub use web_time::{Duration, Instant, SystemTime, SystemTimeError, TryFromFloatSecsError};
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
