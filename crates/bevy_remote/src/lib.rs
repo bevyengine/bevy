@@ -911,7 +911,7 @@ async fn process_brp_batch(
         })?,
     };
 
-    Ok(Bytes::from(serialized.as_bytes().to_owned()))
+    Ok(serialized.into_bytes().into())
 }
 
 /// A helper function for the Bevy Remote Protocol server that processes a single
