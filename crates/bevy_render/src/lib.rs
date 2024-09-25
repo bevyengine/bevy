@@ -38,6 +38,7 @@ mod spatial_bundle;
 pub mod storage;
 pub mod texture;
 pub mod view;
+pub mod gpu_readback;
 
 /// The render prelude.
 ///
@@ -89,6 +90,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
 };
+use crate::gpu_readback::GpuReadbackPlugin;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -362,6 +364,7 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
             BatchingPlugin,
             StoragePlugin,
+            GpuReadbackPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
