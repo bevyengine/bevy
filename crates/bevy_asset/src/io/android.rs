@@ -88,10 +88,10 @@ impl AssetReader for AndroidAssetReader {
         // The solution here was to first use `open_dir` to eliminate the case
         // when the path does not exist at all, and then to use `open` to
         // see if that path is a file or a directory
-        let path = CString::new(path.to_str().unwrap()).unwrap();
+        let cpath = CString::new(path.to_str().unwrap()).unwrap();
         let _ = asset_manager
-            .open_dir(&path)
+            .open_dir(&cpath)
             .ok_or(AssetReaderError::NotFound(path.to_path_buf()))?;
-        Ok(asset_manager.open(&path).is_none())
+        Ok(asset_manager.open(&cpath).is_none())
     }
 }
