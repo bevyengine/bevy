@@ -2169,7 +2169,14 @@ all_tuples!(
     F,
     S
 );
-all_tuples!(#[doc(fake_variadic)] impl_anytuple_fetch, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_anytuple_fetch,
+    0,
+    15,
+    F,
+    S
+);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
