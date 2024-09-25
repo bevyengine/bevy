@@ -3,34 +3,21 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    texture::GpuImage,
-    view::ViewVisibility,
-    ExtractSchedule, Render,
-};
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
-use graph::{NodeUi, SubGraphUi};
-pub use pipeline::*;
-pub use render_pass::*;
-pub use ui_material_pipeline::*;
-use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
-
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
     ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
+use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     render_asset::RenderAssets,
@@ -42,13 +29,25 @@ use bevy_render::{
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
+use bevy_render::{
+    render_phase::{PhaseItem, PhaseItemExtraIndex},
+    texture::GpuImage,
+    view::ViewVisibility,
+    ExtractSchedule, Render,
+};
 use bevy_sprite::TextureAtlasLayout;
+use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+use graph::{NodeUi, SubGraphUi};
+pub use pipeline::*;
+pub use render_pass::*;
 use std::ops::Range;
+pub use ui_material_pipeline::*;
+use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
