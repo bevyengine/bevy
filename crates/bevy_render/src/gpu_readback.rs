@@ -50,10 +50,10 @@ impl Plugin for GpuReadbackPlugin {
     }
 }
 
-/// A component that marks an entity for gpu readback.
+/// A component that registers the wrapped handle for gpu readback, either a texture or a buffer.
 ///
-/// The entity must also have a `Handle<Image>` or `Handle<ShaderStorageBuffer>` component, which
-/// will be read back asynchronously to the cpu and trigger a [`ReadbackComplete`] observer.
+/// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
+/// when complete. If this component is not removed, the readback will be attempted every frame.
 #[derive(Component, ExtractComponent, Clone, Debug)]
 pub enum Readback {
     Texture(Handle<Image>),
