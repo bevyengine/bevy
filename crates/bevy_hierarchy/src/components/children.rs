@@ -28,14 +28,6 @@ use std::ops::Deref;
 #[cfg_attr(feature = "reflect", reflect(Component, MapEntities, Debug, FromWorld))]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
-impl MapEntitiesMut for Children {
-    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
-        for entity in &mut self.0 {
-            f(entity);
-        }
-    }
-}
-
 // TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
 // However Children should only ever be set with a real user-defined entities. Its worth looking
@@ -152,6 +144,17 @@ impl Deref for Children {
     }
 }
 
+impl<'a> IntoIterator for &'a mut Children {
+    type Item = <Self::IntoIter as Iterator>::Item;
+
+    type IntoIter = slice::IterMut<'a, Entity>;
+
+    #[inline(always)]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
@@ -160,5 +163,17 @@ impl<'a> IntoIterator for &'a Children {
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter().copied()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn assert_impls_map_entities_mut<M: MapEntitiesMut>() {}
+
+    #[test]
+    fn children_impls_map_entities_mut() {
+        assert_impls_map_entities_mut::<Children>();
     }
 }

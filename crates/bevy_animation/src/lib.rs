@@ -19,7 +19,7 @@ use std::{
     collections::BTreeMap,
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter,
+    iter, option,
 };
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -1291,9 +1291,19 @@ impl From<&Name> for AnimationTargetId {
     }
 }
 
-impl MapEntities for AnimationTarget {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.player = entity_mapper.map_entity(self.player);
+impl<'a> IntoIterator for &'a mut AnimationTarget {
+    type IntoIter = option::IntoIter<&'a mut Entity>;
+    type Item = <Self::IntoIter as Iterator>::Item;
+    fn into_iter(self) -> Self::IntoIter {
+        Some(&mut self.player).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a AnimationTarget {
+    type IntoIter = option::IntoIter<Entity>;
+    type Item = <Self::IntoIter as Iterator>::Item;
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self.player).into_iter()
     }
 }
 

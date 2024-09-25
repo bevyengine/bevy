@@ -276,7 +276,7 @@ fn add_children_nodes(
         return;
     };
     for child in children {
-        if node_entities.contains(*child) {
+        if node_entities.contains(child) {
             node.push_child(NodeId(child.to_bits()));
         }
     }

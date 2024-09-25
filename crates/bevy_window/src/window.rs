@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use std::{iter, num::NonZero, option};
 
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
@@ -58,14 +58,27 @@ impl WindowRef {
     }
 }
 
-impl MapEntities for WindowRef {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+impl<'a> IntoIterator for &'a WindowRef {
+    type Item = <Self::IntoIter as Iterator>::Item;
+    type IntoIter = option::IntoIter<Entity>;
+    fn into_iter(self) -> Self::IntoIter {
         match self {
-            Self::Entity(entity) => {
-                *entity = entity_mapper.map_entity(*entity);
-            }
-            Self::Primary => {}
-        };
+            WindowRef::Primary => None,
+            WindowRef::Entity(entity) => Some(*entity),
+        }
+        .into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut WindowRef {
+    type Item = <Self::IntoIter as Iterator>::Item;
+    type IntoIter = option::IntoIter<&'a mut Entity>;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            WindowRef::Primary => None,
+            WindowRef::Entity(entity) => Some(entity),
+        }
+        .into_iter()
     }
 }
 
@@ -1213,7 +1226,18 @@ pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs::entity::MapEntitiesMut;
+
     use super::*;
+
+    // Compile-time assertion that a type implementes MapEntitiesMut
+    fn impl_map_entities_mut<M: MapEntitiesMut>() {}
+
+    // Ensure that WidowRef implements MapEntitiesMut
+    #[allow(dead_code)]
+    fn window_impls_map_entities_mut() {
+        impl_map_entities_mut::<WindowRef>();
+    }
 
     // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
     // the bounds of the window.
