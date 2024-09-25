@@ -312,7 +312,7 @@ pub fn extract_shadows(
                 color: box_shadow.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: size + 2. * blur,
+                    max: size + 6. * blur,
                 },
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
@@ -475,10 +475,10 @@ pub fn prepare_shadows(
                             position: positions_clipped[i].into(),
                             uvs: uvs[i].into(),
                             vertex_color: box_shadow.color.to_f32_array(),
-                            size: rect_size.xy().into(),
+                            size: box_shadow.size.into(),
                             radius,
                             blur: box_shadow.blur,
-                            bounds: (rect_size.xy() + 4. * box_shadow.blur).into(),
+                            bounds: rect_size.xy().into(),
                         });
                     }
 
