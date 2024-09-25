@@ -314,6 +314,7 @@ Example | Description
 [Breakout](../examples/games/breakout.rs) | An implementation of the classic game "Breakout".
 [Contributors](../examples/games/contributors.rs) | Displays each contributor as a bouncy bevy-ball!
 [Desk Toy](../examples/games/desk_toy.rs) | Bevy logo as a desk toy using transparent windows! Now with Googly Eyes!
+[Flappy Bevy](../examples/games/flappy_bevy.rs) | It's Flappy Bird, but an entire flock.
 [Game Menu](../examples/games/game_menu.rs) | A simple game menu
 [Loading Screen](../examples/games/loading_screen.rs) | Demonstrates how to create a loading screen that waits for all assets to be loaded and render pipelines to be compiled.
 
