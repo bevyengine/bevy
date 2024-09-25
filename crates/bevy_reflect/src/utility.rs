@@ -171,7 +171,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

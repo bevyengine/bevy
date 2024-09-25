@@ -1,5 +1,6 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
+use crate::{
+    serde::ser::error_utils::make_custom_error, PartialReflect, ReflectSerialize, TypeRegistry,
+};
 use serde::ser::Error;
 use std::ops::Deref;
 
@@ -30,12 +31,7 @@ impl<'a> Serializable<'a> {
             ))
         })?;
 
-        let info = value.get_represented_type_info().ok_or_else(|| {
-            make_custom_error(format_args!(
-                "type `{}` does not represent any type",
-                value.reflect_type_path(),
-            ))
-        })?;
+        let info = value.reflect_type_info();
 
         let registration = type_registry.get(info.type_id()).ok_or_else(|| {
             make_custom_error(format_args!(

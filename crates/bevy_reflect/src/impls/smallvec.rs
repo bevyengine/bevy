@@ -3,11 +3,11 @@ use smallvec::{Array as SmallArray, SmallVec};
 
 use std::any::Any;
 
-use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
-    ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypeRegistration, Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
@@ -194,15 +194,15 @@ where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
-            let mut new_list = Self::with_capacity(ref_list.len());
-            for field in ref_list.iter() {
-                new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
-            }
-            Some(new_list)
-        } else {
-            None
+        let ref_list = reflect.reflect_ref().as_list().ok()?;
+
+        let mut new_list = Self::with_capacity(ref_list.len());
+
+        for field in ref_list.iter() {
+            new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
         }
+
+        Some(new_list)
     }
 }
 

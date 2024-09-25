@@ -1,7 +1,6 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-use std::f32::consts::PI;
-use std::fmt::Write;
+use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
     core_pipeline::{

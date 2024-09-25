@@ -355,7 +355,6 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-///
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
@@ -407,7 +406,6 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    ///
     pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
@@ -421,7 +419,7 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
-    pub fn parse_static(string: &'static str) -> PathResult<Self> {
+    pub fn parse_static(string: &'static str) -> PathResult<'static, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
@@ -475,6 +473,13 @@ impl From<Vec<Access<'static>>> for ParsedPath {
 impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     fn from(value: [Access<'static>; N]) -> Self {
         value.to_vec().into()
+    }
+}
+
+impl<'a> TryFrom<&'a str> for ParsedPath {
+    type Error = ReflectPathError<'a>;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        ParsedPath::parse(value)
     }
 }
 
@@ -566,7 +571,7 @@ mod tests {
         }
     }
 
-    fn access_field(field: &'static str) -> Access {
+    fn access_field(field: &'static str) -> Access<'static> {
         Access::Field(field.into())
     }
 
@@ -583,6 +588,21 @@ mod tests {
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
             offset: Some(offset),
         })
+    }
+
+    #[test]
+    fn try_from() {
+        assert_eq!(
+            ParsedPath::try_from("w").unwrap().0,
+            &[offset(access_field("w"), 1)]
+        );
+
+        let r = ParsedPath::try_from("w[");
+        let matches = matches!(r, Err(ReflectPathError::ParseError { .. }));
+        assert!(
+            matches,
+            "ParsedPath::try_from did not return a ParseError for \"w[\""
+        );
     }
 
     #[test]

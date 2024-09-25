@@ -14,12 +14,14 @@ pub(crate) mod kinds;
 pub(crate) mod masks;
 
 /// A unified identifier for all entity and similar IDs.
+///
 /// Has the same size as a `u64` integer, but the layout is split between a 32-bit low
 /// segment, a 31-bit high segment, and the significant bit reserved as type flags to denote
 /// entity kinds.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Debug, Hash, PartialEq))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Hash, PartialEq))]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
 #[repr(C, align(8))]

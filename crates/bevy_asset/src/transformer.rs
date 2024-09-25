@@ -11,6 +11,8 @@ use std::{
 };
 
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
+///
+/// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
 pub trait AssetTransformer: Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;

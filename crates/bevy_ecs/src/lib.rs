@@ -63,9 +63,9 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
-            System, SystemParamBuilder, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
+            Resource, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
@@ -77,23 +77,22 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::Or;
-    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
+        prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
-        world::{EntityRef, Mut, World},
+        world::{EntityMut, EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::num::NonZero;
     use std::{
         any::TypeId,
         marker::PhantomData,
+        num::NonZero,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -623,7 +622,6 @@ mod tests {
                 .collect::<HashSet<_>>(),
             HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
         );
-
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
