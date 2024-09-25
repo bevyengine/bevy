@@ -1,6 +1,6 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
-    TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
+    ScrollPosition, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -363,11 +363,15 @@ pub fn ui_layout_system(
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
-                node.outline_width = outline
-                    .width
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+                node.outline_width = if style.display != Display::None {
+                    outline
+                        .width
+                        .resolve(node.size().x, viewport_size)
+                        .unwrap_or(0.)
+                        .max(0.)
+                } else {
+                    0.
+                };
 
                 node.outline_offset = outline
                     .offset
