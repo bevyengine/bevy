@@ -55,7 +55,7 @@ struct GpuReadbackBufferPool {
 
 impl GpuReadbackBufferPool {
     fn get(&mut self, render_device: &RenderDevice, size: u64) -> Buffer {
-        let buffers = self.buffers.entry(size).or_insert_with(|| Vec::new());
+        let buffers = self.buffers.entry(size).or_insert_with(Vec::new);
 
         // find an untaken buffer for this size
         if let Some((buffer, taken, _)) = buffers.iter_mut().find(|(_, taken, _)| !*taken) {
@@ -74,7 +74,7 @@ impl GpuReadbackBufferPool {
     }
 
     fn return_buffer(&mut self, buffer: &Buffer) {
-        let size = buffer.size() as u64;
+        let size = buffer.size();
         let buffers = self
             .buffers
             .get_mut(&size)
@@ -247,7 +247,7 @@ fn prepare_buffers(
         }
         if let Some(buffer) = maybe_buffer {
             if let Some(ssbo) = ssbos.get(buffer) {
-                let size = ssbo.buffer.size() as u64;
+                let size = ssbo.buffer.size();
                 let buffer = buffer_pool.get(&render_device, size);
                 let (tx, rx) = async_channel::bounded(1);
                 readbacks.requested.push(GpuReadback {
@@ -290,7 +290,7 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
                 buffer,
             } => {
                 command_encoder.copy_buffer_to_buffer(
-                    &buffer,
+                    buffer,
                     *src_start,
                     &readback.buffer,
                     *dst_start,
