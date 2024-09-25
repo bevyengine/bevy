@@ -93,7 +93,7 @@ struct GpuReadbackBufferPool {
     // TODO: We could ideally write all readback data to one big buffer per frame, the assumption
     // here is that very few entities well actually be read back at once, and their size is
     // unlikely to change.
-    buffers: HashMap<u64, Vec<GpuReadbackBuffer>>, // (Buffer, taken, frames_unused)
+    buffers: HashMap<u64, Vec<GpuReadbackBuffer>>,
 }
 
 impl GpuReadbackBufferPool {
