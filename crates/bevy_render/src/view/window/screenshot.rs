@@ -1,24 +1,18 @@
 use super::ExtractedWindows;
-use crate::camera::{
-    ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget,
-};
-use crate::render_asset::RenderAssets;
-use crate::render_resource::{BindGroupEntries, BufferUsages, TextureUsages, TextureView};
-use crate::texture::{GpuImage, OutputColorAttachment};
-use crate::view::{
-    prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces,
-};
 use crate::{
+    camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     gpu_readback,
     prelude::{Image, Shader},
-    render_asset::RenderAssetUsages,
+    render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
-        binding_types::texture_2d, BindGroup, BindGroupLayout, BindGroupLayoutEntries, Buffer,
-        CachedRenderPipelineId, FragmentState, PipelineCache, RenderPipelineDescriptor,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, Texture, VertexState,
+        binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
+        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::TextureFormatPixelInfo,
+    texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
+    view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_app::{First, Plugin, Update};
