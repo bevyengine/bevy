@@ -1,24 +1,26 @@
-use crate::extract_component::ExtractComponentPlugin;
-use crate::prelude::Image;
-use crate::render_asset::RenderAssets;
-use crate::render_resource::{
-    Buffer, BufferUsages, Extent3d, ImageDataLayout, SpecializedRenderPipelines, Texture,
-    TextureFormat, TextureView,
+use crate::{
+    extract_component::ExtractComponentPlugin,
+    prelude::Image,
+    render_asset::RenderAssets,
+    render_resource::{
+        Buffer, BufferUsages, Extent3d, ImageDataLayout, SpecializedRenderPipelines, Texture,
+        TextureFormat, TextureView,
+    },
+    renderer::{render_system, RenderDevice},
+    storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+    texture::{GpuImage, TextureFormatPixelInfo},
+    Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
-use crate::renderer::{render_system, RenderDevice};
-use crate::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
-use crate::texture::{GpuImage, TextureFormatPixelInfo};
-use crate::{Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::ResMut;
-use bevy_ecs::query::With;
 use bevy_ecs::{
+    change_detection::ResMut,
     entity::Entity,
     event::Event,
     prelude::{Component, Resource, World},
+    query::With,
     system::{Commands, Query, Res},
 };
 use bevy_reflect::Reflect;

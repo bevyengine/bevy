@@ -7,17 +7,25 @@
 //! The code is based on this wgpu example:
 //! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
 
-use bevy::{prelude::*, render::render_resource::*};
-use bevy_render::extract_component::ExtractComponent;
-use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
-use bevy_render::gpu_readback::{Readback, ReadbackComplete};
-use bevy_render::render_asset::{RenderAssetUsages, RenderAssets};
-use bevy_render::render_graph::{RenderGraph, RenderLabel};
-use bevy_render::render_resource::binding_types::{storage_buffer, texture_storage_2d};
-use bevy_render::renderer::{RenderContext, RenderDevice};
-use bevy_render::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
-use bevy_render::texture::GpuImage;
-use bevy_render::{render_graph, Render, RenderApp, RenderSet};
+use bevy::{
+    prelude::*,
+    render::{
+        extract_component::ExtractComponent,
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        gpu_readback::{Readback, ReadbackComplete},
+        render_asset::{RenderAssetUsages, RenderAssets},
+        render_graph,
+        render_graph::{RenderGraph, RenderLabel},
+        render_resource::{
+            binding_types::{storage_buffer, texture_storage_2d},
+            *,
+        },
+        renderer::{RenderContext, RenderDevice},
+        storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
+        texture::GpuImage,
+        Render, RenderApp, RenderSet,
+    },
+};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
