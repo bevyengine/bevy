@@ -233,8 +233,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
-        ($(#[$meta2:meta])* $(($param: ident, $builder: ident, $meta: ident)),*) => {
-        $(#[$meta2])*
+        ($(($param: ident, $builder: ident, $meta: ident)),*) => {
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<'w, 's, $($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<ParamSet<'w, 's, ($($param,)*)>> for ParamSetBuilder<($($builder,)*)> {
             #[allow(non_snake_case)]
@@ -268,15 +267,7 @@ macro_rules! impl_param_set_builder_tuple {
     };
 }
 
-all_tuples!(
-    #[doc(fake_variadic)]
-    impl_param_set_builder_tuple,
-    1,
-    8,
-    P,
-    B,
-    meta
-);
+all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
 // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
 // with any prior access, a panic will occur.
