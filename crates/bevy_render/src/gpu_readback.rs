@@ -313,7 +313,7 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
 fn after_render(mut readbacks: ResMut<GpuReadbacks>) {
     // Move requested readbacks to mapped readbacks after submit
     let requested = readbacks.requested.drain(..).collect::<Vec<GpuReadback>>();
-    for mut readback in requested {
+    for readback in requested {
         let slice = readback.buffer.slice(..);
         let entity = readback.entity;
         let buffer = readback.buffer.clone();
