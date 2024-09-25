@@ -26,7 +26,7 @@ use bevy_render_macros::ExtractComponent;
 use bevy_utils::{default, tracing::warn, HashMap};
 use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
 
-const MAX_UNUSED_FRAMES: usize = 3;
+const MAX_UNUSED_FRAMES: usize = 10;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
 pub struct GpuReadbackPlugin;
@@ -64,7 +64,7 @@ pub struct Readback;
 /// An event that is triggered when a gpu readback is complete.
 ///
 /// The event contains the data as a `Vec<u8>`, which can be interpreted as the raw bytes of the
-/// read back buffer.
+/// requested buffer or texture.
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
@@ -84,8 +84,11 @@ impl GpuReadbackBufferPool {
         let buffers = self.buffers.entry(size).or_default();
 
         // find an untaken buffer for this size
-        if let Some((buffer, taken, _)) = buffers.iter_mut().find(|(_, taken, _)| !*taken) {
+        if let Some((buffer, taken, unused_frames)) =
+            buffers.iter_mut().find(|(_, taken, _)| !*taken)
+        {
             *taken = true;
+            *unused_frames = 0;
             return buffer.clone();
         }
 
@@ -121,6 +124,7 @@ impl GpuReadbackBufferPool {
                 }
             }
 
+            bevy_utils::tracing::info!("Buffers: {:?}", buffers);
             // Remove buffers that haven't been used for MAX_UNUSED_FRAMES
             buffers.retain(|(_, _, frames_unused)| *frames_unused < MAX_UNUSED_FRAMES);
         }
@@ -150,8 +154,8 @@ struct GpuReadback {
     pub entity: Entity,
     pub src: ReadbackSource,
     pub buffer: Buffer,
-    pub rx: Receiver<(Entity, Buffer)>,
-    pub tx: Sender<(Entity, Buffer)>,
+    pub rx: Receiver<(Entity, Buffer, Vec<u8>)>,
+    pub tx: Sender<(Entity, Buffer, Vec<u8>)>,
 }
 
 fn extract_readbacks(
@@ -183,14 +187,9 @@ fn sync_readbacks(
     mut readbacks: ResMut<GpuReadbacks>,
 ) {
     readbacks.mapped.retain(|readback| {
-        if let Ok((entity, buffer)) = readback.rx.try_recv() {
-            let buffer_slice = buffer.slice(..);
-            let data = buffer_slice.get_mapped_range();
-            let result = Vec::from(&*data);
-            drop(data);
+        if let Ok((entity, buffer, result)) = readback.rx.try_recv() {
             main_world.trigger_targets(ReadbackComplete(result), entity);
             buffer_pool.return_buffer(&buffer);
-            buffer.unmap();
             false
         } else {
             true
@@ -312,7 +311,12 @@ fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
         let tx = readback.tx.clone();
         slice.map_async(wgpu::MapMode::Read, move |res| {
             res.expect("Failed to map buffer");
-            if let Err(e) = tx.try_send((entity, buffer)) {
+            let buffer_slice = buffer.slice(..);
+            let data = buffer_slice.get_mapped_range();
+            let result = Vec::from(&*data);
+            drop(data);
+            buffer.unmap();
+            if let Err(e) = tx.try_send((entity, buffer, result)) {
                 warn!("Failed to send readback result: {:?}", e);
             }
         });
