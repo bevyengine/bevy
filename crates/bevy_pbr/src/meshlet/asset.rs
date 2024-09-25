@@ -69,8 +69,8 @@ pub struct Meshlet {
     pub vertex_count: u8,
     /// The amount of triangles in this meshlet.
     pub triangle_count: u8,
-    /// Number of bits used to quantize vertex positions within this meshlet.
-    pub quantization_bits: u8,
+    /// Power of 2 factor used to quantize vertex positions within this meshlet.
+    pub quantization_factor: u8,
     /// Number of bits used to to store the X channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_x: u8,
     /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
