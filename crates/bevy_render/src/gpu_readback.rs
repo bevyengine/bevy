@@ -53,7 +53,7 @@ impl Plugin for GpuReadbackPlugin {
 /// A component that registers the wrapped handle for gpu readback, either a texture or a buffer.
 ///
 /// Data is read asynchronously and will be triggered on the entity via the [`ReadbackComplete`] event
-/// when complete. If this component is not removed, the readback will be attempted every frame.
+/// when complete. If this component is not removed, the readback will be attempted every frame
 #[derive(Component, ExtractComponent, Clone, Debug)]
 pub enum Readback {
     Texture(Handle<Image>),
@@ -80,6 +80,12 @@ impl Readback {
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 
+struct GpuReadbackBuffer {
+    buffer: Buffer,
+    taken: bool,
+    frames_unused: usize,
+}
+
 #[derive(Resource, Default)]
 struct GpuReadbackBufferPool {
     // Map of buffer size to list of buffers, with a flag for whether the buffer is taken and how
@@ -87,7 +93,7 @@ struct GpuReadbackBufferPool {
     // TODO: We could ideally write all readback data to one big buffer per frame, the assumption
     // here is that very few entities well actually be read back at once, and their size is
     // unlikely to change.
-    buffers: HashMap<u64, Vec<(Buffer, bool, usize)>>, // (Buffer, taken, frames_unused)
+    buffers: HashMap<u64, Vec<GpuReadbackBuffer>>, // (Buffer, taken, frames_unused)
 }
 
 impl GpuReadbackBufferPool {
@@ -95,12 +101,10 @@ impl GpuReadbackBufferPool {
         let buffers = self.buffers.entry(size).or_default();
 
         // find an untaken buffer for this size
-        if let Some((buffer, taken, unused_frames)) =
-            buffers.iter_mut().find(|(_, taken, _)| !*taken)
-        {
-            *taken = true;
-            *unused_frames = 0;
-            return buffer.clone();
+        if let Some(buf) = buffers.iter_mut().find(|x| !x.taken) {
+            buf.taken = true;
+            buf.frames_unused = 0;
+            return buf.buffer.clone();
         }
 
         let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
@@ -109,7 +113,11 @@ impl GpuReadbackBufferPool {
             usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        buffers.push((buffer.clone(), true, 0));
+        buffers.push(GpuReadbackBuffer {
+            buffer: buffer.clone(),
+            taken: true,
+            frames_unused: 0,
+        });
         buffer
     }
 
@@ -119,8 +127,8 @@ impl GpuReadbackBufferPool {
             .buffers
             .get_mut(&size)
             .expect("Returned buffer of untracked size");
-        if let Some((_, taken, _)) = buffers.iter_mut().find(|(b, _, _)| b.id() == buffer.id()) {
-            *taken = false;
+        if let Some(buf) = buffers.iter_mut().find(|x| x.buffer.id() == buffer.id()) {
+            buf.taken = false;
         } else {
             warn!("Returned buffer that was not allocated");
         }
@@ -129,15 +137,18 @@ impl GpuReadbackBufferPool {
     fn update(&mut self) {
         for (_, buffers) in &mut self.buffers {
             // Tick all the buffers
-            for (_, taken, frames_unused) in &mut *buffers {
-                if !*taken {
-                    *frames_unused += 1;
+            for buf in &mut *buffers {
+                if !buf.taken {
+                    buf.frames_unused += 1;
                 }
             }
 
             // Remove buffers that haven't been used for MAX_UNUSED_FRAMES
-            buffers.retain(|(_, _, frames_unused)| *frames_unused < MAX_UNUSED_FRAMES);
+            buffers.retain(|x| x.frames_unused < MAX_UNUSED_FRAMES);
         }
+
+        // Remove empty buffer sizes
+        self.buffers.retain(|_, buffers| !buffers.is_empty());
     }
 }
 

@@ -1,11 +1,5 @@
-//! A very simple compute shader that updates a gpu buffer.
-//! That buffer is then copied to the cpu and sent to the main world.
-//!
-//! This example is not meant to teach compute shaders.
-//! It is only meant to explain how to read a gpu buffer on the cpu and then use it in the main world.
-//!
-//! The code is based on this wgpu example:
-//! <https://github.com/gfx-rs/wgpu/blob/fb305b85f692f3fbbd9509b648dfbc97072f7465/examples/src/repeated_compute/mod.rs>
+//! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
+//! using both a storage buffer and texture.
 
 use bevy::{
     prelude::*,
