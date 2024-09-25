@@ -388,8 +388,7 @@ pub fn extract_uinode_borders(
         }
 
         if let Some(outline) = maybe_outline {
-            let outer_distance = uinode.outline_offset() + uinode.outline_width();
-            let outline_size = uinode.size() + 2. * outer_distance;
+            let outline_size = uinode.outlined_node_size();
             extracted_uinodes.uinodes.insert(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
