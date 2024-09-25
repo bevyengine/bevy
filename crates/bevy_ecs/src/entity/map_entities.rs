@@ -6,42 +6,30 @@ use crate::{
 
 use super::EntityHashMap;
 
-/// Operation to map all contained [`Entity`] fields in a type to new values.
+/// Apply an operation to all entities in a read-only container.
 ///
-/// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
-/// as references in components copied from another world will be invalid. This trait
-/// allows defining custom mappings for these references via [`EntityMappers`](EntityMapper), which
-/// inject the entity mapping strategy between your `MapEntities` type and the current world
-/// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
-/// current world).
+/// This is implemented by default for types that implement [`IterEntities`] or
+/// where `&T` implements [`IntoIterator`].
 ///
-/// Implementing this trait correctly is required for properly loading components
-/// with entity references from scenes.
-///
-/// ## Example
-///
-/// ```
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::MapEntities;
-///
-/// #[derive(Component)]
-/// struct Spring {
-///     a: Entity,
-///     b: Entity,
-/// }
-///
-/// impl MapEntities for Spring {
-///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-///         self.a = entity_mapper.map_entity(self.a);
-///         self.b = entity_mapper.map_entity(self.b);
-///     }
-/// }
-/// ```
+/// It may be useful to implement directly for types that can't produce an
+/// iterator for lifetime reasons, such as those involving internal mutexes.
 pub trait MapEntities {
+    /// Apply an operation to all contained entities.
     fn map_entities<F: FnMut(Entity)>(&self, f: F);
 }
 
+/// Apply an operation to mutable references to all entities in a container.
+///
+/// This is implemented by default for types that implement [`IterEntitiesMut`]
+/// or where `&mut T` implements [`IntoIterator`].
+///
+/// It may be useful to implement directly for types that can't produce an
+/// iterator for lifetime reasons, such as those involving internal mutexes.
+///
+/// Because the operation receives mutable references, it may alter the
+/// contained entity IDs via a mechanism such as an [`EntityMapper`].
 pub trait MapEntitiesMut: MapEntities {
+    /// Apply an operation to mutable references to all entities.
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
 }
 
@@ -63,7 +51,15 @@ where
     }
 }
 
+/// Produce an iterator over all contained entities.
+///
+/// This is implemented by default for types  where `&T` implements
+/// [`IntoIterator`].
+///
+/// It may be useful to implement directly for types that can't produce an
+/// iterator for lifetime reasons, such as those involving internal mutexes.
 pub trait IterEntities {
+    /// Get an iterator over contained entities.
     fn iter_entities(&self) -> impl Iterator<Item = Entity>;
 }
 
@@ -76,7 +72,18 @@ where
     }
 }
 
+/// Apply an operation to mutable references to all entities in a container.
+///
+/// This is implemented by default for types where `&mut T` implements
+/// [`IntoIterator`].
+///
+/// It may be useful to implement directly for types that can't produce an
+/// iterator for lifetime reasons, such as those involving internal mutexes.
+///
+/// Because the iterator produces mutable references, consumers may alter the
+/// contained entity IDs via a mechanism such as an [`EntityMapper`].
 pub trait IterEntitiesMut: IterEntities {
+    /// Get an iterator over mutable references to contained entities.
     fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
 }
 

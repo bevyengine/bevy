@@ -11,6 +11,8 @@ use bevy_reflect::{FromReflect, FromType, PartialReflect};
 /// any stored IDs need to be re-allocated in the destination world.
 ///
 /// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
+///
+/// [`MapEntities`]: crate::entity::MapEntities
 #[derive(Clone)]
 pub struct ReflectMapEntities {
     map_all_world_entities: fn(&mut World, &mut SceneEntityMapper),
@@ -24,11 +26,14 @@ impl ReflectMapEntities {
     ///
     /// Be mindful in its usage: Works best in situations where the entities in the [`EntityHashMap<Entity>`] are newly
     /// created, before systems have a chance to add new components. If some of the entities referred to
-    /// by the [`EntityHashMap<Entity>`] might already contain valid entity references, you should use [`map_entities`](Self::map_entities).
+    /// by the [`EntityHashMap<Entity>`] might already contain valid entity references, you should use
+    /// [`map_world_entities`](Self::map_entities).
     ///
     /// An example of this: A scene can be loaded with `Parent` components, but then a `Parent` component can be added
-    /// to these entities after they have been loaded. If you reload the scene using [`map_all_entities`](Self::map_all_entities), those `Parent`
+    /// to these entities after they have been loaded. If you reload the scene using [`map_all_world_entities`](Self::map_all_world_entities), those `Parent`
     /// components with already valid entity references could be updated to point at something else entirely.
+    ///
+    /// [`MapEntities`]: crate::entity::MapEntities
     pub fn map_all_world_entities(
         &self,
         world: &mut World,
@@ -38,11 +43,13 @@ impl ReflectMapEntities {
     }
 
     /// A general method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity>`]. Unlike
-    /// [`map_all_entities`](Self::map_all_entities), this is applied to specific entities, not all values
+    /// [`map_all_world_entities`](Self::map_all_world_entities), this is applied to specific entities, not all values
     /// in the [`EntityHashMap<Entity>`].
     ///
     /// This is useful mostly for when you need to be careful not to update components that already contain valid entity
-    /// values. See [`map_all_entities`](Self::map_all_entities) for more details.
+    /// values. See [`map_all_world_entities`](Self::map_all_world_entities) for more details.
+    ///
+    /// [`MapEntities`]: crate::entity::MapEntities
     pub fn map_world_entities(
         &self,
         world: &mut World,
@@ -54,10 +61,14 @@ impl ReflectMapEntities {
         });
     }
 
+    /// A general method for applying an operation to all entities in a
+    /// reflected component.
     pub fn map_entities(&self, component: &dyn PartialReflect, f: &mut dyn FnMut(Entity)) {
         (self.map_entities)(component, f)
     }
 
+    /// A general method for applying an operation that may modify entities in a
+    /// reflected component.
     pub fn map_entities_mut(
         &self,
         component: &mut dyn PartialReflect,
@@ -112,6 +123,8 @@ impl<C: Component + FromReflect + MapEntitiesMut> FromType<C> for ReflectMapEnti
 /// any stored IDs need to be re-allocated in the destination world.
 ///
 /// See [`SceneEntityMapper`] and [`MapEntities`] for more information.
+///
+/// [`MapEntities`]: crate::entity::MapEntities
 #[derive(Clone)]
 pub struct ReflectMapEntitiesResource {
     map_entities: fn(&mut World, &mut SceneEntityMapper),
@@ -119,6 +132,8 @@ pub struct ReflectMapEntitiesResource {
 
 impl ReflectMapEntitiesResource {
     /// A method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity>`].
+    ///
+    /// [`MapEntities`]: crate::entity::MapEntities
     pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
         SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
             (self.map_entities)(world, mapper);
