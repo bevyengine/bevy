@@ -310,8 +310,8 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
-                border: BorderRect::ZERO,
-                border_radius: ResolvedBorderRadius::ZERO,
+                border: uinode.border,
+                border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
             },
         );
@@ -358,7 +358,7 @@ pub fn extract_uinode_borders(
         {
             continue;
         }
-        //let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
+
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
         if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
             if let Some(border_color) = maybe_border_color {
