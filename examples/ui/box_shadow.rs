@@ -2,6 +2,7 @@
 
 use argh::FromArgs;
 use bevy::color::palettes::css::LIGHT_CORAL;
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy::ui::box_shadow::BoxShadowSamples;
 use bevy::winit::WinitSettings;
@@ -28,6 +29,72 @@ fn main() {
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
+}
+
+fn setup2(mut commands: Commands) {
+    // ui camera
+    commands.spawn(Camera2dBundle::default());
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                row_gap: Val::Px(75.),
+                column_gap: Val::Px(75.),
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
+            },
+            background_color: BackgroundColor(LIGHT_CORAL.into()),
+            ..Default::default()
+        })
+        .with_children(|commands| {
+            commands.spawn(box_shadow_node_bundle2(
+                Vec2::splat(100.),
+                Color::NONE,
+                Color::BLACK,
+                Vec2::ZERO,
+                Vec2::ZERO,
+                0.,
+                BorderRadius::ZERO,
+                0.,
+            ));
+
+            commands.spawn(box_shadow_node_bundle2(
+                Vec2::splat(100.),
+                Color::NONE,
+                Color::BLACK,
+                Vec2::ZERO,
+                Vec2::ZERO,
+                0.,
+                BorderRadius::ZERO,
+                1.,
+            ));
+
+            commands.spawn(box_shadow_node_bundle2(
+                Vec2::splat(100.),
+                Color::NONE,
+                Color::BLACK,
+                Vec2::ZERO,
+                Vec2::ZERO,
+                5.,
+                BorderRadius::ZERO,
+                0.,
+            ));
+
+            commands.spawn(box_shadow_node_bundle2(
+                Vec2::splat(100.),
+                Color::NONE,
+                Color::BLACK,
+                Vec2::ZERO,
+                Vec2::ZERO,
+                5.,
+                BorderRadius::ZERO,
+                1.,
+            ));
+        });
 }
 
 fn setup(mut commands: Commands) {
@@ -221,6 +288,43 @@ fn box_shadow_node_bundle(
             border_radius,
             background_color: BackgroundColor(color),
             ..Default::default()
+        },
+        BoxShadow {
+            color: shadow_color,
+            x_offset: Val::Percent(offset.x),
+            y_offset: Val::Percent(offset.y),
+            x_spread: Val::Percent(spread.x),
+            y_spread: Val::Percent(spread.y),
+            blur_radius: Val::Px(blur),
+        },
+    )
+}
+
+fn box_shadow_node_bundle2(
+    size: Vec2,
+    color: Color,
+    shadow_color: Color,
+    offset: Vec2,
+    spread: Vec2,
+    blur: f32,
+    border_radius: BorderRadius,
+    outline_offset: f32,
+) -> impl Bundle {
+    (
+        NodeBundle {
+            style: Style {
+                width: Val::Px(size.x),
+                height: Val::Px(size.y),
+                ..default()
+            },
+            border_radius,
+            background_color: BackgroundColor(color),
+            ..Default::default()
+        },
+        Outline {
+            width: Val::Px(2.),
+            offset: Val::Px(outline_offset),
+            color: Color::WHITE,
         },
         BoxShadow {
             color: shadow_color,
