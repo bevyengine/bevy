@@ -24,7 +24,6 @@ use bevy_utils::HashSet;
 /// Two interned values are only guaranteed to compare equal if they were interned using
 /// the same [`Interner`] instance.
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
-///
 /// ```
 /// # use bevy_ecs::intern::*;
 /// #[derive(PartialEq, Eq, Hash, Debug)]

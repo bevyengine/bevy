@@ -1,16 +1,16 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
-use bevy_math::{vec2, Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
+use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
 };
 use bitflags::bitflags;
 
-use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
-use crate::*;
+use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
 /// An enum to define which UV attribute to use for a texture.
+///
 /// It is used for every texture in the [`StandardMaterial`].
 /// It only supports two UV attributes, [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_0`] and
 /// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
@@ -128,7 +128,6 @@ pub struct StandardMaterial {
     ///
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
-    //
     // Technically for 32-bit floats, 0.045 could be used.
     // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
     pub perceptual_roughness: f32,
@@ -1068,10 +1067,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         emissive[3] = self.emissive_exposure_weight;
 
         // Doing this up front saves having to do this repeatedly in the fragment shader.
-        let anisotropy_rotation = vec2(
-            self.anisotropy_rotation.cos(),
-            self.anisotropy_rotation.sin(),
-        );
+        let anisotropy_rotation = Vec2::from_angle(self.anisotropy_rotation);
 
         StandardMaterialUniform {
             base_color: LinearRgba::from(self.base_color).to_vec4(),

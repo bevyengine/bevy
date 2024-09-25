@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use syn::{spanned::Spanned, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.
+///
 /// If the identifier is present in `haystack`, extra characters will be added
 /// to it until it no longer conflicts with anything.
 ///

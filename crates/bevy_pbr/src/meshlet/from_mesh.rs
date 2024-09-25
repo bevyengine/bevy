@@ -280,7 +280,7 @@ fn simplify_meshlet_group(
         vertices,
         group_indices.len() / 2,
         f32::MAX,
-        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, // TODO: Specify manual vertex locks instead of meshopt's overly-strict locks
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, /* TODO: Specify manual vertex locks instead of meshopt's overly-strict locks */
         Some(&mut error),
     );
 

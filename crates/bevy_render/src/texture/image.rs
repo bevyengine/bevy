@@ -167,7 +167,8 @@ impl ImageFormat {
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value(Default)]
+#[reflect(opaque)]
+#[reflect(Default, Debug)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -323,6 +324,7 @@ pub enum ImageSamplerBorderColor {
 }
 
 /// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+///
 /// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.

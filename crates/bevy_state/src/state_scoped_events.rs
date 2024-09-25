@@ -61,7 +61,7 @@ fn cleanup_state_scoped_event<S: FreelyMutableState>(
         return;
     };
 
-    c.add(move |w: &mut World| {
+    c.queue(move |w: &mut World| {
         w.resource_scope::<StateScopedEvents<S>, ()>(|w, events| {
             events.cleanup(w, exited);
         });

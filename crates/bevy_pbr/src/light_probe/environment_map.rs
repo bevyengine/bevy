@@ -48,10 +48,11 @@
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
+    system::lifetimeless::Read,
 };
 use bevy_math::Quat;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstance,
     prelude::SpatialBundle,
@@ -65,8 +66,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage, Image},
 };
 
-use std::num::NonZero;
-use std::ops::Deref;
+use std::{num::NonZero, ops::Deref};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,
@@ -84,6 +84,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
+#[reflect(Component, Default)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,

@@ -290,6 +290,7 @@ mod libm_ops {
     }
 
     /// Compute the distance between the origin and a point `(x, y)` on the Euclidean plane.
+    ///
     /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other sides having length `x.abs()` and `y.abs()`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
@@ -445,6 +446,7 @@ mod libm_ops {
 
 #[cfg(feature = "libm")]
 pub use libm_ops::*;
+
 #[cfg(not(feature = "libm"))]
 pub use std_ops::*;
 

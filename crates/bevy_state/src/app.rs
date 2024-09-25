@@ -2,11 +2,13 @@ use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
 use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
-use crate::state::{
-    setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-    StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+use crate::{
+    state::{
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
+        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+    },
+    state_scoped::clear_state_scoped_entities,
 };
-use crate::state_scoped::clear_state_scoped_entities;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromReflect, GetTypeRegistration, Typed};
@@ -117,7 +119,7 @@ impl AppExtStates for SubApp {
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
-                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling insert_state?"
             );
             S::register_state(schedule);
             self.world_mut().send_event(StateTransitionEvent {
@@ -146,7 +148,9 @@ impl AppExtStates for SubApp {
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
             self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_computed_state?"
+            );
             S::register_computed_state_systems(schedule);
             let state = self
                 .world()
@@ -172,7 +176,9 @@ impl AppExtStates for SubApp {
         {
             self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_sub_state?"
+            );
             S::register_sub_state_systems(schedule);
             let state = self
                 .world()

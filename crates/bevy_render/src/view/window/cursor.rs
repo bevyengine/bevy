@@ -35,7 +35,7 @@ impl Plugin for CursorPlugin {
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Debug, Default)]
+#[reflect(Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
     /// Custom cursor image.
     Custom(CustomCursor),
