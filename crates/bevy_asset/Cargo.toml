@@ -30,9 +30,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 stackfuture = "0.3"
 atomicow = "1.0"
-async-broadcast = "0.5"
-async-fs = "2.0"
-async-lock = "3.0"
+async-broadcast = "0.7"
+async-fs = "2.1"
+async-lock = "3.4"
 crossbeam-channel = "0.5"
 downcast-rs = "1.2"
 disqualified = "1.0"
