@@ -8,32 +8,23 @@ use crate::render_resource::{
 use crate::renderer::{render_system, RenderDevice};
 use crate::storage::{GpuShaderStorageBuffer, ShaderStorageBuffer};
 use crate::texture::{GpuImage, TextureFormatPixelInfo};
-use crate::view::screenshot::ScreenshotToScreenPipeline;
-use crate::view::{prepare_view_attachments, prepare_view_targets};
-use crate::{gpu_readback, Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
+use crate::{Extract, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
 use async_channel::{Receiver, Sender};
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::ResMut;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Event;
-use bevy_ecs::prelude::{Component, Resource, World};
 use bevy_ecs::query::With;
-use bevy_ecs::schedule::IntoSystemConfigs;
-use bevy_ecs::system::lifetimeless::Read;
-use bevy_ecs::system::{Commands, Query, Res};
+use bevy_ecs::{
+    entity::Entity,
+    event::Event,
+    prelude::{Component, Resource, World},
+    system::{Commands, Query, Res},
+};
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::tracing::{info, warn};
-use bevy_utils::{default, Entry, HashMap};
-use std::collections::VecDeque;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
-use wgpu::{
-    CommandEncoder, ImageCopyTexture, TextureDescriptor, TextureViewDescriptor,
-    COPY_BYTES_PER_ROW_ALIGNMENT,
-};
+use bevy_utils::{default, tracing::warn, HashMap};
+use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
 
 const MAX_UNUSED_FRAMES: usize = 3;
 

@@ -40,7 +40,7 @@ use std::{
     },
 };
 use wgpu::{
-    CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
+    CommandEncoder, Extent3d, TextureFormat,
 };
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
