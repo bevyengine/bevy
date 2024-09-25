@@ -28,6 +28,32 @@ use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
 
 const MAX_UNUSED_FRAMES: usize = 3;
 
+/// A plugin that enables reading back gpu buffers and textures to the cpu.
+pub struct GpuReadbackPlugin;
+
+impl Plugin for GpuReadbackPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(ExtractComponentPlugin::<Readback>::default());
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app
+                .init_resource::<GpuReadbackBufferPool>()
+                .init_resource::<GpuReadbacks>()
+                .add_systems(
+                    ExtractSchedule,
+                    (extract_readbacks, sync_readbacks).ambiguous_with_all(),
+                )
+                .add_systems(
+                    Render,
+                    (
+                        prepare_buffers.in_set(RenderSet::PrepareResources),
+                        map_buffers.after(render_system).in_set(RenderSet::Render),
+                    ),
+                );
+        }
+    }
+}
+
 /// A component that marks an entity for gpu readback.
 ///
 /// The entity must also have a `Handle<Image>` or `Handle<ShaderStorageBuffer>` component, which
@@ -55,7 +81,7 @@ struct GpuReadbackBufferPool {
 
 impl GpuReadbackBufferPool {
     fn get(&mut self, render_device: &RenderDevice, size: u64) -> Buffer {
-        let buffers = self.buffers.entry(size).or_insert_with(Vec::new);
+        let buffers = self.buffers.entry(size).or_default();
 
         // find an untaken buffer for this size
         if let Some((buffer, taken, _)) = buffers.iter_mut().find(|(_, taken, _)| !*taken) {
@@ -126,31 +152,6 @@ struct GpuReadback {
     pub buffer: Buffer,
     pub rx: Receiver<(Entity, Buffer)>,
     pub tx: Sender<(Entity, Buffer)>,
-}
-
-pub struct GpuReadbackPlugin;
-
-impl Plugin for GpuReadbackPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins(ExtractComponentPlugin::<Readback>::default());
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<GpuReadbackBufferPool>()
-                .init_resource::<GpuReadbacks>()
-                .add_systems(
-                    ExtractSchedule,
-                    (extract_readbacks, sync_readbacks).ambiguous_with_all(),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        prepare_buffers.in_set(RenderSet::PrepareResources),
-                        after_render.after(render_system).in_set(RenderSet::Render),
-                    ),
-                );
-        }
-    }
 }
 
 fn extract_readbacks(
@@ -301,8 +302,8 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
     }
 }
 
-fn after_render(mut readbacks: ResMut<GpuReadbacks>) {
-    // Move requested readbacks to mapped readbacks after submit
+fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
+    // Move requested readbacks to mapped readbacks after commands have been submitted in render system
     let requested = readbacks.requested.drain(..).collect::<Vec<GpuReadback>>();
     for readback in requested {
         let slice = readback.buffer.slice(..);
@@ -318,6 +319,8 @@ fn after_render(mut readbacks: ResMut<GpuReadbacks>) {
         readbacks.mapped.push(readback);
     }
 }
+
+// Utils
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {
     value + (COPY_BYTES_PER_ROW_ALIGNMENT - (value % COPY_BYTES_PER_ROW_ALIGNMENT))
