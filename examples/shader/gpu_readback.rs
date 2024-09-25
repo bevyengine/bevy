@@ -80,7 +80,7 @@ fn setup(
     let buffer = buffers.add(buffer);
 
     let size = Extent3d {
-        width: (BUFFER_LEN / size_of::<u32>()) as u32,
+        width: BUFFER_LEN as u32,
         height: 1,
         ..default()
     };

@@ -124,11 +124,13 @@ enum ReadbackSource {
 }
 
 #[derive(Resource, Default)]
-struct GpuReadbacks(Vec<GpuReadback>);
+struct GpuReadbacks {
+    requested: Vec<GpuReadback>,
+    mapped: Vec<GpuReadback>,
+}
 
 struct GpuReadback {
     pub entity: Entity,
-    pub mapped: bool,
     pub src: ReadbackSource,
     pub buffer: Buffer,
     pub rx: Receiver<(Entity, Buffer)>,
@@ -188,7 +190,7 @@ fn sync_readbacks(
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     mut readbacks: ResMut<GpuReadbacks>,
 ) {
-    readbacks.0.retain(|readback| {
+    readbacks.mapped.retain(|readback| {
         if let Ok((entity, buffer)) = readback.rx.try_recv() {
             let buffer_slice = buffer.slice(..);
             let data = buffer_slice.get_mapped_range();
@@ -239,7 +241,7 @@ fn prepare_buffers(
                     ) as u64,
                 );
                 let (tx, rx) = async_channel::bounded(1);
-                readbacks.0.push(GpuReadback {
+                readbacks.requested.push(GpuReadback {
                     entity,
                     src: ReadbackSource::Texture {
                         texture: gpu_image.texture.clone(),
@@ -249,7 +251,6 @@ fn prepare_buffers(
                     buffer,
                     rx,
                     tx,
-                    mapped: false,
                 });
             }
         }
@@ -258,7 +259,7 @@ fn prepare_buffers(
                 let size = ssbo.buffer.size() as u64;
                 let buffer = buffer_pool.get(&render_device, size);
                 let (tx, rx) = async_channel::bounded(1);
-                readbacks.0.push(GpuReadback {
+                readbacks.requested.push(GpuReadback {
                     entity,
                     src: ReadbackSource::Buffer {
                         src_start: 0,
@@ -268,7 +269,6 @@ fn prepare_buffers(
                     buffer,
                     rx,
                     tx,
-                    mapped: false,
                 });
             }
         }
@@ -277,11 +277,7 @@ fn prepare_buffers(
 
 pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut CommandEncoder) {
     let readbacks = world.resource::<GpuReadbacks>();
-    for readback in &readbacks.0 {
-        if readback.mapped {
-            continue;
-        }
-
+    for readback in &readbacks.requested {
         match &readback.src {
             ReadbackSource::Texture {
                 texture,
@@ -315,25 +311,24 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
 }
 
 fn after_render(mut readbacks: ResMut<GpuReadbacks>) {
-    for readback in readbacks.0.iter_mut() {
-        if !readback.mapped {
-            map_and_send(readback);
-        }
+    // Move requested readbacks to mapped readbacks after submit
+    let requested = readbacks
+        .requested
+        .drain(..)
+        .collect::<Vec<GpuReadback>>();
+    for mut readback in requested {
+        let slice = readback.buffer.slice(..);
+        let entity = readback.entity;
+        let buffer = readback.buffer.clone();
+        let tx = readback.tx.clone();
+        slice.map_async(wgpu::MapMode::Read, move |res| {
+            res.expect("Failed to map buffer");
+            if let Err(e) = tx.try_send((entity, buffer)) {
+                warn!("Failed to send readback result: {:?}", e);
+            }
+        });
+        readbacks.mapped.push(readback);
     }
-}
-
-fn map_and_send(readback: &mut GpuReadback) {
-    let slice = readback.buffer.slice(..);
-    let entity = readback.entity;
-    let buffer = readback.buffer.clone();
-    let tx = readback.tx.clone();
-    slice.map_async(wgpu::MapMode::Read, move |res| {
-        res.expect("Failed to map buffer");
-        if let Err(e) = tx.try_send((entity, buffer)) {
-            warn!("Failed to send readback result: {:?}", e);
-        }
-    });
-    readback.mapped = true;
 }
 
 pub(crate) fn align_byte_size(value: u32) -> u32 {
