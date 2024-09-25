@@ -1,10 +1,10 @@
 use super::TaskPool;
 use core::ops::Deref;
-use std::sync::OnceLock;
+use spin::Once;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
-        static $static: OnceLock<$type> = OnceLock::new();
+        static $static: Once<$type> = Once::new();
 
         $(#[$attr])*
         #[derive(Debug)]
@@ -13,7 +13,7 @@ macro_rules! taskpool {
         impl $type {
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance, or initializes it with `f`.")]
             pub fn get_or_init(f: impl FnOnce() -> TaskPool) -> &'static Self {
-                $static.get_or_init(|| Self(f()))
+                $static.call_once(|| Self(f()))
             }
 
             #[doc = concat!(" Attempts to get the global [`", stringify!($type), "`] instance, \

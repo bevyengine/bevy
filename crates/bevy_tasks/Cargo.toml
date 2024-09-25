@@ -18,6 +18,7 @@ std = [
   "slab/std",
   "fastrand/std",
   "spin/std",
+  "concurrent-queue/std",
 ]
 
 [dependencies]
@@ -30,8 +31,9 @@ fastrand = { version = "2.0.0", default-features = false }
 spin = { version = "0.9.8", default-features = false, features = [
   "spin_mutex",
   "rwlock",
+  "once",
 ] }
-concurrent-queue = { version = "2.0.0" }
+concurrent-queue = { version = "2.0.0", default-features = false }
 
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false }
 

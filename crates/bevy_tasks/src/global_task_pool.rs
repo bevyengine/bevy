@@ -1,4 +1,4 @@
-use alloc::sync::Arc;
+use alloc::{string::String, sync::Arc, vec::Vec};
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use spin::RwLock;

@@ -2224,11 +2224,11 @@ crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, TypeInfo, Typed,
-        VariantInfo, VariantType, ReflectSerialize, TypeRegistry,
+        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
+        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
     use alloc::collections::BTreeMap;
-    use bevy_utils::{Duration, Instant, HashMap};
+    use bevy_utils::{Duration, HashMap, Instant};
     use core::f32::consts::{PI, TAU};
     use static_assertions::assert_impl_all;
     use std::path::Path;
