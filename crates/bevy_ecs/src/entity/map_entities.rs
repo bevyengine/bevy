@@ -47,20 +47,46 @@ pub trait MapEntitiesMut: MapEntities {
 
 impl<T> MapEntities for T
 where
-    for<'a> &'a T: IntoIterator<Item = Entity>,
+    T: IterEntities,
 {
     fn map_entities<F: FnMut(Entity)>(&self, f: F) {
-        self.into_iter().for_each(f);
+        self.iter_entities().for_each(f)
     }
 }
 
 impl<T> MapEntitiesMut for T
 where
-    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
-    T: MapEntities,
+    T: MapEntities + IterEntitiesMut,
 {
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
-        self.into_iter().for_each(f);
+        self.iter_entities_mut().for_each(f)
+    }
+}
+
+pub trait IterEntities {
+    fn iter_entities(&self) -> impl Iterator<Item = Entity>;
+}
+
+impl<T> IterEntities for T
+where
+    for<'a> &'a T: IntoIterator<Item = Entity>,
+{
+    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+        self.into_iter()
+    }
+}
+
+pub trait IterEntitiesMut: IterEntities {
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
+}
+
+impl<T> IterEntitiesMut for T
+where
+    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
+    T: IterEntities,
+{
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.into_iter()
     }
 }
 

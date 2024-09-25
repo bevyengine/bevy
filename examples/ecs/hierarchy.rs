@@ -72,7 +72,7 @@ fn rotate(
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children {
-            if let Ok(mut transform) = transform_query.get_mut(*child) {
+            if let Ok(mut transform) = transform_query.get_mut(child) {
                 transform.rotate_z(PI * time.delta_seconds());
             }
         }

@@ -2,11 +2,11 @@
 use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::Entity,
     traversal::Traversal,
     world::{FromWorld, World},
 };
-use std::ops::Deref;
+use std::{ops::Deref, option};
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
@@ -59,9 +59,21 @@ impl FromWorld for Parent {
     }
 }
 
-impl MapEntities for Parent {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.0 = entity_mapper.map_entity(self.0);
+impl<'a> IntoIterator for &'a Parent {
+    type Item = Entity;
+    type IntoIter = option::IntoIter<Entity>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(self.0).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Parent {
+    type Item = &'a mut Entity;
+    type IntoIter = option::IntoIter<&'a mut Entity>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Some(&mut self.0).into_iter()
     }
 }
 

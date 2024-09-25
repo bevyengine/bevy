@@ -2,7 +2,7 @@
 use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, MapEntitiesMut},
     prelude::FromWorld,
     world::World,
 };
@@ -28,10 +28,10 @@ use std::ops::Deref;
 #[cfg_attr(feature = "reflect", reflect(Component, MapEntities, Debug, FromWorld))]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
-impl MapEntities for Children {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+impl MapEntitiesMut for Children {
+    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
         for entity in &mut self.0 {
-            *entity = entity_mapper.map_entity(*entity);
+            f(entity);
         }
     }
 }
@@ -155,10 +155,10 @@ impl Deref for Children {
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
-    type IntoIter = slice::Iter<'a, Entity>;
+    type IntoIter = std::iter::Copied<slice::Iter<'a, Entity>>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
+        self.0.iter().copied()
     }
 }
