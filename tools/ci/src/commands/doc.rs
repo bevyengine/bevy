@@ -1,10 +1,10 @@
 use crate::{
-    commands::{DocCheckCommand, DocTestCommand},
+    commands::{DocCheckCommand, DocCheckNightlyCommand, DocTestCommand},
     Flag, Prepare, PreparedCommand,
 };
 use argh::FromArgs;
 
-/// Alias for running the `doc-test` and `doc-check` subcommands.
+/// Alias for running the `doc-test` and `doc-check` and `doc-check-nightly` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "doc")]
 pub struct DocCommand {}
@@ -14,6 +14,7 @@ impl Prepare for DocCommand {
         let mut commands = vec![];
         commands.append(&mut DocTestCommand::default().prepare(sh, flags));
         commands.append(&mut DocCheckCommand::default().prepare(sh, flags));
+        commands.append(&mut DocCheckNightlyCommand::default().prepare(sh, flags));
         commands
     }
 }

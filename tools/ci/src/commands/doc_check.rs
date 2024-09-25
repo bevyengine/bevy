@@ -14,9 +14,8 @@ impl Prepare for DocCheckCommand {
                 sh,
                 "cargo doc --workspace --all-features --no-deps --document-private-items --keep-going"
             ),
-            "Please fix doc warnings in output above.",
+            "Please fix the warnings and errors in the above output.",
         )
-        .with_env_var("RUSTDOCFLAGS", "-D warnings --cfg=docsrs")
-        .with_env_var("RUSTFLAGS", "--cfg docsrs_dep")]
+        .with_env_var("RUSTDOCFLAGS", "-D warnings")]
     }
 }
