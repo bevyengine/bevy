@@ -4,6 +4,7 @@
 
 pub mod cores;
 pub mod interval;
+pub mod iterable;
 
 pub use interval::{interval, Interval};
 use itertools::Itertools;
