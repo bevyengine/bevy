@@ -30,61 +30,30 @@ fn main() {
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
+    // The default font has a limited number of glyphs, so use the full version for
+    // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands.spawn(
         TextBundle::from_sections([
+            TextSection::from("Click to toggle IME. Press return to start a new line.\n\n"),
+            TextSection::from("IME Enabled: "),
+            TextSection::from("false\n"),
+            TextSection::from("IME Active:  "),
+            TextSection::from("false\n"),
+            TextSection::from("IME Buffer:  "),
             TextSection {
-                value: "IME Enabled: ".to_string(),
+                value: "\n".to_string(),
                 style: TextStyle {
-                    font: font.clone_weak(),
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "IME Active: ".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "click to toggle IME, press return to start a new line\n\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 18.0,
-                    ..default()
-                },
-            },
-            TextSection {
-                value: "".to_string(),
-                style: TextStyle {
-                    font,
-                    font_size: 25.0,
+                    font: font.clone(),
                     ..default()
                 },
             },
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -93,7 +62,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::from_section(
             "".to_string(),
             TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font,
                 font_size: 100.0,
                 ..default()
             },
@@ -114,7 +83,7 @@ fn toggle_ime(
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();
-        text.sections[1].value = format!("{}\n", window.ime_enabled);
+        text.sections[2].value = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -144,19 +113,19 @@ fn listen_ime_events(
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
+                status_text.single_mut().sections[6].value = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().sections[5].value = "".to_string();
+                status_text.single_mut().sections[6].value = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
                 edit_text.single_mut().sections[0].value.push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().sections[3].value = "true\n".to_string();
+                status_text.single_mut().sections[4].value = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().sections[3].value = "false\n".to_string();
+                status_text.single_mut().sections[4].value = "false\n".to_string();
             }
             _ => (),
         }

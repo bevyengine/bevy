@@ -5,8 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::Vec3Swizzles;
-use bevy_math::{Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3};
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
 
 /// A builder returned by [`Gizmos::grid_3d`]
 pub struct GridBuilder3d<'a, 'w, 's, Config, Clear>
@@ -181,6 +180,8 @@ where
     /// Draw a 2D grid in 3D.
     ///
     /// This should be called for each frame the grid needs to be rendered.
+    ///
+    /// The grid's default orientation aligns with the XY-plane.
     ///
     /// # Arguments
     ///
@@ -372,7 +373,7 @@ fn draw_grid<Config, Clear>(
     }
 
     // Offset between two adjacent grid cells along the x/y-axis and accounting for skew.
-    let skew_tan = Vec3::from(skew.to_array().map(f32::tan));
+    let skew_tan = Vec3::from(skew.to_array().map(ops::tan));
     let dx = or_zero(
         cell_count.x != 0,
         spacing.x * Vec3::new(1., skew_tan.y, skew_tan.z),

@@ -1,14 +1,15 @@
-use std::any::Any;
-use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use std::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::type_info::impl_type_methods;
-use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
+    FromReflect, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -381,10 +382,10 @@ pub struct ListIter<'a> {
     index: usize,
 }
 
-impl<'a> ListIter<'a> {
+impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &'a dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter {
         ListIter { list, index: 0 }
     }
 }
@@ -406,7 +407,7 @@ impl<'a> Iterator for ListIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ListIter<'a> {}
+impl ExactSizeIterator for ListIter<'_> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
@@ -447,22 +448,18 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::List(list_value) = b.reflect_ref() {
-        for (i, value) in list_value.iter().enumerate() {
-            if i < a.len() {
-                if let Some(v) = a.get_mut(i) {
-                    v.try_apply(value)?;
-                }
-            } else {
-                List::push(a, value.clone_value());
+    let list_value = b.reflect_ref().as_list()?;
+
+    for (i, value) in list_value.iter().enumerate() {
+        if i < a.len() {
+            if let Some(v) = a.get_mut(i) {
+                v.try_apply(value)?;
             }
+        } else {
+            List::push(a, value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::List,
-        });
     }
+
     Ok(())
 }
 
@@ -523,7 +520,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::{Reflect, ReflectRef};
+    use crate::Reflect;
     use std::assert_eq;
 
     #[test]
@@ -551,9 +548,7 @@ mod tests {
         };
         let b = Box::new(vec![(); SIZE]).into_reflect();
 
-        let ReflectRef::List(list) = b.reflect_ref() else {
-            panic!("Not a list...");
-        };
+        let list = b.reflect_ref().as_list().unwrap();
 
         let mut iter = list.iter();
         iter.index = SIZE - 1;

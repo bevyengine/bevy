@@ -2,9 +2,8 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
-    ops::FloatPow,
     prelude::{Mat2, Rot2, Vec2},
-    Isometry2d,
+    FloatPow, Isometry2d,
 };
 
 #[cfg(feature = "bevy_reflect")]

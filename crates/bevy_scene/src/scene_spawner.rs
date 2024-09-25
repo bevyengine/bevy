@@ -1,14 +1,13 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Command, Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent, PushChild};
+use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
@@ -380,7 +379,7 @@ impl SceneSpawner {
                         // this case shouldn't happen anyway
                         .unwrap_or(true)
                     {
-                        PushChild {
+                        AddChild {
                             parent,
                             child: entity,
                         }
@@ -473,13 +472,14 @@ pub fn scene_spawner_system(world: &mut World) {
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::Handle;
-    use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::observer::Trigger;
-    use bevy_ecs::prelude::ReflectComponent;
-    use bevy_ecs::query::With;
-    use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
-    use bevy_ecs::{component::Component, system::Query};
+    use bevy_asset::{AssetPlugin, AssetServer, Handle};
+    use bevy_ecs::{
+        component::Component,
+        observer::Trigger,
+        prelude::ReflectComponent,
+        query::With,
+        system::{Commands, Query, Res, ResMut, RunSystemOnce},
+    };
     use bevy_reflect::Reflect;
 
     use crate::{DynamicSceneBuilder, ScenePlugin};

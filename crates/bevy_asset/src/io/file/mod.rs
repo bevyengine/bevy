@@ -51,8 +51,7 @@ impl FileAssetReader {
     /// Returns the base path of the assets directory, which is normally the executable's parent
     /// directory.
     ///
-    /// If the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
-    /// instead. It's set by cargo when running with `cargo run`.
+    /// To change this, set [`AssetPlugin.file_path`].
     pub fn get_base_path() -> PathBuf {
         get_base_path()
     }

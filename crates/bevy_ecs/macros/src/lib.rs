@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -272,6 +272,15 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s Self::State,
+                    system_meta: &SystemMeta,
+                    world: UnsafeWorldCell<'w>,
+                ) -> bool {
+                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
+                }
+
+                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &SystemMeta,
@@ -512,6 +521,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 
+                #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s Self::State,
+                    system_meta: &#path::system::SystemMeta,
+                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                ) -> bool {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
+                }
+
+                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,

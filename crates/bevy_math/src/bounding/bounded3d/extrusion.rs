@@ -2,12 +2,15 @@ use std::f32::consts::FRAC_PI_2;
 
 use glam::{Vec2, Vec3A, Vec3Swizzles};
 
-use crate::bounding::{BoundingCircle, BoundingVolume};
-use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
-    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+use crate::{
+    bounding::{BoundingCircle, BoundingVolume},
+    ops,
+    primitives::{
+        BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
+        Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    },
+    Isometry2d, Isometry3d, Quat, Rot2,
 };
-use crate::{ops, Isometry2d, Isometry3d, Quat, Rot2};
 
 use crate::{bounding::Bounded2d, primitives::Circle};
 

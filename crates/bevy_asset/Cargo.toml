@@ -29,11 +29,13 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 stackfuture = "0.3"
+atomicow = "1.0"
 async-broadcast = "0.5"
 async-fs = "2.0"
 async-lock = "3.0"
 crossbeam-channel = "0.5"
 downcast-rs = "1.2"
+disqualified = "1.0"
 futures-io = "0.3"
 futures-lite = "2.0.1"
 blake3 = "1.5"
