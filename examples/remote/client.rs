@@ -80,7 +80,7 @@ fn main() -> AnyhowResult<()> {
         let req = serde_json::to_string(&req).expect("Unable to serialize request");
         let req = urlencoding::encode(&req);
 
-        let (mut socket, response) =
+        let (mut socket, _response) =
             connect(format!("ws://{host_part}/?body={req}")).expect("Can't connect");
         loop {
             let msg = socket.read().expect("Error reading message");
