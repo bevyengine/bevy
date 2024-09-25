@@ -4,7 +4,7 @@ use crate::{
 };
 use argh::FromArgs;
 
-/// Alias for running the `doc-test` and `doc-check` and `doc-check-nightly` subcommands.
+/// Alias for running the `doc-test` and `doc-check` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "doc")]
 pub struct DocCommand {}
