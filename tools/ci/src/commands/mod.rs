@@ -5,7 +5,6 @@ pub use compile_check::*;
 pub use compile_fail::*;
 pub use doc::*;
 pub use doc_check::*;
-pub use doc_check_nightly::*;
 pub use doc_test::*;
 pub use example_check::*;
 pub use format::*;
