@@ -107,7 +107,17 @@ impl Node {
         self.outline_offset
     }
 
-    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    /// Returns the size of the node when including its outline.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn outlined_node_size(&self) -> Vec2 {
+        self.size() + 2. * (self.outline_offset + self.outline_width)
+    }
+
+    /// Returns the border radius for each corner of the outline
+    /// An outline's border radius is derived from the node's border-radius
+    /// so that the outline wraps the border equally at all points.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
