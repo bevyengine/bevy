@@ -93,6 +93,7 @@ enum Commands {
     // Aliases (subcommands that run other subcommands)
     Lints(commands::LintsCommand),
     Doc(commands::DocCommand),
+    DocNightly(commands::DocNightlyCommand),
     Compile(commands::CompileCommand),
     // Actual subcommands
     Format(commands::FormatCommand),
@@ -101,6 +102,8 @@ enum Commands {
     TestCheck(commands::TestCheckCommand),
     DocCheck(commands::DocCheckCommand),
     DocTest(commands::DocTestCommand),
+    DocCheckNightly(commands::DocCheckNightlyCommand),
+    DocTestNightly(commands::DocTestNightlyCommand),
     CompileCheck(commands::CompileCheckCommand),
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
@@ -112,6 +115,7 @@ impl Prepare for Commands {
         match self {
             Commands::Lints(subcommand) => subcommand.prepare(sh, flags),
             Commands::Doc(subcommand) => subcommand.prepare(sh, flags),
+            Commands::DocNightly(subcommand) => subcommand.prepare(sh, flags),
             Commands::Compile(subcommand) => subcommand.prepare(sh, flags),
 
             Commands::Format(subcommand) => subcommand.prepare(sh, flags),
@@ -124,6 +128,8 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::DocCheckNightly(subcommand) => subcommand.prepare(sh, flags),
+            Commands::DocTestNightly(subcommand) => subcommand.prepare(sh, flags),
         }
     }
 }
