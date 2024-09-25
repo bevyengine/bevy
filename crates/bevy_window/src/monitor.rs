@@ -1,5 +1,4 @@
-use bevy_ecs::component::Component;
-use bevy_ecs::prelude::ReflectComponent;
+use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::Reflect;
 

@@ -1,6 +1,8 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::DefaultBehavior;
-use crate::{derive_data::ReflectEnum, ident::ident_or_index};
+use crate::{
+    derive_data::{ReflectEnum, StructField},
+    field_attributes::DefaultBehavior,
+    ident::ident_or_index,
+};
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};

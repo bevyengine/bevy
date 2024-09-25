@@ -13,7 +13,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 
-use crate::{error::TextError, Font, FontAtlas, GlyphAtlasInfo};
+use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
@@ -47,17 +47,11 @@ pub fn remove_dropped_font_atlas_sets(
     }
 }
 
-/// Identifies a font size in a [`FontAtlasSet`].
+/// Identifies a font size and smoothing method in a [`FontAtlasSet`].
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq)]
-pub struct FontSizeKey(pub u32);
-
-impl From<u32> for FontSizeKey {
-    fn from(val: u32) -> FontSizeKey {
-        Self(val)
-    }
-}
+pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 
 /// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.
 ///
@@ -77,7 +71,7 @@ impl From<u32> for FontSizeKey {
 /// It is used by [`TextPipeline::queue_text`](crate::TextPipeline::queue_text).
 #[derive(Debug, TypePath, Asset)]
 pub struct FontAtlasSet {
-    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+    font_atlases: HashMap<FontAtlasKey, Vec<FontAtlas>>,
 }
 
 impl Default for FontAtlasSet {
@@ -90,12 +84,12 @@ impl Default for FontAtlasSet {
 
 impl FontAtlasSet {
     /// Returns an iterator over the [`FontAtlas`]es in this set
-    pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
     }
 
     /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontSizeKey) -> bool {
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasKey) -> bool {
         self.font_atlases
             .get(font_size)
             .map_or(false, |font_atlas| {
@@ -111,16 +105,31 @@ impl FontAtlasSet {
         font_system: &mut cosmic_text::FontSystem,
         swash_cache: &mut cosmic_text::SwashCache,
         layout_glyph: &cosmic_text::LayoutGlyph,
+        font_smoothing: FontSmoothing,
     ) -> Result<GlyphAtlasInfo, TextError> {
         let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
 
         let font_atlases = self
             .font_atlases
-            .entry(physical_glyph.cache_key.font_size_bits.into())
-            .or_insert_with(|| vec![FontAtlas::new(textures, texture_atlases, UVec2::splat(512))]);
+            .entry(FontAtlasKey(
+                physical_glyph.cache_key.font_size_bits,
+                font_smoothing,
+            ))
+            .or_insert_with(|| {
+                vec![FontAtlas::new(
+                    textures,
+                    texture_atlases,
+                    UVec2::splat(512),
+                    font_smoothing,
+                )]
+            });
 
-        let (glyph_texture, offset) =
-            Self::get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph)?;
+        let (glyph_texture, offset) = Self::get_outlined_glyph_texture(
+            font_system,
+            swash_cache,
+            &physical_glyph,
+            font_smoothing,
+        )?;
         let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
             atlas.add_glyph(
                 textures,
@@ -146,6 +155,7 @@ impl FontAtlasSet {
                 textures,
                 texture_atlases,
                 UVec2::splat(containing),
+                font_smoothing,
             ));
 
             font_atlases.last_mut().unwrap().add_glyph(
@@ -157,16 +167,19 @@ impl FontAtlasSet {
             )?;
         }
 
-        Ok(self.get_glyph_atlas_info(physical_glyph.cache_key).unwrap())
+        Ok(self
+            .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+            .unwrap())
     }
 
     /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
     pub fn get_glyph_atlas_info(
         &mut self,
         cache_key: cosmic_text::CacheKey,
+        font_smoothing: FontSmoothing,
     ) -> Option<GlyphAtlasInfo> {
         self.font_atlases
-            .get(&FontSizeKey(cache_key.font_size_bits))
+            .get(&FontAtlasKey(cache_key.font_size_bits, font_smoothing))
             .and_then(|font_atlases| {
                 font_atlases
                     .iter()
@@ -201,7 +214,16 @@ impl FontAtlasSet {
         font_system: &mut cosmic_text::FontSystem,
         swash_cache: &mut cosmic_text::SwashCache,
         physical_glyph: &cosmic_text::PhysicalGlyph,
+        font_smoothing: FontSmoothing,
     ) -> Result<(Image, IVec2), TextError> {
+        // NOTE: Ideally, we'd ask COSMIC Text to honor the font smoothing setting directly.
+        // However, since it currently doesn't support that, we render the glyph with antialiasing
+        // and apply a threshold to the alpha channel to simulate the effect.
+        //
+        // This has the side effect of making regular vector fonts look quite ugly when font smoothing
+        // is turned off, but for fonts that are specifically designed for pixel art, it works well.
+        //
+        // See: https://github.com/pop-os/cosmic-text/issues/279
         let image = swash_cache
             .get_image_uncached(font_system, physical_glyph.cache_key)
             .ok_or(TextError::FailedToGetGlyphImage(physical_glyph.cache_key))?;
@@ -214,11 +236,22 @@ impl FontAtlasSet {
         } = image.placement;
 
         let data = match image.content {
-            cosmic_text::SwashContent::Mask => image
-                .data
-                .iter()
-                .flat_map(|a| [255, 255, 255, *a])
-                .collect(),
+            cosmic_text::SwashContent::Mask => {
+                if font_smoothing == FontSmoothing::None {
+                    image
+                        .data
+                        .iter()
+                        // Apply a 50% threshold to the alpha channel
+                        .flat_map(|a| [255, 255, 255, if *a > 127 { 255 } else { 0 }])
+                        .collect()
+                } else {
+                    image
+                        .data
+                        .iter()
+                        .flat_map(|a| [255, 255, 255, *a])
+                        .collect()
+                }
+            }
             cosmic_text::SwashContent::Color => image.data,
             cosmic_text::SwashContent::SubpixelMask => {
                 // TODO: implement

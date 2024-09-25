@@ -5,11 +5,12 @@ use std::{
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{default, tracing::info};
 use bevy_utils::{
-    tracing::{error, warn},
+    default,
+    tracing::{error, info, warn},
     HashMap, HashSet,
 };
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
 use thiserror::Error;
@@ -23,8 +24,7 @@ use crate::{
     world::World,
 };
 
-use crate::query::AccessConflicts;
-use crate::storage::SparseSetIndex;
+use crate::{query::AccessConflicts, storage::SparseSetIndex};
 pub use stepping::Stepping;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
@@ -1607,16 +1607,11 @@ impl ScheduleGraph {
                 }
             }
         };
-        #[cfg(feature = "bevy_reflect")]
-        {
-            if self.settings.use_shortnames {
-                bevy_reflect::ShortName(&name).to_string()
-            } else {
-                name
-            }
+        if self.settings.use_shortnames {
+            ShortName(&name).to_string()
+        } else {
+            name
         }
-        #[cfg(not(feature = "bevy_reflect"))]
-        name
     }
 
     fn anonymous_set_name(&self, id: &NodeId) -> String {
@@ -2018,7 +2013,6 @@ pub struct ScheduleBuildSettings {
     /// If set to true, node names will be shortened instead of the fully qualified type path.
     ///
     /// Defaults to `true`.
-    #[cfg(feature = "bevy_reflect")]
     pub use_shortnames: bool,
     /// If set to true, report all system sets the conflicting systems are part of.
     ///
@@ -2040,7 +2034,6 @@ impl ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
             auto_insert_apply_deferred: true,
-            #[cfg(feature = "bevy_reflect")]
             use_shortnames: true,
             report_sets: true,
         }

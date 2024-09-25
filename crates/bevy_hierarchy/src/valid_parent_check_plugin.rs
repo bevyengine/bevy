@@ -4,9 +4,9 @@ use std::marker::PhantomData;
 use crate::Parent;
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_app")]
-use bevy_reflect::ShortName;
-#[cfg(feature = "bevy_app")]
 use bevy_utils::HashSet;
+#[cfg(feature = "bevy_app")]
+use disqualified::ShortName;
 
 /// When enabled, runs [`check_hierarchy_component_has_valid_parent<T>`].
 ///

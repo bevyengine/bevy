@@ -1719,8 +1719,9 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::world::FilteredEntityRef;
-    use crate::{component::Component, prelude::*, query::QueryEntityError};
+    use crate::{
+        component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
+    };
 
     #[test]
     fn get_many_unchecked_manual_uniqueness() {

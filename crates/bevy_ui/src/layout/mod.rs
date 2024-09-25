@@ -1,5 +1,6 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
+    TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -7,7 +8,7 @@ use bevy_ecs::{
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Local, Query, Res, ResMut, SystemParam},
+    system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -91,10 +92,10 @@ struct CameraLayoutInfo {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
+    mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    cameras: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
+    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -115,8 +116,10 @@ pub fn ui_layout_system(
     mut node_transform_query: Query<(
         &mut Node,
         &mut Transform,
+        &Style,
         Option<&BorderRadius>,
         Option<&Outline>,
+        Option<&ScrollPosition>,
     )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
@@ -126,6 +129,8 @@ pub fn ui_layout_system(
         resized_windows,
         camera_layout_info,
     } = &mut *buffers;
+
+    let (cameras, default_ui_camera) = camera_data;
 
     let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
@@ -266,14 +271,17 @@ pub fn ui_layout_system(
             #[cfg(feature = "bevy_text")]
             font_system,
         );
+
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
+                &mut commands,
                 *root,
                 &ui_surface,
                 None,
                 &mut node_transform_query,
                 &just_children_query,
                 inverse_target_scale_factor,
+                Vec2::ZERO,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -283,27 +291,39 @@ pub fn ui_layout_system(
         interned_root_nodes.push(camera.root_nodes);
     }
 
+    // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
+        commands: &mut Commands,
         entity: Entity,
         ui_surface: &UiSurface,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut Node,
             &mut Transform,
+            &Style,
             Option<&BorderRadius>,
             Option<&Outline>,
+            Option<&ScrollPosition>,
         )>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
+        parent_scroll_position: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform, maybe_border_radius, maybe_outline)) =
-            node_transform_query.get_mut(entity)
+        if let Ok((
+            mut node,
+            mut transform,
+            style,
+            maybe_border_radius,
+            maybe_outline,
+            maybe_scroll_position,
+        )) = node_transform_query.get_mut(entity)
         {
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
+
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
             let layout_location =
@@ -315,7 +335,8 @@ pub fn ui_layout_system(
                 - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location - parent_scroll_position)
+                    + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -351,9 +372,40 @@ pub fn ui_layout_system(
                 transform.translation = rounded_location.extend(0.);
             }
 
+            let scroll_position: Vec2 = maybe_scroll_position
+                .map(|scroll_pos| {
+                    Vec2::new(
+                        if style.overflow.x == OverflowAxis::Scroll {
+                            scroll_pos.offset_x
+                        } else {
+                            0.0
+                        },
+                        if style.overflow.y == OverflowAxis::Scroll {
+                            scroll_pos.offset_y
+                        } else {
+                            0.0
+                        },
+                    )
+                })
+                .unwrap_or_default();
+
+            let round_content_size = approx_round_layout_coords(
+                Vec2::new(layout.content_size.width, layout.content_size.height)
+                    * inverse_target_scale_factor,
+            );
+            let max_possible_offset = (round_content_size - rounded_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+
+            if clamped_scroll_position != scroll_position {
+                commands
+                    .entity(entity)
+                    .insert(ScrollPosition::from(&clamped_scroll_position));
+            }
+
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
                     update_uinode_geometry_recursive(
+                        commands,
                         child_uinode,
                         ui_surface,
                         Some(viewport_size),
@@ -361,6 +413,7 @@ pub fn ui_layout_system(
                         children_query,
                         inverse_target_scale_factor,
                         rounded_size,
+                        clamped_scroll_position,
                         absolute_location,
                     );
                 }
@@ -394,43 +447,43 @@ fn approx_round_layout_coords(value: Vec2) -> Vec2 {
 mod tests {
     use taffy::TraversePartialTree;
 
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
+    use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
-    use bevy_ecs::query::Without;
-    use bevy_ecs::schedule::apply_deferred;
-    use bevy_ecs::schedule::IntoSystemConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::system::RunSystemOnce;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{
+        entity::Entity,
+        event::Events,
+        prelude::{Commands, Component, In, Query, With},
+        query::Without,
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        system::RunSystemOnce,
+        world::World,
+    };
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
-    use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::OrthographicProjection;
-    use bevy_render::prelude::Camera;
-    use bevy_render::texture::Image;
-    use bevy_transform::prelude::GlobalTransform;
-    use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
-    use bevy_utils::prelude::default;
-    use bevy_utils::HashMap;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
+    use bevy_render::{
+        camera::{ManualTextureViews, OrthographicProjection},
+        prelude::Camera,
+        texture::Image,
+    };
+    use bevy_transform::{
+        prelude::GlobalTransform,
+        systems::{propagate_transforms, sync_simple_transforms},
+    };
+    use bevy_utils::{prelude::default, HashMap};
+    use bevy_window::{
+        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
+        WindowScaleFactorChanged,
+    };
 
-    use crate::layout::approx_round_layout_coords;
-    use crate::layout::ui_surface::UiSurface;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
+    use crate::{
+        layout::{approx_round_layout_coords, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::update_target_camera_system,
+        ContentSize,
+    };
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {

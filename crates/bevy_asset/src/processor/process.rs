@@ -1,14 +1,12 @@
-use crate::io::SliceReader;
-use crate::transformer::IdentityAssetTransformer;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, SliceReader, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
-    transformer::{AssetTransformer, TransformedAsset},
+    transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };

@@ -1,14 +1,18 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect,
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
-use std::{borrow::Cow, slice::Iter};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Formatter},
+    slice::Iter,
+    sync::Arc,
+};
 
 /// A trait used to power [struct-like] operations via [reflection].
 ///
@@ -90,7 +94,6 @@ impl StructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
@@ -406,19 +409,15 @@ impl PartialReflect for DynamicStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.try_apply(value)?;
-                }
+        let struct_value = value.reflect_ref().as_struct()?;
+
+        for (i, value) in struct_value.iter_fields().enumerate() {
+            let name = struct_value.name_at(i).unwrap();
+            if let Some(v) = self.field_mut(name) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::Struct,
-            });
         }
+
         Ok(())
     }
 

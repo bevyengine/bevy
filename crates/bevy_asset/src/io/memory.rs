@@ -3,8 +3,8 @@ use bevy_utils::HashMap;
 use futures_io::{AsyncRead, AsyncSeek};
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
-use std::io::SeekFrom;
 use std::{
+    io::SeekFrom,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,

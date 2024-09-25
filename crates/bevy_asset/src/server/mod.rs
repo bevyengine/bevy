@@ -20,16 +20,22 @@ use crate::{
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, info};
-use bevy_utils::HashSet;
+use bevy_utils::{
+    tracing::{error, info},
+    HashSet,
+};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::{any::Any, path::PathBuf};
-use std::{any::TypeId, path::Path, sync::Arc};
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::{
+    any::{Any, TypeId},
+    future::Future,
+    panic::AssertUnwindSafe,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use thiserror::Error;
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
@@ -429,12 +435,11 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
-            match server.load_internal(owned_handle, path, false, None).await {
+            match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     id,
                     loaded_asset: LoadedAsset::new_with_dependencies(

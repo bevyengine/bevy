@@ -10,9 +10,10 @@ use bevy_utils::HashMap;
 pub use column::*;
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
-use std::{alloc::Layout, num::NonZeroUsize};
 use std::{
+    alloc::Layout,
     cell::UnsafeCell,
+    num::NonZeroUsize,
     ops::{Index, IndexMut},
 };
 mod column;
@@ -814,13 +815,11 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::Component;
-    use crate::ptr::OwningPtr;
-    use crate::storage::Storages;
     use crate::{
-        component::{Components, Tick},
+        component::{Component, Components, Tick},
         entity::Entity,
-        storage::{TableBuilder, TableRow},
+        ptr::OwningPtr,
+        storage::{Storages, TableBuilder, TableRow},
     };
     #[cfg(feature = "track_change_detection")]
     use std::panic::Location;

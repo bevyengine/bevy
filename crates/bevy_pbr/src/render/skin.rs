@@ -1,8 +1,7 @@
 use std::mem::{self, size_of};
 
 use bevy_asset::Assets;
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::Mat4;
 use bevy_render::{
     batching::NoAutomaticBatching,
