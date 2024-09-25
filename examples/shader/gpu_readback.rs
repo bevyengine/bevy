@@ -10,7 +10,6 @@
 use bevy::{
     prelude::*,
     render::{
-        extract_component::ExtractComponent,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
         render_asset::{RenderAssetUsages, RenderAssets},

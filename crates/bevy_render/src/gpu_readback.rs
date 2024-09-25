@@ -2,10 +2,7 @@ use crate::{
     extract_component::ExtractComponentPlugin,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{
-        Buffer, BufferUsages, Extent3d, ImageDataLayout, SpecializedRenderPipelines, Texture,
-        TextureFormat, TextureView,
-    },
+    render_resource::{Buffer, BufferUsages, Extent3d, ImageDataLayout, Texture, TextureFormat},
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     texture::{GpuImage, TextureFormatPixelInfo},
@@ -15,6 +12,7 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
