@@ -201,6 +201,7 @@ use crate::{
 };
 use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
+    component::ComponentHooks,
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     world::FromWorld,
@@ -393,7 +394,10 @@ impl Plugin for AssetPlugin {
     label = "invalid `Asset`",
     note = "consider annotating `{Self}` with `#[derive(Asset)]`"
 )]
-pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
+pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {
+    /// Register component hooks for [`Handle<Self>`].
+    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+}
 
 /// This trait defines how to visit the dependencies of an asset.
 /// For example, a 3D model might require both textures and meshes to be loaded.
