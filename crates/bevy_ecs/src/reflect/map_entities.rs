@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityHashMap, MapEntities, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, EntityMapper, MapEntities, MapEntitiesMut, SceneEntityMapper},
     world::World,
 };
 use bevy_reflect::FromType;
@@ -49,13 +49,15 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
+impl<C: Component + MapEntitiesMut> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_entities_mut(|entity| {
+                            *entity = entity_mapper.map_entity(*entity);
+                        });
                     }
                 }
             },
@@ -67,7 +69,9 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                     .collect::<Vec<Entity>>();
                 for entity in &entities {
                     if let Some(mut component) = world.get_mut::<C>(*entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_entities_mut(|entity| {
+                            *entity = entity_mapper.map_entity(*entity);
+                        });
                     }
                 }
             },
@@ -95,12 +99,14 @@ impl ReflectMapEntitiesResource {
     }
 }
 
-impl<R: crate::system::Resource + MapEntities> FromType<R> for ReflectMapEntitiesResource {
+impl<R: crate::system::Resource + MapEntitiesMut> FromType<R> for ReflectMapEntitiesResource {
     fn from_type() -> Self {
         ReflectMapEntitiesResource {
             map_entities: |world, entity_mapper| {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
-                    resource.map_entities(entity_mapper);
+                    resource.map_entities_mut(|entity| {
+                        *entity = entity_mapper.map_entity(*entity);
+                    });
                 }
             },
         }
