@@ -352,7 +352,7 @@ impl RemotePlugin {
         self
     }
 
-    /// Add a remote method to the plugin using the given `name` and `handler`.
+    /// Add a normal remote method to the plugin using the given `name` and `handler`.
     #[must_use]
     pub fn with_method<M>(
         mut self,
@@ -365,6 +365,11 @@ impl RemotePlugin {
             .push((name.into(), Box::new(IntoSystem::into_system(handler))));
         self
     }
+
+    /// Add a straming remote method to the plugin using the given `name` and `handler`.
+    /// The handler will be called every frame when there is a client connected to the stream.
+    /// The handler should return a `None` to indicate that there is nothing to stream.
+    /// And return `Some(BrpErr)` to stop the stream.
     #[must_use]
     pub fn with_stream_method<M>(
         mut self,
@@ -468,7 +473,9 @@ pub struct HostPort(pub u16);
 /// automatically populate the `id` field before sending.
 #[derive(Debug, Clone)]
 pub enum RemoteMethod {
+    /// A normal method that is called once per request.
     Normal(SystemId<In<Option<Value>>, BrpResult>),
+    /// A streaming method that is called every frame while a client is connected.
     Stream(SystemId<In<Option<Value>>, Option<BrpResult>>),
 }
 
@@ -722,8 +729,7 @@ fn process_remote_requests(world: &mut World) {
 
             let result = match handler {
                 RemoteMethod::Normal(system_id) => {
-                    let r = world.run_system_with_input(*system_id, message.params);
-                    r
+                    world.run_system_with_input(*system_id, message.params)
                 }
                 RemoteMethod::Stream(system_id) => {
                     world.spawn(ActiveStream(
@@ -991,9 +997,8 @@ fn validate_websocket_request(request: &Request<Incoming>) -> AnyhowResult<BrpRe
             let mut map = HashMap::new();
             for pair in query.split('&') {
                 let mut it = pair.split('=').take(2);
-                let (k, v) = match (it.next(), it.next()) {
-                    (Some(k), Some(v)) => (k, v),
-                    _ => continue,
+                let (Some(k), Some(v)) = (it.next(), it.next()) else {
+                    continue;
                 };
                 map.insert(k, v);
             }
