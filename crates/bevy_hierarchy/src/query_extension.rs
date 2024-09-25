@@ -92,12 +92,7 @@ where
     pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
         DescendantIter {
             children_query,
-            vecdeque: children_query
-                .get(entity)
-                .into_iter()
-                .flatten()
-                .copied()
-                .collect(),
+            vecdeque: children_query.get(entity).into_iter().flatten().collect(),
         }
     }
 }

@@ -324,9 +324,9 @@ fn update_buttons(
             }
             Interaction::Hovered => {
                 if let Ok(children) = children_query.get(button_id) {
-                    for &child in children {
+                    for child in children {
                         if let Ok(grand_children) = children_query.get(child) {
-                            for &grandchild in grand_children {
+                            for grandchild in grand_children {
                                 if let Ok(mut text) = text_query.get_mut(grandchild) {
                                     if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
                                         text.sections[0].style.color = HOVERED_TEXT_COLOR;
@@ -339,9 +339,9 @@ fn update_buttons(
             }
             Interaction::None => {
                 if let Ok(children) = children_query.get(button_id) {
-                    for &child in children {
+                    for child in children {
                         if let Ok(grand_children) = children_query.get(child) {
-                            for &grandchild in grand_children {
+                            for grandchild in grand_children {
                                 if let Ok(mut text) = text_query.get_mut(grandchild) {
                                     if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
                                         text.sections[0].style.color = UNHOVERED_TEXT_COLOR;
@@ -383,9 +383,9 @@ fn update_radio_buttons_colors(
                 };
 
                 border_query.get_mut(id).unwrap().0 = border_color;
-                for &child in children_query.get(id).into_iter().flatten() {
+                for child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
-                    for &grandchild in children_query.get(child).into_iter().flatten() {
+                    for grandchild in children_query.get(child).into_iter().flatten() {
                         if let Ok(mut text) = text_query.get_mut(grandchild) {
                             text.sections[0].style.color = text_color;
                         }

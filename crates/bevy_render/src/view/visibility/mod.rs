@@ -370,7 +370,7 @@ fn visibility_propagate_system(
             inherited_visibility.0 = is_visible;
 
             // Recursively update the visibility of each child.
-            for &child in children.into_iter().flatten() {
+            for child in children.into_iter().flatten() {
                 let _ =
                     propagate_recursive(is_visible, child, &mut visibility_query, &children_query);
             }
@@ -401,7 +401,7 @@ fn propagate_recursive(
         inherited_visibility.0 = is_visible;
 
         // Recursively update the visibility of each child.
-        for &child in children_query.get(entity).ok().into_iter().flatten() {
+        for child in children_query.get(entity).ok().into_iter().flatten() {
             let _ = propagate_recursive(is_visible, child, visibility_query, children_query);
         }
     }

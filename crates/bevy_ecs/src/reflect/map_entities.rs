@@ -1,9 +1,9 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityHashMap, MapEntities, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, EntityMapper, MapEntities, MapEntitiesMut, SceneEntityMapper},
     world::World,
 };
-use bevy_reflect::FromType;
+use bevy_reflect::{FromReflect, FromType, PartialReflect};
 
 /// For a specific type of component, this maps any fields with values of type [`Entity`] to a new world.
 ///
@@ -15,6 +15,8 @@ use bevy_reflect::FromType;
 pub struct ReflectMapEntities {
     map_all_world_entities: fn(&mut World, &mut SceneEntityMapper),
     map_world_entities: fn(&mut World, &mut SceneEntityMapper, &[Entity]),
+    map_entities_mut: fn(&mut dyn PartialReflect, &mut dyn FnMut(&mut Entity)),
+    map_entities: fn(&dyn PartialReflect, &mut dyn FnMut(Entity)),
 }
 
 impl ReflectMapEntities {
@@ -51,15 +53,29 @@ impl ReflectMapEntities {
             (self.map_world_entities)(world, mapper, entities);
         });
     }
+
+    pub fn map_entities(&self, component: &dyn PartialReflect, f: &mut dyn FnMut(Entity)) {
+        (self.map_entities)(component, f)
+    }
+
+    pub fn map_entities_mut(
+        &self,
+        component: &mut dyn PartialReflect,
+        f: &mut dyn FnMut(&mut Entity),
+    ) {
+        (self.map_entities_mut)(component, f)
+    }
 }
 
-impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
+impl<C: Component + FromReflect + MapEntitiesMut> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_world_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_entities_mut(|entity| {
+                            *entity = entity_mapper.map_entity(*entity);
+                        });
                     }
                 }
             },
@@ -71,9 +87,20 @@ impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
                     .collect::<Vec<Entity>>();
                 for entity in &entities {
                     if let Some(mut component) = world.get_mut::<C>(*entity) {
-                        component.map_entities(entity_mapper);
+                        component.map_entities_mut(|entity| {
+                            *entity = entity_mapper.map_entity(*entity);
+                        });
                     }
                 }
+            },
+            map_entities: |component, f| {
+                let concrete = C::from_reflect(component).unwrap();
+                concrete.map_entities(f);
+            },
+            map_entities_mut: |component, f| {
+                let mut concrete = C::from_reflect(component).unwrap();
+                concrete.map_entities_mut(f);
+                component.apply(&concrete);
             },
         }
     }
@@ -99,12 +126,14 @@ impl ReflectMapEntitiesResource {
     }
 }
 
-impl<R: crate::system::Resource + MapEntities> FromType<R> for ReflectMapEntitiesResource {
+impl<R: crate::system::Resource + MapEntitiesMut> FromType<R> for ReflectMapEntitiesResource {
     fn from_type() -> Self {
         ReflectMapEntitiesResource {
             map_entities: |world, entity_mapper| {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
-                    resource.map_entities(entity_mapper);
+                    resource.map_entities_mut(|entity| {
+                        *entity = entity_mapper.map_entity(*entity);
+                    });
                 }
             },
         }

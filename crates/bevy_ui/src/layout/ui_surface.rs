@@ -117,7 +117,7 @@ impl UiSurface {
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
-            if let Some(taffy_node) = self.entity_to_taffy.get(child) {
+            if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
                 taffy_children.push(*taffy_node);
             } else {
                 warn!(

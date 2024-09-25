@@ -38,11 +38,56 @@ use super::EntityHashMap;
 /// }
 /// ```
 pub trait MapEntities {
-    /// Updates all [`Entity`] references stored inside using `entity_mapper`.
-    ///
-    /// Implementors should look up any and all [`Entity`] values stored within `self` and
-    /// update them to the mapped values via `entity_mapper`.
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
+    fn map_entities<F: FnMut(Entity)>(&self, f: F);
+}
+
+pub trait MapEntitiesMut: MapEntities {
+    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
+}
+
+impl<T> MapEntities for T
+where
+    T: IterEntities,
+{
+    fn map_entities<F: FnMut(Entity)>(&self, f: F) {
+        self.iter_entities().for_each(f)
+    }
+}
+
+impl<T> MapEntitiesMut for T
+where
+    T: MapEntities + IterEntitiesMut,
+{
+    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
+        self.iter_entities_mut().for_each(f)
+    }
+}
+
+pub trait IterEntities {
+    fn iter_entities(&self) -> impl Iterator<Item = Entity>;
+}
+
+impl<T> IterEntities for T
+where
+    for<'a> &'a T: IntoIterator<Item = Entity>,
+{
+    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+        self.into_iter()
+    }
+}
+
+pub trait IterEntitiesMut: IterEntities {
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
+}
+
+impl<T> IterEntitiesMut for T
+where
+    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
+    T: IterEntities,
+{
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.into_iter()
+    }
 }
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].

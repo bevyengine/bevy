@@ -524,7 +524,7 @@ mod tests {
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
     use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use std::io::BufReader;
+    use std::{io::BufReader, option};
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -588,9 +588,19 @@ mod tests {
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
 
-    impl MapEntities for MyEntityRef {
-        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-            self.0 = entity_mapper.map_entity(self.0);
+    impl<'a> IntoIterator for &'a mut MyEntityRef {
+        type IntoIter = option::IntoIter<&'a mut Entity>;
+        type Item = <Self::IntoIter as Iterator>::Item;
+        fn into_iter(self) -> Self::IntoIter {
+            Some(&mut self.0).into_iter()
+        }
+    }
+
+    impl<'a> IntoIterator for &'a MyEntityRef {
+        type IntoIter = option::IntoIter<Entity>;
+        type Item = <Self::IntoIter as Iterator>::Item;
+        fn into_iter(self) -> Self::IntoIter {
+            Some(self.0).into_iter()
         }
     }
 
