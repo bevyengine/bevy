@@ -80,6 +80,10 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
 ///
+/// [`FilteredResourcesParamBuilder`] can build a [`FilteredResources`],
+/// and [`FilteredResourcesMutParamBuilder`] can build a [`FilteredResourcesMut`],
+/// to configure the resources that can be accessed.
+///
 /// [`DynParamBuilder`] can build a [`DynSystemParam`] to determine the type of the inner parameter,
 /// and to supply any `SystemParamBuilder` it needs.
 ///
