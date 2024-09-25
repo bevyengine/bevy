@@ -65,7 +65,7 @@ fn rotate(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
 }
 
 fn stream_handler(
-    In(params): In<Option<Value>>,
+    In(_params): In<Option<Value>>,
     cube_query: Query<&Transform, (With<Cube>, Changed<Transform>)>,
 ) -> Option<BrpResult> {
     cube_query
