@@ -720,7 +720,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
+    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -770,7 +770,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
         self.update_archetypes(world);
 
         // SAFETY:
@@ -794,7 +794,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError> {
+    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -852,7 +852,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
         self.update_archetypes(world);
 
         let change_tick = world.change_tick();
@@ -887,7 +887,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
+    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
         self.validate_world(world.id());
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -913,7 +913,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError> {
+    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
         self.update_archetypes_unsafe_world_cell(world);
         self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
     }
@@ -936,7 +936,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<D::Item<'w>, QueryEntityError> {
+    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
         let location = world
             .entities()
             .get(entity)
@@ -945,7 +945,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             .matched_archetypes
             .contains(location.archetype_id.index())
         {
-            return Err(QueryEntityError::QueryDoesNotMatch(entity));
+            return Err(QueryEntityError::QueryDoesNotMatch(entity, world));
         }
         let archetype = world
             .archetypes()
@@ -965,7 +965,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         if F::filter_fetch(&mut filter, entity, location.table_row) {
             Ok(D::fetch(&mut fetch, entity, location.table_row))
         } else {
-            Err(QueryEntityError::QueryDoesNotMatch(entity))
+            Err(QueryEntityError::QueryDoesNotMatch(entity, world))
         }
     }
 
@@ -984,7 +984,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in std::iter::zip(&mut values, entities) {
@@ -1018,7 +1018,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<[D::Item<'w>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
