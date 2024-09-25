@@ -9,8 +9,7 @@ use crate::TextureSlicer;
 ///
 /// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Default)]
-#[repr(C)]
+#[reflect(Component, Default, Debug)]
 pub struct Sprite {
     /// The sprite's color tint
     pub color: Color,
@@ -43,7 +42,7 @@ impl Sprite {
 
 /// Controls how the image is altered when scaled.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug)]
 pub enum ImageScaleMode {
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
@@ -62,6 +61,7 @@ pub enum ImageScaleMode {
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
 /// It defaults to `Anchor::Center`.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]

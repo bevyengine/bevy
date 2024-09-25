@@ -26,7 +26,7 @@ use taffy::style::AvailableSpace;
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextFlags {
     /// If set a new measure function for the text node will be created
     needs_new_measure_func: bool,
@@ -144,6 +144,7 @@ fn create_text_measure(
 }
 
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
@@ -250,6 +251,7 @@ fn queue_text(
             scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
+            text.font_smoothing,
             physical_node_size,
             font_atlas_sets,
             texture_atlases,

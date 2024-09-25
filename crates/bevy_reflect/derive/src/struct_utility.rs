@@ -1,5 +1,4 @@
-use crate::derive_data::StructField;
-use crate::{utility, ReflectStruct};
+use crate::{derive_data::StructField, ReflectStruct};
 use quote::quote;
 
 /// A helper struct for creating remote-aware field accessors.
@@ -65,8 +64,10 @@ impl FieldAccessors {
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member =
-                    utility::ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = crate::ident::ident_or_index(
+                    field.data.ident.as_ref(),
+                    field.declaration_index,
+                );
                 let accessor = if is_remote {
                     quote!(self.0.#member)
                 } else {

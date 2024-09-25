@@ -21,18 +21,15 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::any::TypeId;
-    use std::f32::consts::PI;
-    use std::ops::RangeInclusive;
+    use std::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
 
-    use serde::de::DeserializeSeed;
-    use serde::Deserialize;
+    use serde::{de::DeserializeSeed, Deserialize};
 
     use bevy_utils::{HashMap, HashSet};
 
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
     use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
         DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
     };
 
@@ -515,6 +512,54 @@ mod tests {
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+    }
+
+    #[cfg(feature = "functions")]
+    mod functions {
+        use super::*;
+        use crate::func::DynamicFunction;
+
+        #[test]
+        fn should_not_deserialize_function() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct MyStruct {
+                func: DynamicFunction<'static>,
+            }
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<MyStruct>();
+
+            let input = r#"{
+                "bevy_reflect::serde::de::tests::functions::MyStruct": (
+                    func: (),
+                ),
+            }"#;
+
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+
+            let error = reflect_deserializer
+                .deserialize(&mut ron_deserializer)
+                .unwrap_err();
+
+            #[cfg(feature = "debug_stack")]
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)"
+                        .to_string()
+                )
+            );
+
+            #[cfg(not(feature = "debug_stack"))]
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "no registration found for type `bevy_reflect::DynamicFunction`".to_string()
+                )
+            );
+        }
     }
 
     #[cfg(feature = "debug_stack")]

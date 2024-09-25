@@ -16,15 +16,15 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
-    ResolvedBorderRadius, TargetCamera, UiImage, UiScale,
+    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -68,6 +68,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 pub enum RenderUiSystem {
     ExtractBackgrounds,
     ExtractImages,
+    ExtractTextureSlice,
     ExtractBorders,
     ExtractText,
 }
@@ -93,6 +94,7 @@ pub fn build_ui_render(app: &mut App) {
             (
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
+                RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
                 RenderUiSystem::ExtractText,
             )
@@ -433,13 +435,15 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    query: Extract<
+        Query<(Entity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+    >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera) in &query {
+    for (entity, camera, ui_anti_alias) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -485,9 +489,12 @@ pub fn extract_default_ui_camera_view(
                     color_grading: Default::default(),
                 })
                 .id();
-            commands
+            let entity_commands = commands
                 .get_or_spawn(entity)
                 .insert(DefaultCameraView(default_camera_view));
+            if let Some(ui_anti_alias) = ui_anti_alias {
+                entity_commands.insert(*ui_anti_alias);
+            }
             transparent_render_phases.insert_or_clear(entity);
 
             live_entities.insert(entity);
@@ -662,13 +669,14 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
+        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        else {
             continue;
         };
 
@@ -679,7 +687,10 @@ pub fn queue_uinodes(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
-            UiPipelineKey { hdr: view.hdr },
+            UiPipelineKey {
+                hdr: view.hdr,
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+            },
         );
         transparent_phase.add(TransparentUi {
             draw_function,

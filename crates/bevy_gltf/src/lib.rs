@@ -107,7 +107,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -422,7 +422,7 @@ impl GltfPrimitive {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfExtras {
     /// Content of the extra data.
     pub value: String,
@@ -432,7 +432,7 @@ pub struct GltfExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfSceneExtras {
     /// Content of the extra data.
     pub value: String,
@@ -442,7 +442,7 @@ pub struct GltfSceneExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfMeshExtras {
     /// Content of the extra data.
     pub value: String,
@@ -452,7 +452,7 @@ pub struct GltfMeshExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,

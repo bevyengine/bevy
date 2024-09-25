@@ -191,6 +191,7 @@ pub fn update_text2d_layout(
                 scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
+                text.font_smoothing,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,

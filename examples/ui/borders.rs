@@ -176,7 +176,7 @@ fn setup(mut commands: Commands) {
                 },
                 ..Default::default()
             })
-            .push_children(&[border_node, label_node])
+            .add_children(&[border_node, label_node])
             .id();
         commands.entity(root).add_child(container);
     }
@@ -245,7 +245,7 @@ fn setup(mut commands: Commands) {
                 },
                 ..Default::default()
             })
-            .push_children(&[border_node, label_node])
+            .add_children(&[border_node, label_node])
             .id();
         commands.entity(root_rounded).add_child(container);
     }

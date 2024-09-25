@@ -21,7 +21,7 @@ use bevy_ecs::{
     schedule::SystemSet,
     system::Resource,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]
@@ -94,7 +94,7 @@ impl From<NodeBuilder> for AccessibilityNode {
 
 /// Resource representing which entity has keyboard focus, if any.
 #[derive(Resource, Default, Deref, DerefMut, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub struct Focus(pub Option<Entity>);
 
 /// Set enum for the systems relating to accessibility

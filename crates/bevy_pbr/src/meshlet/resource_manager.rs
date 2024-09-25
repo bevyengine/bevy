@@ -21,7 +21,6 @@ use binding_types::*;
 use encase::internal::WriteInto;
 use std::{
     array, iter,
-    mem::size_of,
     sync::{atomic::AtomicBool, Arc},
 };
 

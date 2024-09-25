@@ -43,9 +43,9 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
-    let sin = time.elapsed_seconds().sin() * 50.;
-    gizmos.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), RED);
-    gizmos.ray_2d(Vec2::Y * sin, Vec2::splat(80.), LIME);
+    let sin_t_scaled = ops::sin(time.elapsed_seconds()) * 50.;
+    gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
+    gizmos.ray_2d(Vec2::Y * sin_t_scaled, Vec2::splat(80.), LIME);
 
     gizmos
         .grid_2d(
@@ -74,8 +74,8 @@ fn draw_example_collection(
     );
 
     let domain = Interval::EVERYWHERE;
-    let curve = function_curve(domain, |t| Vec2::new(t, (t / 25.0).sin() * 100.0));
-    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 50.0) as usize;
+    let curve = function_curve(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
+    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 50.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| (t - 0.5) * 600.0)
@@ -84,7 +84,7 @@ fn draw_example_collection(
 
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
-        .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
+        .corner_radius(ops::cos(time.elapsed_seconds() / 3.) * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
@@ -101,7 +101,7 @@ fn draw_example_collection(
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(
-        Isometry2d::from_rotation(Rot2::radians(sin / 10.)),
+        Isometry2d::from_rotation(Rot2::radians(sin_t_scaled / 10.)),
         FRAC_PI_2,
         310.,
         ORANGE_RED,
@@ -112,13 +112,17 @@ fn draw_example_collection(
 
     gizmos.arrow_2d(
         Vec2::ZERO,
-        Vec2::from_angle(sin / -10. + PI / 2.) * 50.,
+        Vec2::from_angle(sin_t_scaled / -10. + PI / 2.) * 50.,
         YELLOW,
     );
 
     // You can create more complex arrows using the arrow builder.
     gizmos
-        .arrow_2d(Vec2::ZERO, Vec2::from_angle(sin / -10.) * 50., GREEN)
+        .arrow_2d(
+            Vec2::ZERO,
+            Vec2::from_angle(sin_t_scaled / -10.) * 50.,
+            GREEN,
+        )
         .with_double_end()
         .with_tip_length(10.);
 }

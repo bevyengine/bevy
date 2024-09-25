@@ -28,8 +28,7 @@ use bevy_render::{
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
-use std::hash::Hash;
-use std::ops::Deref;
+use std::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
@@ -103,7 +102,7 @@ pub struct LightProbePlugin;
 /// specific technique but rather to a class of techniques. Developers familiar
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
@@ -368,6 +367,7 @@ impl Plugin for LightProbePlugin {
 }
 
 /// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+///
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(

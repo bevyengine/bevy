@@ -30,7 +30,13 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
@@ -43,7 +49,13 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
@@ -59,12 +71,17 @@ impl EmbeddedAssetRegistry {
         self.dir.remove_asset(full_path)
     }
 
-    /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
-    // NOTE: unused_mut because embedded_watcher feature is the only mutable consumer of `let mut source`
-    #[allow(unused_mut)]
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
+
+        #[cfg_attr(
+            not(feature = "embedded_watcher"),
+            expect(
+                unused_mut,
+                reason = "Variable is only mutated when `embedded_watcher` feature is enabled."
+            )
+        )]
         let mut source = AssetSource::build()
             .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }))
             .with_processed_reader(move || {

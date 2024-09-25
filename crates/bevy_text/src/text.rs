@@ -27,7 +27,7 @@ impl Default for CosmicBuffer {
 ///
 /// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Text {
     /// The text's sections
     pub sections: Vec<TextSection>,
@@ -36,6 +36,8 @@ pub struct Text {
     pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by `max_size`
     pub linebreak_behavior: BreakLineOn,
+    /// The antialiasing method to use when rendering text.
+    pub font_smoothing: FontSmoothing,
 }
 
 impl Text {
@@ -124,6 +126,12 @@ impl Text {
         self.linebreak_behavior = BreakLineOn::NoWrap;
         self
     }
+
+    /// Returns this [`Text`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.font_smoothing = font_smoothing;
+        self
+    }
 }
 
 /// Contains the value of the text in a section and how it should be styled.
@@ -173,6 +181,7 @@ impl From<String> for TextSection {
 }
 
 /// Describes the horizontal alignment of multiple lines of text relative to each other.
+///
 /// This only affects the internal positioning of the lines of text within a text entity and
 /// does not affect the text entity's position.
 ///
@@ -259,4 +268,28 @@ pub enum BreakLineOn {
     /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
+}
+
+/// Determines which antialiasing method to use when rendering text. By default, text is
+/// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
+///
+/// **Note:** Subpixel antialiasing is not currently supported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+#[doc(alias = "antialiasing")]
+#[doc(alias = "pixelated")]
+pub enum FontSmoothing {
+    /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
+    ///
+    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated look.
+    ///
+    /// **Note:** Due to limitations of the underlying text rendering library,
+    /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
+    None,
+    /// The default grayscale antialiasing. Produces text that looks smooth,
+    /// even at small font sizes and low resolutions with modern vector fonts.
+    #[default]
+    AntiAliased,
+    // TODO: Add subpixel antialias support
+    // SubpixelAntiAliased,
 }

@@ -1,8 +1,8 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::serde::{SerializationData, TypedReflectSerializer};
-use crate::{Struct, TypeInfo, TypeRegistry};
-use serde::ser::SerializeStruct;
-use serde::Serialize;
+use crate::{
+    serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
+    Struct, TypeInfo, TypeRegistry,
+};
+use serde::{ser::SerializeStruct, Serialize};
 
 /// A serializer for [`Struct`] values.
 pub(super) struct StructSerializer<'a> {
