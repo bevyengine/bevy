@@ -1,4 +1,3 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 #![allow(internal_features)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
