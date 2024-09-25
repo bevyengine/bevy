@@ -185,8 +185,6 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-
-
     var texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     if enabled(in.flags, BORDER) {
