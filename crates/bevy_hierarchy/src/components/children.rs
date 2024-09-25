@@ -1,11 +1,6 @@
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
-use bevy_ecs::{
-    component::Component,
-    entity::{Entity, MapEntitiesMut},
-    prelude::FromWorld,
-    world::World,
-};
+use bevy_ecs::{component::Component, entity::Entity, prelude::FromWorld, world::World};
 use core::slice;
 use smallvec::SmallVec;
 use std::ops::Deref;
@@ -168,6 +163,8 @@ impl<'a> IntoIterator for &'a Children {
 
 #[cfg(test)]
 mod test {
+    use bevy_ecs::entity::MapEntitiesMut;
+
     use super::*;
 
     fn assert_impls_map_entities_mut<M: MapEntitiesMut>() {}

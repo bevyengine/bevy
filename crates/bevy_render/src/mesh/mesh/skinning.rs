@@ -1,9 +1,6 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
-    component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
-    prelude::ReflectComponent,
-    reflect::ReflectMapEntities,
+    component::Component, entity::Entity, prelude::ReflectComponent, reflect::ReflectMapEntities,
 };
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;

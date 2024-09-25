@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityHashMap, EntityMapper, MapEntities, MapEntitiesMut, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, EntityMapper, MapEntitiesMut, SceneEntityMapper},
     world::World,
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect};
@@ -64,7 +64,7 @@ impl ReflectMapEntities {
     /// A general method for applying an operation to all entities in a
     /// reflected component.
     pub fn map_entities(&self, component: &dyn PartialReflect, f: &mut dyn FnMut(Entity)) {
-        (self.map_entities)(component, f)
+        (self.map_entities)(component, f);
     }
 
     /// A general method for applying an operation that may modify entities in a
@@ -74,7 +74,7 @@ impl ReflectMapEntities {
         component: &mut dyn PartialReflect,
         f: &mut dyn FnMut(&mut Entity),
     ) {
-        (self.map_entities_mut)(component, f)
+        (self.map_entities_mut)(component, f);
     }
 }
 

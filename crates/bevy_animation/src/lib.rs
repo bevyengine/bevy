@@ -25,9 +25,7 @@ use std::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::{
-    entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
-};
+use bevy_ecs::{prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept};
 use bevy_math::FloatExt;
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,

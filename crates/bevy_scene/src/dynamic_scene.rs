@@ -212,7 +212,7 @@ mod tests {
 
     use bevy_ecs::{
         component::Component,
-        entity::{Entity, EntityHashMap, EntityMapper, IterEntities, IterEntitiesMut, MapEntities},
+        entity::{Entity, EntityHashMap, IterEntities, IterEntitiesMut},
         reflect::{
             AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectMapEntitiesResource,
             ReflectResource,

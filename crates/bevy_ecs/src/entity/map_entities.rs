@@ -38,7 +38,7 @@ where
     T: IterEntities,
 {
     fn map_entities<F: FnMut(Entity)>(&self, f: F) {
-        self.iter_entities().for_each(f)
+        self.iter_entities().for_each(f);
     }
 }
 
@@ -47,7 +47,7 @@ where
     T: MapEntities + IterEntitiesMut,
 {
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
-        self.iter_entities_mut().for_each(f)
+        self.iter_entities_mut().for_each(f);
     }
 }
 

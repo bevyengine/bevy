@@ -1,7 +1,7 @@
-use std::{iter, num::NonZero, option};
+use std::{num::NonZero, option};
 
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::Entity,
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
@@ -1230,11 +1230,11 @@ mod tests {
 
     use super::*;
 
-    // Compile-time assertion that a type implementes MapEntitiesMut
+    // Compile-time assertion that a type implements MapEntitiesMut
     fn impl_map_entities_mut<M: MapEntitiesMut>() {}
 
     // Ensure that WidowRef implements MapEntitiesMut
-    #[allow(dead_code)]
+    #[test]
     fn window_impls_map_entities_mut() {
         impl_map_entities_mut::<WindowRef>();
     }
