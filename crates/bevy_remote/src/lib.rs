@@ -366,7 +366,7 @@ impl RemotePlugin {
         self
     }
 
-    /// Add a straming remote method to the plugin using the given `name` and `handler`.
+    /// Add a streaming remote method to the plugin using the given `name` and `handler`.
     /// The handler will be called every frame when there is a client connected to the stream.
     /// The handler should return a `None` to indicate that there is nothing to stream.
     /// And return `Some(BrpErr)` to stop the stream.
