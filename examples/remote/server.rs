@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    remote::{BrpError, BrpResult, RemotePlugin},
+    remote::{BrpResult, RemotePlugin},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
