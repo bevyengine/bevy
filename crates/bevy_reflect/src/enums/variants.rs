@@ -1,5 +1,7 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{NamedField, UnnamedField};
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    NamedField, UnnamedField,
+};
 use bevy_utils::HashMap;
 use std::slice::Iter;
 

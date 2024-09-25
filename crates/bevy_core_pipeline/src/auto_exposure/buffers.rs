@@ -7,8 +7,7 @@ use bevy_render::{
 };
 use bevy_utils::{Entry, HashMap};
 
-use super::pipeline::AutoExposureUniform;
-use super::AutoExposure;
+use super::{pipeline::AutoExposureUniform, AutoExposure};
 
 #[derive(Resource, Default)]
 pub(super) struct AutoExposureBuffers {

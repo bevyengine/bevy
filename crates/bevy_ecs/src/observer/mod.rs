@@ -7,14 +7,22 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
-use crate::entity::EntityHashMap;
-use crate::observer::entity_observer::ObservedBy;
-use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
-use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+use crate::{
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    entity::EntityHashMap,
+    observer::entity_observer::ObservedBy,
+    prelude::*,
+    system::IntoObserverSystem,
+    world::{DeferredWorld, *},
+};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
-use std::ops::{Deref, DerefMut};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -525,11 +533,11 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+    use crate::{
+        observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
+        prelude::*,
+        traversal::Traversal,
     };
-    use crate::prelude::*;
-    use crate::traversal::Traversal;
 
     #[derive(Component)]
     struct A;
@@ -1159,5 +1167,27 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14467
+    // Fails prior to https://github.com/bevyengine/bevy/pull/15398
+    #[test]
+    fn observer_on_remove_during_despawn_spawn_empty() {
+        let mut world = World::new();
+
+        // Observe the removal of A - this will run during despawn
+        world.observe(|_: Trigger<OnRemove, A>, mut cmd: Commands| {
+            // Spawn a new entity - this reserves a new ID and requires a flush
+            // afterward before Entities::free can be called.
+            cmd.spawn_empty();
+        });
+
+        let ent = world.spawn(A).id();
+
+        // Despawn our entity, which runs the OnRemove observer and allocates a
+        // new Entity.
+        // Should not panic - if it does, then Entities was not flushed properly
+        // after the observer's spawn_empty.
+        world.despawn(ent);
     }
 }

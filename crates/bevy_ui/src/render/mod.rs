@@ -5,17 +5,22 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::DefaultUiCamera;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
-use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
-use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_core_pipeline::{
+    core_2d::{
+        graph::{Core2d, Node2d},
+        Camera2d,
+    },
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d,
+    },
+};
 use bevy_hierarchy::Parent;
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::world_sync::{RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    texture::GpuImage,
+    render_phase::{PhaseItem, PhaseItemExtraIndex, ViewSortedRenderPhases},
+    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::ViewVisibility,
+    world_sync::{RenderEntity, TemporaryRenderEntity},
     ExtractSchedule, Render,
 };
 use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
@@ -24,16 +29,18 @@ pub use render_pass::*;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
-use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, Display, Node, Outline, Style, TargetCamera,
-    UiAntiAlias, UiImage, UiScale, Val,
+    graph::{NodeUi, SubGraphUi},
+    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
+    TargetCamera, UiAntiAlias, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,

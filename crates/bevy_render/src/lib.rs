@@ -75,14 +75,12 @@ use world_sync::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, WorldSyncPlugin,
 };
 
-use crate::mesh::RenderMesh;
-use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin},
+    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::{render_system, RenderInstance, WgpuWrapper},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -207,6 +205,7 @@ impl Render {
 pub struct ExtractSchedule;
 
 /// The simulation [`World`] of the application, stored as a resource.
+///
 /// This resource is only available during [`ExtractSchedule`] and not
 /// during command application of that schedule.
 /// See [`Extract`] for more details.

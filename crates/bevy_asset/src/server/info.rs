@@ -6,8 +6,7 @@ use crate::{
 };
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
-use bevy_utils::tracing::warn;
-use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
 use std::{
     any::TypeId,

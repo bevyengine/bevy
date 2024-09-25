@@ -1,7 +1,6 @@
-use bevy_ecs::query::QueryData;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::{component::Component, entity::Entity};
+use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
@@ -141,7 +140,7 @@ impl<'a> std::fmt::Display for NameOrEntityItem<'a> {
     }
 }
 
-/* Conversions from strings */
+// Conversions from strings
 
 impl From<&str> for Name {
     #[inline(always)]
@@ -156,7 +155,7 @@ impl From<String> for Name {
     }
 }
 
-/* Conversions to strings */
+// Conversions to strings
 
 impl AsRef<str> for Name {
     #[inline(always)]

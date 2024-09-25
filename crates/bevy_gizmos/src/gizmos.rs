@@ -13,8 +13,7 @@ use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 

@@ -1,10 +1,7 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::prelude::*;
-use bevy::text::BreakLineOn;
-use bevy::window::WindowResolution;
-use bevy::winit::WinitSettings;
+use bevy::{prelude::*, text::BreakLineOn, window::WindowResolution, winit::WinitSettings};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property

@@ -2,9 +2,11 @@ use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashSet;
-use bevy_ecs::prelude::*;
-use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    system::lifetimeless::Read,
+};
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::world_sync::RenderEntity;
 use bevy_render::{
@@ -21,10 +23,12 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::prelude::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::{
+    prelude::default,
+    tracing::{error, warn},
+};
 use std::{hash::Hash, ops::Range};
 
 use crate::*;
@@ -120,7 +124,7 @@ pub struct GpuLights {
     spot_light_shadowmap_offset: i32,
 }
 
-//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
 // when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;

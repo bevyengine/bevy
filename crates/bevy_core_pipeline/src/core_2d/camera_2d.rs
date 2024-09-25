@@ -1,9 +1,9 @@
-use crate::core_2d::graph::Core2d;
-use crate::tonemapping::{DebandDither, Tonemapping};
+use crate::{
+    core_2d::graph::Core2d,
+    tonemapping::{DebandDither, Tonemapping},
+};
 use bevy_ecs::prelude::*;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use bevy_render::prelude::Msaa;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::world_sync::SyncToRenderWorld;
 use bevy_render::{
     camera::{
@@ -11,6 +11,7 @@ use bevy_render::{
         OrthographicProjection,
     },
     extract_component::ExtractComponent,
+    prelude::Msaa,
     primitives::Frustum,
     view::VisibleEntities,
 };

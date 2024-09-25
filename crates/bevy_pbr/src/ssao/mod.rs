@@ -14,8 +14,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,

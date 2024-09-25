@@ -1,8 +1,10 @@
 //! Shows how to modify mesh assets after spawning.
 
 use bevy::{
-    gltf::GltfLoaderSettings, input::common_conditions::input_just_pressed, prelude::*,
-    render::mesh::VertexAttributeValues, render::render_asset::RenderAssetUsages,
+    gltf::GltfLoaderSettings,
+    input::common_conditions::input_just_pressed,
+    prelude::*,
+    render::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages},
 };
 
 fn main() {

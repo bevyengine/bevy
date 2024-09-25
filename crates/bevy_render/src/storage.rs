@@ -1,15 +1,14 @@
-use crate::render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages};
-use crate::render_resource::{Buffer, BufferUsages};
-use crate::renderer::RenderDevice;
+use crate::{
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
+    render_resource::{Buffer, BufferUsages},
+    renderer::RenderDevice,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp};
-use bevy_ecs::system::lifetimeless::SRes;
-use bevy_ecs::system::SystemParamItem;
-use bevy_reflect::prelude::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
-use encase::internal::WriteInto;
-use encase::ShaderType;
+use encase::{internal::WriteInto, ShaderType};
 use wgpu::util::BufferInitDescriptor;
 
 /// Adds [`ShaderStorageBuffer`] as an asset that is extracted and uploaded to the GPU.
