@@ -23,14 +23,25 @@ use bevy_ecs::{
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
 use bevy_utils::{default, tracing::warn, HashMap};
+use encase::internal::ReadFrom;
+use encase::private::Reader;
+use encase::ShaderType;
 use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
 
-// Describes the number of frames a buffer can be unused before it is removed from the pool in
-// order to avoid unnecessary reallocations.
-const MAX_UNUSED_FRAMES: usize = 10;
-
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
-pub struct GpuReadbackPlugin;
+pub struct GpuReadbackPlugin {
+    /// Describes the number of frames a buffer can be unused before it is removed from the pool in
+    /// order to avoid unnecessary reallocations.
+    max_unused_frames: usize,
+}
+
+impl Default for GpuReadbackPlugin {
+    fn default() -> Self {
+        Self {
+            max_unused_frames: 10,
+        }
+    }
+}
 
 impl Plugin for GpuReadbackPlugin {
     fn build(&self, app: &mut App) {
@@ -40,6 +51,7 @@ impl Plugin for GpuReadbackPlugin {
             render_app
                 .init_resource::<GpuReadbackBufferPool>()
                 .init_resource::<GpuReadbacks>()
+                .insert_resource(GpuReadbackMaxUnusedFrames(self.max_unused_frames))
                 .add_systems(ExtractSchedule, sync_readbacks.ambiguous_with_all())
                 .add_systems(
                     Render,
@@ -82,6 +94,19 @@ impl Readback {
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 
+impl ReadbackComplete {
+    /// Convert the raw bytes of the event to a shader type.
+    pub fn to_shader_type<T: ShaderType + ReadFrom + Default>(&self) -> T {
+        let mut val = T::default();
+        let mut reader = Reader::new::<T>(&self.0, 0).expect("Failed to create Reader");
+        T::read_from(&mut val, &mut reader);
+        val
+    }
+}
+
+#[derive(Resource)]
+struct GpuReadbackMaxUnusedFrames(usize);
+
 struct GpuReadbackBuffer {
     buffer: Buffer,
     taken: bool,
@@ -123,7 +148,7 @@ impl GpuReadbackBufferPool {
         buffer
     }
 
-	// Returns the buffer to the pool so it can be used in a future frame
+    // Returns the buffer to the pool so it can be used in a future frame
     fn return_buffer(&mut self, buffer: &Buffer) {
         let size = buffer.size();
         let buffers = self
@@ -137,7 +162,7 @@ impl GpuReadbackBufferPool {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, max_unused_frames: usize) {
         for (_, buffers) in &mut self.buffers {
             // Tick all the buffers
             for buf in &mut *buffers {
@@ -147,7 +172,7 @@ impl GpuReadbackBufferPool {
             }
 
             // Remove buffers that haven't been used for MAX_UNUSED_FRAMES
-            buffers.retain(|x| x.frames_unused < MAX_UNUSED_FRAMES);
+            buffers.retain(|x| x.frames_unused < max_unused_frames);
         }
 
         // Remove empty buffer sizes
@@ -186,6 +211,7 @@ fn sync_readbacks(
     mut main_world: ResMut<MainWorld>,
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     mut readbacks: ResMut<GpuReadbacks>,
+    max_unused_frames: Res<GpuReadbackMaxUnusedFrames>,
 ) {
     readbacks.mapped.retain(|readback| {
         if let Ok((entity, buffer, result)) = readback.rx.try_recv() {
@@ -197,7 +223,7 @@ fn sync_readbacks(
         }
     });
 
-    buffer_pool.update();
+    buffer_pool.update(max_unused_frames.0);
 }
 
 fn prepare_buffers(

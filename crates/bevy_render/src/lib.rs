@@ -364,7 +364,7 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
             BatchingPlugin,
             StoragePlugin,
-            GpuReadbackPlugin,
+            GpuReadbackPlugin::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()

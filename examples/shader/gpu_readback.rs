@@ -74,12 +74,14 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
+    // Create a storage buffer with some data
     let buffer = vec![0u32; BUFFER_LEN];
     let mut buffer = ShaderStorageBuffer::from(buffer);
     // We need to enable the COPY_SRC usage so we can copy the buffer to the cpu
     buffer.buffer_description.usage |= BufferUsages::COPY_SRC;
     let buffer = buffers.add(buffer);
 
+    // Create a storage texture with some data
     let size = Extent3d {
         width: BUFFER_LEN as u32,
         height: 1,
@@ -92,20 +94,34 @@ fn setup(
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
     );
-    // You need to set these texture usage flags in order to use the image as a render target
+    // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
+    // compute shader
     image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
     let image = images.add(image);
 
+    // Spawn the readback components. For each frame, the data will be read back from the GPU
+    // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity
+    // to stop reading back the data.
     commands.spawn(Readback::buffer(buffer.clone())).observe(
         |trigger: Trigger<ReadbackComplete>| {
-            info!("Buffer {:?}", trigger.event());
+            // This matches the type which was used to create the `ShaderStorageBuffer` above,
+            // and is a convenient way to interpret the data.
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Buffer {:?}", data);
         },
     );
+    // This is just a simple way to pass the buffer handle to the render app for our compute node
     commands.insert_resource(ReadbackBuffer(buffer));
 
+    // Textures can also be read back from the GPU. Pay careful attention to the format of the
+    // texture, as it will affect how the data is interpreted.
     commands.spawn(Readback::texture(image.clone())).observe(
         |trigger: Trigger<ReadbackComplete>| {
-            info!("Image {:?}", trigger.event());
+            // You probably want to interpret the data as a color rather than a `ShaderType`,
+            // but in this case we know the data is a single channel storage texture, so we can
+            // interpret it as a `Vec<u32>`
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Image {:?}", data);
         },
     );
     commands.insert_resource(ReadbackImage(image));
