@@ -278,24 +278,51 @@ impl World {
 
     /// Registers the given component `R` as a [required component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
-    /// The [`Default`] `constructor` will be used for the creation of `R`.
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
     ///
     /// If a custom constructor is desired, use [`World::register_component_requirement_with`] instead.
     ///
+    /// [required component]: Component#required-components
+    ///
     /// # Panics
     ///
-    /// Panics if `R` is already a required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`.
     ///
-    /// [required component]: Component#required-components
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B as required by A and C as required by B.
+    /// world.register_component_requirement::<A, B>();
+    /// world.register_component_requirement::<B, C>();
+    ///
+    /// // This will implicitly also insert B and C with their Default constructors.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+    /// ```
     pub fn register_component_requirement<T: Component, R: Component + Default>(&mut self) {
         self.register_component_requirement_with::<T, R>(R::default);
     }
 
     /// Registers the given component `R` as a [required component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
-    /// The given `constructor` will be used for the creation of `R`.
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
     ///
     /// If a [`Default`] constructor is desired, use [`World::register_component_requirement`] instead.
     ///
@@ -303,7 +330,37 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// world.register_component_requirement::<A, B>();
+    /// world.register_component_requirement_with::<B, C>(|| C(1));
+    /// world.register_component_requirement_with::<A, C>(|| C(2));
+    ///
+    /// // This will implicitly also insert B with its Default constructor and C
+    /// // with the custom constructor defined by A.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+    /// ```
     pub fn register_component_requirement_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,

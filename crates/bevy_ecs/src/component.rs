@@ -233,6 +233,45 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
 /// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
 ///
+/// ## Registering required romponents at runtime
+///
+/// In most cases, required components should be registered using the `require` attribute as shown above.
+/// However, in some cases, it may be useful to register required components at runtime.
+///
+/// This can be done through [`World::register_component_requirement`] or  [`World::register_component_requirement_with`]
+/// for the [`Default`] and custom constructors respectively:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct A;
+///
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct B(usize);
+///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(u32);
+///
+/// # let mut world = World::default();
+/// // Register B as required by A and C as required by B.
+/// world.register_component_requirement::<A, B>();
+/// world.register_component_requirement_with::<B, C>(|| C(2));
+///
+/// // This will implicitly also insert B with its Default constructor
+/// // and C with the custom constructor defined by B.
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+/// ```
+///
+/// Similar rules as before apply to duplicate requires fer a given type at different levels
+/// of the inheritance tree. `A` requiring `C` directly would take precedence over indirectly
+/// requiring it through `A` requiring `B` and `B` requiring `C`.
+///
+/// Unlike with the `require` attribute, directly requiring the same component multiple times
+/// for the same component will result in a panic. This is done to prevent conflicting constructors
+/// and confusing ordering dependencies.
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
