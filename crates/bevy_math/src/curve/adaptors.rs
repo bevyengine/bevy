@@ -9,10 +9,12 @@ use super::{Curve, Interval};
 /// The curve that results from chaining one curve with another. The second curve is
 /// effectively reparametrized so that its start is at the end of the first.
 ///
-/// For this to be well-formed, the first curve's domain must be right-finite and the second's
-/// must be left-finite.
-///
 /// Curves of this type are produced by [`Curve::chain`].
+///
+/// # Domain
+///
+/// The first curve's domain must be right-finite and the second's must be left-finite to get a
+/// valid [`ChainCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -54,6 +56,10 @@ where
 /// The curve that results from reversing another.
 ///
 /// Curves of this type are produced by [`Curve::reverse`].
+///
+/// # Domain
+///
+/// The original curve's domain must be bounded to get a valid [`ReverseCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -82,11 +88,14 @@ where
 ///
 /// # Notes
 ///
-/// - the domain of this curve has to be bounded
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-///   value at `domain.end()` in the original curve
+/// value at `domain.end()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
+///
+/// # Domain
+///
+/// The original curve's domain must be bounded to get a valid [`RepeatCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -123,11 +132,14 @@ where
 ///
 /// # Notes
 ///
-/// - the domain of this curve has to be bounded
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
+///
+/// # Domain
+///
+/// The original curve's domain must be bounded to get a valid [`ForeverCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -162,11 +174,11 @@ where
 /// The curve that results from chaining a curve with its reversed version. The transition point
 /// is guaranteed to make no jump.
 ///
-/// # Notes
-///
-/// - the domain end of this curve has to be finite
-///
 /// Curves of this type are produced by [`Curve::ping_pong`].
+///
+/// # Domain
+///
+/// The original curve's domain must be right-finite to get a valid [`PingPongCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -211,6 +223,11 @@ where
 /// first curves' end sample point.
 ///
 /// Curves of this type are produced by [`Curve::chain_continue`].
+///
+/// # Domain
+///
+/// The first curve's domain must be right-finite and the second's must be left-finite to get a
+/// valid [`ChainCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]

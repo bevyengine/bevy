@@ -244,8 +244,12 @@ pub trait Curve<T> {
 
     /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
     /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
-    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
+    /// coincides with where this curve ends. 
+    ///
+    /// # Errors
+    ///
+    /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
+    /// `other`'s domain doesn't have a finite start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
@@ -269,9 +273,9 @@ pub trait Curve<T> {
     /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
     /// same.
     ///
-    /// # Notes
+    /// # Error
     ///
-    /// - the domain of this curve has to be bounded
+    /// A [`ReverseError`] is returned if this curve's domain isn't bounded
     fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
     where
         Self: Sized,
@@ -293,9 +297,12 @@ pub trait Curve<T> {
     /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
     /// - for `count == 0` the output of this adaptor is basically identical to the previous curve
-    /// - the domain of the input curve has to be bounded
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
+    ///
+    /// # Error
+    ///
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded
     fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
     where
         Self: Sized,
@@ -326,9 +333,12 @@ pub trait Curve<T> {
     ///
     /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
-    /// - the domain of the input curve has to be bounded
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.end()` in the original curve
+    ///
+    /// # Error
+    ///
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded
     fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
     where
         Self: Sized,
@@ -344,7 +354,11 @@ pub trait Curve<T> {
 
     /// Create a new [`Curve`] chaining the original curve with its inverse, producing
     /// another curve with outputs of the same type. The domain of the new curve will be twice as
-    /// long. The transition point is guaranteed to not make a jump
+    /// long. The transition point is guaranteed to not make any jumps.
+    ///
+    /// # Error 
+    ///
+    /// A [`PingPongError`] is returned if this curve's domain isn't right-finite
     fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
     where
         Self: Sized,
@@ -358,16 +372,21 @@ pub trait Curve<T> {
             .ok_or(PingPongError::SourceDomainEndInfinite)
     }
 
-    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
-    /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
-    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another
+    /// curve with outputs of the same type. The domain of the other curve is translated so that
+    /// its start coincides with where this curve ends. 
+    ///
     ///
     /// Additionally the transition of the samples is guaranteed to make no sudden jumps. This is
     /// useful if you really just know about the shapes of your curves and don't want to deal with
     /// stitching them together properly when it would just introduce useless complexity. It is
     /// realized by translating the other curve so that its start sample point coincides with the
     /// current curves' end sample point.
+    ///
+    /// # Error 
+    ///
+    /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
+    /// `other`'s domain doesn't have a finite start.
     fn chain_continue<C>(self, other: C) -> Result<ContinuationCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
