@@ -356,7 +356,7 @@ fn build_and_compress_meshlet_vertex_data(
         // Load source vertex attributes
         let vertex_id_byte = vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
         let vertex_data =
-            &*vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
+            &vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
         let position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
         let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
         let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
@@ -407,10 +407,11 @@ fn build_and_compress_meshlet_vertex_data(
         vertex_count: meshlet.vertex_count as u8,
         triangle_count: meshlet.triangle_count as u8,
         quantization_factor: VERTEX_POSITION_QUANTIZATION_FACTOR,
+        padding1: 0,
         bits_per_vertex_position_channel_x,
         bits_per_vertex_position_channel_y,
         bits_per_vertex_position_channel_z,
-        padding: 0,
+        padding2: 0,
         min_vertex_position_channel_x: min_quantized_position_channels.x as f32,
         min_vertex_position_channel_y: min_quantized_position_channels.y as f32,
         min_vertex_position_channel_z: min_quantized_position_channels.z as f32,

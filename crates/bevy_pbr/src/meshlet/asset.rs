@@ -71,14 +71,16 @@ pub struct Meshlet {
     pub triangle_count: u8,
     /// Power of 2 factor used to quantize vertex positions within this meshlet.
     pub quantization_factor: u8,
+    /// Unused.
+    pub padding1: u8,
     /// Number of bits used to to store the X channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_x: u8,
     /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_y: u8,
     /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_z: u8,
-    /// Unused. (TODO: Get rid of this in the disk representation?)
-    pub padding: u16,
+    /// Unused.
+    pub padding2: u8,
     /// Minimum quantized X channel value of vertex positions within this meshlet.
     pub min_vertex_position_channel_x: f32,
     /// Minimum quantized Y channel value of vertex positions within this meshlet.
