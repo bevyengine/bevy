@@ -179,7 +179,6 @@ impl TypePathAttrs {
 /// ```
 ///
 /// > __Note:__ Registering a custom function only works for special traits.
-///
 #[derive(Default, Clone)]
 pub(crate) struct ContainerAttributes {
     debug: TraitImpl,

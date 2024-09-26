@@ -303,6 +303,7 @@ impl PartialOrd for UntypedAssetId {
 }
 
 /// An asset id without static or dynamic types associated with it.
+///
 /// This exist to support efficient type erased id drop tracking. We
 /// could use [`UntypedAssetId`] for this, but the [`TypeId`] is unnecessary.
 ///

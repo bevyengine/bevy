@@ -179,6 +179,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
+///
 /// Conceptually represents ownership of whatever data is being pointed to and so is
 /// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or

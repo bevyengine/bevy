@@ -23,6 +23,7 @@ define_label!(
 pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 
 /// The render graph configures the modular and re-usable render logic.
+///
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///

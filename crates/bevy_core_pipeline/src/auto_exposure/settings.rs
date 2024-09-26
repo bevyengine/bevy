@@ -22,7 +22,6 @@ use bevy_utils::default;
 /// # Usage Notes
 ///
 /// **Auto Exposure requires compute shaders and is not compatible with WebGL2.**
-///
 #[derive(Component, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Default)]
 pub struct AutoExposure {

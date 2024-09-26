@@ -43,7 +43,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -64,7 +67,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = SphereBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = SphereBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -122,7 +128,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Plane3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Plane3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -171,7 +180,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -202,7 +214,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -227,7 +242,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -250,7 +268,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -280,7 +301,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -304,7 +328,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -394,7 +421,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cylinder3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -477,7 +507,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Capsule3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -605,7 +638,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cone3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cone3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -704,7 +740,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -805,7 +844,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Torus3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Torus3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -878,7 +920,10 @@ where
 // tetrahedron
 
 impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,

@@ -153,7 +153,6 @@ impl TupleInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),

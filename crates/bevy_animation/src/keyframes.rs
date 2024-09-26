@@ -7,16 +7,21 @@ use core::{
 
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Component;
-use bevy_ecs::world::{EntityMutExcept, Mut};
+use bevy_ecs::{
+    component::Component,
+    world::{EntityMutExcept, Mut},
+};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath, Typed};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
-use crate::graph::AnimationGraph;
-use crate::prelude::{Animatable, GetKeyframe};
-use crate::{animatable, AnimationEvaluationError, AnimationPlayer, Interpolation};
+use crate::{
+    animatable,
+    graph::AnimationGraph,
+    prelude::{Animatable, GetKeyframe},
+    AnimationEvaluationError, AnimationPlayer, Interpolation,
+};
 
 /// A value on a component that Bevy can animate.
 ///

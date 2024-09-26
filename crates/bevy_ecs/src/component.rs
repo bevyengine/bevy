@@ -266,7 +266,6 @@ use core::{
 /// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
 ///     // ...
 /// }
-///
 /// ```
 ///
 /// # Implementing the trait for foreign types

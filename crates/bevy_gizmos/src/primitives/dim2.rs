@@ -45,7 +45,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self : 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -69,7 +72,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -99,7 +105,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -118,7 +127,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -157,7 +169,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -195,7 +210,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d<'a>(
         &mut self,
@@ -254,7 +272,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Annulus2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -311,7 +332,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -341,7 +365,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -430,7 +457,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Line2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Line2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -485,7 +515,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -563,7 +596,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Segment2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Segment2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -614,7 +650,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -644,7 +683,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -674,7 +716,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -698,7 +743,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -730,7 +778,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -770,7 +821,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
@@ -808,7 +862,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,

@@ -321,7 +321,8 @@ where
             Ok(view) => view,
             Err(err) => match err {
                 QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
-                QueryEntityError::QueryDoesNotMatch(_) | QueryEntityError::AliasedMutability(_) => {
+                QueryEntityError::QueryDoesNotMatch(_, _)
+                | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)
                 }
             },

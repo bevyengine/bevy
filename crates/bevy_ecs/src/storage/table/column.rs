@@ -6,6 +6,7 @@ use crate::{
 use bevy_ptr::PtrMut;
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+///
 /// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
 ///
 /// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
@@ -411,7 +412,6 @@ impl Column {
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
-    ///
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());

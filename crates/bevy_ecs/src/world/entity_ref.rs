@@ -555,6 +555,7 @@ impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
 }
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
+///
 /// This is essentially a performance-optimized `(Entity, &mut World)` tuple,
 /// which caches the [`EntityLocation`] to reduce duplicate lookups.
 ///
@@ -1049,7 +1050,6 @@ impl<'w> EntityWorldMut<'w> {
     /// this fn as if the code here was written inline
     ///
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
-    ///
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
     #[allow(clippy::too_many_arguments)]
@@ -1297,7 +1297,6 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`World::despawn`] for more details.
     pub fn despawn(self) {
         let world = self.world;
-        world.flush_entities();
         let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
@@ -1322,6 +1321,10 @@ impl<'w> EntityWorldMut<'w> {
         for component_id in archetype.components() {
             world.removed_components.send(component_id, self.entity);
         }
+
+        // Observers and on_remove hooks may reserve new entities, which
+        // requires a flush before Entities::free may be called.
+        world.flush_entities();
 
         let location = world
             .entities
@@ -1485,7 +1488,6 @@ impl<'w> EntityWorldMut<'w> {
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
-    ///
     /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
         if self.contains::<T>() {

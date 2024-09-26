@@ -84,7 +84,6 @@ pub trait ReflectCommandExt {
     ///         .spawn_empty()
     ///         .insert_reflect(prefab.data.clone_value());
     /// }
-    ///
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
 
@@ -159,7 +158,6 @@ pub trait ReflectCommandExt {
     ///     commands.entity(prefab.entity)
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
-    ///
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of

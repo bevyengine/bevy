@@ -67,7 +67,7 @@ use core::{
 /// #    eventwriter:
 /// EventWriter<'w, SomeEvent>
 /// # }
-///```
+/// ```
 /// ## `PhantomData`
 ///
 /// [`PhantomData`] is a special type of `SystemParam` that does nothing.
@@ -492,7 +492,7 @@ fn assert_component_access_compatibility(
 /// )),)
 ///     .build_state(&mut world)
 ///     .build_system(buildable_system);
-///world.run_system_once(system);
+/// world.run_system_once(system);
 ///
 /// fn buildable_system(mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>) {
 ///     // The first parameter is built from the first builder,
@@ -1872,7 +1872,6 @@ pub mod lifetimeless {
 /// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
 /// # }
 /// ```
-///
 pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
 
 impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
@@ -1971,6 +1970,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
 unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
 /// A [`SystemParam`] with a type that can be configured at runtime.
+///
 /// To be useful, this must be configured using a [`DynParamBuilder`](crate::system::DynParamBuilder) to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
 ///
 /// # Examples

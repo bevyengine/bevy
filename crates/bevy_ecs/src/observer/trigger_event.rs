@@ -100,6 +100,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
 }
 
 /// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+///
 /// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
 /// will run.
 ///

@@ -396,6 +396,7 @@ impl OwnedBindingResource {
 }
 
 /// Converts a value to a [`ShaderType`] for use in a bind group.
+///
 /// This is automatically implemented for references that implement [`Into`].
 /// Generally normal [`Into`] / [`From`] impls should be preferred, but
 /// sometimes additional runtime metadata is required.

@@ -18,6 +18,7 @@ use thiserror::Error;
 use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
+///
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
 /// of output data can be represented as well.
 pub trait Curve<T> {

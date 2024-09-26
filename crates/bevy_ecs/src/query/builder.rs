@@ -34,7 +34,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
-///```
+/// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,

@@ -308,6 +308,7 @@ pub enum DeserializeMetaError {
 }
 
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
+///
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,

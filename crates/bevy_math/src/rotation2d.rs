@@ -120,7 +120,6 @@ impl Rot2 {
     ///
     /// let rot3 = Rot2::radians(PI);
     /// assert_relative_eq!(rot1 * rot1, rot3);
-    ///
     /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
@@ -146,7 +145,6 @@ impl Rot2 {
     ///
     /// let rot3 = Rot2::degrees(180.0);
     /// assert_relative_eq!(rot1 * rot1, rot3);
-    ///
     /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
@@ -171,7 +169,6 @@ impl Rot2 {
     ///
     /// let rot3 = Rot2::turn_fraction(0.5);
     /// assert_relative_eq!(rot1 * rot1, rot3);
-    ///
     /// ```
     #[inline]
     pub fn turn_fraction(fraction: f32) -> Self {

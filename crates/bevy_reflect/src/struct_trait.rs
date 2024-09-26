@@ -93,7 +93,6 @@ impl StructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()

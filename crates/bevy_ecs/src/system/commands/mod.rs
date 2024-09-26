@@ -785,7 +785,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + Send + 'static>(
+        &mut self,
+        system: S,
+    ) {
         self.run_system_cached_with(system, ());
     }
 
@@ -797,7 +800,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
         M: 'static,
-        S: IntoSystem<I, (), M> + 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
     {
         self.queue(RunSystemCachedWith::new(system, input));
     }
@@ -1776,6 +1779,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1806,6 +1810,7 @@ fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {

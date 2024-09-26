@@ -309,7 +309,10 @@ pub trait ChildBuild {
 }
 
 impl ChildBuild for ChildBuilder<'_> {
-    type SpawnOutput<'a> = EntityCommands<'a> where Self: 'a;
+    type SpawnOutput<'a>
+        = EntityCommands<'a>
+    where
+        Self: 'a;
 
     fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
         let e = self.commands.spawn(bundle);
@@ -535,7 +538,10 @@ pub struct WorldChildBuilder<'w> {
 }
 
 impl ChildBuild for WorldChildBuilder<'_> {
-    type SpawnOutput<'a> = EntityWorldMut<'a> where Self: 'a;
+    type SpawnOutput<'a>
+        = EntityWorldMut<'a>
+    where
+        Self: 'a;
 
     fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();

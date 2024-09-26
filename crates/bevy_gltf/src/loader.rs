@@ -7,8 +7,6 @@ use alloc::collections::VecDeque;
 use bevy_animation::prelude::{
     Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
 };
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -60,13 +58,16 @@ use gltf::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{value, Value};
-#[cfg(feature = "bevy_animation")]
-use smallvec::SmallVec;
 use std::{
     io::Error,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+#[cfg(feature = "bevy_animation")]
+use {
+    bevy_animation::{AnimationTarget, AnimationTargetId},
+    smallvec::SmallVec,
+};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]

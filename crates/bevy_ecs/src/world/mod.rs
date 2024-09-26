@@ -723,7 +723,7 @@ impl World {
     /// # Errors
     ///
     /// If any entities are duplicated.
-    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
+    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError<'static>> {
         for i in 0..entities.len() {
             for j in 0..i {
                 if entities[i] == entities[j] {

@@ -367,6 +367,7 @@ impl Plugin for LightProbePlugin {
 }
 
 /// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+///
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(

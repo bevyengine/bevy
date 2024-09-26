@@ -134,7 +134,6 @@ impl Debug for CustomAttribute {
 /// * `$attributes` - The name of the field containing the [`CustomAttributes`].
 /// * `$term` - (Optional) The term used to describe the type containing the custom attributes.
 ///   This is purely used to generate better documentation. Defaults to `"item"`.
-///
 macro_rules! impl_custom_attribute_methods {
     ($self:ident . $attributes:ident, $term:literal) => {
         $crate::attributes::impl_custom_attribute_methods!($self, &$self.$attributes, "item");

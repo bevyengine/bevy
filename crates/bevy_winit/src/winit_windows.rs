@@ -393,7 +393,7 @@ pub fn winit_window_position(
 ) -> Option<PhysicalPosition<i32>> {
     match position {
         WindowPosition::Automatic => {
-            /* Window manager will handle position */
+            // Window manager will handle position
             None
         }
         WindowPosition::Centered(monitor_selection) => {

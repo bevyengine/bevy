@@ -17,8 +17,7 @@ use bevy_reflect::{
     PartialReflect, TypeRegistration, TypeRegistry,
 };
 use bevy_utils::HashMap;
-use serde::de::DeserializeSeed as _;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{error_codes, BrpError, BrpResult};

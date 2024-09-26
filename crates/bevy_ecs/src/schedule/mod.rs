@@ -1157,7 +1157,7 @@ mod tests {
             world.allow_ambiguous_resource::<R>();
             let mut schedule = Schedule::new(TestSchedule);
 
-            //check resource
+            // check resource
             schedule.add_systems((resmut_system, res_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());

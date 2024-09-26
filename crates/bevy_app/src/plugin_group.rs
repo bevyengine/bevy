@@ -188,6 +188,7 @@ fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
+///
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.

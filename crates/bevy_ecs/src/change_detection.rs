@@ -105,7 +105,6 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///

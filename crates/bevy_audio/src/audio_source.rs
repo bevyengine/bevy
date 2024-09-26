@@ -74,6 +74,7 @@ impl AssetLoader for AudioLoader {
 }
 
 /// A type implementing this trait can be converted to a [`rodio::Source`] type.
+///
 /// It must be [`Send`] and [`Sync`] in order to be registered.
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].

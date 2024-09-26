@@ -205,7 +205,6 @@ impl Val {
 ///
 /// # Examples
 
-///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.

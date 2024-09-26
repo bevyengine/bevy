@@ -1901,10 +1901,8 @@ mod tests {
             let info = <SomeStruct as Typed>::type_info();
             assert_eq!(None, info.docs());
 
-            /*
-             * Block comments do not count as doc comments,
-             * and are therefore not reflected.
-             */
+            // Block comments do not count as doc comments,
+            // and are therefore not reflected.
             #[derive(Reflect)]
             struct SomeOtherStruct;
 

@@ -71,7 +71,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///     .build_system(single_parameter_system);
 ///
 /// world.run_system_once(system);
-///```
+/// ```
 ///
 /// # Safety
 ///
@@ -227,6 +227,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 }
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
+///
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
 pub struct ParamSetBuilder<T>(pub T);
