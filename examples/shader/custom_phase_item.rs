@@ -7,6 +7,7 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
+use bevy::pbr::SetMeshViewBindGroup;
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
@@ -152,7 +153,11 @@ impl Vertex {
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
 /// the render phase.
-type DrawCustomPhaseItemCommands = (SetItemPipeline, DrawCustomPhaseItem);
+type DrawCustomPhaseItemCommands = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    DrawCustomPhaseItem,
+);
 
 /// A query filter that tells [`view::check_visibility`] about our custom
 /// rendered entity.

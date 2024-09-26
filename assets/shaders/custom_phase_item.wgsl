@@ -22,7 +22,6 @@ struct VertexOutput {
 // The vertex shader entry point.
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
-    // Use an orthographic projection.
     var vertex_output: VertexOutput;
     vertex_output.clip_position = vec4(vertex.position.xyz, 1.0);
     vertex_output.color = vertex.color;
