@@ -94,8 +94,9 @@ pub trait List: PartialReflect {
     /// Returns an iterator over the list.
     fn iter(&self) -> ListIter;
 
-    /// Drain the elements of this list to get a vector of owned values. After calling this
-    /// function, `self` will be empty. The order of items in the returned
+    /// Drain the elements of this list to get a vector of owned values.
+    ///
+    /// After calling this function, `self` will be empty. The order of items in the returned
     /// [`Vec`] will match the order of items in `self`.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
