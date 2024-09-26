@@ -1,6 +1,6 @@
 use crate::{
     component::Component,
-    entity::{Entity, EntityHashMap, EntityMapper, MapEntitiesMut, SceneEntityMapper},
+    entity::{Entity, EntityHashMap, EntityMapper, MapEntities, SceneEntityMapper},
     world::World,
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect};
@@ -78,7 +78,7 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: Component + FromReflect + MapEntitiesMut> FromType<C> for ReflectMapEntities {
+impl<C: Component + FromReflect + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_world_entities: |world, entity_mapper, entities| {
@@ -159,7 +159,7 @@ impl ReflectMapEntitiesResource {
     }
 }
 
-impl<R: crate::system::Resource + FromReflect + MapEntitiesMut> FromType<R>
+impl<R: crate::system::Resource + FromReflect + MapEntities> FromType<R>
     for ReflectMapEntitiesResource
 {
     fn from_type() -> Self {

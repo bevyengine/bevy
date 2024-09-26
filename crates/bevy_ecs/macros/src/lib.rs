@@ -259,9 +259,6 @@ pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
                 #first.iter_entities()
                     #(.chain(#rest . iter_entities()))*
             }
-        }
-
-        impl #impl_generics #ecs_path::entity::IterEntitiesMut for #struct_name #ty_generics {
             fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
                 #first.iter_entities_mut()
                     #(.chain(#rest . iter_entities_mut()))*

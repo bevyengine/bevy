@@ -7,29 +7,16 @@ pub use bevy_ecs_macros::IterEntities;
 
 use super::EntityHashMap;
 
-/// Apply an operation to all entities in a read-only container.
+/// Apply an operation to all entities in a container.
 ///
 /// This is implemented by default for types that implement [`IterEntities`] or
-/// where `&T` implements [`IntoIterator`].
+/// where `&T` and `&mut T` both implement [`IntoIterator`].
 ///
 /// It may be useful to implement directly for types that can't produce an
 /// iterator for lifetime reasons, such as those involving internal mutexes.
 pub trait MapEntities {
     /// Apply an operation to all contained entities.
     fn map_entities<F: FnMut(Entity)>(&self, f: F);
-}
-
-/// Apply an operation to mutable references to all entities in a container.
-///
-/// This is implemented by default for types that implement [`IterEntitiesMut`]
-/// or where `&mut T` implements [`IntoIterator`].
-///
-/// It may be useful to implement directly for types that can't produce an
-/// iterator for lifetime reasons, such as those involving internal mutexes.
-///
-/// Because the operation receives mutable references, it may alter the
-/// contained entity IDs via a mechanism such as an [`EntityMapper`].
-pub trait MapEntitiesMut {
     /// Apply an operation to mutable references to all entities.
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
 }
@@ -41,12 +28,6 @@ where
     fn map_entities<F: FnMut(Entity)>(&self, f: F) {
         self.iter_entities().for_each(f);
     }
-}
-
-impl<T> MapEntitiesMut for T
-where
-    T: MapEntities + IterEntitiesMut,
-{
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
         self.iter_entities_mut().for_each(f);
     }
@@ -54,7 +35,7 @@ where
 
 /// Produce an iterator over all contained entities.
 ///
-/// This is implemented by default for types  where `&T` implements
+/// This is implemented by default for types  where `&T` and `&mut T` both implement
 /// [`IntoIterator`].
 ///
 /// It may be useful to implement directly for types that can't produce an
@@ -62,49 +43,28 @@ where
 pub trait IterEntities {
     /// Get an iterator over contained entities.
     fn iter_entities(&self) -> impl Iterator<Item = Entity>;
+    /// Get an iterator over mutable references to contained entities.
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
 }
 
 impl<T> IterEntities for T
 where
     for<'a> &'a T: IntoIterator<Item = &'a Entity>,
+    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
 {
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        self.into_iter()
+    }
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         self.into_iter().copied()
     }
 }
 
-/// Apply an operation to mutable references to all entities in a container.
-///
-/// This is implemented by default for types where `&mut T` implements
-/// [`IntoIterator`].
-///
-/// It may be useful to implement directly for types that can't produce an
-/// iterator for lifetime reasons, such as those involving internal mutexes.
-///
-/// Because the iterator produces mutable references, consumers may alter the
-/// contained entity IDs via a mechanism such as an [`EntityMapper`].
-pub trait IterEntitiesMut {
-    /// Get an iterator over mutable references to contained entities.
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
-}
-
-impl<T> IterEntitiesMut for T
-where
-    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
-    T: IterEntities,
-{
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-        self.into_iter()
-    }
-}
-
-impl IterEntitiesMut for Entity {
+impl IterEntities for Entity {
     fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
         Some(self).into_iter()
     }
-}
 
-impl IterEntities for Entity {
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         Some(*self).into_iter()
     }
