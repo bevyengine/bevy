@@ -159,15 +159,16 @@ fn prepare_uniform_components<C>(
 
 /// This plugin extracts the components into the render world for synced entities.
 ///
-/// Therefore it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
+/// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
 ///
 /// # Warning
+///
 /// Be careful when removing the [`ExtractComponent`] from an entity. When an [`ExtractComponent`]
 /// is added to an entity, that entity is automatically synced with the render world (see also
 /// [`WorldSyncPlugin`](crate::world_sync::WorldSyncPlugin)). When removing the entity in the main
 /// world, the synced entity also gets removed. However, if only the [`ExtractComponent`] is removed
 /// this *doesn't* happen, and the synced entity stays around with the old extracted data.
-/// We recommend removing the entity at once, instead of only removing [`ExtractComponent`].
+/// We recommend despawning the entire entity, instead of only removing [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,

@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::Reflect;
 
-/// A Plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
+/// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
 /// Bevy's renderer is architected independently from the main app.
 /// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
