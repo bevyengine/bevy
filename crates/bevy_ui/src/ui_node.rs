@@ -196,7 +196,7 @@ impl Node {
             left: self.border.left + self.padding.left,
             right: self.border.right + self.padding.right,
             top: self.border.top + self.padding.top,
-            bottom: self.border.bottom + self.border.bottom,
+            bottom: self.border.bottom + self.padding.bottom,
         }
     }
 }
