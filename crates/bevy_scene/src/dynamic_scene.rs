@@ -159,7 +159,7 @@ impl DynamicScene {
 
             // Map entities in the resource if it implements [`MapEntities`].
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntitiesResource>() {
-                map_entities_reflect.map_entities(world, entity_map);
+                map_entities_reflect.map_world_entities(world, entity_map);
             }
         }
 

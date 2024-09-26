@@ -127,29 +127,58 @@ impl<C: Component + FromReflect + MapEntitiesMut> FromType<C> for ReflectMapEnti
 /// [`MapEntities`]: crate::entity::MapEntities
 #[derive(Clone)]
 pub struct ReflectMapEntitiesResource {
-    map_entities: fn(&mut World, &mut SceneEntityMapper),
+    map_world_entities: fn(&mut World, &mut SceneEntityMapper),
+    map_entities_mut: fn(&mut dyn PartialReflect, &mut dyn FnMut(&mut Entity)),
+    map_entities: fn(&dyn PartialReflect, &mut dyn FnMut(Entity)),
 }
 
 impl ReflectMapEntitiesResource {
-    /// A method for applying [`MapEntities`] behavior to elements in an [`EntityHashMap<Entity>`].
+    /// A method for applying [`MapEntities`] behavior to elements in a [`EntityHashMap<Entity>`].
     ///
     /// [`MapEntities`]: crate::entity::MapEntities
-    pub fn map_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
+    pub fn map_world_entities(&self, world: &mut World, entity_map: &mut EntityHashMap<Entity>) {
         SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
-            (self.map_entities)(world, mapper);
+            (self.map_world_entities)(world, mapper);
         });
+    }
+
+    /// A general method for applying an operation to all entities in a
+    /// reflected component.
+    pub fn map_entities(&self, component: &dyn PartialReflect, f: &mut dyn FnMut(Entity)) {
+        (self.map_entities)(component, f);
+    }
+
+    /// A general method for applying an operation that may modify entities in a
+    /// reflected component.
+    pub fn map_entities_mut(
+        &self,
+        component: &mut dyn PartialReflect,
+        f: &mut dyn FnMut(&mut Entity),
+    ) {
+        (self.map_entities_mut)(component, f);
     }
 }
 
-impl<R: crate::system::Resource + MapEntitiesMut> FromType<R> for ReflectMapEntitiesResource {
+impl<R: crate::system::Resource + FromReflect + MapEntitiesMut> FromType<R>
+    for ReflectMapEntitiesResource
+{
     fn from_type() -> Self {
         ReflectMapEntitiesResource {
-            map_entities: |world, entity_mapper| {
+            map_world_entities: |world, entity_mapper| {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
                     resource.map_entities_mut(|entity| {
                         *entity = entity_mapper.map_entity(*entity);
                     });
                 }
+            },
+            map_entities: |component, f| {
+                let concrete = R::from_reflect(component).unwrap();
+                concrete.map_entities(f);
+            },
+            map_entities_mut: |component, f| {
+                let mut concrete = R::from_reflect(component).unwrap();
+                concrete.map_entities_mut(f);
+                component.apply(&concrete);
             },
         }
     }
