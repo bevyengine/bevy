@@ -315,6 +315,24 @@ impl CompleteErasedLoadedAsset {
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.labeled_assets.keys().map(|s| &**s)
     }
+
+    /// Cast this loaded asset as the given type. If the type does not match,
+    /// the original type-erased asset is returned.
+    #[expect(clippy::result_large_err, reason = "Function returns `Self` on error.")]
+    pub fn downcast<A: Asset>(
+        mut self,
+    ) -> Result<CompleteLoadedAsset<A>, CompleteErasedLoadedAsset> {
+        match self.asset.downcast::<A>() {
+            Ok(asset) => Ok(CompleteLoadedAsset {
+                asset,
+                labeled_assets: self.labeled_assets,
+            }),
+            Err(asset) => {
+                self.asset = asset;
+                Err(self)
+            }
+        }
+    }
 }
 
 impl<A: Asset> From<CompleteLoadedAsset<A>> for CompleteErasedLoadedAsset {
