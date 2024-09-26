@@ -82,6 +82,8 @@ fn draw_example_collection(
         .map(|t| (t, TEAL.mix(&HOT_PINK, (t + 300.0) / 600.0)));
     gizmos.curve_gradient_2d(curve, times_and_colors);
 
+    gizmos.billboard_2d(Vec2::new(200., 160.), RED);
+
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius(ops::cos(time.elapsed_seconds() / 3.) * 100.);

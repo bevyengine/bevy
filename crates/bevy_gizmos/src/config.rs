@@ -141,6 +141,18 @@ pub struct GizmoConfig {
     pub enabled: bool,
     /// Line width specified in pixels.
     ///
+    /// If `billboard_perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `10.0`.
+    pub billboard_size: f32,
+    /// Apply perspective to gizmo billboards.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
+    pub billboard_perspective: bool,
+    /// Billboard size specified in pixels.
+    ///
     /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
     ///
     /// Defaults to `2.0`.
@@ -180,6 +192,8 @@ impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            billboard_size: 10.,
+            billboard_perspective: false,
             line_width: 2.,
             line_perspective: false,
             line_style: GizmoLineStyle::Solid,
@@ -198,6 +212,7 @@ impl Default for GizmoConfig {
 ))]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
+    pub billboard_perspective: bool,
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
     pub render_layers: bevy_render::view::RenderLayers,
@@ -210,6 +225,7 @@ pub(crate) struct GizmoMeshConfig {
 impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {
+            billboard_perspective: item.billboard_perspective,
             line_perspective: item.line_perspective,
             line_style: item.line_style,
             render_layers: item.render_layers.clone(),

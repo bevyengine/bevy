@@ -1,9 +1,11 @@
+use super::{
+    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
+    DrawLineJointGizmo, GpuLineGizmo, LineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup,
+};
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
-    LINE_SHADER_HANDLE,
+    GizmoRenderSystem,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -11,7 +13,7 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -25,10 +27,12 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
+
+use super::{LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE};
 
 pub struct LineGizmo2dPlugin;
 
@@ -43,19 +47,10 @@ impl Plugin for LineGizmo2dPlugin {
             .add_render_command::<Transparent2d, DrawLineJointGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
-            .configure_sets(
-                Render,
-                GizmoRenderSystem::QueueLineGizmos2d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_sprite::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                    ),
-            )
             .add_systems(
                 Render,
                 (queue_line_gizmos_2d, queue_line_joint_gizmos_2d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos2d)
+                    .in_set(GizmoRenderSystem::QueueGizmos2d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }
