@@ -1,4 +1,11 @@
 //! A shader that renders a mesh multiple times in one draw call.
+//!
+//! Bevy will automatically batch and instance your meshes assuming you use the same
+//! `Handle<Material>` and `Handle<Mesh>` for all of your instances.
+//!
+//! This example is intended for advanced users and shows how to make custom instancing
+//! implementation using bevy's low level rendering api.
+//! It's generally recommended to rely on the built-in instancing before trying this approach.
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
