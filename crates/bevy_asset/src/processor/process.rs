@@ -7,7 +7,7 @@ use crate::{
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
     transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
-    AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
+    AssetLoadError, AssetLoader, AssetPath, CompleteErasedLoadedAsset, DeserializeMetaError,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use alloc::{
@@ -305,7 +305,7 @@ impl<'a> ProcessContext<'a> {
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
         meta: AssetMeta<L, ()>,
-    ) -> Result<ErasedLoadedAsset, AssetLoadError> {
+    ) -> Result<CompleteErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
@@ -313,7 +313,7 @@ impl<'a> ProcessContext<'a> {
         let loaded_asset = server
             .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
-        for (path, full_hash) in &loaded_asset.loader_dependencies {
+        for (path, full_hash) in &loaded_asset.asset.loader_dependencies {
             self.new_processed_info
                 .process_dependencies
                 .push(ProcessDependencyInfo {
