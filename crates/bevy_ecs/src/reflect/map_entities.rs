@@ -105,8 +105,8 @@ impl<C: Component + FromReflect + MapEntitiesMut> FromType<C> for ReflectMapEnti
                 }
             },
             map_entities: |component, f| {
-                let concrete = C::from_reflect(component).unwrap();
-                concrete.map_entities(f);
+                let mut concrete = C::from_reflect(component).unwrap();
+                concrete.map_entities_mut(|entity| f(*entity));
             },
             map_entities_mut: |component, f| {
                 let mut concrete = C::from_reflect(component).unwrap();
@@ -172,8 +172,8 @@ impl<R: crate::system::Resource + FromReflect + MapEntitiesMut> FromType<R>
                 }
             },
             map_entities: |component, f| {
-                let concrete = R::from_reflect(component).unwrap();
-                concrete.map_entities(f);
+                let mut concrete = R::from_reflect(component).unwrap();
+                concrete.map_entities_mut(|entity| f(*entity));
             },
             map_entities_mut: |component, f| {
                 let mut concrete = R::from_reflect(component).unwrap();

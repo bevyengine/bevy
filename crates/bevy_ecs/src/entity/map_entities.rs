@@ -28,7 +28,7 @@ pub trait MapEntities {
 ///
 /// Because the operation receives mutable references, it may alter the
 /// contained entity IDs via a mechanism such as an [`EntityMapper`].
-pub trait MapEntitiesMut: MapEntities {
+pub trait MapEntitiesMut {
     /// Apply an operation to mutable references to all entities.
     fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
 }
@@ -82,7 +82,7 @@ where
 ///
 /// Because the iterator produces mutable references, consumers may alter the
 /// contained entity IDs via a mechanism such as an [`EntityMapper`].
-pub trait IterEntitiesMut: IterEntities {
+pub trait IterEntitiesMut {
     /// Get an iterator over mutable references to contained entities.
     fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
 }
