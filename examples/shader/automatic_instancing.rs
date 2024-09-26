@@ -32,6 +32,7 @@ fn setup(
     });
 
     let mesh = meshes.add(Cuboid::from_size(Vec3::splat(0.5)));
+    // This example uses the StandardMaterial but it can work with most custom material too
     let material = materials.add(Color::srgb_u8(124, 144, 255));
 
     // spawn 1000 cubes
