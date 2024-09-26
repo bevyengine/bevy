@@ -451,8 +451,8 @@ impl<'a> LoadContext<'a> {
     ) -> Handle<A> {
         let mut context = self.begin_labeled_asset();
         let asset = load(&mut context);
-        let loaded_asset = context.finish(asset, None);
-        self.add_loaded_labeled_asset(label, loaded_asset)
+        let complete_asset = context.finish(asset, None);
+        self.add_loaded_labeled_asset(label, complete_asset)
     }
 
     /// This will add the given `asset` as a "labeled [`Asset`]" with the `label` label.
@@ -597,7 +597,7 @@ impl<'a> LoadContext<'a> {
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
     ) -> Result<CompleteErasedLoadedAsset, LoadDirectError> {
-        let loaded_asset = self
+        let complete_asset = self
             .asset_server
             .load_with_meta_loader_and_reader(
                 &path,
@@ -612,14 +612,14 @@ impl<'a> LoadContext<'a> {
                 dependency: path.clone(),
                 error,
             })?;
-        let info = loaded_asset
+        let info = complete_asset
             .asset
             .meta
             .as_ref()
             .and_then(|m| m.processed_info().as_ref());
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+        Ok(complete_asset)
     }
 
     /// Create a builder for loading nested assets in this context.
