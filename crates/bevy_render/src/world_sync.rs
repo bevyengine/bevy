@@ -18,9 +18,14 @@ use bevy_reflect::Reflect;
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
 /// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
-/// between the main world and the render world, by spawning new entities (without any components) in the main world,
-/// and despawning entities in the render world to match newly despawned entities in the main world.
-/// This is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
+/// between the main world and the render world.
+/// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
+/// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
+/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainWorld`] contains
+/// the corresponding main world entity of a render world entity.
+/// The entities can be accessed by calling `.id()` on either component.
+///
+/// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
 /// to the render world for these entities.
 ///
 /// ```text
@@ -106,8 +111,8 @@ impl RenderEntity {
     }
 }
 
-#[derive(Component, Deref, Clone, Debug)]
 /// Component added on the render world entities to keep track of the corresponding main world entity
+#[derive(Component, Deref, Clone, Debug)]
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
@@ -117,11 +122,11 @@ impl MainEntity {
 }
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
-/// This is currently used for gizmos and UI nodes, which are redrawn / recalculated every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[component(storage = "SparseSet")]
 pub struct TemporaryRenderEntity;
 
+/// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
 pub(crate) enum EntityRecord {
     /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
     /// entity. This contains the main world entity.
