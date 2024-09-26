@@ -856,7 +856,7 @@ impl Components {
             } = self;
             let type_id = TypeId::of::<T>();
             *indices.entry(type_id).or_insert_with(|| {
-                let id = Components::init_component_inner(
+                let id = Components::register_component_inner(
                     components,
                     storages,
                     ComponentDescriptor::new::<T>(),
@@ -891,11 +891,11 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        Components::register_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
-    fn init_component_inner(
+    fn register_component_inner(
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
@@ -1004,7 +1004,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource()`].
+    /// yet been initialized using [`Components::register_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1036,7 +1036,7 @@ impl Components {
     ///
     /// * [`Components::resource_id()`]
     #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
+    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -1049,7 +1049,7 @@ impl Components {
     /// If a resource of this type has already been initialized, this will return
     /// the ID of the pre-existing resource.
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
+    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {

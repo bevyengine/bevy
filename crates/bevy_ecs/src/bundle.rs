@@ -786,7 +786,7 @@ impl<'w> BundleInserter<'w> {
     ) -> Self {
         let bundle_id = world
             .bundles
-            .init_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut world.components, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1135,7 +1135,7 @@ impl<'w> BundleSpawner<'w> {
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
         let bundle_id = world
             .bundles
-            .init_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut world.components, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1321,7 +1321,7 @@ impl Bundles {
     /// Initializes a new [`BundleInfo`] for a statically known type.
     ///
     /// Also initializes all the components in the bundle.
-    pub(crate) fn init_info<T: Bundle>(
+    pub(crate) fn register_info<T: Bundle>(
         &mut self,
         components: &mut Components,
         storages: &mut Storages,

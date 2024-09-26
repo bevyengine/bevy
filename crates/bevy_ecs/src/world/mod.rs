@@ -1312,7 +1312,7 @@ impl World {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         if self
             .storages
             .resources
@@ -1358,7 +1358,7 @@ impl World {
         value: R,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1388,7 +1388,7 @@ impl World {
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let component_id = self.components.register_non_send::<R>();
         if self
             .storages
             .non_send_resources
@@ -1425,7 +1425,7 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let component_id = self.components.register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1704,7 +1704,7 @@ impl World {
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
@@ -1861,7 +1861,7 @@ impl World {
 
         let bundle_id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut self.components, &mut self.storages);
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -2447,10 +2447,10 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
         let id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialised the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
