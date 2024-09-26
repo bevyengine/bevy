@@ -909,7 +909,7 @@ mod http {
 // Enable only on WASM
 #[cfg(target_family = "wasm")]
 mod js {
-    use crate::{error_codes, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender};
+    use crate::{error_codes, BrpError, BrpMessage, BrpResult, BrpSender};
     use async_channel::Sender;
     use bevy_ecs::system::Res;
     use std::sync::OnceLock;
@@ -924,37 +924,48 @@ mod js {
         let _ = MESSAGE_SENDER.set(request_sender.clone());
     }
 
-    /// A binding to JS that allows making BRP requests in a browser environment.
+    /// A binding to JS that allows making BRP requests in a browser environment. If
+    /// the selected method does not need any params it should be left as undefined.
+    /// A successful request will return an array of results and if an error occurs
+    /// an object will be returned with an error code and a human readable message.
     #[wasm_bindgen(js_name = "brpRequest")]
-    pub async fn brp_js_binding(request: JsValue) -> JsValue {
-        let request: BrpRequest = match serde_wasm_bindgen::from_value(request) {
-            Ok(req) => req,
-            Err(err) => {
-                let response = BrpResponse::new(
-                    None,
-                    Err(BrpError {
-                        code: error_codes::INVALID_REQUEST,
-                        message: format!("Invalid input: {err}"),
-                        data: None,
-                    }),
-                );
-                return serde_wasm_bindgen::to_value(&response).unwrap();
-            }
+    pub async fn brp_js_binding(method: String, params: JsValue) -> JsValue {
+        let result = process_request(method, params).await;
+        match result {
+            Ok(value) => serde_wasm_bindgen::to_value(&value).unwrap(),
+            Err(err) => serde_wasm_bindgen::to_value(&err).unwrap(),
+        }
+    }
+
+    async fn process_request(method: String, params: JsValue) -> BrpResult {
+        let params = if !params.is_undefined() {
+            Some(
+                serde_wasm_bindgen::from_value(params).map_err(|err| BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: format!("Invalid params: {err}"),
+                    data: None,
+                })?,
+            )
+        } else {
+            None
         };
 
-        let request_sender = MESSAGE_SENDER.get().unwrap();
+        let request_sender = MESSAGE_SENDER
+            .get()
+            .ok_or(BrpError::internal("Failed to get message sender"))?;
         let (result_sender, result_receiver) = async_channel::bounded(1);
 
         let _ = request_sender
             .send(BrpMessage {
-                method: request.method,
-                params: request.params,
+                method,
+                params,
                 sender: result_sender,
             })
             .await;
 
-        let result = result_receiver.recv().await.unwrap();
-        let response = BrpResponse::new(request.id, result);
-        serde_wasm_bindgen::to_value(&response).unwrap()
+        result_receiver
+            .recv()
+            .await
+            .map_err(|_| BrpError::internal("Failed to receive result"))?
     }
 }
