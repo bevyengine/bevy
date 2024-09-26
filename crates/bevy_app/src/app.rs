@@ -759,7 +759,7 @@ impl App {
     /// When `T` is added to an entity, `R` and its own required components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
     ///
-    /// If a custom constructor is desired, use [`App::register_component_requirement_with`] instead.
+    /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
     ///
     /// [required component]: Component#required-components
     ///
@@ -787,8 +787,8 @@ impl App {
     /// #     .add_plugins(MinimalPlugins)
     /// #     .add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
-    /// app.register_component_requirement::<A, B>();
-    /// app.register_component_requirement::<B, C>();
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components::<B, C>();
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B and C with their Default constructors.
@@ -802,10 +802,10 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn register_component_requirement<T: Component, R: Component + Default>(
+    pub fn register_required_components<T: Component, R: Component + Default>(
         &mut self,
     ) -> &mut Self {
-        self.world_mut().register_component_requirement::<T, R>();
+        self.world_mut().register_required_components::<T, R>();
         self
     }
 
@@ -814,7 +814,7 @@ impl App {
     /// When `T` is added to an entity, `R` and its own required components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
     ///
-    /// If a [`Default`] constructor is desired, use [`App::register_component_requirement`] instead.
+    /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
     ///
     /// [required component]: Component#required-components
     ///
@@ -843,9 +843,9 @@ impl App {
     /// #     .add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// app.register_component_requirement::<A, B>();
-    /// app.register_component_requirement_with::<B, C>(|| C(1));
-    /// app.register_component_requirement_with::<A, C>(|| C(2));
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components_with::<B, C>(|| C(1));
+    /// app.register_required_components_with::<A, C>(|| C(2));
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B with its Default constructor and C
@@ -860,12 +860,12 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn register_component_requirement_with<T: Component, R: Component>(
+    pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
     ) -> &mut Self {
         self.world_mut()
-            .register_component_requirement_with::<T, R>(constructor);
+            .register_required_components_with::<T, R>(constructor);
         self
     }
 

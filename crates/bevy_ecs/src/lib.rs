@@ -2048,8 +2048,8 @@ mod tests {
 
         let mut world = World::new();
 
-        world.register_component_requirement::<X, Y>();
-        world.register_component_requirement_with::<Y, Z>(|| Z(7));
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(7));
 
         let id = world.spawn(X).id();
 
@@ -2112,9 +2112,9 @@ mod tests {
         // - X requires Y with default constructor
         // - Y requires Z with custom constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
-        world.register_component_requirement::<X, Y>();
-        world.register_component_requirement_with::<Y, Z>(|| Z(5));
-        world.register_component_requirement_with::<X, Z>(|| Z(7));
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(5));
+        world.register_required_components_with::<X, Z>(|| Z(7));
 
         let id = world.spawn(X).id();
 
@@ -2143,9 +2143,9 @@ mod tests {
         // - X requires Y with default constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
         // - Y requires Z with custom constructor
-        world.register_component_requirement::<X, Y>();
-        world.register_component_requirement_with::<X, Z>(|| Z(7));
-        world.register_component_requirement_with::<Y, Z>(|| Z(5));
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<X, Z>(|| Z(7));
+        world.register_required_components_with::<Y, Z>(|| Z(5));
 
         let id = world.spawn(X).id();
 
@@ -2169,7 +2169,7 @@ mod tests {
         let mut world = World::new();
 
         // This should panic: Tried to register Y as a requirement for X, but the requirement already exists.
-        world.register_component_requirement::<X, Y>();
+        world.register_required_components::<X, Y>();
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are

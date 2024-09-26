@@ -92,7 +92,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             });
             if let Some(func) = &require.func {
                 register_required.push(quote! {
-                    components.register_component_requirement_manual::<Self, #ident>(
+                    components.register_required_components_manual::<Self, #ident>(
                         storages,
                         required_components,
                         || { let x: #ident = #func().into(); x },
@@ -101,7 +101,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 });
             } else {
                 register_required.push(quote! {
-                    components.register_component_requirement_manual::<Self, #ident>(
+                    components.register_required_components_manual::<Self, #ident>(
                         storages,
                         required_components,
                         <#ident as Default>::default,

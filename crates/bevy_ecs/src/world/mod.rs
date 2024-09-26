@@ -281,7 +281,7 @@ impl World {
     /// When `T` is added to an entity, `R` and its own required components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
     ///
-    /// If a custom constructor is desired, use [`World::register_component_requirement_with`] instead.
+    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
     ///
     /// [required component]: Component#required-components
     ///
@@ -307,16 +307,16 @@ impl World {
     ///
     /// # let mut world = World::default();
     /// // Register B as required by A and C as required by B.
-    /// world.register_component_requirement::<A, B>();
-    /// world.register_component_requirement::<B, C>();
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components::<B, C>();
     ///
     /// // This will implicitly also insert B and C with their Default constructors.
     /// let id = world.spawn(A).id();
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn register_component_requirement<T: Component, R: Component + Default>(&mut self) {
-        self.register_component_requirement_with::<T, R>(R::default);
+    pub fn register_required_components<T: Component, R: Component + Default>(&mut self) {
+        self.register_required_components_with::<T, R>(R::default);
     }
 
     /// Registers the given component `R` as a [required component] for `T`.
@@ -324,7 +324,7 @@ impl World {
     /// When `T` is added to an entity, `R` and its own required components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
     ///
-    /// If a [`Default`] constructor is desired, use [`World::register_component_requirement`] instead.
+    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
     ///
     /// [required component]: Component#required-components
     ///
@@ -351,9 +351,9 @@ impl World {
     /// # let mut world = World::default();
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// world.register_component_requirement::<A, B>();
-    /// world.register_component_requirement_with::<B, C>(|| C(1));
-    /// world.register_component_requirement_with::<A, C>(|| C(2));
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components_with::<B, C>(|| C(1));
+    /// world.register_required_components_with::<A, C>(|| C(2));
     ///
     /// // This will implicitly also insert B with its Default constructor and C
     /// // with the custom constructor defined by A.
@@ -361,12 +361,12 @@ impl World {
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn register_component_requirement_with<T: Component, R: Component>(
+    pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
     ) {
         self.components
-            .register_component_requirement_recursive::<T, R>(&mut self.storages, constructor);
+            .register_required_components_recursive::<T, R>(&mut self.storages, constructor);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.

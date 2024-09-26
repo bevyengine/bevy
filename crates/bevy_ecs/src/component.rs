@@ -239,7 +239,7 @@ use std::{
 /// In most cases, required components should be registered using the `require` attribute as shown above.
 /// However, in some cases, it may be useful to register required components at runtime.
 ///
-/// This can be done through [`World::register_component_requirement`] or  [`World::register_component_requirement_with`]
+/// This can be done through [`World::register_required_components`] or  [`World::register_required_components_with`]
 /// for the [`Default`] and custom constructors respectively:
 ///
 /// ```
@@ -255,8 +255,8 @@ use std::{
 ///
 /// # let mut world = World::default();
 /// // Register B as required by A and C as required by B.
-/// world.register_component_requirement::<A, B>();
-/// world.register_component_requirement_with::<B, C>(|| C(2));
+/// world.register_required_components::<A, B>();
+/// world.register_required_components_with::<B, C>(|| C(2));
 ///
 /// // This will implicitly also insert B with its Default constructor
 /// // and C with the custom constructor defined by B.
@@ -1020,7 +1020,7 @@ impl Components {
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
-    pub(crate) fn register_component_requirement_recursive<T: Component, R: Component>(
+    pub(crate) fn register_required_components_recursive<T: Component, R: Component>(
         &mut self,
         storages: &mut Storages,
         constructor: fn() -> R,
@@ -1030,11 +1030,7 @@ impl Components {
 
         // SAFETY: We just created the components.
         unsafe {
-            self.register_component_requirement_recursive_unchecked(
-                required,
-                requiree,
-                constructor,
-            );
+            self.register_required_components_recursive_unchecked(required, requiree, constructor);
         };
     }
 
@@ -1055,7 +1051,7 @@ impl Components {
     ///
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
-    pub(crate) unsafe fn register_component_requirement_recursive_unchecked<R: Component>(
+    pub(crate) unsafe fn register_required_components_recursive_unchecked<R: Component>(
         &mut self,
         required: ComponentId,
         requiree: ComponentId,
@@ -1199,11 +1195,11 @@ impl Components {
     /// This method does *not* recursively register required components for components required by `R`,
     /// nor does it register them for components that require `T`.
     ///
-    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_component_requirement`],
+    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
     /// or the equivalent method in `bevy_app::App`.
     ///
     /// [required component]: Component#required-components
-    pub fn register_component_requirement_manual<T: Component, R: Component>(
+    pub fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
         storages: &mut Storages,
         required_components: &mut RequiredComponents,
@@ -1215,7 +1211,7 @@ impl Components {
 
         // SAFETY: We just created the components.
         unsafe {
-            self.register_component_requirement_manual_unchecked::<R>(
+            self.register_required_components_manual_unchecked::<R>(
                 requiree,
                 required,
                 required_components,
@@ -1240,7 +1236,7 @@ impl Components {
     /// # Safety
     ///
     /// The given component IDs `required` and `requiree` must be valid.
-    pub(crate) unsafe fn register_component_requirement_manual_unchecked<R: Component>(
+    pub(crate) unsafe fn register_required_components_manual_unchecked<R: Component>(
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
