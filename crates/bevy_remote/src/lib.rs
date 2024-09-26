@@ -905,8 +905,8 @@ mod http {
 
 mod js {
     use crate::{BrpMessage, BrpRequest, BrpResponse, BrpSender};
-    use bevy_ecs::system::Res;
     use async_channel::Sender;
+    use bevy_ecs::system::Res;
     use std::sync::OnceLock;
     use wasm_bindgen::prelude::wasm_bindgen;
     use wasm_bindgen::JsValue;
