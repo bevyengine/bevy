@@ -196,6 +196,7 @@ impl Node {
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
+        padding: BorderRect::ZERO,
     };
 }
 
