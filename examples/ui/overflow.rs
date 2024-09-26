@@ -5,6 +5,7 @@ use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(UiScale(3.))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
@@ -76,9 +77,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         top: Val::Px(25.),
                                         ..Default::default()
                                     },
+                                    border: UiRect::all(Val::Px(5.)),
                                     overflow,
                                     ..Default::default()
                                 },
+                                border_color: Color::BLACK.into(),
                                 background_color: GRAY.into(),
                                 ..Default::default()
                             })
