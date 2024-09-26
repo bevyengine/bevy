@@ -14,6 +14,7 @@ pub(crate) mod kinds;
 pub(crate) mod masks;
 
 /// A unified identifier for all entity and similar IDs.
+///
 /// Has the same size as a `u64` integer, but the layout is split between a 32-bit low
 /// segment, a 31-bit high segment, and the significant bit reserved as type flags to denote
 /// entity kinds.

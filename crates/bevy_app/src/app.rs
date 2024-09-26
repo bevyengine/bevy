@@ -15,11 +15,9 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use std::{
     fmt::Debug,
-    process::{ExitCode, Termination},
-};
-use std::{
     num::NonZero,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
+    process::{ExitCode, Termination},
 };
 use thiserror::Error;
 

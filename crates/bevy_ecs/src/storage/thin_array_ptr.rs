@@ -1,8 +1,10 @@
 use crate::query::DebugCheckedUnwrap;
-use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
-use std::mem::{needs_drop, size_of};
-use std::num::NonZeroUsize;
-use std::ptr::{self, NonNull};
+use std::{
+    alloc::{alloc, handle_alloc_error, realloc, Layout},
+    mem::{needs_drop, size_of},
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
+};
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
 ///

@@ -1,9 +1,7 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_ecs::component::Component;
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{URect, UVec2};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 

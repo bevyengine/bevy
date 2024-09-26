@@ -4,10 +4,9 @@ use std::{
 };
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-use bevy_utils::default;
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
+use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use std::panic::AssertUnwindSafe;
 
 use concurrent_queue::ConcurrentQueue;
@@ -568,18 +567,18 @@ impl ExecutorState {
 
         should_run &= system_conditions_met;
 
-        // SAFETY:
-        // - The caller ensures that `world` has permission to read any data
-        //   required by the system.
-        // - `update_archetype_component_access` has been called for system.
-        let valid_params = unsafe { system.validate_param_unsafe(world) };
-
-        if !valid_params {
-            warn_system_skipped!("System", system.name());
-            self.skipped_systems.insert(system_index);
+        if should_run {
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the system.
+            // - `update_archetype_component_access` has been called for system.
+            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            if !valid_params {
+                warn_system_skipped!("System", system.name());
+                self.skipped_systems.insert(system_index);
+            }
+            should_run &= valid_params;
         }
-
-        should_run &= valid_params;
 
         should_run
     }

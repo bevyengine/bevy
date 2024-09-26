@@ -5,13 +5,12 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
-use crate::camera::NormalizedRenderTarget;
-use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, TemporalJitter,
+        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,

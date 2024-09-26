@@ -26,7 +26,6 @@ struct CommandMeta {
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
-//
 // NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these

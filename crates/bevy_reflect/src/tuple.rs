@@ -1,16 +1,17 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
-    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
+    self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
+    FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    UnnamedField,
 };
-use crate::{PartialReflect, ReflectKind};
-use std::any::Any;
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use std::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [tuple-like] operations via [reflection].
 ///
@@ -152,7 +153,6 @@ impl TupleInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),

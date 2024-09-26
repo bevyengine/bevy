@@ -24,6 +24,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 }
 
 /// Implements `ExtractComponent` trait for a component.
+///
 /// The component must implement [`Clone`].
 /// The component will be extracted into the render world via cloning.
 /// Note that this only enables extraction of the component, it does not execute the extraction.
