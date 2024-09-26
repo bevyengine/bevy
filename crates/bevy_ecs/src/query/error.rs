@@ -58,7 +58,7 @@ fn format_archetype(
     world: UnsafeWorldCell<'_>,
     entity: Entity,
 ) -> std::fmt::Result {
-    // We know entity is still life
+    // We know entity is still alive
     let entity = world
         .get_entity(entity)
         .expect("entity does not belong to world");
