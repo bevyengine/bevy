@@ -1,11 +1,15 @@
-//! An implementation of the Bevy Remote Protocol over HTTP and JSON, to allow
+//! An implementation of the Bevy Remote Protocol over HTTP and JSON or JS bindings, to allow
 //! for remote control of a Bevy app.
 //!
-//! Adding the [`RemotePlugin`] to your [`App`] causes Bevy to accept
+//! Adding the [`RemotePlugin`] to your [`App`] when not targeting WASM causes Bevy to accept
 //! connections over HTTP (by default, on port 15702) while your app is running.
 //! These *remote clients* can inspect and alter the state of the
 //! entity-component system. Clients are expected to `POST` JSON requests to the
 //! root URL; see the `client` example for a trivial example of use.
+//!
+//! If you're targeting WASM the HTTP server will not be start however how will gain access to
+//! the JS bindings. Building for WASM with this crate exports a new function, `brpRequest`.
+//! It takes a JS object identical to the HTTP bodies.
 //!
 //! The Bevy Remote Protocol is based on the JSON-RPC 2.0 protocol.
 //!
@@ -912,7 +916,7 @@ mod js {
     use wasm_bindgen::prelude::wasm_bindgen;
     use wasm_bindgen::JsValue;
 
-    /// A lock container the sender for the [`super::BrpMailbox`] used by the JS bindings.
+    /// A lock containing the sender for the [`super::BrpMailbox`] used by the JS bindings.
     static MESSAGE_SENDER: OnceLock<Sender<BrpMessage>> = OnceLock::new();
 
     /// A system that sets up the static [`MESSAGE_SENDER`] for the Bevy Remote Protocol JS bindings.
