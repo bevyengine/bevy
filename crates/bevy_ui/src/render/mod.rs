@@ -3,7 +3,6 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::DefaultUiCamera;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{
