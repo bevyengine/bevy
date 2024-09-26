@@ -903,6 +903,7 @@ mod http {
     }
 }
 
+#[cfg(feature = "js")]
 mod js {
     use crate::{BrpMessage, BrpRequest, BrpResponse, BrpSender};
     use async_channel::Sender;
