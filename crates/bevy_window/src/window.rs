@@ -1,7 +1,7 @@
-use std::{num::NonZero, option};
+use std::num::NonZero;
 
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, IterEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
@@ -58,25 +58,18 @@ impl WindowRef {
     }
 }
 
-impl<'a> IntoIterator for &'a WindowRef {
-    type Item = <Self::IntoIter as Iterator>::Item;
-    type IntoIter = option::IntoIter<&'a Entity>;
-    fn into_iter(self) -> Self::IntoIter {
+impl IterEntities for WindowRef {
+    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         match self {
-            WindowRef::Primary => None,
-            WindowRef::Entity(entity) => Some(entity),
+            Self::Primary => None,
+            Self::Entity(entity) => Some(*entity),
         }
         .into_iter()
     }
-}
-
-impl<'a> IntoIterator for &'a mut WindowRef {
-    type Item = <Self::IntoIter as Iterator>::Item;
-    type IntoIter = option::IntoIter<&'a mut Entity>;
-    fn into_iter(self) -> Self::IntoIter {
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
         match self {
-            WindowRef::Primary => None,
-            WindowRef::Entity(entity) => Some(entity),
+            Self::Primary => None,
+            Self::Entity(entity) => Some(entity),
         }
         .into_iter()
     }
