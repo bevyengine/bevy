@@ -123,6 +123,7 @@ impl GpuReadbackBufferPool {
         buffer
     }
 
+	// Returns the buffer to the pool so it can be used in a future frame
     fn return_buffer(&mut self, buffer: &Buffer) {
         let size = buffer.size();
         let buffers = self
