@@ -1866,7 +1866,7 @@ mod tests {
     #[test]
     fn can_transmute_empty_tuple() {
         let mut world = World::new();
-        world.init_component::<A>();
+        world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
         let q = world.query::<()>();
@@ -1922,8 +1922,8 @@ mod tests {
     )]
     fn cannot_transmute_to_include_data_not_in_original_query() {
         let mut world = World::new();
-        world.init_component::<A>();
-        world.init_component::<B>();
+        world.register_component::<A>();
+        world.register_component::<B>();
         world.spawn(A(0));
 
         let query_state = world.query::<&A>();
@@ -1962,7 +1962,7 @@ mod tests {
     )]
     fn cannot_transmute_entity_ref() {
         let mut world = World::new();
-        world.init_component::<A>();
+        world.register_component::<A>();
 
         let q = world.query::<EntityRef>();
         let _ = q.transmute::<&A>(&world);
@@ -2030,8 +2030,8 @@ mod tests {
     )]
     fn cannot_transmute_changed_without_access() {
         let mut world = World::new();
-        world.init_component::<A>();
-        world.init_component::<B>();
+        world.register_component::<A>();
+        world.register_component::<B>();
         let query = QueryState::<&A>::new(&mut world);
         let _new_query = query.transmute_filtered::<Entity, Changed<B>>(&world);
     }
@@ -2044,7 +2044,7 @@ mod tests {
         world.spawn((A(1), B(2)));
 
         let mut world2 = World::new();
-        world2.init_component::<B>();
+        world2.register_component::<B>();
 
         world.query::<(&A, &B)>().transmute::<&B>(&world2);
     }
@@ -2134,7 +2134,7 @@ mod tests {
             (&bevy_ecs::query::state::tests::A, ()) joined with (&bevy_ecs::query::state::tests::B, ()).")]
     fn cannot_join_wrong_fetch() {
         let mut world = World::new();
-        world.init_component::<C>();
+        world.register_component::<C>();
         let query_1 = QueryState::<&A>::new(&mut world);
         let query_2 = QueryState::<&B>::new(&mut world);
         let _query: QueryState<&C> = query_1.join(&world, &query_2);

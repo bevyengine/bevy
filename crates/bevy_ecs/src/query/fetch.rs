@@ -1188,7 +1188,7 @@ unsafe impl<T: Component> WorldQuery for &T {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1387,7 +1387,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1586,7 +1586,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1976,7 +1976,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {

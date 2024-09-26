@@ -125,13 +125,13 @@ impl Schedules {
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
     pub fn allow_ambiguous_component<T: Component>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.init_component::<T>());
+            .insert(world.register_component::<T>());
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Resource`]s of type `T`.
     pub fn allow_ambiguous_resource<T: Resource>(&mut self, world: &mut World) {
         self.ignored_scheduling_ambiguities
-            .insert(world.components.init_resource::<T>());
+            .insert(world.components.register_resource::<T>());
     }
 
     /// Iterate through the [`ComponentId`]'s that will be ignored.

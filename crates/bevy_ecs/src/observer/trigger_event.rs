@@ -16,14 +16,14 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
     pub(super) fn trigger(mut self, world: &mut World) {
-        let event_type = world.init_component::<E>();
+        let event_type = world.register_component::<E>();
         trigger_event(world, event_type, &mut self.event, self.targets);
     }
 }
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<&mut E, Targets> {
     pub(super) fn trigger_ref(self, world: &mut World) {
-        let event_type = world.init_component::<E>();
+        let event_type = world.register_component::<E>();
         trigger_event(world, event_type, self.event, self.targets);
     }
 }

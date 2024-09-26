@@ -651,7 +651,7 @@ impl ComponentInfo {
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// e.g. [`World::init_component`] or [`World::init_component_with_descriptor`]
+/// e.g. [`World::register_component`] or [`World::register_component_with_descriptor`]
 /// or a Resource with e.g. [`World::init_resource`],
 /// a corresponding `ComponentId` is created to track it.
 ///
@@ -836,16 +836,16 @@ pub struct Components {
 }
 
 impl Components {
-    /// Initializes a component of type `T` with this instance.
-    /// If a component of this type has already been initialized, this will return
+    /// Registers a component of type `T` with this instance.
+    /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
     ///
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::init_component_with_descriptor()`]
+    /// * [`Components::register_component_with_descriptor()`]
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let mut registered = false;
         let id = {
             let Components {
@@ -855,7 +855,7 @@ impl Components {
             } = self;
             let type_id = TypeId::of::<T>();
             *indices.entry(type_id).or_insert_with(|| {
-                let id = Components::init_component_inner(
+                let id = Components::register_component_inner(
                     components,
                     storages,
                     ComponentDescriptor::new::<T>(),
@@ -874,7 +874,7 @@ impl Components {
         id
     }
 
-    /// Initializes a component described by `descriptor`.
+    /// Registers a component described by `descriptor`.
     ///
     /// ## Note
     ///
@@ -884,17 +884,17 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::init_component()`]
-    pub fn init_component_with_descriptor(
+    /// * [`Components::register_component()`]
+    pub fn register_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        Components::register_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
-    fn init_component_inner(
+    fn register_component_inner(
         components: &mut Vec<ComponentInfo>,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
@@ -965,7 +965,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component()`].
+    /// yet been initialized using [`Components::register_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -975,7 +975,7 @@ impl Components {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.register_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
@@ -1003,7 +1003,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::init_resource()`].
+    /// yet been initialized using [`Components::register_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1027,31 +1027,31 @@ impl Components {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Initializes a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
+    /// Registers a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.
     ///
     /// # See also
     ///
     /// * [`Components::resource_id()`]
     #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
+    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
             })
         }
     }
 
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
+    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
+    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
@@ -1061,7 +1061,7 @@ impl Components {
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
-    unsafe fn get_or_insert_resource_with(
+    unsafe fn get_or_register_resource_with(
         &mut self,
         type_id: TypeId,
         func: impl FnOnce() -> ComponentDescriptor,
@@ -1292,7 +1292,7 @@ struct InitComponentId<T: Component> {
 impl<T: Component> FromWorld for InitComponentId<T> {
     fn from_world(world: &mut World) -> Self {
         Self {
-            component_id: world.init_component::<T>(),
+            component_id: world.register_component::<T>(),
             marker: PhantomData,
         }
     }
@@ -1383,7 +1383,7 @@ impl RequiredComponents {
         storages: &mut Storages,
         constructor: fn() -> C,
     ) {
-        let component_id = components.init_component::<C>(storages);
+        let component_id = components.register_component::<C>(storages);
         let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
             move |table,
                   sparse_sets,
