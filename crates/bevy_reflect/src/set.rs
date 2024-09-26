@@ -57,7 +57,8 @@ pub trait Set: PartialReflect {
     /// Returns an iterator over the values of the set.
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
-    /// Drain the values of this set to get a vector of owned values.
+    /// Drain the values of this set to get a vector of owned values. After calling this function,
+    /// `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
