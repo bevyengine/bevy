@@ -909,7 +909,7 @@ mod http {
 // Enable only on WASM
 #[cfg(target_family = "wasm")]
 mod js {
-    use crate::{BrpMessage, BrpRequest, BrpResponse, BrpSender};
+    use crate::{error_codes, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender};
     use async_channel::Sender;
     use bevy_ecs::system::Res;
     use std::sync::OnceLock;
@@ -926,8 +926,21 @@ mod js {
 
     /// A binding to JS that allows making BRP requests in a browser environment.
     #[wasm_bindgen(js_name = "brpRequest")]
-    pub async fn brp_js_binding(req: JsValue) -> JsValue {
-        let request: BrpRequest = serde_wasm_bindgen::from_value(req).unwrap();
+    pub async fn brp_js_binding(request: JsValue) -> JsValue {
+        let request: BrpRequest = match serde_wasm_bindgen::from_value(request) {
+            Ok(req) => req,
+            Err(err) => {
+                let response = BrpResponse::new(
+                    None,
+                    Err(BrpError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: format!("Invalid input: {err}"),
+                        data: None,
+                    }),
+                );
+                return serde_wasm_bindgen::to_value(&response).unwrap();
+            }
+        };
 
         let request_sender = MESSAGE_SENDER.get().unwrap();
         let (result_sender, result_receiver) = async_channel::bounded(1);
