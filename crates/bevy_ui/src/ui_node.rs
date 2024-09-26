@@ -58,6 +58,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in logical pixels
+    /// Padding updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) padding: BorderRect,
 }
 
 impl Node {
@@ -174,6 +179,11 @@ impl Node {
             bottom_left: clamp_corner(self.border_radius.bottom_right, s, b.zw()),
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
         }
+    }
+
+    #[inline]
+    pub fn padding(&self) -> BorderRect {
+        self.padding
     }
 }
 
