@@ -397,9 +397,9 @@ impl Plugin for RemotePlugin {
             .add_systems(
                 Startup,
                 (
-                    #[cfg(feature = "http")]
+                    #[cfg(not(target_family = "wasm"))]
                     http::start_http_server,
-                    #[cfg(feature = "js")]
+                    #[cfg(target_family = "wasm")]
                     js::setup_js_bindings,
                 ),
             )
@@ -728,10 +728,9 @@ fn process_remote_requests(world: &mut World) {
     }
 }
 
-#[cfg(feature = "http")]
+// Disable on WASM
+#[cfg(not(target_family = "wasm"))]
 mod http {
-    #[cfg(target_family = "wasm")]
-    compile_error!("The HTTP BRP transport must be disabled when targeting WASM");
 
     use crate::{
         error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender,
@@ -903,7 +902,8 @@ mod http {
     }
 }
 
-#[cfg(feature = "js")]
+// Enable only on WASM
+#[cfg(target_family = "wasm")]
 mod js {
     use crate::{BrpMessage, BrpRequest, BrpResponse, BrpSender};
     use async_channel::Sender;
@@ -912,7 +912,7 @@ mod js {
     use wasm_bindgen::prelude::wasm_bindgen;
     use wasm_bindgen::JsValue;
 
-    /// A lock container the sender for the [`BrpMailbox`] used by the JS bindings.
+    /// A lock container the sender for the [`super::BrpMailbox`] used by the JS bindings.
     static MESSAGE_SENDER: OnceLock<Sender<BrpMessage>> = OnceLock::new();
 
     /// A system that sets up the static [`MESSAGE_SENDER`] for the Bevy Remote Protocol JS bindings.
