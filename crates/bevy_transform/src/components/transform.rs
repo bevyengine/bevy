@@ -292,23 +292,23 @@ impl Transform {
         self.local_z()
     }
 
-    /// Moves the ['Transform'] within its local space using the provided translation vector.
+    /// Translates this [`Transform`] within its local space using the provided translation vector.
     ///
-    /// This method directly adjusts the ['Transform'] position using the `translation` vector,
-    /// without considering the ['Transform'] current rotation. The translation happens in the
-    /// ['Transform'] local coordinate system, meaning the movement occurs along its local
-    /// axes (`x`, `y`, and `z`), regardless of the ['Transform'] orientation.
+    /// This method directly adjusts the [`Transform`]'s translation using the `translation` vector,
+    /// without considering the [`Transform`]'s current rotation. The translation happens in the
+    /// [`Transform`]'s local coordinate system, meaning the movement occurs along its local
+    /// axes (`x`, `y`, and `z`), regardless of the [`Transform`]'s orientation.
     #[inline]
     pub fn translate(&mut self, translation: Vec3) {
         self.translation += translation;
     }
 
-    /// Moves the ['Transform'] within its local space, considering its rotation and orientation.
+    /// Translates this [`Transform`] within its local space, considering its rotation and orientation.
     ///
-    /// This method translates the ['Transform'] based on its current rotation, so the movement
-    /// happens relative to the direction the ['Transform'] is facing. The `translation` vector is
-    /// transformed by the ['Transform'] rotation, allowing for natural directional movement.
-    /// For instance, moving "forward" means moving along the ['Transform'] forward direction
+    /// This method translates this [`Transform`] based on its current rotation, so the movement
+    /// happens relative to the direction ths [`Transform`] is facing. The `translation` vector is
+    /// transformed by the [`Transform`]'s rotation, allowing for natural directional movement.
+    /// For instance, moving "forward" means moving along the [`Transform`]'s forward direction
     /// based on its current orientation, rather than just along the local z-axis.
     #[inline]
     pub fn translate_with_local_rotation(&mut self, translation: Vec3) {
