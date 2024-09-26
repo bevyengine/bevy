@@ -10,7 +10,7 @@ keywords = ["bevy"]
 readme = "README.md"
 
 [features]
-default = ["js"]
+default = ["http"]
 http = ["dep:async-io", "dep:smol-hyper"]
 js = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:serde-wasm-bindgen"]
 
