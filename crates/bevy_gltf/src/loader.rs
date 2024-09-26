@@ -3,11 +3,13 @@ use crate::{
     GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
-use bevy_animation::prelude::{
-    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
-};
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationTarget, AnimationTargetId};
+use bevy_animation::{
+    keyframes::{
+        Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
+    },
+    AnimationTarget, AnimationTargetId,
+};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
