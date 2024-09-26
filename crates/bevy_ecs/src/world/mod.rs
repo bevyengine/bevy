@@ -294,7 +294,7 @@ impl World {
     /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
     ///
     /// While the option to initialize a component from a descriptor is useful in type-erased
-    /// contexts, the standard `World::init_component` function should always be used instead
+    /// contexts, the standard [`World::register_component`] function should always be used instead
     /// when type information is available at compile time.
     pub fn register_component_with_descriptor(
         &mut self,
@@ -2444,7 +2444,7 @@ impl World {
     /// Initializes all of the components in the given [`Bundle`] and returns both the component
     /// ids and the bundle id.
     ///
-    /// This is largely equivalent to calling [`init_component`](Self::register_component) on each
+    /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
     pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
