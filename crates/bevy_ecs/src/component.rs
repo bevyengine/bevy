@@ -15,7 +15,7 @@ pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
 use std::{
@@ -598,7 +598,7 @@ pub struct ComponentInfo {
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
     required_components: RequiredComponents,
-    required_by: Vec<ComponentId>,
+    required_by: HashSet<ComponentId>,
 }
 
 impl ComponentInfo {
@@ -659,7 +659,7 @@ impl ComponentInfo {
             descriptor,
             hooks: Default::default(),
             required_components: Default::default(),
-            required_by: Vec::new(),
+            required_by: Default::default(),
         }
     }
 
@@ -1081,7 +1081,7 @@ impl Components {
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
-        required_by.push(requiree);
+        required_by.insert(requiree);
 
         /// Recursively finds all required components for a given component,
         /// adding them to the given `recursive_requires` list.
@@ -1148,7 +1148,7 @@ impl Components {
                 self.get_required_by_mut(component_id)
                     .debug_checked_unwrap()
             };
-            required_by.push(requiree);
+            required_by.insert(requiree);
         }
 
         // Propagate the new required components up the chain to all components that require the requiree.
@@ -1256,16 +1256,19 @@ impl Components {
         // SAFETY: The caller must ensure that the component ID is valid.
         //         Assuming it is valid, the component is in the list of required components, so it must exist already.
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
-        required_by.push(requiree);
+        required_by.insert(requiree);
     }
 
     #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&Vec<ComponentId>> {
+    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
         self.components.get(id.0).map(|info| &info.required_by)
     }
 
     #[inline]
-    pub(crate) fn get_required_by_mut(&mut self, id: ComponentId) -> Option<&mut Vec<ComponentId>> {
+    pub(crate) fn get_required_by_mut(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<&mut HashSet<ComponentId>> {
         self.components
             .get_mut(id.0)
             .map(|info| &mut info.required_by)
