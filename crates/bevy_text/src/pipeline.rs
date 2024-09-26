@@ -23,12 +23,15 @@ use crate::{
 /// A wrapper around a [`cosmic_text::FontSystem`]
 struct CosmicFontSystem(cosmic_text::FontSystem);
 
-impl Default for CosmicFontSystem {
-    fn default() -> Self {
+impl CosmicFontSystem {
+    pub fn new(load_system_fonts: bool) -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
-        let db = cosmic_text::fontdb::Database::new();
-        // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
-        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
+        let mut db = cosmic_text::fontdb::Database::new();
+        if load_system_fonts {
+            db.load_system_fonts();
+        }
+        let font_system = cosmic_text::FontSystem::new_with_locale_and_db(locale, db);
+        Self(font_system)
     }
 }
 
@@ -44,7 +47,7 @@ impl Default for SwashCache {
 /// The `TextPipeline` is used to layout and render [`Text`](crate::Text).
 ///
 /// See the [crate-level documentation](crate) for more information.
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
     map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
@@ -60,6 +63,23 @@ pub struct TextPipeline {
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(&'static str, Attrs<'static>)>,
+}
+
+impl TextPipeline {
+    /// Create text pipeline providing a flag for loading system fonts
+    pub fn new(load_system_fonts: bool) -> Self {
+        TextPipeline {
+            map_handle_to_font_id: HashMap::new(),
+            font_system: CosmicFontSystem::new(load_system_fonts),
+            swash_cache: SwashCache::default(),
+        }
+    }
+}
+
+impl Default for TextPipeline {
+    fn default() -> Self {
+        TextPipeline::new(false)
+    }
 }
 
 impl TextPipeline {
