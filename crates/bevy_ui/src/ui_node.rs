@@ -181,9 +181,23 @@ impl Node {
         }
     }
 
+    /// Returns the thickness of the node's padding on each edge in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
     pub fn padding(&self) -> BorderRect {
         self.padding
+    }
+
+    /// Returns the combined inset on each edge including both padding and border thickness.
+    #[inline]
+    pub fn content_inset(&self) -> BorderRect {
+        BorderRect {
+            left: self.border.left + self.padding.left,
+            right: self.border.right + self.padding.right,
+            top: self.border.top + self.padding.top,
+            bottom: self.border.bottom + self.border.bottom,
+        }
     }
 }
 
