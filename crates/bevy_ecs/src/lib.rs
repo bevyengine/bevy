@@ -2026,6 +2026,8 @@ mod tests {
 
     #[test]
     fn runtime_required_components() {
+        // Same as `required_components` test but with runtime registration
+
         #[derive(Component)]
         struct X;
 
@@ -2045,16 +2047,10 @@ mod tests {
             }
         }
 
-        fn new_z() -> Z {
-            Z(7)
-        }
-
         let mut world = World::new();
 
-        // - X requires Y with default constructor
-        // - Y requires Z with custom constructor
         world.register_component_requirement::<X, Y>();
-        world.register_component_requirement_with::<Y, Z>(new_z);
+        world.register_component_requirement_with::<Y, Z>(|| Z(7));
 
         let id = world.spawn(X).id();
 
@@ -2098,6 +2094,66 @@ mod tests {
             8,
             world.entity(id).get::<Z>().unwrap().0,
             "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_override_1() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - Y requires Z with custom constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        world.register_component_requirement::<X, Y>();
+        world.register_component_requirement_with::<Y, Z>(|| Z(5));
+        world.register_component_requirement_with::<X, Z>(|| Z(7));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_override_2() {
+        // Same as `runtime_required_components_override_override_1` test but with different registration order
+
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        // - Y requires Z with custom constructor
+        world.register_component_requirement::<X, Y>();
+        world.register_component_requirement_with::<X, Z>(|| Z(7));
+        world.register_component_requirement_with::<Y, Z>(|| Z(5));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
         );
     }
 

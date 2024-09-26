@@ -31,7 +31,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponentConstructor, Tick,
+        Components, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -308,11 +308,8 @@ impl World {
         &mut self,
         constructor: fn() -> R,
     ) {
-        let requiree = self.init_component::<T>();
-        let required = self.init_component::<R>();
-
         self.components
-            .register_component_requirement_with(required, requiree, constructor, 0);
+            .register_component_requirement_recursive::<T, R>(&mut self.storages, constructor);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.

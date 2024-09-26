@@ -224,7 +224,9 @@ unsafe impl<C: Component> Bundle for C {
         storages: &mut Storages,
         required_components: &mut RequiredComponents,
     ) {
+        let component_id = components.init_component::<C>(storages);
         <C as Component>::register_required_components(
+            component_id,
             components,
             storages,
             required_components,

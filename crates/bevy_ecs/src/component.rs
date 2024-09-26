@@ -341,6 +341,7 @@ pub trait Component: Send + Sync + 'static {
 
     /// Registers required components.
     fn register_required_components(
+        _component_id: ComponentId,
         _components: &mut Components,
         _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
@@ -871,7 +872,7 @@ impl Components {
         };
         if registered {
             let mut required_components = RequiredComponents::default();
-            T::register_required_components(self, storages, &mut required_components, 0);
+            T::register_required_components(id, self, storages, &mut required_components, 0);
             let info = &mut self.components[id.index()];
             T::register_component_hooks(&mut info.hooks);
             info.required_components = required_components;
@@ -967,30 +968,80 @@ impl Components {
             .map(|info| &mut info.required_components)
     }
 
-    /// Registers the given component `R` as a [required component] for `T`.
+    /// Recursively registers the given component `R` and its [required components] as required by `T`.
     ///
     /// When `T` is added to an entity, `R` will also be added if it was not already provided.
     /// The given `constructor` will be used for the creation of `R`.
     ///
-    /// If a [`Default`] constructor is desired, use [`World::register_component_requirement`] instead.
+    /// [required components]: Component#required-components
     ///
-    /// [required component]: Component#required-components
-    pub(crate) fn register_component_requirement_with<R: Component>(
+    /// # Panics
+    ///
+    /// Panics if the `required` component is already a directly required component for the `requiree`.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    pub(crate) fn register_component_requirement_recursive<T: Component, R: Component>(
+        &mut self,
+        storages: &mut Storages,
+        constructor: fn() -> R,
+    ) {
+        let requiree = self.init_component::<T>(storages);
+        let required = self.init_component::<R>(storages);
+
+        // SAFETY: We just created the components.
+        unsafe {
+            self.register_component_requirement_recursive_unchecked(
+                required,
+                requiree,
+                constructor,
+            );
+        };
+    }
+
+    /// Recursively registers the given component `R` and its [required components] as required by `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The given `constructor` will be used for the creation of `R`.
+    ///
+    /// [required components]: Component#required-components
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `required` and `requiree` must be valid.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `required` component is already a directly required component for the `requiree`.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, the more specific
+    /// registration will be used.
+    pub(crate) unsafe fn register_component_requirement_recursive_unchecked<R: Component>(
         &mut self,
         required: ComponentId,
         requiree: ComponentId,
         constructor: fn() -> R,
-        inheritance_depth: u16,
     ) {
-        // SAFETY: We just created this component
+        // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
                 .debug_checked_unwrap()
         };
 
+        // Cannot directly require the same component twice.
+        assert!(
+            !required_components
+                .0
+                .get(&required)
+                .is_some_and(|c| c.inheritance_depth == 0),
+            "Component {:?} is already a required component for {:?}",
+            required,
+            requiree
+        );
+
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
-        required_components.register_by_id(required, constructor, inheritance_depth);
+        required_components.register_by_id(required, constructor, 0);
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1000,15 +1051,16 @@ impl Components {
         /// Recursively finds all required components for a given component,
         /// adding them to the given `recursive_requires` list.
         ///
-        /// In the same pass, this will also update `required_by` to contain the given `required_by_id`
-        /// for each required component.
-        fn get_recursive_requires(
+        /// # Safety
+        ///
+        /// The given `id` must be valid.
+        unsafe fn get_recursive_requires(
             components: &Components,
             id: ComponentId,
             recursive_requires: &mut Vec<(ComponentId, RequiredComponent)>,
             depth: u16,
         ) {
-            // SAFETY: This component was created in the outer function.
+            // SAFETY: The caller ensures that the `id` is valid.
             let component_info = unsafe { components.get_info(id).debug_checked_unwrap() };
             let required_components = component_info
                 .required_components()
@@ -1030,13 +1082,12 @@ impl Components {
 
         let mut recursive_requires: Vec<(ComponentId, RequiredComponent)> = Vec::new();
 
-        // Recursively register all new required components for the requiree.
-        get_recursive_requires(
-            self,
-            required,
-            &mut recursive_requires,
-            inheritance_depth + 1,
-        );
+        // Recursively find all new required components for the requiree.
+        // The inheritance depth starts from `1` since these are components required by the original required component.
+        // SAFETY: The caller ensures that the `required` component is valid.
+        unsafe {
+            get_recursive_requires(self, required, &mut recursive_requires, 1);
+        };
 
         for (component_id, component) in recursive_requires.iter().cloned() {
             // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1067,7 +1118,6 @@ impl Components {
 
         // Propagate the new required components up the chain to all components that require the requiree.
 
-        // SAFETY: The component is in the list of required components, so it must exist already.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1077,10 +1127,12 @@ impl Components {
                 };
 
                 // Register the original required component for the requiree.
-                required_components.register_by_id(required, constructor, inheritance_depth + 1);
+                // The inheritance depth is `1` since this is a component required by the original requiree.
+                required_components.register_by_id(required, constructor, 1);
 
                 for (component_id, component) in recursive_requires.iter() {
-                    // Register the required component for the requiree.
+                    // Register the required component.
+                    // The inheritance depth is increased by `1` since this is a component required by the original required component.
                     // SAFETY: Component ID and constructor match the ones on the original requiree.
                     //         The original requiree is responsible for making sure the registration is safe.
                     unsafe {
@@ -1093,6 +1145,83 @@ impl Components {
                 }
             }
         }
+    }
+
+    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
+    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
+    //       which is private, and could be equally risky to expose to users.
+    /// Registers the given component `R` as a [required component] for `T`,
+    /// and adds `T` to the list of requirees for `R`.
+    ///
+    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
+    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
+    /// Lower depths are more specific requirements, and can override existing less specific registrations.
+    ///
+    /// This method does *not* recursively register required components for components required by `R`,
+    /// nor does it register them for components that require `T`.
+    ///
+    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_component_requirement`],
+    /// or the equivalent method in `bevy_app::App`.
+    ///
+    /// [required component]: Component#required-components
+    pub fn register_component_requirement_manual<T: Component, R: Component>(
+        &mut self,
+        storages: &mut Storages,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+    ) {
+        let requiree = self.init_component::<T>(storages);
+        let required = self.init_component::<R>(storages);
+
+        // SAFETY: We just created the components.
+        unsafe {
+            self.register_component_requirement_manual_unchecked::<R>(
+                requiree,
+                required,
+                required_components,
+                constructor,
+                inheritance_depth,
+            );
+        }
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`,
+    /// and adds `T` to the list of requirees for `R`.
+    ///
+    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
+    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
+    /// Lower depths are more specific requirements, and can override existing less specific registrations.
+    ///
+    /// This method does *not* recursively register required components for components required by `R`,
+    /// nor does it register them for components that require `T`.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `required` and `requiree` must be valid.
+    pub(crate) unsafe fn register_component_requirement_manual_unchecked<R: Component>(
+        &mut self,
+        requiree: ComponentId,
+        required: ComponentId,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+    ) {
+        // Components cannot require themselves.
+        if required == requiree {
+            return;
+        }
+
+        // Register the required component `R` for the requiree.
+        required_components.register_by_id(required, constructor, inheritance_depth);
+
+        // Add the requiree to the list of components that require `R`.
+        // SAFETY: The caller must ensure that the component ID is valid.
+        //         Assuming it is valid, the component is in the list of required components, so it must exist already.
+        let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+        required_by.push(requiree);
     }
 
     #[inline]
@@ -1553,7 +1682,7 @@ impl RequiredComponents {
             .entry(component_id)
             .and_modify(|component| {
                 if component.inheritance_depth > inheritance_depth {
-                    // Require is more specific than existing requirement
+                    // New registration is more specific than existing requirement
                     component.constructor = constructor.clone();
                     component.inheritance_depth = inheritance_depth;
                 }

@@ -82,19 +82,31 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         for require in requires {
             let ident = &require.path;
             register_recursive_requires.push(quote! {
-                <#ident as Component>::register_required_components(components, storages, required_components, 0);
+                <#ident as Component>::register_required_components(
+                    requiree,
+                    components,
+                    storages,
+                    required_components,
+                    inheritance_depth + 1
+                );
             });
             if let Some(func) = &require.func {
                 register_required.push(quote! {
-                    let requiree = components.init_component::<Self>(storages);
-                    let required = components.init_component::<#ident>(storages);
-                    components.register_component_requirement_with(requiree, required, || { let x: #ident = #func().into(); x }, inheritance_depth + 1);
+                    components.register_component_requirement_manual::<Self, #ident>(
+                        storages,
+                        required_components,
+                        || { let x: #ident = #func().into(); x },
+                        inheritance_depth
+                    );
                 });
             } else {
                 register_required.push(quote! {
-                    let requiree = components.init_component::<Self>(storages);
-                    let required = components.init_component::<#ident>(storages);
-                    components.register_component_requirement_with(requiree, required, <#ident as Default>::default, inheritance_depth + 1);
+                    components.register_component_requirement_manual::<Self, #ident>(
+                        storages,
+                        required_components,
+                        <#ident as Default>::default,
+                        inheritance_depth
+                    );
                 });
             }
         }
@@ -121,6 +133,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             fn register_required_components(
+                requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,
                 storages: &mut #bevy_ecs_path::storage::Storages,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
