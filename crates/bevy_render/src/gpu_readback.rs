@@ -25,6 +25,8 @@ use bevy_render_macros::ExtractComponent;
 use bevy_utils::{default, tracing::warn, HashMap};
 use wgpu::{CommandEncoder, COPY_BYTES_PER_ROW_ALIGNMENT};
 
+// Describes the number of frames a buffer can be unused before it is removed from the pool in
+// order to avoid unnecessary reallocations.
 const MAX_UNUSED_FRAMES: usize = 10;
 
 /// A plugin that enables reading back gpu buffers and textures to the cpu.
