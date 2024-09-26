@@ -269,6 +269,11 @@ pub struct CompleteLoadedAsset<A: Asset> {
 }
 
 impl<A: Asset> CompleteLoadedAsset<A> {
+    /// Take ownership of the stored [`Asset`] value.
+    pub fn take(self) -> A {
+        self.asset.value
+    }
+
     /// Returns the stored asset.
     pub fn get_asset(&self) -> &LoadedAsset<A> {
         &self.asset
@@ -298,6 +303,12 @@ pub struct CompleteErasedLoadedAsset {
 }
 
 impl CompleteErasedLoadedAsset {
+    /// Cast (and take ownership) of the [`Asset`] value of the given type. This will return
+    /// [`Some`] if the stored type matches `A` and [`None`] if it does not.
+    pub fn take<A: Asset>(self) -> Option<A> {
+        self.asset.take()
+    }
+
     /// Returns the stored asset.
     pub fn get_asset(&self) -> &ErasedLoadedAsset {
         &self.asset
