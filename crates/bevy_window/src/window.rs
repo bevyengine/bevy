@@ -1219,18 +1219,7 @@ pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::VisitEntities;
-
     use super::*;
-
-    // Compile-time assertion that a type implements MapEntitiesMut
-    fn impl_map_entities<M: VisitEntities>() {}
-
-    // Ensure that WidowRef implements MapEntitiesMut
-    #[test]
-    fn window_impls_map_entities() {
-        impl_map_entities::<WindowRef>();
-    }
 
     // Checks that `Window::physical_cursor_position` returns the cursor position if it is within
     // the bounds of the window.

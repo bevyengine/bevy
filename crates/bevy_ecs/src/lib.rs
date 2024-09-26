@@ -2053,7 +2053,8 @@ mod tests {
     #[derive(Component, IterEntities)]
     struct MyEntities {
         entities: Vec<Entity>,
-        entities2: Vec<Entity>,
+        another_one: Entity,
+        maybe_entity: Option<Entity>,
         #[iter_entities(ignore)]
         something_else: String,
     }

@@ -42,6 +42,24 @@ where
 ///
 /// It may be useful to implement directly for types that can't produce an
 /// iterator for lifetime reasons, such as those involving internal mutexes.
+///
+/// This trait is derivable for structs via `#[derive(IterEntities)]`. Fields
+/// not containing entities can be ignored with `#[iter_entities(ignore)]`.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_ecs::entity::{Entity, IterEntities};
+/// # use bevy_utils::hashbrown::HashSet;
+/// #[derive(IterEntities)]
+/// struct MyEntities {
+///     lots: Vec<Entity>,
+///     one: Entity,
+///     maybe: Option<Entity>,
+///     #[iter_entities(ignore)]
+///     not_an_entity: String,
+/// }
+/// ```
 pub trait IterEntities {
     /// Get an iterator over contained entities.
     fn iter_entities(&self) -> impl Iterator<Item = Entity>;
