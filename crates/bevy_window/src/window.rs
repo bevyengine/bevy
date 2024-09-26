@@ -1219,12 +1219,12 @@ pub struct ClosingWindow;
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs::entity::MapEntities;
+    use bevy_ecs::entity::VisitEntities;
 
     use super::*;
 
     // Compile-time assertion that a type implements MapEntitiesMut
-    fn impl_map_entities<M: MapEntities>() {}
+    fn impl_map_entities<M: VisitEntities>() {}
 
     // Ensure that WidowRef implements MapEntitiesMut
     #[test]

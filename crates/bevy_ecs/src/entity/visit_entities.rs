@@ -16,21 +16,21 @@ use super::EntityHashMap;
 ///
 /// It may be useful to implement directly for types that can't produce an
 /// iterator for lifetime reasons, such as those involving internal mutexes.
-pub trait MapEntities {
+pub trait VisitEntities {
     /// Apply an operation to all contained entities.
-    fn map_entities<F: FnMut(Entity)>(&self, f: F);
+    fn visit_entities<F: FnMut(Entity)>(&self, f: F);
     /// Apply an operation to mutable references to all entities.
-    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
 }
 
-impl<T> MapEntities for T
+impl<T> VisitEntities for T
 where
     T: IterEntities,
 {
-    fn map_entities<F: FnMut(Entity)>(&self, f: F) {
+    fn visit_entities<F: FnMut(Entity)>(&self, f: F) {
         self.iter_entities().for_each(f);
     }
-    fn map_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
         self.iter_entities_mut().for_each(f);
     }
 }
@@ -179,8 +179,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
 ///
 /// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
+/// [`Entity`]. After it is finished being used, this entity is despawned and the requisite number of generations reserved.
 pub struct SceneEntityMapper<'m> {
     /// A mapping from one set of entities to another.
     ///

@@ -130,7 +130,7 @@ impl DynamicScene {
                 "we should be getting TypeId from this TypeRegistration in the first place",
             );
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_world_entities(world, entity_map, &entities);
+                map_entities_reflect.map_entities(world, entity_map, &entities);
             }
         }
 
@@ -159,7 +159,7 @@ impl DynamicScene {
 
             // Map entities in the resource if it implements [`MapEntities`].
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntitiesResource>() {
-                map_entities_reflect.map_world_entities(world, entity_map);
+                map_entities_reflect.map_entities(world, entity_map);
             }
         }
 

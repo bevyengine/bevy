@@ -163,11 +163,11 @@ impl<'a> IntoIterator for &'a Children {
 
 #[cfg(test)]
 mod test {
-    use bevy_ecs::entity::MapEntities;
+    use bevy_ecs::entity::VisitEntities;
 
     use super::*;
 
-    fn assert_impls_map_entities<M: MapEntities>() {}
+    fn assert_impls_map_entities<M: VisitEntities>() {}
 
     #[test]
     fn children_impls_map_entities() {
