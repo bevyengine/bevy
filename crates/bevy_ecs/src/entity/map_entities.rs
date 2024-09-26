@@ -1,3 +1,5 @@
+use std::iter;
+
 use crate::{
     entity::Entity,
     identifier::masks::{IdentifierMask, HIGH_MASK},
@@ -62,11 +64,11 @@ where
 
 impl IterEntities for Entity {
     fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-        Some(self).into_iter()
+        iter::once(self)
     }
 
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-        Some(*self).into_iter()
+        iter::once(*self)
     }
 }
 
