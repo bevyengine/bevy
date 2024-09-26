@@ -191,7 +191,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -302,7 +302,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -730,7 +730,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
@@ -948,7 +948,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {

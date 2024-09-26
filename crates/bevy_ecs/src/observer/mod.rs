@@ -733,7 +733,7 @@ mod tests {
         world.flush();
 
         let mut event = EventWithData { counter: 0 };
-        let component_a = world.init_component::<A>();
+        let component_a = world.register_component::<A>();
         world.trigger_targets_ref(&mut event, component_a);
         assert_eq!(5, event.counter);
     }
@@ -756,7 +756,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.init_component::<OnRemove>();
+        let on_remove = world.register_component::<OnRemove>();
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
@@ -779,8 +779,8 @@ mod tests {
     fn observer_multiple_components() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        world.init_component::<A>();
-        world.init_component::<B>();
+        world.register_component::<A>();
+        world.register_component::<B>();
 
         world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| res.observed("add_ab"));
 
@@ -883,7 +883,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let component_id = world.init_component::<A>();
+        let component_id = world.register_component::<A>();
         world.spawn(
             Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<Order>| res.observed("event_a"))
                 .with_component(component_id),
@@ -905,7 +905,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = world.init_component::<EventA>();
+        let event_a = world.register_component::<EventA>();
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA

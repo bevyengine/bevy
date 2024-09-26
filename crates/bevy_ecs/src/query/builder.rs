@@ -312,9 +312,9 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn((A(0), B(0))).id();
         let entity_b = world.spawn((A(0), C(0))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
-        let component_id_c = world.init_component::<C>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
+        let component_id_c = world.register_component::<C>();
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
             .with_id(component_id_a)
@@ -401,8 +401,8 @@ mod tests {
     fn builder_dynamic_components() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
 
         let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
             .ref_id(component_id_a)
