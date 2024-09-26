@@ -18,7 +18,7 @@ fn setup(
 ) {
     // camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 8.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
     // light
@@ -27,11 +27,11 @@ fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(8.0, 16.0, 8.0),
+        transform: Transform::from_xyz(0.0, 16.0, 8.0),
         ..default()
     });
 
-    let mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
+    let mesh = meshes.add(Cuboid::from_size(Vec3::splat(0.5)));
     let material = materials.add(Color::srgb_u8(124, 144, 255));
 
     // spawn 1000 cubes
