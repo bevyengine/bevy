@@ -245,38 +245,23 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
-#![cfg(not(target_family = "wasm"))]
-
 use std::{
     net::{IpAddr, Ipv4Addr},
     sync::RwLock,
 };
 
-use anyhow::Result as AnyhowResult;
+use async_channel::{Receiver, Sender};
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    system::{Commands, In, IntoSystem, Res, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, Resource, System, SystemId},
     world::World,
 };
 use bevy_reflect::Reflect;
-use bevy_tasks::IoTaskPool;
 use bevy_utils::{prelude::default, HashMap};
-use http_body_util::{BodyExt as _, Full};
-use hyper::{
-    body::{Bytes, Incoming},
-    server::conn::http1,
-    service, Request, Response,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use smol::{
-    channel::{self, Receiver, Sender},
-    Async,
-};
-use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::net::{TcpListener, TcpStream};
 
 pub mod builtin_methods;
 
@@ -408,7 +393,16 @@ impl Plugin for RemotePlugin {
         app.insert_resource(HostAddress(self.address))
             .insert_resource(HostPort(self.port))
             .insert_resource(remote_methods)
-            .add_systems(Startup, start_server)
+            .add_systems(PreStartup, setup_mailbox_channel)
+            .add_systems(
+                Startup,
+                (
+                    #[cfg(feature = "http")]
+                    http::start_http_server,
+                    #[cfg(feature = "js")]
+                    js::setup_js_bindings,
+                ),
+            )
             .add_systems(Update, process_remote_requests);
     }
 }
@@ -675,6 +669,10 @@ pub struct BrpMessage {
     pub sender: Sender<BrpResult>,
 }
 
+/// A resource holder the matching sender for the [`BrpMailbox`]'s receiver.
+#[derive(Debug, Resource, Deref, DerefMut)]
+pub struct BrpSender(Sender<BrpMessage>);
+
 /// A resource that receives messages sent by Bevy Remote Protocol clients.
 ///
 /// Every frame, the `process_remote_requests` system drains this mailbox and
@@ -682,15 +680,11 @@ pub struct BrpMessage {
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
-/// A system that starts up the Bevy Remote Protocol server.
-fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<HostPort>) {
+fn setup_mailbox_channel(mut commands: Commands) {
     // Create the channel and the mailbox.
-    let (request_sender, request_receiver) = channel::bounded(CHANNEL_SIZE);
+    let (request_sender, request_receiver) = async_channel::bounded(CHANNEL_SIZE);
+    commands.insert_resource(BrpSender(request_sender));
     commands.insert_resource(BrpMailbox(request_receiver));
-
-    IoTaskPool::get()
-        .spawn(server_main(address.0, remote_port.0, request_sender))
-        .detach();
 }
 
 /// A system that receives requests placed in the [`BrpMailbox`] and processes
@@ -709,7 +703,7 @@ fn process_remote_requests(world: &mut World) {
         let methods = world.resource::<RemoteMethods>();
 
         let Some(handler) = methods.0.get(&message.method) else {
-            let _ = message.sender.send_blocking(Err(BrpError {
+            let _ = message.sender.force_send(Err(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
                 message: format!("Method `{}` not found", message.method),
                 data: None,
@@ -721,7 +715,7 @@ fn process_remote_requests(world: &mut World) {
         let result = match world.run_system_with_input(*handler, message.params) {
             Ok(result) => result,
             Err(error) => {
-                let _ = message.sender.send_blocking(Err(BrpError {
+                let _ = message.sender.force_send(Err(BrpError {
                     code: error_codes::INTERNAL_ERROR,
                     message: format!("Failed to run method handler: {error}"),
                     data: None,
@@ -730,139 +724,219 @@ fn process_remote_requests(world: &mut World) {
             }
         };
 
-        let _ = message.sender.send_blocking(result);
+        let _ = message.sender.force_send(result);
     }
 }
 
-/// The Bevy Remote Protocol server main loop.
-async fn server_main(
-    address: IpAddr,
-    port: u16,
-    request_sender: Sender<BrpMessage>,
-) -> AnyhowResult<()> {
-    listen(
-        Async::<TcpListener>::bind((address, port))?,
-        &request_sender,
-    )
-    .await
-}
+#[cfg(feature = "http")]
+mod http {
+    #[cfg(target_family = "wasm")]
+    compile_error!("The HTTP BRP transport must be disabled when targeting WASM");
 
-async fn listen(
-    listener: Async<TcpListener>,
-    request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<()> {
-    loop {
-        let (client, _) = listener.accept().await?;
+    use crate::{
+        error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender,
+        HostAddress, HostPort,
+    };
+    use anyhow::Result as AnyhowResult;
+    use async_channel::Sender;
+    use async_io::Async;
+    use bevy_ecs::system::Res;
+    use bevy_tasks::IoTaskPool;
+    use http_body_util::{BodyExt as _, Full};
+    use hyper::{
+        body::{Bytes, Incoming},
+        server::conn::http1,
+        service, Request, Response,
+    };
+    use serde_json::Value;
+    use smol_hyper::rt::{FuturesIo, SmolTimer};
+    use std::net::IpAddr;
+    use std::net::TcpListener;
+    use std::net::TcpStream;
 
-        let request_sender = request_sender.clone();
+    /// A system that starts up the Bevy Remote Protocol HTTP server.
+    pub fn start_http_server(
+        request_sender: Res<BrpSender>,
+        address: Res<HostAddress>,
+        remote_port: Res<HostPort>,
+    ) {
         IoTaskPool::get()
-            .spawn(async move {
-                let _ = handle_client(client, request_sender).await;
-            })
+            .spawn(server_main(
+                address.0,
+                remote_port.0,
+                request_sender.clone(),
+            ))
             .detach();
     }
-}
 
-async fn handle_client(
-    client: Async<TcpStream>,
-    request_sender: Sender<BrpMessage>,
-) -> AnyhowResult<()> {
-    http1::Builder::new()
-        .timer(SmolTimer::new())
-        .serve_connection(
-            FuturesIo::new(client),
-            service::service_fn(|request| process_request_batch(request, &request_sender)),
+    /// The Bevy Remote Protocol server main loop.
+    async fn server_main(
+        address: IpAddr,
+        port: u16,
+        request_sender: Sender<BrpMessage>,
+    ) -> AnyhowResult<()> {
+        listen(
+            Async::<TcpListener>::bind((address, port))?,
+            &request_sender,
         )
-        .await?;
+        .await
+    }
 
-    Ok(())
-}
+    async fn listen(
+        listener: Async<TcpListener>,
+        request_sender: &Sender<BrpMessage>,
+    ) -> AnyhowResult<()> {
+        loop {
+            let (client, _) = listener.accept().await?;
 
-/// A helper function for the Bevy Remote Protocol server that handles a batch
-/// of requests coming from a client.
-async fn process_request_batch(
-    request: Request<Incoming>,
-    request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<Response<Full<Bytes>>> {
-    let batch_bytes = request.into_body().collect().await?.to_bytes();
-    let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
-
-    let serialized = match batch {
-        Ok(BrpBatch::Single(request)) => {
-            serde_json::to_string(&process_single_request(request, request_sender).await?)?
+            let request_sender = request_sender.clone();
+            IoTaskPool::get()
+                .spawn(async move {
+                    let _ = handle_client(client, request_sender).await;
+                })
+                .detach();
         }
-        Ok(BrpBatch::Batch(requests)) => {
-            let mut responses = Vec::new();
+    }
 
-            for request in requests {
-                responses.push(process_single_request(request, request_sender).await?);
+    async fn handle_client(
+        client: Async<TcpStream>,
+        request_sender: Sender<BrpMessage>,
+    ) -> AnyhowResult<()> {
+        http1::Builder::new()
+            .timer(SmolTimer::new())
+            .serve_connection(
+                FuturesIo::new(client),
+                service::service_fn(|request| process_request_batch(request, &request_sender)),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// A helper function for the Bevy Remote Protocol server that handles a batch
+    /// of requests coming from a client.
+    async fn process_request_batch(
+        request: Request<Incoming>,
+        request_sender: &Sender<BrpMessage>,
+    ) -> AnyhowResult<Response<Full<Bytes>>> {
+        let batch_bytes = request.into_body().collect().await?.to_bytes();
+        let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
+
+        let serialized = match batch {
+            Ok(BrpBatch::Single(request)) => {
+                serde_json::to_string(&process_single_request(request, request_sender).await?)?
             }
+            Ok(BrpBatch::Batch(requests)) => {
+                let mut responses = Vec::new();
 
-            serde_json::to_string(&responses)?
-        }
-        Err(err) => {
-            let err = BrpResponse::new(
-                None,
-                Err(BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: err.to_string(),
-                    data: None,
-                }),
-            );
+                for request in requests {
+                    responses.push(process_single_request(request, request_sender).await?);
+                }
 
-            serde_json::to_string(&err)?
-        }
-    };
+                serde_json::to_string(&responses)?
+            }
+            Err(err) => {
+                let err = BrpResponse::new(
+                    None,
+                    Err(BrpError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: err.to_string(),
+                        data: None,
+                    }),
+                );
 
-    Ok(Response::new(Full::new(Bytes::from(
-        serialized.as_bytes().to_owned(),
-    ))))
-}
+                serde_json::to_string(&err)?
+            }
+        };
 
-/// A helper function for the Bevy Remote Protocol server that processes a single
-/// request coming from a client.
-async fn process_single_request(
-    request: Value,
-    request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<BrpResponse> {
-    // Reach in and get the request ID early so that we can report it even when parsing fails.
-    let id = request.as_object().and_then(|map| map.get("id")).cloned();
+        Ok(Response::new(Full::new(Bytes::from(
+            serialized.as_bytes().to_owned(),
+        ))))
+    }
 
-    let request: BrpRequest = match serde_json::from_value(request) {
-        Ok(v) => v,
-        Err(err) => {
+    /// A helper function for the Bevy Remote Protocol server that processes a single
+    /// request coming from a client.
+    async fn process_single_request(
+        request: Value,
+        request_sender: &Sender<BrpMessage>,
+    ) -> AnyhowResult<BrpResponse> {
+        // Reach in and get the request ID early so that we can report it even when parsing fails.
+        let id = request.as_object().and_then(|map| map.get("id")).cloned();
+
+        let request: BrpRequest = match serde_json::from_value(request) {
+            Ok(v) => v,
+            Err(err) => {
+                return Ok(BrpResponse::new(
+                    id,
+                    Err(BrpError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: err.to_string(),
+                        data: None,
+                    }),
+                ));
+            }
+        };
+
+        if request.jsonrpc != "2.0" {
             return Ok(BrpResponse::new(
                 id,
                 Err(BrpError {
                     code: error_codes::INVALID_REQUEST,
-                    message: err.to_string(),
+                    message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
                     data: None,
                 }),
             ));
         }
-    };
 
-    if request.jsonrpc != "2.0" {
-        return Ok(BrpResponse::new(
-            id,
-            Err(BrpError {
-                code: error_codes::INVALID_REQUEST,
-                message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
-                data: None,
-            }),
-        ));
+        let (result_sender, result_receiver) = async_channel::bounded(1);
+
+        let _ = request_sender
+            .send(BrpMessage {
+                method: request.method,
+                params: request.params,
+                sender: result_sender,
+            })
+            .await;
+
+        let result = result_receiver.recv().await?;
+        Ok(BrpResponse::new(request.id, result))
+    }
+}
+
+mod js {
+    use crate::{BrpMessage, BrpRequest, BrpResponse, BrpSender};
+    use bevy_ecs::system::Res;
+    use async_channel::Sender;
+    use std::sync::OnceLock;
+    use wasm_bindgen::prelude::wasm_bindgen;
+    use wasm_bindgen::JsValue;
+
+    /// A lock container the sender for the [`BrpMailbox`] used by the JS bindings.
+    static MESSAGE_SENDER: OnceLock<Sender<BrpMessage>> = OnceLock::new();
+
+    /// A system that sets up the static [`MESSAGE_SENDER`] for the Bevy Remote Protocol JS bindings.
+    pub fn setup_js_bindings(request_sender: Res<BrpSender>) {
+        let _ = MESSAGE_SENDER.set(request_sender.clone());
     }
 
-    let (result_sender, result_receiver) = channel::bounded(1);
+    /// A binding to JS that allows making BRP requests in a browser envrionment.
+    #[wasm_bindgen(js_name = "brpRequest")]
+    pub async fn brp_js_binding(req: JsValue) -> JsValue {
+        let request: BrpRequest = serde_wasm_bindgen::from_value(req).unwrap();
 
-    let _ = request_sender
-        .send(BrpMessage {
-            method: request.method,
-            params: request.params,
-            sender: result_sender,
-        })
-        .await;
+        let request_sender = MESSAGE_SENDER.get().unwrap();
+        let (result_sender, result_receiver) = async_channel::bounded(1);
 
-    let result = result_receiver.recv().await?;
-    Ok(BrpResponse::new(request.id, result))
+        let _ = request_sender
+            .send(BrpMessage {
+                method: request.method,
+                params: request.params,
+                sender: result_sender,
+            })
+            .await;
+
+        let result = result_receiver.recv().await.unwrap();
+        let response = BrpResponse::new(request.id, result);
+        serde_wasm_bindgen::to_value(&response).unwrap()
+    }
 }
