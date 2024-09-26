@@ -234,7 +234,7 @@ use std::{
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
 /// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
 ///
-/// ## Registering required romponents at runtime
+/// ## Registering required components at runtime
 ///
 /// In most cases, required components should be registered using the `require` attribute as shown above.
 /// However, in some cases, it may be useful to register required components at runtime.
