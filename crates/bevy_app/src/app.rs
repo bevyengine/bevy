@@ -773,6 +773,7 @@ impl App {
     /// # Example
     ///
     /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component)]
     /// struct A;
@@ -780,12 +781,11 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct B(usize);
     ///
-    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new()
-    /// #     .add_plugins(MinimalPlugins)
-    /// #     .add_systems(Startup, setup);
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
     /// app.register_required_components::<A, B>();
     /// app.register_required_components::<B, C>();
@@ -828,6 +828,7 @@ impl App {
     /// # Example
     ///
     /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
     /// # use bevy_ecs::prelude::*;
     /// #[derive(Component)]
     /// struct A;
@@ -838,9 +839,8 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new()
-    /// #     .add_plugins(MinimalPlugins)
-    /// #     .add_systems(Startup, setup);
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
     /// app.register_required_components::<A, B>();
