@@ -664,7 +664,7 @@ pub struct BrpMessage {
     pub sender: Sender<BrpResult>,
 }
 
-/// A resource holder the matching sender for the [`BrpMailbox`]'s receiver.
+/// A resource holding the matching sender for the [`BrpMailbox`]'s receiver.
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpSender(Sender<BrpMessage>);
 
@@ -723,10 +723,9 @@ fn process_remote_requests(world: &mut World) {
     }
 }
 
-// Disable on WASM
+/// The HTTP transport using JSON-RPC bodies.
 #[cfg(not(target_family = "wasm"))]
 mod http {
-
     use crate::{
         error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender,
         HostAddress, HostPort,
