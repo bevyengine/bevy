@@ -261,7 +261,7 @@ impl World {
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>(&mut self.storages)
     }
@@ -287,13 +287,13 @@ impl World {
         self.components.get_hooks_mut(id)
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     ///
     /// This method differs from [`World::register_component`] in that it uses a [`ComponentDescriptor`]
-    /// to initialize the new component type instead of statically available type information. This
-    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    /// to register the new component type instead of statically available type information. This
+    /// enables the dynamic registration of new component definitions at runtime for advanced use cases.
     ///
-    /// While the option to initialize a component from a descriptor is useful in type-erased
+    /// While the option to register a component from a descriptor is useful in type-erased
     /// contexts, the standard [`World::register_component`] function should always be used instead
     /// when type information is available at compile time.
     pub fn register_component_with_descriptor(
@@ -2441,7 +2441,7 @@ impl World {
         self.storages.non_send_resources.clear();
     }
 
-    /// Initializes all of the components in the given [`Bundle`] and returns both the component
+    /// Registers all of the components in the given [`Bundle`] and returns both the component
     /// ids and the bundle id.
     ///
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each

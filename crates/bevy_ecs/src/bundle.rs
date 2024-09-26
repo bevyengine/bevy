@@ -1318,9 +1318,9 @@ impl Bundles {
         self.bundle_ids.get(&type_id).cloned()
     }
 
-    /// Initializes a new [`BundleInfo`] for a statically known type.
+    /// Registers a new [`BundleInfo`] for a statically known type.
     ///
-    /// Also initializes all the components in the bundle.
+    /// Also registers all the components in the bundle.
     pub(crate) fn register_info<T: Bundle>(
         &mut self,
         components: &mut Components,

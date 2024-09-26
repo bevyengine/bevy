@@ -837,8 +837,8 @@ pub struct Components {
 }
 
 impl Components {
-    /// Initializes a component of type `T` with this instance.
-    /// If a component of this type has already been initialized, this will return
+    /// Registers a component of type `T` with this instance.
+    /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
     ///
     /// # See also
@@ -875,7 +875,7 @@ impl Components {
         id
     }
 
-    /// Initializes a component described by `descriptor`.
+    /// Registers a component described by `descriptor`.
     ///
     /// ## Note
     ///
@@ -1028,8 +1028,8 @@ impl Components {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Initializes a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
+    /// Registers a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.
     ///
     /// # See also
@@ -1045,8 +1045,8 @@ impl Components {
         }
     }
 
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
+    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
     /// the ID of the pre-existing resource.
     #[inline]
     pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
