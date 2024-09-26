@@ -1,15 +1,12 @@
 //! An implementation of the Bevy Remote Protocol over HTTP and JSON or JS bindings, to allow
 //! for remote control of a Bevy app.
 //!
-//! Adding the [`RemotePlugin`] to your [`App`] when not targeting WASM causes Bevy to accept
+//! Adding the [`RemotePlugin`] to your [`App`] causes Bevy to accept
 //! connections over HTTP (by default, on port 15702) while your app is running.
 //! These *remote clients* can inspect and alter the state of the
 //! entity-component system. Clients are expected to `POST` JSON requests to the
-//! root URL; see the `client` example for a trivial example of use.
-//!
-//! If you're targeting WASM the HTTP server will not be start however how will gain access to
-//! the JS bindings. Building for WASM with this crate exports a new function, `brpRequest`.
-//! It takes a JS object identical to the HTTP bodies.
+//! root URL; see the `client` example for a trivial example of use. Please note
+//! that when targeting WASM no server will start.
 //!
 //! The Bevy Remote Protocol is based on the JSON-RPC 2.0 protocol.
 //!
@@ -403,8 +400,6 @@ impl Plugin for RemotePlugin {
                 (
                     #[cfg(not(target_family = "wasm"))]
                     http::start_http_server,
-                    #[cfg(target_family = "wasm")]
-                    js::setup_js_bindings,
                 ),
             )
             .add_systems(Update, process_remote_requests);
@@ -906,66 +901,3 @@ mod http {
     }
 }
 
-// Enable only on WASM
-#[cfg(target_family = "wasm")]
-mod js {
-    use crate::{error_codes, BrpError, BrpMessage, BrpResult, BrpSender};
-    use async_channel::Sender;
-    use bevy_ecs::system::Res;
-    use std::sync::OnceLock;
-    use wasm_bindgen::prelude::wasm_bindgen;
-    use wasm_bindgen::JsValue;
-
-    /// A lock containing the sender for the [`super::BrpMailbox`] used by the JS bindings.
-    static MESSAGE_SENDER: OnceLock<Sender<BrpMessage>> = OnceLock::new();
-
-    /// A system that sets up the static [`MESSAGE_SENDER`] for the Bevy Remote Protocol JS bindings.
-    pub fn setup_js_bindings(request_sender: Res<BrpSender>) {
-        let _ = MESSAGE_SENDER.set(request_sender.clone());
-    }
-
-    /// A binding to JS that allows making BRP requests in a browser environment. If
-    /// the selected method does not need any params it should be left as undefined.
-    /// A successful request will return an array of results and if an error occurs
-    /// an object will be returned with an error code and a human readable message.
-    #[wasm_bindgen(js_name = "brpRequest")]
-    pub async fn brp_js_binding(method: String, params: JsValue) -> JsValue {
-        let result = process_request(method, params).await;
-        match result {
-            Ok(value) => serde_wasm_bindgen::to_value(&value).unwrap(),
-            Err(err) => serde_wasm_bindgen::to_value(&err).unwrap(),
-        }
-    }
-
-    async fn process_request(method: String, params: JsValue) -> BrpResult {
-        let params = if !params.is_undefined() {
-            Some(
-                serde_wasm_bindgen::from_value(params).map_err(|err| BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: format!("Invalid params: {err}"),
-                    data: None,
-                })?,
-            )
-        } else {
-            None
-        };
-
-        let request_sender = MESSAGE_SENDER
-            .get()
-            .ok_or(BrpError::internal("Failed to get message sender"))?;
-        let (result_sender, result_receiver) = async_channel::bounded(1);
-
-        let _ = request_sender
-            .send(BrpMessage {
-                method,
-                params,
-                sender: result_sender,
-            })
-            .await;
-
-        result_receiver
-            .recv()
-            .await
-            .map_err(|_| BrpError::internal("Failed to receive result"))?
-    }
-}

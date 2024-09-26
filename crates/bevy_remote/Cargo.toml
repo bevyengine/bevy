@@ -34,12 +34,6 @@ http-body-util = "0.1"
 async-io = "2"
 smol-hyper = "0.1"
 
-# js (WASM only)
-[target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-serde-wasm-bindgen = "0.6"
-
 [lints]
 workspace = true
 
