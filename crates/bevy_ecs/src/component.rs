@@ -652,7 +652,7 @@ impl ComponentInfo {
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
-/// e.g. [`World::init_component`] or [`World::init_component_with_descriptor`]
+/// e.g. [`World::register_component`] or [`World::register_component_with_descriptor`]
 /// or a Resource with e.g. [`World::init_resource`],
 /// a corresponding `ComponentId` is created to track it.
 ///
@@ -844,9 +844,9 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::init_component_with_descriptor()`]
+    /// * [`Components::register_component_with_descriptor()`]
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let mut registered = false;
         let id = {
             let Components {
@@ -885,8 +885,8 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::component_id()`]
-    /// * [`Components::init_component()`]
-    pub fn init_component_with_descriptor(
+    /// * [`Components::register_component()`]
+    pub fn register_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
@@ -966,7 +966,7 @@ impl Components {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component()`].
+    /// yet been initialized using [`Components::register_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -976,7 +976,7 @@ impl Components {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.register_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
@@ -1293,7 +1293,7 @@ struct InitComponentId<T: Component> {
 impl<T: Component> FromWorld for InitComponentId<T> {
     fn from_world(world: &mut World) -> Self {
         Self {
-            component_id: world.init_component::<T>(),
+            component_id: world.register_component::<T>(),
             marker: PhantomData,
         }
     }
@@ -1384,7 +1384,7 @@ impl RequiredComponents {
         storages: &mut Storages,
         constructor: fn() -> C,
     ) {
-        let component_id = components.init_component::<C>(storages);
+        let component_id = components.register_component::<C>(storages);
         let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
             move |table,
                   sparse_sets,

@@ -172,10 +172,10 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
+        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
+        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].
     ///
@@ -262,15 +262,15 @@ impl World {
     }
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
-        self.components.init_component::<T>(&mut self.storages)
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.components.register_component::<T>(&mut self.storages)
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
-        let index = self.init_component::<T>();
+        let index = self.register_component::<T>();
         assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
         // SAFETY: We just created this component
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
@@ -289,19 +289,19 @@ impl World {
 
     /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
     ///
-    /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
+    /// This method differs from [`World::register_component`] in that it uses a [`ComponentDescriptor`]
     /// to initialize the new component type instead of statically available type information. This
     /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
     ///
     /// While the option to initialize a component from a descriptor is useful in type-erased
     /// contexts, the standard `World::init_component` function should always be used instead
     /// when type information is available at compile time.
-    pub fn init_component_with_descriptor(
+    pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .init_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(&mut self.storages, descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -310,7 +310,7 @@ impl World {
     /// it was retrieved from and should not be used with another `World` instance.
     ///
     /// Returns [`None`] if the `Component` type has not yet been initialized within
-    /// the `World` using [`World::init_component`].
+    /// the `World` using [`World::register_component`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -320,7 +320,7 @@ impl World {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.register_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
@@ -2444,7 +2444,7 @@ impl World {
     /// Initializes all of the components in the given [`Bundle`] and returns both the component
     /// ids and the bundle id.
     ///
-    /// This is largely equivalent to calling [`init_component`](Self::init_component) on each
+    /// This is largely equivalent to calling [`init_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
     pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
@@ -3246,7 +3246,7 @@ mod tests {
             )
         };
 
-        let component_id = world.init_component_with_descriptor(descriptor);
+        let component_id = world.register_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
