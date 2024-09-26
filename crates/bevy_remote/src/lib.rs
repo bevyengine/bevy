@@ -919,7 +919,7 @@ mod js {
         let _ = MESSAGE_SENDER.set(request_sender.clone());
     }
 
-    /// A binding to JS that allows making BRP requests in a browser envrionment.
+    /// A binding to JS that allows making BRP requests in a browser environment.
     #[wasm_bindgen(js_name = "brpRequest")]
     pub async fn brp_js_binding(req: JsValue) -> JsValue {
         let request: BrpRequest = serde_wasm_bindgen::from_value(req).unwrap();
