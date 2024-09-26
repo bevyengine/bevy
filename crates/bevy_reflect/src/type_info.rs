@@ -1,7 +1,7 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
-    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
+    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -515,6 +515,7 @@ macro_rules! impl_type_methods {
     };
 }
 
+use crate::generics::impl_generic_info_methods;
 pub(crate) use impl_type_methods;
 
 /// A container for compile-time info related to reflection-opaque types, including primitives.
@@ -528,6 +529,7 @@ pub(crate) use impl_type_methods;
 #[derive(Debug, Clone)]
 pub struct OpaqueInfo {
     ty: Type,
+    generics: Generics,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -536,6 +538,7 @@ impl OpaqueInfo {
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -554,6 +557,8 @@ impl OpaqueInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 #[cfg(test)]

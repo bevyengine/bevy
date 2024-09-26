@@ -83,3 +83,18 @@ impl GenericInfo {
 
     impl_type_methods!(ty);
 }
+
+macro_rules! impl_generic_info_methods {
+    ($field:ident) => {
+        pub fn with_generics(mut self, generics: crate::generics::Generics) -> Self {
+            self.$field = generics;
+            self
+        }
+
+        pub fn generics(&self) -> &crate::generics::Generics {
+            &self.$field
+        }
+    };
+}
+
+pub(crate) use impl_generic_info_methods;

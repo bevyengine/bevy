@@ -3,9 +3,11 @@ use core::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
-    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, Generics,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -81,6 +83,7 @@ pub trait Set: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct SetInfo {
     ty: Type,
+    generics: Generics,
     value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -91,6 +94,7 @@ impl SetInfo {
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
+            generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -117,6 +121,8 @@ impl SetInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An ordered set of reflected values.
