@@ -153,11 +153,11 @@ impl<'a> IntoIterator for &'a mut Children {
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
-    type IntoIter = std::iter::Copied<slice::Iter<'a, Entity>>;
+    type IntoIter = slice::Iter<'a, Entity>;
 
     #[inline(always)]
     fn into_iter(self) -> Self::IntoIter {
-        self.0.iter().copied()
+        self.0.iter()
     }
 }
 

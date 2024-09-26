@@ -3,6 +3,7 @@ use crate::{
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
+pub use bevy_ecs_macros::IterEntities;
 
 use super::EntityHashMap;
 
@@ -65,10 +66,10 @@ pub trait IterEntities {
 
 impl<T> IterEntities for T
 where
-    for<'a> &'a T: IntoIterator<Item = Entity>,
+    for<'a> &'a T: IntoIterator<Item = &'a Entity>,
 {
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-        self.into_iter()
+        self.into_iter().copied()
     }
 }
 
@@ -94,6 +95,18 @@ where
 {
     fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
         self.into_iter()
+    }
+}
+
+impl IterEntitiesMut for Entity {
+    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+        Some(self).into_iter()
+    }
+}
+
+impl IterEntities for Entity {
+    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+        Some(*self).into_iter()
     }
 }
 

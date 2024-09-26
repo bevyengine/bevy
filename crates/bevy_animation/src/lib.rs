@@ -19,13 +19,15 @@ use std::{
     collections::BTreeMap,
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter, option,
+    iter,
 };
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::{prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept};
+use bevy_ecs::{
+    entity::IterEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
+};
 use bevy_math::FloatExt;
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,
@@ -523,12 +525,13 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect, IterEntities)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
+    #[iter_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
@@ -1286,22 +1289,6 @@ impl AnimationTargetId {
 impl From<&Name> for AnimationTargetId {
     fn from(name: &Name) -> Self {
         AnimationTargetId::from_name(name)
-    }
-}
-
-impl<'a> IntoIterator for &'a mut AnimationTarget {
-    type IntoIter = option::IntoIter<&'a mut Entity>;
-    type Item = <Self::IntoIter as Iterator>::Item;
-    fn into_iter(self) -> Self::IntoIter {
-        Some(&mut self.player).into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a AnimationTarget {
-    type IntoIter = option::IntoIter<Entity>;
-    type Item = <Self::IntoIter as Iterator>::Item;
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self.player).into_iter()
     }
 }
 

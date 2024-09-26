@@ -442,7 +442,7 @@ fn buttons_handler<T>(
     for (target, interaction, children) in visibility_button_query.iter_mut() {
         if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
-            for child in children {
+            for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
                     text.sections[0].value = target.update_target(target_value.as_mut());
                     text.sections[0].style.color = if text.sections[0].value.contains("None")
@@ -466,7 +466,7 @@ fn text_hover(
         match interaction {
             Interaction::Hovered => {
                 *color = Color::BLACK.with_alpha(0.6).into();
-                for child in children {
+                for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
                         text.bypass_change_detection().sections[0].style.color = YELLOW.into();
@@ -475,7 +475,7 @@ fn text_hover(
             }
             _ => {
                 *color = Color::BLACK.with_alpha(0.5).into();
-                for child in children {
+                for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         text.bypass_change_detection().sections[0].style.color =
                             if text.sections[0].value.contains("None")

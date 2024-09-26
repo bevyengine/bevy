@@ -180,6 +180,96 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+#[proc_macro_derive(IterEntities, attributes(iter_entities))]
+pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let ecs_path = bevy_ecs_path();
+
+    let named_fields = match get_struct_fields(&ast.data) {
+        Ok(fields) => fields,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    let field = named_fields
+        .iter()
+        .filter_map(|field| {
+            if let Some(attr) = field
+                .attrs
+                .iter()
+                .find(|a| a.path().is_ident("iter_entities"))
+            {
+                let ignore = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("ignore") {
+                        Ok(())
+                    } else {
+                        Err(meta.error("Invalid iter_entities attribute. Use `ignore`"))
+                    }
+                });
+                return match ignore {
+                    Ok(()) => None,
+                    Err(e) => Some(Err(e)),
+                };
+            }
+            Some(Ok(field))
+        })
+        .map(|res| res.map(|field| field.ident.as_ref()))
+        .collect::<Result<Vec<_>, _>>();
+
+    let field = match field {
+        Ok(field) => field,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    if field.is_empty() {
+        return syn::Error::new(
+            ast.span(),
+            "Invalid `IterEntities` type: at least one field",
+        )
+        .into_compile_error()
+        .into();
+    }
+
+    let field_access = field
+        .iter()
+        .enumerate()
+        .map(|(n, f)| {
+            if let Some(ident) = f {
+                quote! {
+                    self.#ident
+                }
+            } else {
+                let idx = Index::from(n);
+                quote! {
+                    self.#idx
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let first = &field_access[0];
+    let rest = &field_access[1..];
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #ecs_path::entity::IterEntities for #struct_name #ty_generics {
+            fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+                #first.iter_entities()
+                    #(.chain(#rest . iter_entities()))*
+            }
+        }
+
+        impl #impl_generics #ecs_path::entity::IterEntitiesMut for #struct_name #ty_generics {
+            fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
+                #first.iter_entities_mut()
+                    #(.chain(#rest . iter_entities_mut()))*
+            }
+        }
+    })
+}
+
 fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
     (0..count)
         .map(|i| Ident::new(&fmt_string(i), Span::call_site()))

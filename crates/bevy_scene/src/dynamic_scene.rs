@@ -208,11 +208,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::option;
-
     use bevy_ecs::{
         component::Component,
-        entity::{Entity, EntityHashMap, IterEntities, IterEntitiesMut},
+        entity::{Entity, EntityHashMap, IterEntities},
         reflect::{
             AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectMapEntitiesResource,
             ReflectResource,
@@ -226,25 +224,11 @@ mod tests {
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, Debug)]
+    #[derive(Resource, Reflect, Debug, IterEntities)]
     #[reflect(Resource, MapEntitiesResource)]
     struct TestResource {
         entity_a: Entity,
         entity_b: Entity,
-    }
-
-    impl IterEntitiesMut for TestResource {
-        fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-            Some(&mut self.entity_a)
-                .into_iter()
-                .chain(Some(&mut self.entity_b))
-        }
-    }
-
-    impl IterEntities for TestResource {
-        fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-            Some(self.entity_a).into_iter().chain(Some(self.entity_b))
-        }
     }
 
     #[test]
@@ -371,25 +355,9 @@ mod tests {
         #[reflect(Component)]
         struct A;
 
-        #[derive(Component, Reflect)]
+        #[derive(Component, Reflect, IterEntities)]
         #[reflect(Component, MapEntities)]
         struct B(pub Entity);
-
-        impl<'a> IntoIterator for &'a B {
-            type IntoIter = option::IntoIter<Entity>;
-            type Item = <Self::IntoIter as Iterator>::Item;
-            fn into_iter(self) -> Self::IntoIter {
-                Some(self.0).into_iter()
-            }
-        }
-
-        impl<'a> IntoIterator for &'a mut B {
-            type IntoIter = option::IntoIter<&'a mut Entity>;
-            type Item = <Self::IntoIter as Iterator>::Item;
-            fn into_iter(self) -> Self::IntoIter {
-                Some(&mut self.0).into_iter()
-            }
-        }
 
         let reg = AppTypeRegistry::default();
         {

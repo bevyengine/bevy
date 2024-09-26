@@ -87,6 +87,7 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
+    use bevy_ecs_macros::IterEntities;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
     use std::{
@@ -2047,4 +2048,17 @@ mod tests {
         field0: Simple,
         field1: ComponentB,
     }
+
+    #[allow(dead_code)]
+    #[derive(Component, IterEntities)]
+    struct MyEntities {
+        entities: Vec<Entity>,
+        entities2: Vec<Entity>,
+        #[iter_entities(ignore)]
+        something_else: String,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Component, IterEntities)]
+    struct MyEntitiesTuple(Vec<Entity>, Entity, #[iter_entities(ignore)] usize);
 }

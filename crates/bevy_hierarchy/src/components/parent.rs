@@ -2,11 +2,11 @@
 use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, IterEntities},
     traversal::Traversal,
     world::{FromWorld, World},
 };
-use std::{ops::Deref, option};
+use std::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
@@ -21,7 +21,7 @@ use std::{ops::Deref, option};
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq)]
+#[derive(Component, Debug, Eq, PartialEq, IterEntities)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
@@ -56,24 +56,6 @@ impl FromWorld for Parent {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::PLACEHOLDER)
-    }
-}
-
-impl<'a> IntoIterator for &'a Parent {
-    type Item = Entity;
-    type IntoIter = option::IntoIter<Entity>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(self.0).into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut Parent {
-    type Item = &'a mut Entity;
-    type IntoIter = option::IntoIter<&'a mut Entity>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Some(&mut self.0).into_iter()
     }
 }
 

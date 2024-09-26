@@ -403,7 +403,7 @@ pub fn ui_layout_system(
             }
 
             if let Ok(children) = children_query.get(entity) {
-                for child_uinode in children {
+                for &child_uinode in children {
                     update_uinode_geometry_recursive(
                         commands,
                         child_uinode,

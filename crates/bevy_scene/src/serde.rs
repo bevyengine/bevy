@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{Entity, EntityHashMap},
+        entity::{Entity, EntityHashMap, IterEntities},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
@@ -524,7 +524,7 @@ mod tests {
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
     use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use std::{io::BufReader, option};
+    use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -584,25 +584,9 @@ mod tests {
         foo: i32,
     }
 
-    #[derive(Clone, Component, Reflect, PartialEq)]
+    #[derive(Clone, Component, Reflect, PartialEq, IterEntities)]
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
-
-    impl<'a> IntoIterator for &'a mut MyEntityRef {
-        type IntoIter = option::IntoIter<&'a mut Entity>;
-        type Item = <Self::IntoIter as Iterator>::Item;
-        fn into_iter(self) -> Self::IntoIter {
-            Some(&mut self.0).into_iter()
-        }
-    }
-
-    impl<'a> IntoIterator for &'a MyEntityRef {
-        type IntoIter = option::IntoIter<Entity>;
-        type Item = <Self::IntoIter as Iterator>::Item;
-        fn into_iter(self) -> Self::IntoIter {
-            Some(self.0).into_iter()
-        }
-    }
 
     impl FromWorld for MyEntityRef {
         fn from_world(_world: &mut World) -> Self {

@@ -93,7 +93,7 @@ fn update_clipping(
     };
 
     if let Ok(children) = children_query.get(entity) {
-        for child in children {
+        for &child in children {
             update_clipping(commands, children_query, node_query, child, children_clip);
         }
     }
@@ -153,7 +153,7 @@ fn update_children_target_camera(
         return;
     };
 
-    for child in children {
+    for &child in children {
         // Skip if the child has already been updated or update is not needed
         if updated_entities.contains(&child)
             || camera_to_set == node_query.get(child).ok().flatten()

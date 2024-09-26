@@ -60,11 +60,11 @@ impl WindowRef {
 
 impl<'a> IntoIterator for &'a WindowRef {
     type Item = <Self::IntoIter as Iterator>::Item;
-    type IntoIter = option::IntoIter<Entity>;
+    type IntoIter = option::IntoIter<&'a Entity>;
     fn into_iter(self) -> Self::IntoIter {
         match self {
             WindowRef::Primary => None,
-            WindowRef::Entity(entity) => Some(*entity),
+            WindowRef::Entity(entity) => Some(entity),
         }
         .into_iter()
     }

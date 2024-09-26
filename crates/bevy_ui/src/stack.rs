@@ -108,7 +108,7 @@ fn insert_context_hierarchy(
                 cache,
                 zindex_query,
                 children_query,
-                entity,
+                *entity,
                 global_context,
                 Some(&mut new_context),
                 total_entry_count,
