@@ -88,7 +88,7 @@ fn setup(
     let mut image = Image::new_fill(
         size,
         TextureDimension::D2,
-        &[10, 0, 0, 0],
+        &[0, 0, 0, 0],
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
     );
