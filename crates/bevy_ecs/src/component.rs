@@ -1039,7 +1039,7 @@ impl Components {
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
             })
         }
@@ -1052,7 +1052,7 @@ impl Components {
     pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
@@ -1062,7 +1062,7 @@ impl Components {
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
     #[inline]
-    unsafe fn get_or_insert_resource_with(
+    unsafe fn get_or_register_resource_with(
         &mut self,
         type_id: TypeId,
         func: impl FnOnce() -> ComponentDescriptor,
