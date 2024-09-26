@@ -306,7 +306,7 @@ impl Transform {
     /// Translates this [`Transform`] within its local space, considering its rotation and orientation.
     ///
     /// This method translates this [`Transform`] based on its current rotation, so the movement
-    /// happens relative to the direction ths [`Transform`] is facing. The `translation` vector is
+    /// happens relative to the direction this [`Transform`] is facing. The `translation` vector is
     /// transformed by the [`Transform`]'s rotation, allowing for natural directional movement.
     /// For instance, moving "forward" means moving along the [`Transform`]'s forward direction
     /// based on its current orientation, rather than just along the local z-axis.
