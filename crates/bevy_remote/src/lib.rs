@@ -395,14 +395,10 @@ impl Plugin for RemotePlugin {
             .insert_resource(HostPort(self.port))
             .insert_resource(remote_methods)
             .add_systems(PreStartup, setup_mailbox_channel)
-            .add_systems(
-                Startup,
-                (
-                    #[cfg(not(target_family = "wasm"))]
-                    http::start_http_server,
-                ),
-            )
             .add_systems(Update, process_remote_requests);
+
+        #[cfg(not(target_family = "wasm"))]
+        app.add_systems(Startup, http::start_http_server);
     }
 }
 
@@ -900,4 +896,3 @@ mod http {
         Ok(BrpResponse::new(request.id, result))
     }
 }
-
