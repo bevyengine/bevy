@@ -1,5 +1,5 @@
 use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
-use bevy_math::{UVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
@@ -8,14 +8,15 @@ use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
-    Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
+    ffi::{meshopt_Bounds, meshopt_Meshlet},
+    simplify, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
 use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Range};
 
-const GLOBAL_VERTEX_QUANTIZATION_BITS: u32 = 14;
+const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 14;
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 
 impl MeshletMesh {
@@ -125,74 +126,22 @@ impl MeshletMesh {
             simplification_queue = next_lod_start..meshlets.len();
         }
 
-        // Copy vertex data per meshlet and compress
+        // Copy vertex attributes per meshlet and compress
+        let mut quantized_positions = Vec::new();
         let mut vertex_positions = BitVec::<u8, Lsb0>::new();
         let mut vertex_normals = Vec::new();
         let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
-        let global_quantization_factor = ((1 << GLOBAL_VERTEX_QUANTIZATION_BITS) - 1) as f32;
-        for (meshlet_id, meshlet) in meshlets.meshlets.into_iter().enumerate() {
-            // Calculate quantization factor for the meshlet
-            let culling_bounding_sphere = &mut bounding_spheres[meshlet_id].self_culling;
-            let bounding_sphere_diameter = culling_bounding_sphere.radius * 2.0;
-            let meshlet_quantization_bits = bounding_sphere_diameter.log2().ceil() as u8;
-            let meshlet_quantization_factor = ((1 << meshlet_quantization_bits) - 1) as f32;
-
-            // Globally quantize meshlet culling bounding sphere center
-            culling_bounding_sphere.center =
-                (culling_bounding_sphere.center * global_quantization_factor).round();
-            // TODO: Quantize radius too?
-
-            bevy_meshlets.push(Meshlet {
-                start_vertex_position_bit: vertex_positions.len() as u32,
-                start_vertex_attribute_id: vertex_normals.len() as u32,
-                start_index_id: meshlet.triangle_offset,
-                vertex_count: meshlet.vertex_count as u8,
-                triangle_count: meshlet.triangle_count as u8,
-                bits_per_vertex_position_channel: meshlet_quantization_bits,
-                padding: 0,
-            });
-
-            // Compress each vertex
-            for vertex_id in meshlet.vertex_offset..(meshlet.vertex_offset + meshlet.vertex_count) {
-                // Load source vertex data
-                let vertex_id_byte = vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
-                let vertex_data =
-                    &vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
-                let mut position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
-                let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
-                let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
-
-                // Copy uncompressed UVs
-                vertex_uvs.push(uv);
-
-                // Compress normals
-                vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
-
-                // Globally quantize vertex position (prevents gaps between adjacent kitbashed entities?)
-                position = (position * global_quantization_factor).round();
-
-                // Shift position relative to the culling bounding sphere center
-                position -= culling_bounding_sphere.center;
-
-                // Remap from [-radius, radius] to [0, 1]
-                // TODO: Remap to [-1, 1] and  do snorm-style compression instead
-                position /= culling_bounding_sphere.radius;
-                position += 1.0;
-                position /= 2.0;
-
-                // Quantize position using the meshlet quantization factor
-                position = (position * meshlet_quantization_factor).round();
-
-                // Append compressed position bits to the bitstream
-                let position: UVec3 = bytemuck::cast(position);
-                vertex_positions
-                    .extend_from_bitslice(&position.x.view_bits()[..meshlet_quantization_bits]);
-                vertex_positions
-                    .extend_from_bitslice(&position.y.view_bits()[..meshlet_quantization_bits]);
-                vertex_positions
-                    .extend_from_bitslice(&position.z.view_bits()[..meshlet_quantization_bits]);
-            }
+        for meshlet in &meshlets.meshlets {
+            build_and_compress_meshlet_vertex_data(
+                meshlet,
+                &mut quantized_positions,
+                &mut vertex_positions,
+                &mut vertex_normals,
+                &mut vertex_uvs,
+                &mut bevy_meshlets,
+                &vertex_buffer,
+            );
         }
 
         Ok(Self {
@@ -384,6 +333,88 @@ fn split_simplified_group_into_new_meshlets(
         }));
 
     new_meshlets_count
+}
+
+// TODO: Per-mesh VERTEX_POSITION_QUANTIZATION_FACTOR
+fn build_and_compress_meshlet_vertex_data(
+    meshlet: &meshopt_Meshlet,
+    quantized_positions: &mut Vec<IVec3>,
+    vertex_positions: &mut BitVec<u8>,
+    vertex_normals: &mut Vec<u32>,
+    vertex_uvs: &mut Vec<Vec2>,
+    meshlets: &mut Vec<Meshlet>,
+    vertex_buffer: &[u8],
+) {
+    let start_vertex_position_bit = vertex_positions.len() as u32;
+    let start_vertex_attribute_id = vertex_normals.len() as u32;
+
+    let mut min_quantized_position_channels = IVec3::MAX;
+    let mut max_quantized_position_channels = IVec3::MIN;
+
+    // Lossy vertex compression
+    for vertex_id in meshlet.vertex_offset..(meshlet.vertex_offset + meshlet.vertex_count) {
+        // Load source vertex attributes
+        let vertex_id_byte = vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
+        let vertex_data =
+            &*vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
+        let position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
+        let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
+        let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
+
+        // Copy uncompressed UV
+        vertex_uvs.push(uv);
+
+        // Compress normal
+        vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
+
+        // Quantize position to a fixed-point IVec3
+        let quantization_factor = (1 << VERTEX_POSITION_QUANTIZATION_FACTOR) as f32;
+        let quantized_position = (position * quantization_factor + 0.5).as_ivec3();
+        quantized_positions.push(quantized_position);
+
+        // Compute per X/Y/Z-channel quantized position min/max for this meshlet
+        min_quantized_position_channels = min_quantized_position_channels.min(quantized_position);
+        max_quantized_position_channels = max_quantized_position_channels.max(quantized_position);
+    }
+
+    // Calculate bits needed to encode each quantized vertex position channel based on the range of each channel
+    let range = max_quantized_position_channels - min_quantized_position_channels + 1;
+    let bits_per_vertex_position_channel_x = range.as_vec3().x.log2().ceil() as u8;
+    let bits_per_vertex_position_channel_y = range.as_vec3().y.log2().ceil() as u8;
+    let bits_per_vertex_position_channel_z = range.as_vec3().z.log2().ceil() as u8;
+
+    // Lossless encoding of vertex positions in the minimum number of bits per channel
+    for position in quantized_positions.drain(..) {
+        // Remap [range_min, range_max] IVec3 to [0, range_max - range_min] UVec3
+        let position = (position - min_quantized_position_channels).as_uvec3();
+
+        // Store as a packed bitstream
+        vertex_positions.extend_from_bitslice(
+            &position.x.view_bits::<Lsb0>()[..bits_per_vertex_position_channel_x as usize],
+        );
+        vertex_positions.extend_from_bitslice(
+            &position.y.view_bits::<Lsb0>()[..bits_per_vertex_position_channel_y as usize],
+        );
+        vertex_positions.extend_from_bitslice(
+            &position.z.view_bits::<Lsb0>()[..bits_per_vertex_position_channel_z as usize],
+        );
+    }
+
+    meshlets.push(Meshlet {
+        start_vertex_position_bit,
+        start_vertex_attribute_id,
+        start_index_id: meshlet.triangle_offset,
+        vertex_count: meshlet.vertex_count as u8,
+        triangle_count: meshlet.triangle_count as u8,
+        quantization_factor: VERTEX_POSITION_QUANTIZATION_FACTOR,
+        bits_per_vertex_position_channel_x,
+        bits_per_vertex_position_channel_y,
+        bits_per_vertex_position_channel_z,
+        padding: 0,
+        min_vertex_position_channel_x: min_quantized_position_channels.x as f32,
+        min_vertex_position_channel_y: min_quantized_position_channels.y as f32,
+        min_vertex_position_channel_z: min_quantized_position_channels.z as f32,
+    });
 }
 
 fn convert_meshlet_bounds(bounds: meshopt_Bounds) -> MeshletBoundingSphere {
