@@ -310,10 +310,10 @@ impl<'a> ProcessContext<'a> {
         let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
-        let loaded_asset = server
+        let complete_asset = server
             .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
-        for (path, full_hash) in &loaded_asset.asset.loader_dependencies {
+        for (path, full_hash) in &complete_asset.asset.loader_dependencies {
             self.new_processed_info
                 .process_dependencies
                 .push(ProcessDependencyInfo {
@@ -321,7 +321,7 @@ impl<'a> ProcessContext<'a> {
                     path: path.to_owned(),
                 });
         }
-        Ok(loaded_asset)
+        Ok(complete_asset)
     }
 
     /// The path of the asset being processed.

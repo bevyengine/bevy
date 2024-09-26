@@ -697,8 +697,8 @@ impl AssetServer {
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
     /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: CompleteErasedLoadedAsset) {
-        for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
+    fn send_loaded_asset(&self, id: UntypedAssetId, mut complete_asset: CompleteErasedLoadedAsset) {
+        for (_, labeled_asset) in complete_asset.labeled_assets.drain() {
             self.send_asset_event(InternalAssetEvent::Loaded {
                 id: labeled_asset.handle.id(),
                 loaded_asset: labeled_asset.asset,
@@ -707,7 +707,7 @@ impl AssetServer {
 
         self.send_asset_event(InternalAssetEvent::Loaded {
             id,
-            loaded_asset: loaded_asset.asset,
+            loaded_asset: complete_asset.asset,
         });
     }
 

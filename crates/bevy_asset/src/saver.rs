@@ -91,11 +91,11 @@ impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
 
 impl<'a, A: Asset> SavedAsset<'a, A> {
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
-    pub fn from_loaded(asset: &'a CompleteErasedLoadedAsset) -> Option<Self> {
-        let value = asset.asset.value.downcast_ref::<A>()?;
+    pub fn from_loaded(complete_asset: &'a CompleteErasedLoadedAsset) -> Option<Self> {
+        let value = complete_asset.asset.value.downcast_ref::<A>()?;
         Some(SavedAsset {
             value,
-            labeled_assets: &asset.labeled_assets,
+            labeled_assets: &complete_asset.labeled_assets,
         })
     }
 
