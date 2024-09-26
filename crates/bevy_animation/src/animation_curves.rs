@@ -11,7 +11,7 @@
 //!     # use bevy_math::vec3;
 //!     let wobble_curve = function_curve(
 //!         Interval::UNIT,
-//!         |t| vec3(t.cos(), 0.0, 0.0)
+//!         |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     );
 //!
 //! Okay, so we have a curve, but the animation system also needs to know, in some way,
@@ -27,6 +27,7 @@
 //!
 //!     # use bevy_math::curve::{Curve, Interval, function_curve};
 //!     # use bevy_math::vec3;
+//!     # use bevy_animation::animation_curves::*;
 //!     # let wobble_curve = function_curve(
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
@@ -37,12 +38,12 @@
 //! actually animate something. This is what that looks like:
 //!
 //!     # use bevy_math::curve::{Curve, Interval, function_curve};
-//!     # use bevy_animation::{AnimationClip, AnimationTargetId};
+//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animation_curves::*};
 //!     # use bevy_core::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = function_curve(
 //!     #     Interval::UNIT,
-//!     #     |t| vec3(t.cos(), 0.0, 0.0)
+//!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
 //!     # let wobble_animation = TranslationCurve(wobble_curve);
 //!     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
@@ -95,7 +96,7 @@ use bevy_math::{
     },
     FloatExt, Quat, Vec3,
 };
-use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, Reflectable, TypePath, Typed};
+use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
@@ -167,15 +168,7 @@ pub trait AnimatableProperty: Reflect + TypePath {
     type Component: Component;
 
     /// The type of the property to be animated.
-    type Property: Animatable
-        + FromReflect
-        + GetTypeRegistration
-        + Reflect
-        + TypePath
-        + Typed
-        + Clone
-        + Sync
-        + Debug;
+    type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug;
 
     /// Given a reference to the component, returns a reference to the property.
     ///
@@ -187,15 +180,14 @@ pub trait AnimatableProperty: Reflect + TypePath {
 /// curve to be used as an [`AnimationCurve`].
 pub trait InnerAnimationCurve<T>: Curve<T> + Debug + Clone + Reflectable {}
 
-impl<T, C> InnerAnimationCurve<T> for C where C: Curve<T> + Debug + Clone + Reflectable + FromReflect
-{}
+impl<T, C> InnerAnimationCurve<T> for C where C: Curve<T> + Debug + Clone + Reflectable {}
 
 /// This type allows the conversion of a [curve] valued in the [property type] of an
 /// [`AnimatableProperty`] into an [`AnimationCurve`] which animates that property.
 ///
 /// [curve]: Curve
 /// [property type]: AnimatableProperty::Property
-#[derive(Reflect)]
+#[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct AnimatableCurve<P, C> {
     curve: C,
@@ -278,7 +270,7 @@ where
 /// the translation component of a transform.
 ///
 /// [curve]: Curve
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct TranslationCurve<C>(pub C);
 
@@ -315,7 +307,7 @@ where
 /// the rotation component of a transform.
 ///
 /// [curve]: Curve
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct RotationCurve<C>(pub C);
 
@@ -352,7 +344,7 @@ where
 /// the scale component of a transform.
 ///
 /// [curve]: Curve
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct ScaleCurve<C>(pub C);
 
@@ -391,7 +383,7 @@ where
 /// instead of splitting it into pieces and animating each part (translation, rotation, scale).
 ///
 /// [curve]: Curve
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct TransformCurve<C>(pub C);
 
@@ -427,7 +419,7 @@ where
 /// that animates [morph weights].
 ///
 /// [morph weights]: MorphWeights
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct WeightsCurve<C>(pub C);
 

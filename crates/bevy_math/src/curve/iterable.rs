@@ -20,8 +20,6 @@ pub trait IterableCurve<T> {
     /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
     /// beyond a curve's domain should not be relied upon.
     fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T>;
-    // where
-    //     Self: 'a;
 
     /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
     /// The parameter `t` is clamped to the domain of the curve.
