@@ -9,8 +9,9 @@ use bevy_ecs::{
 use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
+    ClosingWindow, Monitor, MonitorSelection, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
+    WindowClosed, WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized,
+    WindowWrapper,
 };
 
 use winit::{
@@ -326,6 +327,17 @@ pub(crate) fn changed_windows(
                 if winit_window.fullscreen() != new_mode {
                     winit_window.set_fullscreen(new_mode);
                 }
+            }
+        } else {
+            #[cfg(target_os = "macos")]
+            match (winit_window.fullscreen(), window.mode) {
+                (Some(winit::window::Fullscreen::Borderless(_)), WindowMode::Windowed) => {
+                    window.mode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
+                }
+                (None, WindowMode::BorderlessFullscreen(_)) => {
+                    window.mode = WindowMode::Windowed;
+                }
+                _ => {}
             }
         }
 
