@@ -23,6 +23,8 @@ use crate::{
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
 ///
 /// The font system is used to retrieve fonts and their information, including glyph outlines.
+///
+/// This resource is updated by the [`TextPipeline`] resource.
 #[derive(Resource)]
 pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
@@ -38,6 +40,8 @@ impl Default for CosmicFontSystem {
 /// A wrapper resource around a [`cosmic_text::SwashCache`]
 ///
 /// The swash cache rasterizer is used to rasterize glyphs
+///
+/// This resource is updated by the [`TextPipeline`] resource.
 #[derive(Resource)]
 pub struct SwashCache(pub cosmic_text::SwashCache);
 
@@ -328,6 +332,14 @@ impl TextPipeline {
             max: max_width_content_size,
             entity,
         })
+    }
+
+    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
+    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<cosmic_text::fontdb::ID> {
+        self.map_handle_to_font_id
+            .get(&asset_id)
+            .cloned()
+            .map(|(id, _)| id)
     }
 }
 
