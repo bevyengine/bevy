@@ -328,12 +328,10 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
-# Android NativeActivity support. Provided by Android Framework.
-# Legacy, should be avoided for most new Android games.
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
 android-native-activity = ["bevy_internal/android-native-activity"]
 
-# Android GameActivity support. Provided by Jetpack library.
-# Default, choose between this and `android-native-activity`.
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
 android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
