@@ -6,7 +6,7 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, ParamSet},
 };
-use bevy_hierarchy::{BuildChildren, Children, Parent};
+use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
