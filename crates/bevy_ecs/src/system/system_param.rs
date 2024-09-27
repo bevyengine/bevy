@@ -1410,11 +1410,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
+/// This will cause systems that use it to be skipped.
 ///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-///
-/// Use `Option<NonSend<T>>` instead if the resource might not always exist.
+/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
