@@ -1357,6 +1357,9 @@ pub fn gamepad_connection_system(
                     warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
+                // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
+                // Instead of despawning, we remove Gamepad components that don't need to preserve state
+                // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
                 info!("Gamepad {:} disconnected.", id);
             }
