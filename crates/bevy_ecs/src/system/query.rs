@@ -4,11 +4,15 @@ use crate::{
     entity::Entity,
     query::{
         QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, WorldQuery,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::borrow::Borrow;
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -1627,5 +1631,51 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
         value.transmute_lens_filtered()
+    }
+}
+
+/// [System parameter] that provides readonly access to single entity's components, much like [`Query::single`].
+///
+/// For meaning behind the generic arguments refer to [`Query`].
+///
+/// When used as a parameter in a system, multiple matching will prevent the system from running.
+/// System skipping will also happen when no matching entity exists, but the behavior can be
+/// handled by using [`Option<QuerySingle>`] instead, which allows zero or one matching entity.
+pub struct QuerySingle<'w, D: ReadOnlyQueryData, F: QueryFilter = ()> {
+    pub(crate) single: <D::ReadOnly as WorldQuery>::Item<'w>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, D: ReadOnlyQueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
+    type Target = <D::ReadOnly as WorldQuery>::Item<'w>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.single
+    }
+}
+
+/// [System parameter] that provides mutable access to single entity's components, much like [`Query::single_mut`].
+///
+/// For meaning behind the generic arguments refer to [`Query`].
+///
+/// When used as a parameter in a system, multiple matching will prevent the system from running.
+/// System skipping will also happen when no matching entity exists, but the behavior can be
+/// handled by using [`Option<QuerySingleMut>`] instead, which allows zero or one matching entity.
+pub struct QuerySingleMut<'w, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) single: D::Item<'w>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingleMut<'w, D, F> {
+    type Target = D::Item<'w>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.single
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> DerefMut for QuerySingleMut<'w, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.single
     }
 }

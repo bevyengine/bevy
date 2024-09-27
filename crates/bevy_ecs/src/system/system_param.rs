@@ -7,10 +7,10 @@ use crate::{
     entity::Entities,
     query::{
         Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
-        QueryState, ReadOnlyQueryData,
+        QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     storage::{ResourceData, SparseSetIndex},
-    system::{Query, SystemMeta},
+    system::{Query, SystemMeta, QuerySingle, QuerySingleMut},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -354,6 +354,240 @@ fn assert_component_access_compatibility(
         ),
     };
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+}
+
+unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for QuerySingle<'a, D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = QuerySingle<'w, D, F>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Query::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        Query::new_archetype(state, archetype, system_meta)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        state.validate_world(world.id());
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
+        let result = unsafe {
+            state.as_readonly().get_single_unchecked_manual(
+                world,
+                system_meta.last_run,
+                change_tick,
+            )
+        };
+        let single = result.unwrap();
+        QuerySingle {
+            single,
+            _filter: PhantomData,
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state.validate_world(world.id());
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
+        let result = unsafe {
+            state.as_readonly().get_single_unchecked_manual(
+                world,
+                system_meta.last_run,
+                world.change_tick(),
+            )
+        };
+        result.is_ok()
+    }
+}
+
+unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Option<QuerySingle<'a, D, F>>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Option<QuerySingle<'w, D, F>>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        QuerySingle::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        QuerySingle::new_archetype(state, archetype, system_meta)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        state.validate_world(world.id());
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
+        let result = unsafe {
+            state.as_readonly().get_single_unchecked_manual(
+                world,
+                system_meta.last_run,
+                change_tick,
+            )
+        };
+        match result {
+            Ok(single) => Some(QuerySingle {
+                single,
+                _filter: PhantomData,
+            }),
+            Err(QuerySingleError::NoEntities(_)) => None,
+            Err(QuerySingleError::MultipleEntities(e)) => panic!("{}", e),
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state.validate_world(world.id());
+        // SAFETY:
+        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // and the query is read only.
+        let result = unsafe {
+            state.as_readonly().get_single_unchecked_manual(
+                world,
+                system_meta.last_run,
+                world.change_tick(),
+            )
+        };
+        match result {
+            Ok(_) => true,
+            Err(QuerySingleError::NoEntities(_)) => true,
+            Err(QuerySingleError::MultipleEntities(_)) => false,
+        }
+    }
+}
+
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for QuerySingleMut<'a, D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = QuerySingleMut<'w, D, F>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Query::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        Query::new_archetype(state, archetype, system_meta)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        state.validate_world(world.id());
+        // SAFETY: query has unique world access
+        let result =
+            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
+        let single = result.unwrap();
+        QuerySingleMut {
+            single,
+            _filter: PhantomData,
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        QuerySingle::validate_param(state.as_readonly(), system_meta, world)
+    }
+}
+
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Option<QuerySingleMut<'a, D, F>>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Option<QuerySingleMut<'w, D, F>>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        QuerySingleMut::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        QuerySingleMut::new_archetype(state, archetype, system_meta)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        state.validate_world(world.id());
+        // SAFETY: query has unique world access
+        let result =
+            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
+        match result {
+            Ok(single) => Some(QuerySingleMut {
+                single,
+                _filter: PhantomData,
+            }),
+            Err(QuerySingleError::NoEntities(_)) => None,
+            Err(QuerySingleError::MultipleEntities(e)) => panic!("{}", e),
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        Option::<QuerySingle<'a, D::ReadOnly, F>>::validate_param(
+            state.as_readonly(),
+            system_meta,
+            world,
+        )
+    }
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.

@@ -1893,6 +1893,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "falliable_params"
+path = "examples/ecs/falliable_params.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.falliable_params]
+name = "Falliable System Parameters"
+description = "Systems are skipped if their parameters cannot be acquired"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 doc-scrape-examples = true
