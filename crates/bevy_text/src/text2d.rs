@@ -1,7 +1,4 @@
-use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
-    TextLayoutInfo, TextPipeline, YAxisOrientation,
-};
+use crate::{BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextPipeline, YAxisOrientation};
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -24,6 +21,7 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, Textu
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use crate::pipeline::CosmicFontSystem;
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
@@ -158,6 +156,8 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -198,6 +198,8 @@ pub fn update_text2d_layout(
                 &mut textures,
                 YAxisOrientation::BottomToTop,
                 buffer.as_mut(),
+                &mut font_system,
+                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
