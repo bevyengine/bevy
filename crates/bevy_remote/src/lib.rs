@@ -246,11 +246,6 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    sync::RwLock,
-};
-
 use async_channel::{Receiver, Sender};
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
@@ -259,40 +254,22 @@ use bevy_ecs::{
     system::{Commands, In, IntoSystem, Resource, System, SystemId},
     world::World,
 };
-use bevy_reflect::Reflect;
 use bevy_utils::{prelude::default, HashMap};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::RwLock;
 
 pub mod builtin_methods;
-
-/// The default port that Bevy will listen on.
-///
-/// This value was chosen randomly.
-pub const DEFAULT_PORT: u16 = 15702;
-
-/// The default host address that Bevy will use for its server.
-pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 
 const CHANNEL_SIZE: usize = 16;
 
 /// Add this plugin to your [`App`] to allow remote connections to inspect and modify entities.
 ///
 /// This the main plugin for `bevy_remote`. See the [crate-level documentation] for details on
-/// the protocol and its default methods.
-///
-/// The defaults are:
-/// - [`DEFAULT_ADDR`] : 127.0.0.1.
-/// - [`DEFAULT_PORT`] : 15702.
+/// the available protocols and its default methods.
 ///
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
-    /// The address that Bevy will use.
-    address: IpAddr,
-
-    /// The port that Bevy will listen on.
-    port: u16,
-
     /// The verbs that the server will recognize and respond to.
     methods: RwLock<
         Vec<(
@@ -307,24 +284,8 @@ impl RemotePlugin {
     /// any associated methods.
     fn empty() -> Self {
         Self {
-            address: DEFAULT_ADDR,
-            port: DEFAULT_PORT,
             methods: RwLock::new(vec![]),
         }
-    }
-
-    /// Set the IP address that the server will use.
-    #[must_use]
-    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
-        self.address = address.into();
-        self
-    }
-
-    /// Set the remote port that the server will listen on.
-    #[must_use]
-    pub fn with_port(mut self, port: u16) -> Self {
-        self.port = port;
-        self
     }
 
     /// Add a remote method to the plugin using the given `name` and `handler`.
@@ -391,30 +352,11 @@ impl Plugin for RemotePlugin {
             );
         }
 
-        app.insert_resource(HostAddress(self.address))
-            .insert_resource(HostPort(self.port))
-            .insert_resource(remote_methods)
+        app.insert_resource(remote_methods)
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(Update, process_remote_requests);
-
-        #[cfg(not(target_family = "wasm"))]
-        app.add_systems(Startup, http::start_http_server);
     }
 }
-
-/// A resource containing the IP address that Bevy will host on.
-///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the IP address that is set during the setup of the [`RemotePlugin`].
-#[derive(Debug, Resource)]
-pub struct HostAddress(pub IpAddr);
-
-/// A resource containing the port number that Bevy will listen on.
-///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the host that is set during the setup of the [`RemotePlugin`].
-#[derive(Debug, Resource, Reflect)]
-pub struct HostPort(pub u16);
 
 /// The type of a function that implements a remote method (`bevy/get`, `bevy/query`, etc.)
 ///
@@ -723,17 +665,15 @@ fn process_remote_requests(world: &mut World) {
     }
 }
 
-/// The HTTP transport using JSON-RPC bodies.
+/// The BRP transport using JSON-RPC over HTTP.
 #[cfg(not(target_family = "wasm"))]
-mod http {
-    use crate::{
-        error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender,
-        HostAddress, HostPort,
-    };
+pub mod http {
+    use crate::{error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender};
     use anyhow::Result as AnyhowResult;
     use async_channel::Sender;
     use async_io::Async;
-    use bevy_ecs::system::Res;
+    use bevy_app::{App, Plugin, Startup};
+    use bevy_ecs::system::{Res, Resource};
     use bevy_tasks::IoTaskPool;
     use http_body_util::{BodyExt as _, Full};
     use hyper::{
@@ -743,12 +683,82 @@ mod http {
     };
     use serde_json::Value;
     use smol_hyper::rt::{FuturesIo, SmolTimer};
-    use std::net::IpAddr;
     use std::net::TcpListener;
     use std::net::TcpStream;
+    use std::net::{IpAddr, Ipv4Addr};
+
+    /// The default port that Bevy will listen on.
+    ///
+    /// This value was chosen randomly.
+    pub const DEFAULT_PORT: u16 = 15702;
+
+    /// The default host address that Bevy will use for its server.
+    pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
+    /// Add this plugin to your [`App`] to allow remote connections over HTTP to inspect and modify entities.
+    /// It requires the [`RemotePlugin`](super::RemotePlugin).
+    ///
+    /// This BRP transport cannot be used when targeting WASM.
+    ///
+    /// The defaults are:
+    /// - [`DEFAULT_ADDR`] : 127.0.0.1.
+    /// - [`DEFAULT_PORT`] : 15702.
+    pub struct RemoteHttpPlugin {
+        /// The address that Bevy will bind to.
+        address: IpAddr,
+        /// The port that Bevy will listen on.
+        port: u16,
+    }
+
+    impl Default for RemoteHttpPlugin {
+        fn default() -> Self {
+            Self {
+                address: DEFAULT_ADDR,
+                port: DEFAULT_PORT,
+            }
+        }
+    }
+
+    impl Plugin for RemoteHttpPlugin {
+        fn build(&self, app: &mut App) {
+            app.insert_resource(HostAddress(self.address))
+                .insert_resource(HostPort(self.port))
+                .add_systems(Startup, start_http_server);
+        }
+    }
+
+    impl RemoteHttpPlugin {
+        /// Set the IP address that the server will use.
+        #[must_use]
+        pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
+            self.address = address.into();
+            self
+        }
+
+        /// Set the remote port that the server will listen on.
+        #[must_use]
+        pub fn with_port(mut self, port: u16) -> Self {
+            self.port = port;
+            self
+        }
+    }
+
+    /// A resource containing the IP address that Bevy will host on.
+    ///
+    /// Currently, changing this while the application is running has no effect; this merely
+    /// reflects the IP address that is set during the setup of the [`RemotePlugin`](super::RemotePlugin).
+    #[derive(Debug, Resource)]
+    pub struct HostAddress(pub IpAddr);
+
+    /// A resource containing the port number that Bevy will listen on.
+    ///
+    /// Currently, changing this while the application is running has no effect; this merely
+    /// reflects the host that is set during the setup of the [`RemotePlugin`](super::RemotePlugin).
+    #[derive(Debug, Resource)]
+    pub struct HostPort(pub u16);
 
     /// A system that starts up the Bevy Remote Protocol HTTP server.
-    pub fn start_http_server(
+    fn start_http_server(
         request_sender: Res<BrpSender>,
         address: Res<HostAddress>,
         remote_port: Res<HostPort>,
