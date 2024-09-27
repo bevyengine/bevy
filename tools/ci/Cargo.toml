@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 argh = "0.1"
 xshell = "0.2"
 bitflags = "2.3"
+walkdir = "2.5.0"
 
 [lints]
 workspace = true
