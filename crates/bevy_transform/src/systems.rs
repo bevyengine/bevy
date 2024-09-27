@@ -437,7 +437,7 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_systems(Update, (pr/opagate_transforms, sync_simple_transforms));
+        app.add_systems(Update, (propagate_transforms, sync_simple_transforms));
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
@@ -458,7 +458,7 @@ mod test {
 
         app.world_mut()
             .spawn(Transform::IDENTITY)
-            .push_children(&[child]);
+            .with_children(&[child]);
         std::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
