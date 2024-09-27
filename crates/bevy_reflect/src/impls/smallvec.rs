@@ -1,7 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 use smallvec::{Array as SmallArray, SmallVec};
 
-use std::any::Any;
+use core::any::Any;
 
 use crate::{
     self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,

@@ -1,6 +1,7 @@
+use alloc::sync::Arc;
 use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
-use std::{io::Cursor, sync::Arc};
+use std::io::Cursor;
 
 /// A source of audio data
 #[derive(Asset, Debug, Clone, TypePath)]

@@ -3,7 +3,7 @@ use crate::{
     type_info::impl_type_methods,
     MaybeTyped, PartialReflect, Type, TypeInfo, TypePath,
 };
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]

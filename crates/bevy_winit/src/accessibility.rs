@@ -1,9 +1,7 @@
 //! Helpers for mapping window entities to accessibility types
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use alloc::{collections::VecDeque, sync::Arc};
+use std::sync::Mutex;
 
 use accesskit_winit::Adapter;
 use bevy_a11y::{

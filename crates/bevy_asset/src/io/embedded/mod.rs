@@ -22,7 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
+    root_paths: alloc::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -107,7 +107,7 @@ impl EmbeddedAssetRegistry {
                         dir.clone(),
                         root_paths.clone(),
                         sender,
-                        std::time::Duration::from_millis(300),
+                        core::time::Duration::from_millis(300),
                     )))
                 })
                 .with_processed_watcher(move |sender| {
@@ -115,7 +115,7 @@ impl EmbeddedAssetRegistry {
                         processed_dir.clone(),
                         processed_root_paths.clone(),
                         sender,
-                        std::time::Duration::from_millis(300),
+                        core::time::Duration::from_millis(300),
                     )))
                 });
         }

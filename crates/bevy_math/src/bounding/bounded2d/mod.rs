@@ -384,7 +384,7 @@ mod aabb2d_tests {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(2.0, 2.0),
         };
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
         let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
@@ -529,7 +529,7 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        std::f32::consts::PI * self.radius() * self.radius()
+        core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
@@ -701,10 +701,10 @@ mod bounding_circle_tests {
     #[test]
     fn transform() {
         let a = BoundingCircle::new(Vec2::ONE, 5.0);
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
         assert_eq!(
             transformed.center,
-            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+            Vec2::new(2.0, core::f32::consts::SQRT_2 - 2.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

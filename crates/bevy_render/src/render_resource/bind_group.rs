@@ -7,8 +7,8 @@ use crate::{
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
+use core::ops::Deref;
 use encase::ShaderType;
-use std::ops::Deref;
 use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 

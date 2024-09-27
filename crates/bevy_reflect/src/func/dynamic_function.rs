@@ -1,5 +1,5 @@
-use crate as bevy_reflect;
 use crate::{
+    self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
         args::ArgList, info::FunctionInfo, DynamicFunctionMut, Function, FunctionError,
@@ -9,10 +9,9 @@ use crate::{
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
-use std::sync::Arc;
 
 /// A dynamic representation of a function.
 ///

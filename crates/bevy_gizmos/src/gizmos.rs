@@ -1,6 +1,6 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
