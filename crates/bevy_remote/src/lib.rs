@@ -675,6 +675,7 @@ pub mod http {
     use bevy_app::{App, Plugin, Startup};
     use bevy_ecs::system::{Res, Resource};
     use bevy_tasks::IoTaskPool;
+    use core::net::{IpAddr, Ipv4Addr};
     use http_body_util::{BodyExt as _, Full};
     use hyper::{
         body::{Bytes, Incoming},
@@ -685,7 +686,6 @@ pub mod http {
     use smol_hyper::rt::{FuturesIo, SmolTimer};
     use std::net::TcpListener;
     use std::net::TcpStream;
-    use core::net::{IpAddr, Ipv4Addr};
 
     /// The default port that Bevy will listen on.
     ///
