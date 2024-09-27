@@ -592,9 +592,9 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 }
 
 #[cfg(feature = "bevy_render")]
-struct DrawLineGizmo;
+struct DrawLineGizmo<const STRIP: bool>;
 #[cfg(feature = "bevy_render")]
-impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<Handle<LineGizmo>>;
@@ -618,7 +618,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             return RenderCommandResult::Success;
         }
 
-        let instances = if line_gizmo.strip {
+        let instances = if line_gizmo.strip && STRIP {
             let item_size = VertexFormat::Float32x3.size();
             let buffer_size = line_gizmo.position_buffer.size() - item_size;
 
@@ -631,11 +631,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
             pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
 
             u32::max(line_gizmo.vertex_count, 1) - 1
-        } else {
+        } else if !STRIP {
             pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
             pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
 
             line_gizmo.vertex_count / 2
+        } else {
+            return RenderCommandResult::Skip;
         };
 
         pass.draw(0..6, 0..instances);

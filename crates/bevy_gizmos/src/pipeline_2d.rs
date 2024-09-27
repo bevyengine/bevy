@@ -40,6 +40,7 @@ impl Plugin for LineGizmo2dPlugin {
 
         render_app
             .add_render_command::<Transparent2d, DrawLineGizmo2d>()
+            .add_render_command::<Transparent2d, DrawLineGizmo2dStrip>()
             .add_render_command::<Transparent2d, DrawLineJointGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
@@ -270,7 +271,13 @@ type DrawLineGizmo2d = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    DrawLineGizmo<false>,
+);
+type DrawLineGizmo2dStrip = (
+    SetItemPipeline,
+    SetMesh2dViewBindGroup<0>,
+    SetLineGizmoBindGroup<1>,
+    DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo2d = (
     SetItemPipeline,
@@ -291,6 +298,10 @@ fn queue_line_gizmos_2d(
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
+    let draw_function_strip = draw_functions
+        .read()
+        .get_id::<DrawLineGizmo2dStrip>()
+        .unwrap();
 
     for (view_entity, view, msaa, render_layers) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
@@ -319,15 +330,25 @@ fn queue_line_gizmos_2d(
                     line_style: config.line_style,
                 },
             );
-
-            transparent_phase.add(Transparent2d {
-                entity,
-                draw_function,
-                pipeline,
-                sort_key: FloatOrd(f32::INFINITY),
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
-            });
+            if !line_gizmo.strip {
+                transparent_phase.add(Transparent2d {
+                    entity,
+                    draw_function,
+                    pipeline,
+                    sort_key: FloatOrd(f32::INFINITY),
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::NONE,
+                });
+            } else {
+                transparent_phase.add(Transparent2d {
+                    entity,
+                    draw_function: draw_function_strip,
+                    pipeline,
+                    sort_key: FloatOrd(f32::INFINITY),
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::NONE,
+                });
+            }
         }
     }
 }

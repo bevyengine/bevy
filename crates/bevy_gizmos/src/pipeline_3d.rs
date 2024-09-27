@@ -42,6 +42,7 @@ impl Plugin for LineGizmo3dPlugin {
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
+            .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
@@ -157,7 +158,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineGizmo Pipeline".into()),
+            label: Some("LineGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
         }
     }
@@ -255,7 +256,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineJointGizmo Pipeline".into()),
+            label: Some("LineJointGizmo 3d Pipeline".into()),
             push_constant_ranges: vec![],
         }
     }
@@ -265,7 +266,13 @@ type DrawLineGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    DrawLineGizmo<false>,
+);
+type DrawLineGizmo3dStrip = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetLineGizmoBindGroup<1>,
+    DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo3d = (
     SetItemPipeline,
@@ -297,6 +304,10 @@ fn queue_line_gizmos_3d(
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
+    let draw_function_strip = draw_functions
+        .read()
+        .get_id::<DrawLineGizmo3dStrip>()
+        .unwrap();
 
     for (
         view_entity,
@@ -351,14 +362,25 @@ fn queue_line_gizmos_3d(
                 },
             );
 
-            transparent_phase.add(Transparent3d {
-                entity,
-                draw_function,
-                pipeline,
-                distance: 0.,
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
-            });
+            if !line_gizmo.strip {
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    draw_function,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::NONE,
+                });
+            } else {
+                transparent_phase.add(Transparent3d {
+                    entity,
+                    draw_function: draw_function_strip,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::NONE,
+                });
+            }
         }
     }
 }
