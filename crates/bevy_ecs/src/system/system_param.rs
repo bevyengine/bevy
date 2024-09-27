@@ -10,7 +10,7 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     storage::{ResourceData, SparseSetIndex},
-    system::{Query, SystemMeta, QuerySingle, QuerySingleMut},
+    system::{Query, QuerySingle, QuerySingleMut, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
