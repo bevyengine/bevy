@@ -18,7 +18,7 @@ fn gamepad_system(
     gamepads: Query<(Entity, &Gamepad)>,
     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ) {
-    for (entity, gamepad) in gamepads.iter() {
+    for (entity, gamepad) in &gamepads {
         if gamepad.just_pressed(GamepadButton::North) {
             info!(
                 "North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity."

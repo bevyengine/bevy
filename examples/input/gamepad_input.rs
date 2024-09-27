@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn gamepad_system(gamepads: Query<(Entity, &Gamepad)>) {
-    for (entity, gamepad) in gamepads.iter() {
+    for (entity, gamepad) in &gamepads {
         if gamepad.just_pressed(GamepadButton::South) {
             info!("{:?} just pressed South", entity);
         } else if gamepad.just_released(GamepadButton::South) {
