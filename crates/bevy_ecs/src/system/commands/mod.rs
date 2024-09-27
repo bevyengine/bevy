@@ -1406,6 +1406,15 @@ impl EntityCommands<'_> {
         self.queue(despawn())
     }
 
+    /// Despawns the entity.
+    /// This will not emit a warning if the entity does not exist.
+    ///
+    /// See [`World::try_despawn`] for more details.
+    #[track_caller]
+    pub fn try_despawn(self) -> Self {
+        self.queue(try_despawn())
+    }
+
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
     /// # Examples
@@ -1694,7 +1703,22 @@ where
 fn despawn() -> impl EntityCommand {
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
-        world.despawn_with_caller(entity, caller);
+        world.despawn_with_caller(entity, caller, true);
+    }
+}
+
+/// A [`Command`] that despawns a specific entity.
+/// This will not emit a warning if the entity does not exist.
+///
+/// # Note
+///
+/// This won't clean up external references to the entity (such as parent-child relationships
+/// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+#[track_caller]
+fn try_despawn() -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity: Entity, world: &mut World| {
+        world.despawn_with_caller(entity, caller, false);
     }
 }
 

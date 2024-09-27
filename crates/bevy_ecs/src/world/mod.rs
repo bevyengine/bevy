@@ -1125,7 +1125,22 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(entity, Location::caller())
+        self.despawn_with_caller(entity, Location::caller(), true)
+    }
+
+    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
+    /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
+    /// the `entity` does not exist.
+    ///
+    /// # Note
+    ///
+    /// This won't clean up external references to the entity (such as parent-child relationships
+    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    ///
+    #[track_caller]
+    #[inline]
+    pub fn try_despawn(&mut self, entity: Entity) -> bool {
+        self.despawn_with_caller(entity, Location::caller(), false)
     }
 
     #[inline]
@@ -1133,13 +1148,16 @@ impl World {
         &mut self,
         entity: Entity,
         caller: &'static Location,
+        log_warning: bool,
     ) -> bool {
         self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            if log_warning {
+                warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            }
             false
         }
     }
