@@ -133,7 +133,7 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
-#[derive(Clone, Reflect)]
+#[derive(Clone, Reflect, Component)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///
