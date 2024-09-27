@@ -3,7 +3,6 @@ use crate::{
     identifier::masks::{IdentifierMask, HIGH_MASK},
     world::World,
 };
-pub use bevy_ecs_macros::IterEntities;
 
 use super::{EntityHashMap, VisitEntities};
 
