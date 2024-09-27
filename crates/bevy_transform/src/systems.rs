@@ -458,7 +458,7 @@ mod test {
 
         app.world_mut()
             .spawn(Transform::IDENTITY)
-            .with_children(&[child]);
+            .push_children(&[child]);
         std::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
