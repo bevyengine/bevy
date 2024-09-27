@@ -1,12 +1,10 @@
-//! This example demonstrates how falliable parameters can prevent systems from running
+//! This example demonstrates how fallible parameters can prevent systems from running
 //! if their acquiry conditions aren't met.
 //!
-//! Falliable parameters include:
+//! Fallible parameters include:
 //! - [`Res<R>`], [`ResMut<R>`] - If resource doesn't exist.
 //! - [`QuerySingle<D, F>`], [`QuerySingleMut<D, F>`] - If there is no or more than one entities matching.
 //! - [`Option<QuerySingle<D, F>>`], [`Option<QuerySingleMut<D, F>>`] - If there are more than one entities matching.
-
-use std::ops::DerefMut;
 
 use bevy::{
     ecs::system::{QuerySingle, QuerySingleMut},
@@ -15,6 +13,10 @@ use bevy::{
 use rand::Rng;
 
 fn main() {
+    println!();
+    println!("Press 'A' to add enemy ships and 'R' to remove them.");
+    println!("Player ship will wait for enemy ships and track one if it exists,");
+    println!("but will stop tracking if there are more than one.");
     println!();
 
     App::new()
@@ -110,7 +112,7 @@ fn move_pointer(
     enemy: Option<QuerySingle<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
-    let (ref mut player_transform, ref player) = player.deref_mut();
+    let (ref mut player_transform, ref player) = &mut *player;
     if let Some(enemy_transform) = enemy {
         let delta = enemy_transform.translation - player_transform.translation;
         let distance = delta.length();
