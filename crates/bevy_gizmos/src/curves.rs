@@ -6,9 +6,9 @@
 use bevy_color::Color;
 use bevy_math::{curve::Curve, Vec2, Vec3};
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

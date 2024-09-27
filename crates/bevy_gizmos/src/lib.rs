@@ -41,6 +41,7 @@ pub mod curves;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;
+pub mod retained;
 pub mod rounded_box;
 
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -50,8 +51,6 @@ pub mod light;
 mod pipeline_2d;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
-
-mod retained;
 
 /// The gizmos prelude.
 ///
@@ -68,7 +67,8 @@ pub mod prelude {
         },
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
-        AppGizmoBuilder,
+        retained::LineGizmoBundle,
+        AppGizmoBuilder, LineGizmo,
     };
 
     #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -83,7 +83,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypePath;
 
-use crate::gizmos::GizmoBuffer;
+use crate::{config::NoGizmoConfigGroup, gizmos::GizmoBuffer, retained::extract_linegizmos};
 
 #[cfg(feature = "bevy_render")]
 use {
@@ -174,7 +174,7 @@ impl Plugin for GizmoPlugin {
                 prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
             );
 
-            render_app.add_systems(ExtractSchedule, extract_gizmo_data);
+            render_app.add_systems(ExtractSchedule, (extract_gizmo_data, extract_linegizmos));
 
             #[cfg(feature = "bevy_sprite")]
             if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
@@ -393,8 +393,9 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
             linegizmo.joints = config.line_joints;
         } else {
             let linegizmo = LineGizmo {
-                config_ty: TypeId::of::<Config>(),
+                config_ty: Some(TypeId::of::<Config>()),
                 buffer: GizmoBuffer {
+                    enabled: true,
                     list_positions: mem::take(&mut storage.list_positions),
                     list_colors: mem::take(&mut storage.list_colors),
                     strip_positions: mem::take(&mut storage.strip_positions),
@@ -461,15 +462,31 @@ struct LineGizmoUniform {
     _padding: f32,
 }
 
-/// A gizmo asset that represents a line.
+/// A collection of lines.
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct LineGizmo {
-    /// Gizmo vertex buffers.
-    buffer: GizmoBuffer<DefaultGizmoConfigGroup, ()>,
+    /// vertex buffers.
+    buffer: GizmoBuffer<NoGizmoConfigGroup, ()>,
     /// Whether this gizmo should draw line joints on line-strips.
     pub joints: GizmoLineJoint,
-    /// The type of the gizmo's configuration group
-    pub config_ty: TypeId,
+    config_ty: Option<TypeId>,
+}
+
+impl LineGizmo {
+    /// The type of the gizmo's configuration group.
+    pub fn config_typeid(&self) -> Option<TypeId> {
+        self.config_ty
+    }
+}
+
+impl Default for LineGizmo {
+    fn default() -> Self {
+        LineGizmo {
+            buffer: GizmoBuffer::default(),
+            joints: GizmoLineJoint::default(),
+            config_ty: None,
+        }
+    }
 }
 
 #[cfg(feature = "bevy_render")]
@@ -514,7 +531,7 @@ impl RenderAsset for GpuLineGizmo {
         let strip_color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Strip Color Buffer"),
-            contents: cast_slice(&gizmo.buffer.strip_positions),
+            contents: cast_slice(&gizmo.buffer.strip_colors),
         });
 
         Ok(GpuLineGizmo {

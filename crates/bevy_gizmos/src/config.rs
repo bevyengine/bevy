@@ -57,6 +57,10 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
 pub struct DefaultGizmoConfigGroup;
 
+/// A marker for retained gizmos. Retained gizmos do not belong to a config group.
+#[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
+pub struct NoGizmoConfigGroup;
+
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
 /// Use `app.init_gizmo_group::<T>()` to register a custom config group.

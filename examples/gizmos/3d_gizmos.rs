@@ -18,13 +18,29 @@ fn main() {
 
 // We can create our own gizmo config group!
 #[derive(Default, Reflect, GizmoConfigGroup)]
-struct MyRoundGizmos {}
+struct MyRoundGizmos;
 
 fn setup(
     mut commands: Commands,
+    mut linegizmos: ResMut<Assets<LineGizmo>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let mut linegizmo = LineGizmo::default();
+
+    // A sphere made out of 100_000 lines.
+    linegizmo
+        .sphere(Isometry3d::from_translation(Vec3::Y * 5.), 2., CRIMSON)
+        .resolution(100_000 / 3);
+
+    commands.spawn(LineGizmoBundle {
+        linegizmo: linegizmos.add(linegizmo),
+        config: GizmoConfig {
+            line_width: 3.,
+            ..default()
+        },
+    });
+
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),

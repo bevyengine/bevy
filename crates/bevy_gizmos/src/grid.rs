@@ -3,17 +3,17 @@
 //! Includes the implementation of [`Gizmos::grid`] and [`Gizmos::grid_2d`].
 //! and assorted support items.
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
 
 /// A builder returned by [`Gizmos::grid_3d`]
-pub struct GridBuilder3d<'a, 'w, 's, Config, Clear>
+pub struct GridBuilder3d<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
     spacing: Vec3,
     cell_count: UVec3,
@@ -22,12 +22,12 @@ where
     color: Color,
 }
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
-pub struct GridBuilder2d<'a, 'w, 's, Config, Clear>
+pub struct GridBuilder2d<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
     spacing: Vec2,
     cell_count: UVec2,
@@ -36,7 +36,7 @@ where
     color: Color,
 }
 
-impl<Config, Clear> GridBuilder3d<'_, '_, '_, Config, Clear>
+impl<Config, Clear> GridBuilder3d<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<Config, Clear> GridBuilder2d<'_, '_, '_, Config, Clear>
+impl<Config, Clear> GridBuilder2d<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for GridBuilder3d<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for GridBuilder3d<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for GridBuilder2d<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for GridBuilder2d<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -172,7 +172,7 @@ where
         );
     }
 }
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -222,7 +222,7 @@ where
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
-    ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
+    ) -> GridBuilder2d<'_, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
             isometry,
@@ -276,7 +276,7 @@ where
         cell_count: UVec3,
         spacing: Vec3,
         color: impl Into<Color>,
-    ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
+    ) -> GridBuilder3d<'_, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
             isometry,
@@ -330,7 +330,7 @@ where
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
-    ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
+    ) -> GridBuilder2d<'_, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
             isometry: Isometry3d::new(
@@ -348,7 +348,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn draw_grid<Config, Clear>(
-    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
+    gizmos: &mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
     spacing: Vec3,
     cell_count: UVec3,

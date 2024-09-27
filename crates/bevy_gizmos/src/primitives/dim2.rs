@@ -14,7 +14,7 @@ use bevy_math::{
     Dir2, Isometry2d, Rot2, Vec2,
 };
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 
 // some magic number since using directions as offsets will result in lines of length 1 pixel
 const MIN_LINE_LEN: f32 = 50.0;
@@ -40,7 +40,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
 
 // direction 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Dir2> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Dir2> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -67,7 +67,7 @@ where
 
 // arc 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Arc2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Arc2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -100,13 +100,13 @@ where
 
 // circle 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Circle> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Circle> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     type Output<'a>
-        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+        = crate::circles::Ellipse2dBuilder<'a, Config, Clear>
     where
         Self: 'a;
 
@@ -122,7 +122,7 @@ where
 
 // circular sector 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSector> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<CircularSector> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -164,7 +164,7 @@ where
 
 // circular segment 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<CircularSegment> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<CircularSegment> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -205,13 +205,13 @@ where
 
 // ellipse 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Ellipse> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Ellipse> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     type Output<'a>
-        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+        = crate::circles::Ellipse2dBuilder<'a, Config, Clear>
     where
         Self: 'a;
 
@@ -228,12 +228,12 @@ where
 // annulus 2d
 
 /// Builder for configuring the drawing options of [`Annulus`].
-pub struct Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Annulus2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry2d,
     inner_radius: f32,
     outer_radius: f32,
@@ -242,7 +242,7 @@ where
     outer_resolution: u32,
 }
 
-impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Annulus2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -267,13 +267,13 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Annulus> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Annulus> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     type Output<'a>
-        = Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+        = Annulus2dBuilder<'a, Config, Clear>
     where
         Self: 'a;
 
@@ -295,7 +295,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Annulus2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Annulus2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -327,7 +327,7 @@ where
 
 // rhombus 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rhombus> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Rhombus> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -360,7 +360,7 @@ where
 
 // capsule 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Capsule2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Capsule2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -425,12 +425,12 @@ where
 // line 2d
 //
 /// Builder for configuring the drawing options of [`Line2d`].
-pub struct Line2dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Line2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     direction: Dir2, // Direction of the line
 
@@ -440,7 +440,7 @@ where
     draw_arrow: bool, // decides whether to indicate the direction of the line with an arrow
 }
 
-impl<Config, Clear> Line2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Line2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -452,13 +452,13 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Line2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Line2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     type Output<'a>
-        = Line2dBuilder<'a, 'w, 's, Config, Clear>
+        = Line2dBuilder<'a, Config, Clear>
     where
         Self: 'a;
 
@@ -478,7 +478,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Line2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Line2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -510,7 +510,7 @@ where
 
 // plane 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Plane2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Plane2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -563,12 +563,12 @@ where
 // segment 2d
 
 /// Builder for configuring the drawing options of [`Segment2d`].
-pub struct Segment2dBuilder<'a, 'w, 's, Config, Clear>
+pub struct Segment2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     direction: Dir2,  // Direction of the line segment
     half_length: f32, // Half-length of the line segment
@@ -579,7 +579,7 @@ where
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
 
-impl<Config, Clear> Segment2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Segment2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -591,13 +591,13 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Segment2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Segment2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     type Output<'a>
-        = Segment2dBuilder<'a, 'w, 's, Config, Clear>
+        = Segment2dBuilder<'a, Config, Clear>
     where
         Self: 'a;
 
@@ -620,7 +620,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Segment2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Segment2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -644,8 +644,7 @@ where
 
 // polyline 2d
 
-impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive2d<Polyline2d<N>>
-    for Gizmos<'w, 's, Config, Clear>
+impl<const N: usize, Config, Clear> GizmoPrimitive2d<Polyline2d<N>> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -678,7 +677,7 @@ where
 
 // boxed polyline 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<BoxedPolyline2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<BoxedPolyline2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -711,7 +710,7 @@ where
 
 // triangle 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Triangle2d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Triangle2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -738,7 +737,7 @@ where
 
 // rectangle 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<Rectangle> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Rectangle> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -772,8 +771,7 @@ where
 
 // polygon 2d
 
-impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive2d<Polygon<N>>
-    for Gizmos<'w, 's, Config, Clear>
+impl<const N: usize, Config, Clear> GizmoPrimitive2d<Polygon<N>> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -816,7 +814,7 @@ where
 
 // boxed polygon 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<BoxedPolygon> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<BoxedPolygon> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -857,7 +855,7 @@ where
 
 // regular polygon 2d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive2d<RegularPolygon> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<RegularPolygon> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

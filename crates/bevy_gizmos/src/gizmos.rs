@@ -141,7 +141,6 @@ where
     Clear: 'static + Send + Sync,
 {
     buffer: Deferred<'s, GizmoBuffer<Config, Clear>>,
-    pub(crate) enabled: bool,
     /// The currently used [`GizmoConfig`]
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
@@ -232,7 +231,7 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        let (f0, f1) = unsafe {
+        let (mut f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -244,9 +243,11 @@ where
         // Implementing SystemParam manually allows us to do it to here
         // Having config available allows for early returns when gizmos are disabled
         let (config, config_ext) = f1.into_inner().config::<Config>();
+
+        f0.enabled = config.enabled;
+
         Gizmos {
             buffer: f0,
-            enabled: config.enabled,
             config,
             config_ext,
         }
@@ -270,7 +271,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    pub enabled: bool,
+    pub(crate) enabled: bool,
     pub(crate) list_positions: Vec<Vec3>,
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
@@ -285,12 +286,12 @@ where
     Clear: 'static + Send + Sync,
 {
     fn default() -> Self {
-        Self {
+        GizmoBuffer {
             enabled: true,
-            list_positions: default(),
-            list_colors: default(),
-            strip_positions: default(),
-            strip_colors: default(),
+            list_positions: Vec::new(),
+            list_colors: Vec::new(),
+            strip_positions: Vec::new(),
+            strip_colors: Vec::new(),
             marker: PhantomData,
         }
     }
