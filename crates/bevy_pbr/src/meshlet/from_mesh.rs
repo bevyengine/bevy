@@ -132,9 +132,10 @@ impl MeshletMesh {
         let mut vertex_normals = Vec::new();
         let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
-        for meshlet in &meshlets.meshlets {
+        for (i, meshlet) in meshlets.meshlets.iter().enumerate() {
             build_and_compress_meshlet_vertex_data(
                 meshlet,
+                meshlets.get(i).vertices,
                 &mut quantized_positions,
                 &mut vertex_positions,
                 &mut vertex_normals,
@@ -338,6 +339,7 @@ fn split_simplified_group_into_new_meshlets(
 // TODO: Per-mesh VERTEX_POSITION_QUANTIZATION_FACTOR
 fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
+    meshlet_vertex_ids: &[u32],
     quantized_positions: &mut Vec<IVec3>,
     vertex_positions: &mut BitVec<u8>,
     vertex_normals: &mut Vec<u32>,
@@ -352,9 +354,9 @@ fn build_and_compress_meshlet_vertex_data(
     let mut max_quantized_position_channels = IVec3::MIN;
 
     // Lossy vertex compression
-    for vertex_id in meshlet.vertex_offset..(meshlet.vertex_offset + meshlet.vertex_count) {
+    for vertex_id in meshlet_vertex_ids {
         // Load source vertex attributes
-        let vertex_id_byte = vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
+        let vertex_id_byte = *vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
         let vertex_data =
             &vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
         let position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
