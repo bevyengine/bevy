@@ -1,6 +1,6 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
-    TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
+    ScrollPosition, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -14,6 +14,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
@@ -344,6 +345,13 @@ pub fn ui_layout_system(
                 node.unrounded_size = layout_size;
             }
 
+            node.bypass_change_detection().border = BorderRect {
+                left: layout.border.left * inverse_target_scale_factor,
+                right: layout.border.right * inverse_target_scale_factor,
+                top: layout.border.top * inverse_target_scale_factor,
+                bottom: layout.border.bottom * inverse_target_scale_factor,
+            };
+
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 
             if let Some(border_radius) = maybe_border_radius {
@@ -355,11 +363,15 @@ pub fn ui_layout_system(
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
-                node.outline_width = outline
-                    .width
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+                node.outline_width = if style.display != Display::None {
+                    outline
+                        .width
+                        .resolve(node.size().x, viewport_size)
+                        .unwrap_or(0.)
+                        .max(0.)
+                } else {
+                    0.
+                };
 
                 node.outline_offset = outline
                     .offset
@@ -834,7 +846,10 @@ mod tests {
             .fold(
                 Option::<(Rect, bool)>::None,
                 |option_rect, (entity, node, global_transform)| {
-                    let current_rect = node.logical_rect(global_transform);
+                    let current_rect = Rect::from_center_size(
+                        global_transform.translation().truncate(),
+                        node.size(),
+                    );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity:?} doesn't have a logical size"
