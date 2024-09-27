@@ -31,6 +31,8 @@
 
 #![allow(clippy::type_complexity)]
 
+extern crate alloc;
+
 mod bounds;
 mod error;
 mod font;

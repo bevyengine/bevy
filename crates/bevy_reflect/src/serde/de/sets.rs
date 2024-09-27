@@ -2,9 +2,8 @@ use crate::{
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     DynamicSet, Set, SetInfo, TypeRegistry,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Set`] values.
 ///

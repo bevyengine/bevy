@@ -1,7 +1,7 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
-use std::panic::AssertUnwindSafe;
 
 use crate::{
     schedule::{

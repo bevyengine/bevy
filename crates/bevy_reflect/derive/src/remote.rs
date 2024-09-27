@@ -167,7 +167,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)
@@ -196,7 +196,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)

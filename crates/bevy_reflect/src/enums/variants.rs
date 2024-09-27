@@ -3,9 +3,9 @@ use crate::{
     NamedField, UnnamedField,
 };
 use bevy_utils::HashMap;
-use std::slice::Iter;
+use core::slice::Iter;
 
-use std::sync::Arc;
+use alloc::sync::Arc;
 use thiserror::Error;
 
 /// Describes the form of an enum variant.

@@ -45,7 +45,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
-use std::{
+use core::{
     any::TypeId,
     fmt,
     mem::MaybeUninit,
@@ -172,10 +172,10 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
+        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
+        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].
     ///
@@ -261,17 +261,17 @@ impl World {
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
-        self.components.init_component::<T>(&mut self.storages)
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.components.register_component::<T>(&mut self.storages)
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
     pub fn register_component_hooks<T: Component>(&mut self) -> &mut ComponentHooks {
-        let index = self.init_component::<T>();
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if {} may already be in use", std::any::type_name::<T>());
+        let index = self.register_component::<T>();
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(index)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if {} may already be in use", core::any::type_name::<T>());
         // SAFETY: We just created this component
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
     }
@@ -283,25 +283,25 @@ impl World {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use init_component if the component with id {:?} may already be in use", id);
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
         self.components.get_hooks_mut(id)
     }
 
-    /// Initializes a new [`Component`] type and returns the [`ComponentId`] created for it.
+    /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     ///
-    /// This method differs from [`World::init_component`] in that it uses a [`ComponentDescriptor`]
-    /// to initialize the new component type instead of statically available type information. This
-    /// enables the dynamic initialization of new component definitions at runtime for advanced use cases.
+    /// This method differs from [`World::register_component`] in that it uses a [`ComponentDescriptor`]
+    /// to register the new component type instead of statically available type information. This
+    /// enables the dynamic registration of new component definitions at runtime for advanced use cases.
     ///
-    /// While the option to initialize a component from a descriptor is useful in type-erased
-    /// contexts, the standard `World::init_component` function should always be used instead
+    /// While the option to register a component from a descriptor is useful in type-erased
+    /// contexts, the standard [`World::register_component`] function should always be used instead
     /// when type information is available at compile time.
-    pub fn init_component_with_descriptor(
+    pub fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .init_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(&mut self.storages, descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -310,7 +310,7 @@ impl World {
     /// it was retrieved from and should not be used with another `World` instance.
     ///
     /// Returns [`None`] if the `Component` type has not yet been initialized within
-    /// the `World` using [`World::init_component`].
+    /// the `World` using [`World::register_component`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -320,7 +320,7 @@ impl World {
     /// #[derive(Component)]
     /// struct ComponentA;
     ///
-    /// let component_a_id = world.init_component::<ComponentA>();
+    /// let component_a_id = world.register_component::<ComponentA>();
     ///
     /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
@@ -590,7 +590,7 @@ impl World {
         entities: [Entity; N],
     ) -> Result<[EntityRef<'_>; N], Entity> {
         let mut refs = [MaybeUninit::uninit(); N];
-        for (r, id) in std::iter::zip(&mut refs, entities) {
+        for (r, id) in core::iter::zip(&mut refs, entities) {
             *r = MaybeUninit::new(self.get_entity(id).ok_or(id)?);
         }
 
@@ -773,7 +773,7 @@ impl World {
         let world_cell = self.as_unsafe_world_cell();
 
         let mut cells = [MaybeUninit::uninit(); N];
-        for (cell, id) in std::iter::zip(&mut cells, entities) {
+        for (cell, id) in core::iter::zip(&mut cells, entities) {
             *cell = MaybeUninit::new(
                 world_cell
                     .get_entity(id)
@@ -1312,7 +1312,7 @@ impl World {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         if self
             .storages
             .resources
@@ -1358,7 +1358,7 @@ impl World {
         value: R,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1388,7 +1388,7 @@ impl World {
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let component_id = self.components.register_non_send::<R>();
         if self
             .storages
             .non_send_resources
@@ -1425,7 +1425,7 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         #[cfg(feature = "track_change_detection")]
         let caller = Location::caller();
-        let component_id = self.components.init_non_send::<R>();
+        let component_id = self.components.register_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
@@ -1611,7 +1611,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1635,7 +1635,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1659,7 +1659,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1704,7 +1704,7 @@ impl World {
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
-        let component_id = self.components.init_resource::<R>();
+        let component_id = self.components.register_resource::<R>();
         let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
@@ -1746,7 +1746,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1768,7 +1768,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1861,7 +1861,7 @@ impl World {
 
         let bundle_id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut self.components, &mut self.storages);
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -2000,13 +2000,13 @@ impl World {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
             .and_then(ResourceData::remove)
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
         let mut value = unsafe { ptr.read::<R>() };
@@ -2025,7 +2025,7 @@ impl World {
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            std::any::type_name::<R>());
+            core::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -2044,7 +2044,7 @@ impl World {
                     .unwrap_or_else(|| {
                         panic!(
                             "No resource of type {} exists in the World.",
-                            std::any::type_name::<R>()
+                            core::any::type_name::<R>()
                         )
                     });
             }
@@ -2058,7 +2058,7 @@ impl World {
     /// or [`None`] if the `event` could not be sent.
     #[inline]
     pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(std::iter::once(event))?.next()
+        self.send_event_batch(core::iter::once(event))?.next()
     }
 
     /// Sends the default value of the [`Event`] of type `E`.
@@ -2080,7 +2080,7 @@ impl World {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             bevy_utils::tracing::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                std::any::type_name::<E>()
+                core::any::type_name::<E>()
             );
             return None;
         };
@@ -2441,16 +2441,16 @@ impl World {
         self.storages.non_send_resources.clear();
     }
 
-    /// Initializes all of the components in the given [`Bundle`] and returns both the component
+    /// Registers all of the components in the given [`Bundle`] and returns both the component
     /// ids and the bundle id.
     ///
-    /// This is largely equivalent to calling [`init_component`](Self::init_component) on each
+    /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn init_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
         let id = self
             .bundles
-            .init_info::<B>(&mut self.components, &mut self.storages);
+            .register_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialised the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
@@ -2989,16 +2989,15 @@ mod tests {
         ptr::OwningPtr,
         system::Resource,
     };
+    use alloc::sync::Arc;
     use bevy_ecs_macros::Component;
     use bevy_utils::{HashMap, HashSet};
-    use std::{
+    use core::{
         any::TypeId,
         panic,
-        sync::{
-            atomic::{AtomicBool, AtomicU32, Ordering},
-            Arc, Mutex,
-        },
+        sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
+    use std::sync::Mutex;
 
     // For bevy_ecs_macros
     use crate as bevy_ecs;
@@ -3082,7 +3081,7 @@ mod tests {
             if !expected_panic_flag {
                 match panic_res {
                     Ok(()) => panic!("Expected a panic but it didn't happen"),
-                    Err(e) => panic::resume_unwind(e),
+                    Err(e) => std::panic::resume_unwind(e),
                 }
             }
 
@@ -3094,7 +3093,7 @@ mod tests {
     fn panic_while_overwriting_component() {
         let helper = DropTestHelper::new();
 
-        let res = panic::catch_unwind(|| {
+        let res = std::panic::catch_unwind(|| {
             let mut world = World::new();
             world
                 .spawn_empty()
@@ -3177,12 +3176,12 @@ mod tests {
         let mut iter = world.iter_resources();
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
@@ -3203,14 +3202,14 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), std::any::type_name::<TestResource2>());
+        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
@@ -3237,7 +3236,7 @@ mod tests {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
                 StorageType::Table,
-                std::alloc::Layout::new::<[u8; 8]>(),
+                core::alloc::Layout::new::<[u8; 8]>(),
                 Some(|ptr| {
                     let data = ptr.read::<[u8; 8]>();
                     assert_eq!(data, [0, 1, 2, 3, 4, 5, 6, 7]);
@@ -3246,7 +3245,7 @@ mod tests {
             )
         };
 
-        let component_id = world.init_component_with_descriptor(descriptor);
+        let component_id = world.register_component_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
@@ -3256,7 +3255,7 @@ mod tests {
                     component_id,
                     ptr,
                     #[cfg(feature = "track_change_detection")]
-                    core::panic::Location::caller(),
+                    panic::Location::caller(),
                 );
             }
         });
@@ -3477,7 +3476,7 @@ mod tests {
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
-        std::mem::swap(
+        core::mem::swap(
             &mut a[1].get_mut::<A>().unwrap().0,
             &mut b[0].get_mut::<B>().unwrap().0,
         );

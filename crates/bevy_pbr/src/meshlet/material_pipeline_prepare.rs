@@ -18,7 +18,7 @@ use bevy_render::{
     view::ExtractedView,
 };
 use bevy_utils::{HashMap, HashSet};
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
 #[derive(Component, Deref, DerefMut, Default)]

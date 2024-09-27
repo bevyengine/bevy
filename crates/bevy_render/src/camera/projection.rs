@@ -1,4 +1,4 @@
-use std::{
+use core::{
     marker::PhantomData,
     ops::{Div, DivAssign, Mul, MulAssign},
 };
@@ -221,7 +221,7 @@ impl CameraProjection for PerspectiveProjection {
 impl Default for PerspectiveProjection {
     fn default() -> Self {
         PerspectiveProjection {
-            fov: std::f32::consts::PI / 4.0,
+            fov: core::f32::consts::PI / 4.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,

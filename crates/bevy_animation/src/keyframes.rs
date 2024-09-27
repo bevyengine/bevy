@@ -1,6 +1,6 @@
 //! Keyframes of animation clips.
 
-use std::{
+use core::{
     any::TypeId,
     fmt::{self, Debug, Formatter},
 };

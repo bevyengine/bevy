@@ -63,7 +63,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use std::ops::Range;
+use core::ops::Range;
 
 use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
