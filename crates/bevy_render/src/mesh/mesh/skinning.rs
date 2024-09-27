@@ -3,14 +3,14 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, IterEntities},
     prelude::ReflectComponent,
-    reflect::ReflectMapEntities,
+    reflect::{ReflectMapEntities, ReflectVisitEntities},
 };
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
 use std::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect, IterEntities)]
-#[reflect(Component, MapEntities, Default, Debug)]
+#[reflect(Component, MapEntities, VisitEntities, Default, Debug)]
 pub struct SkinnedMesh {
     #[iter_entities(ignore)]
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,

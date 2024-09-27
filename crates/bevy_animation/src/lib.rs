@@ -26,7 +26,10 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
-    entity::IterEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
+    entity::IterEntities,
+    prelude::*,
+    reflect::{ReflectMapEntities, ReflectVisitEntities},
+    world::EntityMutExcept,
 };
 use bevy_math::FloatExt;
 use bevy_reflect::{
@@ -526,7 +529,7 @@ impl Hash for AnimationTargetId {
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect, IterEntities)]
-#[reflect(Component, MapEntities)]
+#[reflect(Component, MapEntities, VisitEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///

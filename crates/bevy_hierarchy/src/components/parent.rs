@@ -1,5 +1,7 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, IterEntities},
@@ -25,7 +27,7 @@ use std::ops::Deref;
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
-    reflect(Component, MapEntities, PartialEq, Debug, FromWorld)
+    reflect(Component, MapEntities, VisitEntities, PartialEq, Debug, FromWorld)
 )]
 pub struct Parent(pub(crate) Entity);
 

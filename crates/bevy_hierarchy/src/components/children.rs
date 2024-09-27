@@ -1,5 +1,7 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+};
 use bevy_ecs::{component::Component, entity::Entity, prelude::FromWorld, world::World};
 use core::slice;
 use smallvec::SmallVec;
@@ -20,7 +22,10 @@ use std::ops::Deref;
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
 #[derive(Component, Debug)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities, Debug, FromWorld))]
+#[cfg_attr(
+    feature = "reflect",
+    reflect(Component, MapEntities, VisitEntities, Debug, FromWorld)
+)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 // TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.

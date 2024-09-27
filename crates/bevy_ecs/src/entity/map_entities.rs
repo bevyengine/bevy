@@ -5,7 +5,55 @@ use crate::{
 };
 pub use bevy_ecs_macros::IterEntities;
 
-use super::EntityHashMap;
+use super::{EntityHashMap, VisitEntities};
+
+/// Operation to map all contained [`Entity`] fields in a type to new values.
+///
+/// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
+/// as references in components copied from another world will be invalid. This trait
+/// allows defining custom mappings for these references via [`EntityMappers`](EntityMapper), which
+/// inject the entity mapping strategy between your `MapEntities` type and the current world
+/// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
+/// current world).
+///
+/// Implementing this trait correctly is required for properly loading components
+/// with entity references from scenes.
+///
+/// ## Example
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::MapEntities;
+///
+/// #[derive(Component)]
+/// struct Spring {
+///     a: Entity,
+///     b: Entity,
+/// }
+///
+/// impl MapEntities for Spring {
+///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+///         self.a = entity_mapper.map_entity(self.a);
+///         self.b = entity_mapper.map_entity(self.b);
+///     }
+/// }
+/// ```
+pub trait MapEntities {
+    /// Updates all [`Entity`] references stored inside using `entity_mapper`.
+    ///
+    /// Implementors should look up any and all [`Entity`] values stored within `self` and
+    /// update them to the mapped values via `entity_mapper`.
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
+}
+
+impl<T> MapEntities for T
+where
+    T: VisitEntities,
+{
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.visit_entities_mut(|entity| *entity = entity_mapper.map_entity(*entity));
+    }
+}
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
@@ -81,6 +129,16 @@ impl<T: EntityMapper> DynEntityMapper for T {
 
     fn dyn_mappings(&self) -> Vec<(Entity, Entity)> {
         <T as EntityMapper>::mappings(self).collect()
+    }
+}
+
+impl<'a> EntityMapper for &'a mut dyn DynEntityMapper {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        (*self).dyn_map_entity(entity)
+    }
+
+    fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)> {
+        (*self).dyn_mappings().into_iter()
     }
 }
 
