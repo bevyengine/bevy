@@ -273,6 +273,9 @@ use std::{
 /// for the same component will result in a panic. This is done to prevent conflicting constructors
 /// and confusing ordering dependencies.
 ///
+/// Note that requirements must currently be registered before the requiring component is inserted
+/// into the world for the first time. Registering requirements after this will lead to a panic.
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
@@ -1020,14 +1023,12 @@ impl Components {
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
-    pub(crate) fn register_required_components_recursive<T: Component, R: Component>(
+    pub(crate) fn register_required_components_recursive<R: Component>(
         &mut self,
-        storages: &mut Storages,
+        required: ComponentId,
+        requiree: ComponentId,
         constructor: fn() -> R,
     ) {
-        let requiree = self.register_component::<T>(storages);
-        let required = self.register_component::<R>(storages);
-
         // SAFETY: We just created the components.
         unsafe {
             self.register_required_components_recursive_unchecked(required, requiree, constructor);

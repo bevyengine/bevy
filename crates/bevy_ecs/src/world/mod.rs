@@ -283,11 +283,15 @@ impl World {
     ///
     /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
     ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
     /// [required component]: Component#required-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
@@ -326,11 +330,15 @@ impl World {
     ///
     /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
     ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
     /// [required component]: Component#required-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
@@ -365,8 +373,19 @@ impl World {
         &mut self,
         constructor: fn() -> R,
     ) {
-        self.components
-            .register_required_components_recursive::<T, R>(&mut self.storages, constructor);
+        let requiree = self.register_component::<T>();
+        let required = self.register_component::<R>();
+
+        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        if self.archetypes().component_index().contains_key(&requiree) {
+            panic!("Cannot register required components for a component that already exists in an archetype");
+        }
+
+        self.components.register_required_components_recursive::<R>(
+            required,
+            requiree,
+            constructor,
+        );
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.

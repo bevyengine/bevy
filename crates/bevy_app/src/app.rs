@@ -761,11 +761,15 @@ impl App {
     ///
     /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
     ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
     /// [required component]: Component#required-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
@@ -816,11 +820,15 @@ impl App {
     ///
     /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
     ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
     /// [required component]: Component#required-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`.
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.

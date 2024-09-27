@@ -2158,6 +2158,23 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn runtime_required_components_existing_archetype() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // Registering required components after the archetype has already been created should panic.
+        // This may change in the future.
+        world.spawn(X);
+        world.register_required_components::<X, Y>();
+    }
+
+    #[test]
+    #[should_panic]
     fn runtime_required_components_panic_with_duplicate() {
         #[derive(Component)]
         #[require(Y)]
