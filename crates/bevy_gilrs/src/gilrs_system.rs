@@ -1,6 +1,6 @@
 use crate::{
     converter::{convert_axis, convert_button},
-    Gamepads, Gilrs,
+    GilrsGamepads, Gilrs,
 };
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::Commands;
@@ -17,7 +17,7 @@ pub fn gilrs_event_startup_system(
     mut commands: Commands,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut gamepads: ResMut<Gamepads>,
+    mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<GamepadConnectionEvent>,
 ) {
     for (id, gamepad) in gilrs.0.get().gamepads() {
@@ -41,7 +41,7 @@ pub fn gilrs_event_system(
     mut commands: Commands,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut gamepads: ResMut<Gamepads>,
+    mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<RawGamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<RawGamepadButtonChangedEvent>,

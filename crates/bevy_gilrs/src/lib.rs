@@ -28,14 +28,14 @@ pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
 
 /// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
 #[derive(Debug, Default, Resource)]
-pub struct Gamepads {
+pub(crate) struct GilrsGamepads {
     /// Mapping of [`Entity`] to [`gilrs::GamepadId`].
     pub(crate) entity_to_id: EntityHashMap<gilrs::GamepadId>,
     /// Mapping of [`gilrs::GamepadId`] to [`Entity`].
     pub(crate) id_to_entity: HashMap<gilrs::GamepadId, Entity>,
 }
 
-impl Gamepads {
+impl GilrsGamepads {
     /// Returns the [`Entity`] assigned to a connected [`gilrs::GamepadId`].
     pub fn get_entity(&self, gamepad_id: gilrs::GamepadId) -> Option<Entity> {
         self.id_to_entity.get(&gamepad_id).copied()
@@ -67,7 +67,7 @@ impl Plugin for GilrsPlugin {
                 app.insert_non_send_resource(Gilrs(SyncCell::new(gilrs)));
                 #[cfg(not(target_arch = "wasm32"))]
                 app.insert_resource(Gilrs(SyncCell::new(gilrs)));
-                app.init_resource::<Gamepads>();
+                app.init_resource::<GilrsGamepads>();
                 app.init_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))
