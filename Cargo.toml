@@ -1678,6 +1678,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "arc_asset"
+path = "examples/asset/arc_asset.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.arc_asset]
+name = "Arced Assets"
+description = "Demonstrates how to acquire Arc'd assets and use them in an async context"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true
