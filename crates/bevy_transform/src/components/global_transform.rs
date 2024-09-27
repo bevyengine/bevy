@@ -10,33 +10,46 @@ use {
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
-/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
+/// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace
+/// coordinates.
 ///
-/// You cannot directly mutate [`GlobalTransform`]; instead, you change an entity's transform by manipulating
-/// its [`Transform`], which indirectly causes Bevy to update its [`GlobalTransform`].
+/// ## Usage
 ///
-/// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
+/// * To place or move an entity, you should set its [`Transform`].
+/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`],
+///   after [`TransformPropagate`] or [`PostUpdate`] to avoid a 1 frame lag.
+///   * You can use [`compute_transform`] to get the global `translation`, `rotation` and `scale`.
+/// * [`GlobalTransform`] is fully managed by bevy and should not be mutated directly.
+///   Use [`Transform`] instead, and the [`GlobalTransform`] will be automatically updated with [`TransformPropagate`].
+///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee
+///     an entity has both components.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
-/// if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// [`Transform`] is the local transform of an entity in space relative to its parent transform,
+/// or the global transform relative to the main reference frame if it doesn't have a [`Parent`].
 ///
-/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
-/// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`GlobalTransform`] is the absolute transform of an entity in space, relative to the main reference frame.
 ///
-/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
-/// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
-/// before the [`GlobalTransform`] is updated.
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
+/// [`TransformPropagate`].
+/// Those systems run during [`PostUpdate`].
+/// If you update the [`Transform`] of an entity in this schedule or after,
+/// you may notice a 1 frame lag before the [`GlobalTransform`] is updated.
 ///
 /// # Examples
 ///
-/// - [`transform`][transform_example]
+/// - The [`transform example`], or the other examples in the [`transforms folder`],
+///   to learn how to use the [`Transform`] of an entity.
+/// - The [`parenting example`], to learn how [`Transform`] behaves in a hierarchy.
 ///
-/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+/// [`compute_transform`]: GlobalTransform::compute_transform
+/// [`TransformBundle`]: crate::TransformBundle
+/// [`TransformPropagate`]: crate::TransformSystem::TransformPropagate
+/// [`PostUpdate`]: bevy_app::PostUpdate
+/// [`Parent`]: bevy_hierarchy::Parent
+/// [`transform example`]: https://bevyengine.org/examples/transforms/transform
+/// [`parenting example`]: https://bevyengine.org/examples/3d-rendering/parenting
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

@@ -12,8 +12,10 @@ use crate::prelude::{GlobalTransform, Transform};
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
-/// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a parent.
+///
+/// [`Transform`] is the local transform (translation, rotation, scale) of an entity in space.
+/// If the entity has a parent, the local transform is relative to its parent's
+/// [`GlobalTransform`], otherwise, it's relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
