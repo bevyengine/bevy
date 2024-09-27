@@ -38,7 +38,7 @@
 //!
 //! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
 
-use std::f32::consts::{PI, TAU};
+use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{

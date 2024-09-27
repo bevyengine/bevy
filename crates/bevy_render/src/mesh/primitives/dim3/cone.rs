@@ -111,7 +111,7 @@ impl MeshBuilder for ConeMeshBuilder {
         let normalization_factor = (1.0 + normal_slope * normal_slope).sqrt().recip();
 
         // How much the angle changes at each step
-        let step_theta = std::f32::consts::TAU / self.resolution as f32;
+        let step_theta = core::f32::consts::TAU / self.resolution as f32;
 
         // Add vertices for the bottom of the lateral surface.
         for segment in 0..self.resolution {

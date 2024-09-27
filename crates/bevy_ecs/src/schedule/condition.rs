@@ -1,4 +1,5 @@
-use std::{borrow::Cow, ops::Not};
+use alloc::borrow::Cow;
+use core::ops::Not;
 
 use crate::system::{
     Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
@@ -1064,7 +1065,7 @@ pub mod common_conditions {
     /// ```
     pub fn not<Marker, TOut, T>(condition: T) -> NotSystem<T::System>
     where
-        TOut: std::ops::Not,
+        TOut: core::ops::Not,
         T: IntoSystem<(), TOut, Marker>,
     {
         let condition = IntoSystem::into_system(condition);

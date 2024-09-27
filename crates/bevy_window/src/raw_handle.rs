@@ -1,16 +1,13 @@
 #![allow(unsafe_code)]
 
+use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
+use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
-use std::{
-    any::Any,
-    marker::PhantomData,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::sync::Mutex;
 
 /// A wrapper over a window.
 ///

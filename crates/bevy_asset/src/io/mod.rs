@@ -21,15 +21,18 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
+use alloc::sync::Arc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use core::{
+    mem::size_of,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
     io::SeekFrom,
     path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
 };
 use thiserror::Error;
 
@@ -713,7 +716,7 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }

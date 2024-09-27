@@ -11,7 +11,10 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-use std::sync::{Arc, Mutex};
+extern crate alloc;
+
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use bevy_a11y::Focus;
 

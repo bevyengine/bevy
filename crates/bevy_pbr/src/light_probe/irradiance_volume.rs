@@ -142,7 +142,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
 };
-use std::{num::NonZero, ops::Deref};
+use core::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

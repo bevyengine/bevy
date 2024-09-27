@@ -11,8 +11,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
+use alloc::borrow::Cow;
 use bevy_utils::all_tuples;
-use std::{borrow::Cow, marker::PhantomData};
+use core::marker::PhantomData;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
@@ -50,7 +51,7 @@ pub struct SystemMeta {
 
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
-        let name = std::any::type_name::<T>();
+        let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
             archetype_component_access: Access::default(),
@@ -405,7 +406,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
         let archetypes = world.archetypes();
         let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+            core::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
@@ -680,7 +681,7 @@ where
         assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+            core::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
         for archetype in &archetypes[old_generation..] {
             let param_state = self.param_state.as_mut().unwrap();
@@ -884,7 +885,7 @@ mod tests {
         {
             fn reference_system() {}
 
-            use std::any::TypeId;
+            use core::any::TypeId;
 
             let system = IntoSystem::into_system(function);
 

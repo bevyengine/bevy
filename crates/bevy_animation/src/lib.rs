@@ -7,6 +7,8 @@
 
 //! Animation for the game engine Bevy
 
+extern crate alloc;
+
 pub mod animatable;
 pub mod animation_curves;
 pub mod gltf_curves;
@@ -14,10 +16,10 @@ pub mod graph;
 pub mod transition;
 mod util;
 
-use std::{
+use alloc::collections::BTreeMap;
+use core::{
     any::{Any, TypeId},
     cell::RefCell,
-    collections::BTreeMap,
     fmt::Debug,
     hash::{Hash, Hasher},
     iter,

@@ -20,9 +20,9 @@ mod tests {
         Struct, TypeRegistry,
     };
     use bevy_utils::{HashMap, HashSet};
+    use core::{f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::Serialize;
-    use std::{f32::consts::PI, ops::RangeInclusive};
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -409,7 +409,7 @@ mod tests {
 
         serializer.serialize(&mut ser).unwrap();
 
-        let output = std::str::from_utf8(&buf).unwrap();
+        let output = core::str::from_utf8(&buf).unwrap();
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::OtherStruct": {
         "some": {

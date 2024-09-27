@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -291,7 +291,7 @@ impl Map for DynamicMap {
         {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
-                std::mem::swap(old_value, &mut value);
+                core::mem::swap(old_value, &mut value);
                 Some(value)
             }
             Entry::Vacant(entry) => {
@@ -376,7 +376,7 @@ impl PartialReflect for DynamicMap {
         map_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicMap(")?;
         map_debug(self, f)?;
         write!(f, ")")
@@ -391,7 +391,7 @@ impl PartialReflect for DynamicMap {
 impl_type_path!((in bevy_reflect) DynamicMap);
 
 impl Debug for DynamicMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -449,7 +449,7 @@ impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
 
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -518,7 +518,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);

@@ -3,6 +3,7 @@ use crate::io::{
     memory::Dir,
     AssetSourceEvent, AssetWatcher,
 };
+use alloc::sync::Arc;
 use bevy_utils::{tracing::warn, Duration, HashMap};
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, FileIdMap};
 use parking_lot::RwLock;
@@ -10,7 +11,6 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 /// A watcher for assets stored in the `embedded` asset source. Embedded assets are assets whose

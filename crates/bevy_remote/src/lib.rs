@@ -247,10 +247,8 @@
 
 #![cfg(not(target_family = "wasm"))]
 
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    sync::RwLock,
-};
+use core::net::{IpAddr, Ipv4Addr};
+use std::sync::RwLock;
 
 use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;

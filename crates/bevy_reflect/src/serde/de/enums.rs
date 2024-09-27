@@ -12,9 +12,8 @@ use crate::{
     DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, StructVariantInfo,
     TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Enum`] values.
 ///
