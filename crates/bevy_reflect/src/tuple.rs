@@ -1,16 +1,17 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
-    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
+    self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
+    FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    UnnamedField,
 };
-use crate::{PartialReflect, ReflectKind};
-use std::any::Any;
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use core::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [tuple-like] operations via [reflection].
 ///
@@ -152,7 +153,6 @@ impl TupleInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this tuple in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
@@ -341,7 +341,7 @@ impl PartialReflect for DynamicTuple {
         tuple_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTuple(")?;
         tuple_debug(self, f)?;
         write!(f, ")")
@@ -366,7 +366,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
 
 impl IntoIterator for DynamicTuple {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -403,18 +403,14 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        for (i, value) in tuple.iter_fields().enumerate() {
-            if let Some(v) = a.field_mut(i) {
-                v.try_apply(value)?;
-            }
+    let tuple = b.reflect_ref().as_tuple()?;
+
+    for (i, value) in tuple.iter_fields().enumerate() {
+        if let Some(v) = a.field_mut(i) {
+            v.try_apply(value)?;
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Tuple,
-        });
     }
+
     Ok(())
 }
 
@@ -464,7 +460,7 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
 /// // )
 /// ```
 #[inline]
-pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_tuple("");
     for field in dyn_tuple.iter_fields() {
         debug.field(&field as &dyn Debug);
@@ -645,17 +641,15 @@ macro_rules! impl_reflect_tuple {
         impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-                if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
-                    Some(
-                        (
-                            $(
-                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
-                            )*
-                        )
+                let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
+
+                Some(
+                    (
+                        $(
+                            <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                        )*
                     )
-                } else {
-                    None
-                }
+                )
             }
         }
     }

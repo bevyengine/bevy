@@ -36,7 +36,6 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
-use std::mem::size_of;
 
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.

@@ -3,12 +3,12 @@ use crate::{
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
+use alloc::sync::Arc;
 use async_lock::RwLockReadGuardArc;
 use bevy_utils::tracing::trace;
+use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncSeek};
-use std::io::SeekFrom;
-use std::task::Poll;
-use std::{path::Path, pin::Pin, sync::Arc};
+use std::{io::SeekFrom, path::Path};
 
 use super::ErasedAssetReader;
 
@@ -135,7 +135,7 @@ impl<'a> TransactionLockedReader<'a> {
 impl AsyncRead for TransactionLockedReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
         Pin::new(&mut self.reader).poll_read(cx, buf)
@@ -145,7 +145,7 @@ impl AsyncRead for TransactionLockedReader<'_> {
 impl AsyncSeek for TransactionLockedReader<'_> {
     fn poll_seek(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut core::task::Context<'_>,
         pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
         Pin::new(&mut self.reader).poll_seek(cx, pos)

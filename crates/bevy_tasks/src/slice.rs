@@ -86,9 +86,9 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         R: Send + 'static,
     {
         let slice = self.as_ref();
-        let chunk_size = std::cmp::max(
+        let chunk_size = core::cmp::max(
             1,
-            std::cmp::max(
+            core::cmp::max(
                 slice.len() / task_pool.thread_num(),
                 slice.len() / max_tasks.unwrap_or(usize::MAX),
             ),
@@ -197,9 +197,9 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         R: Send + 'static,
     {
         let mut slice = self.as_mut();
-        let chunk_size = std::cmp::max(
+        let chunk_size = core::cmp::max(
             1,
-            std::cmp::max(
+            core::cmp::max(
                 slice.len() / task_pool.thread_num(),
                 slice.len() / max_tasks.unwrap_or(usize::MAX),
             ),

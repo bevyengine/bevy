@@ -12,7 +12,7 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use std::ops::Range;
+use core::ops::Range;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
 /// [`ViewSortedRenderPhases`].

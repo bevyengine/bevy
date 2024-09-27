@@ -31,6 +31,8 @@
 
 #![allow(clippy::type_complexity)]
 
+extern crate alloc;
+
 mod bounds;
 mod error;
 mod font;
@@ -123,7 +125,8 @@ impl Plugin for TextPlugin {
                         .ambiguous_with(CameraUpdateSystem),
                     remove_dropped_font_atlas_sets,
                 ),
-            );
+            )
+            .add_systems(Last, trim_cosmic_cache);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(

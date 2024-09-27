@@ -3,7 +3,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
+use bevy::{math::ops, prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()
@@ -69,6 +69,6 @@ fn joint_animation(
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =
-            Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+            Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

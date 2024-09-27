@@ -387,7 +387,7 @@ mod aabb3d_tests {
         };
         let transformed = a.transformed_by(
             Vec3A::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
         let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
@@ -547,7 +547,7 @@ impl BoundingVolume for BoundingSphere {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        2. * std::f32::consts::PI * self.radius() * self.radius()
+        2. * core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
@@ -733,11 +733,11 @@ mod bounding_sphere_tests {
         let a = BoundingSphere::new(Vec3::ONE, 5.0);
         let transformed = a.transformed_by(
             Vec3::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
         assert_relative_eq!(
             transformed.center,
-            Vec3A::new(2.0, std::f32::consts::SQRT_2 - 2.0, 5.0)
+            Vec3A::new(2.0, core::f32::consts::SQRT_2 - 2.0, 5.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

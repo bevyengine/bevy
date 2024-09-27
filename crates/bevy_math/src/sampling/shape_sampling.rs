@@ -38,7 +38,7 @@
 //!
 //! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
 
-use std::f32::consts::{PI, TAU};
+use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
@@ -450,7 +450,7 @@ impl ShapeSample for Capsule2d {
         if capsule_area > 0.0 {
             // Check if the random point should be inside the rectangle
             if rng.gen_bool((rectangle_area / capsule_area) as f64) {
-                let rectangle = Rectangle::new(self.radius, self.half_length * 2.0);
+                let rectangle = Rectangle::new(self.radius * 2.0, self.half_length * 2.0);
                 rectangle.sample_interior(rng)
             } else {
                 let circle = Circle::new(self.radius);

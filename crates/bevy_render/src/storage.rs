@@ -1,13 +1,14 @@
-use crate::render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages};
-use crate::render_resource::{Buffer, BufferUsages};
-use crate::renderer::RenderDevice;
+use crate::{
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
+    render_resource::{Buffer, BufferUsages},
+    renderer::RenderDevice,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp};
-use bevy_ecs::system::lifetimeless::SRes;
-use bevy_ecs::system::SystemParamItem;
-use bevy_reflect::prelude::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
+use encase::{internal::WriteInto, ShaderType};
 use wgpu::util::BufferInitDescriptor;
 
 /// Adds [`ShaderStorageBuffer`] as an asset that is extracted and uploaded to the GPU.
@@ -25,7 +26,8 @@ impl Plugin for StoragePlugin {
 
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value(Default)]
+#[reflect(opaque)]
+#[reflect(Default, Debug)]
 pub struct ShaderStorageBuffer {
     /// Optional data used to initialize the buffer.
     pub data: Option<Vec<u8>>,
@@ -71,6 +73,29 @@ impl ShaderStorageBuffer {
         storage.buffer_description.mapped_at_creation = false;
         storage.asset_usage = asset_usage;
         storage
+    }
+
+    /// Sets the data of the storage buffer to the given [`ShaderType`].
+    pub fn set_data<T>(&mut self, value: T)
+    where
+        T: ShaderType + WriteInto,
+    {
+        let size = value.size().get() as usize;
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
+        wrapper.write(&value).unwrap();
+        self.data = Some(wrapper.into_inner());
+    }
+}
+
+impl<T> From<T> for ShaderStorageBuffer
+where
+    T: ShaderType + WriteInto,
+{
+    fn from(value: T) -> Self {
+        let size = value.size().get() as usize;
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
+        wrapper.write(&value).unwrap();
+        Self::new(wrapper.as_ref(), RenderAssetUsages::default())
     }
 }
 

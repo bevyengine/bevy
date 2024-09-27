@@ -5,13 +5,16 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
-#[cfg(feature = "track_change_detection")]
-use bevy_ptr::ThinSlicePtr;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use core::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 #[cfg(feature = "track_change_detection")]
-use std::{cell::UnsafeCell, panic::Location};
+use {
+    bevy_ptr::ThinSlicePtr,
+    core::{cell::UnsafeCell, panic::Location},
+};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -102,7 +105,6 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -456,10 +458,10 @@ macro_rules! impl_methods {
 
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> std::fmt::Debug for $name<$($generics),*>
-            where T: std::fmt::Debug
+        impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
+            where T: core::fmt::Debug
         {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.debug_tuple(stringify!($name))
                     .field(&self.value)
                     .finish()
@@ -581,6 +583,19 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
+            #[cfg(feature = "track_change_detection")]
+            changed_by: res.changed_by,
+        }
+    }
+}
+
+impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
+    /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
+    /// while losing the specificity of `Res` for resources.
+    fn from(res: Res<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks,
             #[cfg(feature = "track_change_detection")]
             changed_by: res.changed_by,
         }
@@ -1109,8 +1124,8 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     }
 }
 
-impl std::fmt::Debug for MutUntyped<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
@@ -1184,9 +1199,9 @@ mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
-    use std::ops::{Deref, DerefMut};
+    use core::ops::{Deref, DerefMut};
     #[cfg(feature = "track_change_detection")]
-    use std::panic::Location;
+    use core::panic::Location;
 
     use crate::{
         self as bevy_ecs,

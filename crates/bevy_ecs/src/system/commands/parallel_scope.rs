@@ -39,7 +39,7 @@ struct ParallelCommandQueue {
 ///     });
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
-///```
+/// ```
 #[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
     state: Deferred<'s, ParallelCommandQueue>,

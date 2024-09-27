@@ -77,17 +77,17 @@ fn setup(mut commands: Commands) {
         UiRect::horizontal(Val::Px(10.)),
         UiRect::vertical(Val::Px(10.)),
         UiRect {
-            left: Val::Px(10.),
+            left: Val::Px(20.),
             top: Val::Px(10.),
             ..Default::default()
         },
         UiRect {
             left: Val::Px(10.),
-            bottom: Val::Px(10.),
+            bottom: Val::Px(20.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
+            right: Val::Px(20.),
             top: Val::Px(10.),
             ..Default::default()
         },
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands) {
         },
         UiRect {
             right: Val::Px(10.),
-            top: Val::Px(10.),
+            top: Val::Px(20.),
             bottom: Val::Px(10.),
             ..Default::default()
         },
@@ -109,7 +109,7 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
+            left: Val::Px(20.),
             right: Val::Px(10.),
             top: Val::Px(10.),
             ..Default::default()
@@ -117,7 +117,7 @@ fn setup(mut commands: Commands) {
         UiRect {
             left: Val::Px(10.),
             right: Val::Px(10.),
-            bottom: Val::Px(10.),
+            bottom: Val::Px(20.),
             ..Default::default()
         },
     ];
@@ -176,7 +176,7 @@ fn setup(mut commands: Commands) {
                 },
                 ..Default::default()
             })
-            .push_children(&[border_node, label_node])
+            .add_children(&[border_node, label_node])
             .id();
         commands.entity(root).add_child(container);
     }
@@ -245,7 +245,7 @@ fn setup(mut commands: Commands) {
                 },
                 ..Default::default()
             })
-            .push_children(&[border_node, label_node])
+            .add_children(&[border_node, label_node])
             .id();
         commands.entity(root_rounded).add_child(container);
     }

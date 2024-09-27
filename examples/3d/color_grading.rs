@@ -344,7 +344,7 @@ fn add_text<'a>(
         label,
         TextStyle {
             font: font.clone(),
-            font_size: 18.0,
+            font_size: 15.0,
             color,
         },
     ))
@@ -362,7 +362,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
             color_grading,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,

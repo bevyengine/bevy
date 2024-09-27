@@ -1,11 +1,13 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
-use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventCursor, EventWriter};
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
-use bevy_ecs::world::FromWorld;
+use bevy_ecs::{
+    change_detection::{DetectChanges, NonSendMut, Res},
+    entity::Entity,
+    event::{EventCursor, EventWriter},
+    prelude::*,
+    system::SystemState,
+    world::FromWorld,
+};
 use bevy_input::{
     gestures::*,
     keyboard::KeyboardFocusLost,
@@ -16,29 +18,31 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::{HashMap, Instant};
-use std::marker::PhantomData;
-use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
-use winit::event;
-use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::WindowId;
+use core::marker::PhantomData;
+use winit::{
+    application::ApplicationHandler,
+    dpi::PhysicalSize,
+    event,
+    event::{DeviceEvent, DeviceId, StartCause, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::WindowId,
+};
 
-#[allow(deprecated)]
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
-    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
+    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
-use crate::accessibility::AccessKitAdapters;
-use crate::system::{create_monitors, CachedWindow};
 use crate::{
-    converters, create_windows, AppSendEvent, CreateMonitorParams, CreateWindowParams,
-    EventLoopProxyWrapper, UpdateMode, WinitSettings, WinitWindows,
+    accessibility::AccessKitAdapters,
+    converters, create_windows,
+    system::{create_monitors, CachedWindow},
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, UpdateMode,
+    WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -272,14 +276,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // properly releasing keys when the window loses focus.
                 if !(is_synthetic && event.state.is_pressed()) {
                     // Process the keyboard input event, as long as it's not a synthetic key press.
-                    if event.state.is_pressed() {
-                        if let Some(char) = &event.text {
-                            let char = char.clone();
-                            #[allow(deprecated)]
-                            self.bevy_window_events
-                                .send(ReceivedCharacter { window, char });
-                        }
-                    }
                     self.bevy_window_events
                         .send(converters::convert_keyboard_input(event, window));
                 }
@@ -714,9 +710,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                     world.send_event(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.send_event(e);
-                }
-                BevyWindowEvent::ReceivedCharacter(e) => {
                     world.send_event(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {

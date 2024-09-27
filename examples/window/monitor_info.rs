@@ -1,8 +1,10 @@
 //! Displays information about available monitors (displays).
 
-use bevy::render::camera::RenderTarget;
-use bevy::window::{ExitCondition, WindowMode, WindowRef};
-use bevy::{prelude::*, window::Monitor};
+use bevy::{
+    prelude::*,
+    render::camera::RenderTarget,
+    window::{ExitCondition, Monitor, WindowMode, WindowRef},
+};
 
 fn main() {
     App::new()
