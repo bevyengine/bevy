@@ -3,7 +3,6 @@ use core::num::NonZero;
 use bevy_ecs::{
     entity::{Entity, IterEntities},
     prelude::{Component, ReflectComponent},
-    reflect::{ReflectMapEntities, ReflectVisitEntities},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -31,7 +30,7 @@ pub struct PrimaryWindow;
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize, MapEntities, VisitEntities)
+    reflect(Serialize, Deserialize)
 )]
 pub enum WindowRef {
     /// This will be linked to the primary window that is created by default
