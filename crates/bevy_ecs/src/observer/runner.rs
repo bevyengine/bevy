@@ -1,4 +1,4 @@
-use std::any::Any;
+use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
@@ -70,7 +70,7 @@ impl Component for ObserverState {
             });
         });
         hooks.on_remove(|mut world, entity, _| {
-            let descriptor = std::mem::take(
+            let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
                     .get_mut::<ObserverState>()

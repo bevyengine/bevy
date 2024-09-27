@@ -27,7 +27,7 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use bevy_utils::HashMap;
-use std::{
+use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };

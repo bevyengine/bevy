@@ -1,13 +1,14 @@
-use std::ops::Mul;
+use core::ops::Mul;
 
 use super::Transform;
-#[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
-#[cfg(feature = "bevy-support")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "bevy-support", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+#[cfg(feature = "bevy-support")]
+use {
+    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
 ///

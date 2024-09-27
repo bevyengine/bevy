@@ -38,14 +38,18 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
+use bevy_text::PositionedGlyph;
+#[cfg(feature = "bevy_text")]
+use bevy_text::Text;
+#[cfg(feature = "bevy_text")]
+use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
+use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
-use std::ops::Range;
 pub use ui_material_pipeline::*;
 use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
@@ -901,14 +905,14 @@ pub fn prepare_uinodes(
                             .map(|scaling| image.size.as_vec2() * scaling)
                             .unwrap_or(uinode_rect.max);
                         if extracted_uinode.flip_x {
-                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                            core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;
                             positions_diff[1].x *= -1.;
                             positions_diff[2].x *= -1.;
                             positions_diff[3].x *= -1.;
                         }
                         if extracted_uinode.flip_y {
-                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                            core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
                             positions_diff[0].y *= -1.;
                             positions_diff[1].y *= -1.;
                             positions_diff[2].y *= -1.;

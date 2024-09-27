@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 use taffy::TaffyTree;
 
@@ -248,7 +248,7 @@ without UI components as a child of an entity with UI components, results may be
                                         #[cfg(feature = "bevy_text")]
                                         buffer,
                                         #[cfg(not(feature = "bevy_text"))]
-                                        font_system: std::marker::PhantomData,
+                                        font_system: core::marker::PhantomData,
                                     },
                                     style,
                                 );

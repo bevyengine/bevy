@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use core::num::NonZero;
 
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},

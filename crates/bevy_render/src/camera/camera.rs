@@ -33,7 +33,7 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -1078,7 +1078,7 @@ pub fn sort_cameras(
     sorted_cameras
         .0
         .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            std::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
             ord => ord,
         });
     let mut previous_order_target = None;

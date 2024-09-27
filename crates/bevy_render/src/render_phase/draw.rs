@@ -7,12 +7,8 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{all_tuples, TypeIdMap};
-use std::{
-    any::TypeId,
-    fmt::Debug,
-    hash::Hash,
-    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
+use core::{any::TypeId, fmt::Debug, hash::Hash};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 
 /// A draw function used to draw [`PhaseItem`]s.
@@ -102,8 +98,8 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
         self.get_id::<T>().unwrap_or_else(|| {
             panic!(
                 "Draw function {} not found for {}",
-                std::any::type_name::<T>(),
-                std::any::type_name::<P>()
+                core::any::type_name::<T>(),
+                core::any::type_name::<P>()
             )
         })
     }
@@ -168,7 +164,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// # use bevy_render::render_phase::SetItemPipeline;
 /// # struct SetMeshViewBindGroup<const N: usize>;
 /// # struct SetMeshBindGroup<const N: usize>;
-/// # struct SetMaterialBindGroup<M, const N: usize>(core::marker::PhantomData<M>);
+/// # struct SetMaterialBindGroup<M, const N: usize>(std::marker::PhantomData<M>);
 /// # struct DrawMesh;
 /// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,
@@ -366,7 +362,7 @@ impl AddRenderCommand for SubApp {
                 panic!(
                     "DrawFunctions<{}> must be added to the world as a resource \
                      before adding render commands to it",
-                    std::any::type_name::<P>(),
+                    core::any::type_name::<P>(),
                 );
             });
         draw_functions.write().add_with::<C, _>(draw_function);

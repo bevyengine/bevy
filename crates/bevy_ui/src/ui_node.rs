@@ -11,8 +11,8 @@ use bevy_render::{
 use bevy_sprite::BorderRect;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use core::num::NonZero;
 use smallvec::SmallVec;
-use std::num::NonZero;
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.

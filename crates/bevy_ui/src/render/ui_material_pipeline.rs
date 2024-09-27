@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData, ops::Range};
+use core::{hash::Hash, marker::PhantomData, ops::Range};
 
 use bevy_asset::*;
 use bevy_ecs::{

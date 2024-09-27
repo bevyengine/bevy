@@ -130,7 +130,7 @@ impl TriggerTargets for Entity {
     }
 
     fn entities(&self) -> &[Entity] {
-        std::slice::from_ref(self)
+        core::slice::from_ref(self)
     }
 }
 
@@ -156,7 +156,7 @@ impl<const N: usize> TriggerTargets for [Entity; N] {
 
 impl TriggerTargets for ComponentId {
     fn components(&self) -> &[ComponentId] {
-        std::slice::from_ref(self)
+        core::slice::from_ref(self)
     }
 
     fn entities(&self) -> &[Entity] {

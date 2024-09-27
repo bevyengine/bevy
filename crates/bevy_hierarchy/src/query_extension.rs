@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 use bevy_ecs::{
     entity::Entity,
@@ -170,7 +170,7 @@ mod tests {
     fn descendant_iter() {
         let world = &mut World::new();
 
-        let [a, b, c, d] = std::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a, b, c, d] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
         world.entity_mut(a).add_children(&[b, c]);
         world.entity_mut(c).add_children(&[d]);
@@ -189,7 +189,7 @@ mod tests {
     fn ancestor_iter() {
         let world = &mut World::new();
 
-        let [a, b, c] = std::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a, b, c] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
         world.entity_mut(a).add_children(&[b]);
         world.entity_mut(b).add_children(&[c]);

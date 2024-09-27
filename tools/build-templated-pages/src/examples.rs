@@ -1,4 +1,5 @@
-use std::{cmp::Ordering, fs::File};
+use core::cmp::Ordering;
+use std::fs::File;
 
 use hashbrown::HashMap;
 use serde::Serialize;

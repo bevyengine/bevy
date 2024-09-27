@@ -67,8 +67,8 @@ pub enum ReflectKind {
     Opaque,
 }
 
-impl std::fmt::Display for ReflectKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ReflectKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ReflectKind::Struct => f.pad("struct"),
             ReflectKind::TupleStruct => f.pad("tuple struct"),

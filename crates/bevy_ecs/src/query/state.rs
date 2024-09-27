@@ -13,8 +13,8 @@ use crate::{
 use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
+use core::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
@@ -217,8 +217,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
-                query = std::any::type_name::<D>(),
-                filter = std::any::type_name::<F>(),
+                query = core::any::type_name::<D>(),
+                filter = core::any::type_name::<F>(),
             ),
         }
     }
@@ -243,8 +243,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
-                data = std::any::type_name::<D>(),
-                filter = std::any::type_name::<F>(),
+                data = core::any::type_name::<D>(),
+                filter = core::any::type_name::<F>(),
             ),
         };
         state.update_archetypes(builder.world());
@@ -357,7 +357,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();
             let old_generation =
-                std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+                core::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
             for archetype in &archetypes[old_generation..] {
                 // SAFETY: The validate_world call ensures that the world is the same the QueryState
@@ -590,7 +590,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(&self.component_access),
             "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
+            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
         );
 
         QueryState {
@@ -606,8 +606,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
-                query = std::any::type_name::<NewD>(),
-                filter = std::any::type_name::<NewF>(),
+                query = core::any::type_name::<NewD>(),
+                filter = core::any::type_name::<NewF>(),
             ),
         }
     }
@@ -684,7 +684,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         assert!(
             component_access.is_subset(&joined_component_access),
             "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
-            std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>(), std::any::type_name::<(OtherD, OtherF)>()
+            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>()
         );
 
         if self.archetype_generation != other.archetype_generation {
@@ -728,8 +728,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             par_iter_span: bevy_utils::tracing::info_span!(
                 "par_for_each",
-                query = std::any::type_name::<NewD>(),
-                filter = std::any::type_name::<NewF>(),
+                query = core::any::type_name::<NewD>(),
+                filter = core::any::type_name::<NewF>(),
             ),
         }
     }
@@ -1011,7 +1011,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (value, entity) in std::iter::zip(&mut values, entities) {
+        for (value, entity) in core::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only and world must be validated
             let item = unsafe {
                 self.as_readonly()
@@ -1054,7 +1054,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (value, entity) in std::iter::zip(&mut values, entities) {
+        for (value, entity) in core::iter::zip(&mut values, entities) {
             let item = self.get_unchecked_manual(world, entity, last_run, this_run)?;
             *value = MaybeUninit::new(item);
         }
@@ -1511,7 +1511,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 if queue.is_empty() {
                     return;
                 }
-                let queue = std::mem::take(queue);
+                let queue = core::mem::take(queue);
                 let mut func = func.clone();
                 let init_accum = init_accum.clone();
                 scope.spawn(async move {
@@ -1702,8 +1702,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+            (None, _) => Err(QuerySingleError::NoEntities(core::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(core::any::type_name::<
                 Self,
             >())),
         }

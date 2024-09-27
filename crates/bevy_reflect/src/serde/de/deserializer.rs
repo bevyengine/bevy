@@ -11,9 +11,8 @@ use crate::{
     },
     PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
-use std::fmt;
 
 /// A general purpose deserializer for reflected types.
 ///

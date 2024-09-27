@@ -18,10 +18,10 @@ pub enum QueryEntityError<'w> {
     AliasedMutability(Entity),
 }
 
-impl<'w> std::error::Error for QueryEntityError<'w> {}
+impl<'w> core::error::Error for QueryEntityError<'w> {}
 
-impl<'w> std::fmt::Display for QueryEntityError<'w> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'w> core::fmt::Display for QueryEntityError<'w> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {
                 write!(
@@ -39,8 +39,8 @@ impl<'w> std::fmt::Display for QueryEntityError<'w> {
     }
 }
 
-impl<'w> std::fmt::Debug for QueryEntityError<'w> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'w> core::fmt::Debug for QueryEntityError<'w> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {
                 write!(f, "QueryDoesNotMatch({entity} with components ")?;
@@ -54,10 +54,10 @@ impl<'w> std::fmt::Debug for QueryEntityError<'w> {
 }
 
 fn format_archetype(
-    f: &mut std::fmt::Formatter<'_>,
+    f: &mut core::fmt::Formatter<'_>,
     world: UnsafeWorldCell<'_>,
     entity: Entity,
-) -> std::fmt::Result {
+) -> core::fmt::Result {
     // We know entity is still alive
     let entity = world
         .get_entity(entity)
