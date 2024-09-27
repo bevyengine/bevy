@@ -685,7 +685,7 @@ pub mod http {
     use smol_hyper::rt::{FuturesIo, SmolTimer};
     use std::net::TcpListener;
     use std::net::TcpStream;
-    use std::net::{IpAddr, Ipv4Addr};
+    use core::net::{IpAddr, Ipv4Addr};
 
     /// The default port that Bevy will listen on.
     ///
