@@ -1636,11 +1636,12 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 
 /// [System parameter] that provides readonly access to single entity's components, much like [`Query::single`].
 ///
-/// For meaning behind the generic arguments refer to [`Query`].
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
+/// This will cause systems that use it to be skipped.
 ///
-/// When used as a parameter in a system, multiple matching will prevent the system from running.
-/// System skipping will also happen when no matching entity exists, but the behavior can be
-/// handled by using [`Option<QuerySingle>`] instead, which allows zero or one matching entity.
+/// Use [`Option<QuerySingle<D, F>>`] instead if zero or one matching entities can exist.
+///
+/// See [`Query`] for meaning behind the generic arguments.
 pub struct QuerySingle<'w, D: ReadOnlyQueryData, F: QueryFilter = ()> {
     pub(crate) single: <D::ReadOnly as WorldQuery>::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
@@ -1656,11 +1657,12 @@ impl<'w, D: ReadOnlyQueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
 
 /// [System parameter] that provides mutable access to single entity's components, much like [`Query::single_mut`].
 ///
-/// For meaning behind the generic arguments refer to [`Query`].
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
+/// This will cause systems that use it to be skipped.
 ///
-/// When used as a parameter in a system, multiple matching will prevent the system from running.
-/// System skipping will also happen when no matching entity exists, but the behavior can be
-/// handled by using [`Option<QuerySingleMut>`] instead, which allows zero or one matching entity.
+/// Use [`Option<QuerySingleMut<D, F>>`] instead if zero or one matching entities can exist.
+///
+/// See [`Query`] for meaning behind the generic arguments.
 pub struct QuerySingleMut<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) single: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
