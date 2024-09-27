@@ -22,7 +22,7 @@ impl<'a> Return<'a> {
     pub fn is_unit(&self) -> bool {
         match self {
             Return::Owned(val) => val.represents::<()>(),
-            _ => false
+            _ => false,
         }
     }
 
