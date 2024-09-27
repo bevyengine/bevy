@@ -485,7 +485,7 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
                 if (processor.can_deserialize)(self.registration) {
                     let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
                     return (processor.deserialize)(self.registration, &mut deserializer)
-                        .map_err(|err| make_custom_error(err));
+                        .map_err(make_custom_error);
                 }
             }
 
