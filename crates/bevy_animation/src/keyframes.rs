@@ -5,12 +5,8 @@ use core::{
     fmt::{self, Debug, Formatter},
 };
 
-use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    component::Component,
-    world::{EntityMutExcept, Mut},
-};
+use bevy_ecs::{component::Component, world::Mut};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath, Typed};
 use bevy_render::mesh::morph::MorphWeights;
@@ -18,9 +14,8 @@ use bevy_transform::prelude::Transform;
 
 use crate::{
     animatable,
-    graph::AnimationGraph,
     prelude::{Animatable, GetKeyframe},
-    AnimationEvaluationError, AnimationPlayer, Interpolation,
+    AnimationEntityMut, AnimationEvaluationError, Interpolation,
 };
 
 /// A value on a component that Bevy can animate.
@@ -154,7 +149,7 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
     fn apply_single_keyframe<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError>;
 
@@ -185,7 +180,7 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
     fn apply_tweened_keyframes<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        entity: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
@@ -285,7 +280,7 @@ impl Keyframes for TranslationKeyframes {
     fn apply_single_keyframe<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -301,7 +296,7 @@ impl Keyframes for TranslationKeyframes {
     fn apply_tweened_keyframes<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
@@ -340,7 +335,7 @@ impl Keyframes for ScaleKeyframes {
     fn apply_single_keyframe<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -356,7 +351,7 @@ impl Keyframes for ScaleKeyframes {
     fn apply_tweened_keyframes<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
@@ -395,7 +390,7 @@ impl Keyframes for RotationKeyframes {
     fn apply_single_keyframe<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -411,7 +406,7 @@ impl Keyframes for RotationKeyframes {
     fn apply_tweened_keyframes<'a>(
         &self,
         transform: Option<Mut<'a, Transform>>,
-        _: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
@@ -454,7 +449,7 @@ where
     fn apply_single_keyframe<'a>(
         &self,
         _: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
@@ -472,7 +467,7 @@ where
     fn apply_tweened_keyframes<'a>(
         &self,
         _: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
@@ -536,7 +531,7 @@ impl Keyframes for MorphWeightsKeyframes {
     fn apply_single_keyframe<'a>(
         &self,
         _: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
@@ -555,7 +550,7 @@ impl Keyframes for MorphWeightsKeyframes {
     fn apply_tweened_keyframes<'a>(
         &self,
         _: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
