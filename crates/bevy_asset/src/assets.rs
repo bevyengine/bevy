@@ -622,7 +622,10 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// Consider using [`Self::get_mut_or_clone`] if the asset is [`Clone`]. Otherwise, you must
+    /// handle the case where the asset is lockd. Note that this supports anything that implements
+    /// `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
     pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Result<&mut A, MutableAssetError> {
         let id: AssetId<A> = id.into();
@@ -837,6 +840,36 @@ impl<A: Asset> Assets<A> {
     /// [`asset_events`]: Self::asset_events
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
+    }
+}
+
+impl<A: Asset + Clone> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
+    ///
+    /// If the asset is "unlocked", a mutable borrow is returned. If the asset is "locked", the
+    /// asset is cloned and replaces the existing asset (the previously locked asset is still
+    /// readable by holders of its [`Arc`]).
+    #[inline]
+    pub fn get_mut_or_clone(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        // PERF: This requires checking every asset if it is locked (which we redo when we
+        // `get_mut`). Ideally, we should only check to do the clone if we failed to `get_mut` the
+        // asset due to locking. Sadly, the borrow checker doesn't like it. I suspect polonius will
+        // fix this.
+        if self.locked_assets.contains(&id) {
+            let asset = self
+                .get(id)
+                .expect("the asset is locked, which means it's still contained in self");
+            let cloned = asset.clone();
+            self.insert(id, cloned);
+        }
+        match self.get_mut(id) {
+            Ok(borrow) => Some(borrow),
+            Err(MutableAssetError::Missing) => None,
+            Err(MutableAssetError::Locked) => {
+                unreachable!("the asset was already unlocked, or we explicitly cloned/replaced it");
+            }
+        }
     }
 }
 
