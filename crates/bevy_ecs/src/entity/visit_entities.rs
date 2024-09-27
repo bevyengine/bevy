@@ -1,6 +1,6 @@
 pub use bevy_ecs_macros::IterEntities;
 
-use std::iter;
+use core::iter;
 
 use crate::entity::Entity;
 
