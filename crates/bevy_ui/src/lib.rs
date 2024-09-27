@@ -194,7 +194,7 @@ impl Plugin for UiPlugin {
         build_ui_render(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingBackend);
+        app.add_plugins(picking_backend::UiPickingBackendPlugin);
     }
 
     fn finish(&self, app: &mut App) {
