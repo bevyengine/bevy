@@ -12,6 +12,8 @@ use crate::{
 use core::slice::Iter;
 use serde::de::{Error, MapAccess, SeqAccess};
 
+use super::ReflectDeserializerProcessor;
+
 /// A helper trait for accessing type information from struct-like types.
 pub(super) trait StructLikeInfo {
     fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E>;
@@ -88,6 +90,7 @@ pub(super) fn visit_struct<'de, T, V>(
     info: &'static T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
+    mut processor: Option<&mut ReflectDeserializerProcessor>,
 ) -> Result<DynamicStruct, V::Error>
 where
     T: StructLikeInfo,
@@ -107,6 +110,7 @@ where
         let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
             registration,
             registry,
+            processor.as_deref_mut(),
         ))?;
         dynamic_struct.insert_boxed(&key, value);
     }
@@ -134,6 +138,7 @@ pub(super) fn visit_struct_seq<'de, T, V>(
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
+    mut processor: Option<&mut ReflectDeserializerProcessor>,
 ) -> Result<DynamicStruct, V::Error>
 where
     T: StructLikeInfo,
@@ -167,6 +172,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
+                processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         dynamic_struct.insert_boxed(name, value);

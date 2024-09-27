@@ -5,31 +5,25 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{Error, SeqAccess, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Array`] values.
 ///
 /// [`Array`]: crate::Array
-pub(super) struct ArrayVisitor<'a> {
-    array_info: &'static ArrayInfo,
-    registry: &'a TypeRegistry,
+pub(super) struct ArrayVisitor<'a, 'p> {
+    pub array_info: &'static ArrayInfo,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
 }
 
-impl<'a> ArrayVisitor<'a> {
-    pub fn new(array_info: &'static ArrayInfo, registry: &'a TypeRegistry) -> Self {
-        Self {
-            array_info,
-            registry,
-        }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
+impl<'de> Visitor<'de> for ArrayVisitor<'_, '_> {
     type Value = DynamicArray;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected array value")
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+    fn visit_seq<V>(mut self, mut seq: V) -> Result<Self::Value, V::Error>
     where
         V: SeqAccess<'de>,
     {
@@ -38,6 +32,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
             self.registry,
+            self.processor.as_deref_mut(),
         ))? {
             vec.push(value);
         }
