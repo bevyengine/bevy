@@ -15,8 +15,10 @@ pub enum Return<'a> {
 }
 
 impl<'a> Return<'a> {
-    /// An [`Owned`](Self::Owned) unit (`()`) type.
-    pub const UNIT: Return<'a> = Return::Owned(Box::new(()));
+    /// Creates an [`Owned`](Self::Owned) unit (`()`) type.
+    pub fn unit() -> Self {
+        Self::Owned(Box::new(()))
+    }
 
     /// Returns `true` if the return value is an [`Owned`](Self::Owned) unit (`()`) type.
     pub fn is_unit(&self) -> bool {
@@ -85,7 +87,7 @@ pub trait IntoReturn {
 
 impl IntoReturn for () {
     fn into_return<'a>(self) -> Return<'a> {
-        Return::UNIT
+        Return::unit()
     }
 }
 
