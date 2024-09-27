@@ -24,16 +24,14 @@ use hyper::{
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::net::TcpListener;
 use std::net::TcpStream;
+use std::net::{SocketAddr, SocketAddrV4, TcpListener};
 
-/// The default port that Bevy will listen on.
+/// The default host socket that Bevy will use for its server.
 ///
-/// This value was chosen randomly.
-pub const DEFAULT_PORT: u16 = 15702;
-
-/// The default host address that Bevy will use for its server.
-pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+/// The port value was chosen randomly.
+pub const DEFAULT_SOCKET: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 15702));
 
 /// Add this plugin to your [`App`] to allow remote connections over HTTP to inspect and modify entities.
 /// It requires the [`RemotePlugin`](super::RemotePlugin).
@@ -44,85 +42,65 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
 pub struct RemoteHttpPlugin {
-    /// The address that Bevy will bind to.
-    address: IpAddr,
-    /// The port that Bevy will listen on.
-    port: u16,
+    /// The socket that Bevy will bind to.
+    socket: SocketAddr,
 }
 
 impl Default for RemoteHttpPlugin {
     fn default() -> Self {
         Self {
-            address: DEFAULT_ADDR,
-            port: DEFAULT_PORT,
+            socket: DEFAULT_SOCKET,
         }
     }
 }
 
 impl Plugin for RemoteHttpPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(HostAddress(self.address))
-            .insert_resource(HostPort(self.port))
+        app.insert_resource(HostSocket(self.socket))
             .add_systems(Startup, start_http_server);
     }
 }
 
 impl RemoteHttpPlugin {
-    /// Set the IP address that the server will use.
+    /// Set the socket that the server will bind to.
     #[must_use]
-    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
-        self.address = address.into();
+    pub fn with_socket(mut self, socket: impl Into<SocketAddr>) -> Self {
+        self.socket = socket.into();
         self
     }
 
-    /// Set the remote port that the server will listen on.
+    /// Set the IP address that the server will bind to.
+    #[must_use]
+    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
+        self.socket.set_ip(address.into());
+        self
+    }
+
+    /// Set the remote port that the server will listen bind to.
     #[must_use]
     pub fn with_port(mut self, port: u16) -> Self {
-        self.port = port;
+        self.socket.set_port(port);
         self
     }
 }
 
-/// A resource containing the IP address that Bevy will host on.
+/// A resource containing the socket that Bevy will bind to.
 ///
 /// Currently, changing this while the application is running has no effect; this merely
-/// reflects the IP address that is set during the setup of the [`RemoteHttpPlugin`].
+/// reflects the socket that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-pub struct HostAddress(pub IpAddr);
-
-/// A resource containing the port number that Bevy will listen on.
-///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
-#[derive(Debug, Resource)]
-pub struct HostPort(pub u16);
+struct HostSocket(SocketAddr);
 
 /// A system that starts up the Bevy Remote Protocol HTTP server.
-fn start_http_server(
-    request_sender: Res<BrpSender>,
-    address: Res<HostAddress>,
-    remote_port: Res<HostPort>,
-) {
+fn start_http_server(request_sender: Res<BrpSender>, socket: Res<HostSocket>) {
     IoTaskPool::get()
-        .spawn(server_main(
-            address.0,
-            remote_port.0,
-            request_sender.clone(),
-        ))
+        .spawn(server_main(socket.0, request_sender.clone()))
         .detach();
 }
 
 /// The Bevy Remote Protocol server main loop.
-async fn server_main(
-    address: IpAddr,
-    port: u16,
-    request_sender: Sender<BrpMessage>,
-) -> AnyhowResult<()> {
-    listen(
-        Async::<TcpListener>::bind((address, port))?,
-        &request_sender,
-    )
-    .await
+async fn server_main(socket: SocketAddr, request_sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+    listen(Async::<TcpListener>::bind(socket)?, &request_sender).await
 }
 
 async fn listen(
