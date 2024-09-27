@@ -1070,13 +1070,7 @@ impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
-        self.sample_clamped(t)
-    }
-
-    #[inline]
-    fn sample_clamped(&self, t: f32) -> P {
-        let t_clamped = self.domain().clamp(t);
-        self.position(t_clamped)
+        self.position(t)
     }
 }
 
@@ -1215,13 +1209,7 @@ impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
-        self.sample_clamped(t)
-    }
-
-    #[inline]
-    fn sample_clamped(&self, t: f32) -> P {
-        let t_clamped = self.domain().clamp(t);
-        self.position(t_clamped)
+        self.position(t)
     }
 }
 
@@ -1270,7 +1258,7 @@ pub struct RationalSegment<P: VectorSpace> {
 }
 
 impl<P: VectorSpace> RationalSegment<P> {
-    /// Instantaneous position of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
@@ -1282,7 +1270,7 @@ impl<P: VectorSpace> RationalSegment<P> {
         numerator / denominator
     }
 
-    /// Instantaneous velocity of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous velocity of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
@@ -1307,7 +1295,7 @@ impl<P: VectorSpace> RationalSegment<P> {
             - numerator * (denominator_derivative / denominator.squared())
     }
 
-    /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous acceleration of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
@@ -1385,21 +1373,12 @@ impl<P: VectorSpace> RationalSegment<P> {
 impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     #[inline]
     fn domain(&self) -> Interval {
-        // We don't presently enforce this invariant directly, but this is true.
-        // (Also, the knot span is not used by computations in `RationalSegment` internally.)
-        Interval::new(0.0, self.knot_span)
-            .expect("RationalSegment must have a positive knot span to be valid")
+        Interval::UNIT
     }
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
-        self.sample_clamped(t)
-    }
-
-    #[inline]
-    fn sample_clamped(&self, t: f32) -> P {
-        let t_clamped = self.domain().clamp(t);
-        self.position(t_clamped)
+        self.position(t)
     }
 }
 
@@ -1557,13 +1536,7 @@ impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> P {
-        self.sample_clamped(t)
-    }
-
-    #[inline]
-    fn sample_clamped(&self, t: f32) -> P {
-        let t_clamped = self.domain().clamp(t);
-        self.position(t_clamped)
+        self.position(t)
     }
 }
 
