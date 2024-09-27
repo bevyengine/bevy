@@ -38,6 +38,22 @@ impl Generics {
             .collect();
         self
     }
+
+    pub fn get(&self, name: &str) -> Option<&GenericInfo> {
+        self.index_map.get(name).map(|&index| &self.infos[index])
+    }
+
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &GenericInfo> {
+        self.infos.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.infos.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.infos.is_empty()
+    }
 }
 
 impl FromIterator<GenericInfo> for Generics {
@@ -98,3 +114,70 @@ macro_rules! impl_generic_info_methods {
 }
 
 pub(crate) use impl_generic_info_methods;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_reflect;
+    use crate::{Reflect, Typed};
+
+    #[test]
+    fn should_maintain_order() {
+        #[derive(Reflect)]
+        struct Test<T, U: Debug, const N: usize>([(T, U); N]);
+
+        let generics = <Test<f32, String, 10> as Typed>::type_info()
+            .as_tuple_struct()
+            .unwrap()
+            .generics();
+
+        assert_eq!(generics.len(), 3);
+
+        let mut iter = generics.iter();
+
+        let t = iter.next().unwrap();
+        assert_eq!(t.name(), "T");
+        assert!(t.ty().is::<f32>());
+        assert!(!t.is_const());
+
+        let u = iter.next().unwrap();
+        assert_eq!(u.name(), "U");
+        assert!(u.ty().is::<String>());
+        assert!(!u.is_const());
+
+        let n = iter.next().unwrap();
+        assert_eq!(n.name(), "N");
+        assert!(n.ty().is::<usize>());
+        assert!(n.is_const());
+
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn should_get_by_name() {
+        #[derive(Reflect)]
+        enum Test<T, U: Debug, const N: usize> {
+            Array([(T, U); N]),
+        }
+
+        let generics = <Test<f32, String, 10> as Typed>::type_info()
+            .as_enum()
+            .unwrap()
+            .generics();
+
+        let t = generics.get("T").unwrap();
+        assert_eq!(t.name(), "T");
+        assert!(t.ty().is::<f32>());
+        assert!(!t.is_const());
+
+        let u = generics.get("U").unwrap();
+        assert_eq!(u.name(), "U");
+        assert!(u.ty().is::<String>());
+        assert!(!u.is_const());
+
+        let n = generics.get("N").unwrap();
+        assert_eq!(n.name(), "N");
+        assert!(n.ty().is::<usize>());
+        assert!(n.is_const());
+    }
+}
