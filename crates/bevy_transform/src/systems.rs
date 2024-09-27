@@ -6,7 +6,7 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, ParamSet},
 };
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::{BuildChildren, Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -458,7 +458,7 @@ mod test {
 
         app.world_mut()
             .spawn(Transform::IDENTITY)
-            .push_children(&[child]);
+            .add_children(&[child]);
         std::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
