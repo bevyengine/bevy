@@ -2,52 +2,37 @@ use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
-use core::fmt::{Debug, Formatter};
 
-#[derive(Clone, Default)]
-pub struct Generics {
-    infos: Box<[GenericInfo]>,
-}
-
-impl Debug for Generics {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let mut list = f.debug_list();
-        list.entries(self.infos.iter());
-        list.finish()
-    }
-}
+#[derive(Clone, Default, Debug)]
+pub struct Generics(Box<[GenericInfo]>);
 
 impl Generics {
     pub fn new() -> Self {
-        Self {
-            infos: Box::new([]),
-        }
+        Self(Box::new([]))
     }
 
     pub fn get(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
-        self.infos.iter().find(|info| info.name() == name)
+        self.0.iter().find(|info| info.name() == name)
     }
 
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &GenericInfo> {
-        self.infos.iter()
+        self.0.iter()
     }
 
     pub fn len(&self) -> usize {
-        self.infos.len()
+        self.0.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.infos.is_empty()
+        self.0.is_empty()
     }
 }
 
 impl FromIterator<GenericInfo> for Generics {
     fn from_iter<T: IntoIterator<Item = GenericInfo>>(iter: T) -> Self {
-        Self {
-            infos: iter.into_iter().collect(),
-        }
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -166,6 +151,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{Reflect, Typed};
+    use core::fmt::Debug;
 
     #[test]
     fn should_maintain_order() {
