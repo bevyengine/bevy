@@ -1,4 +1,10 @@
 //! The BRP transport using JSON-RPC over HTTP.
+//!
+//! Adding the [`RemoteHttpPlugin`] to your [`App`] causes Bevy to accept
+//! connections over HTTP (by default, on port 15702) while your app is running.
+//!
+//! Clients are expected to `POST` JSON requests to the root URL; see the `client`
+//! example for a trivial example of use.
 
 #![cfg(not(target_family = "wasm"))]
 
@@ -238,4 +244,3 @@ async fn process_single_request(
     let result = result_receiver.recv().await?;
     Ok(BrpResponse::new(request.id, result))
 }
-
