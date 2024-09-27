@@ -15,7 +15,11 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
-use bevy_text::{scale_value, BreakLineOn, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText, SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation};
+use bevy_text::{
+    scale_value, BreakLineOn, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText,
+    SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    YAxisOrientation,
+};
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 

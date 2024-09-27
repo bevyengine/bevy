@@ -21,9 +21,9 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
 
+use bevy_text::CosmicFontSystem;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{CosmicBuffer, TextPipeline};
-use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
