@@ -61,13 +61,10 @@ pub fn process_remote_stream_messages(world: &mut World) {
                         return;
                     };
 
-                    match handler {
-                        RemoteMethod::Stream(system_id) => {
-                            world
-                                .resource_mut::<ActiveStreams>()
-                                .insert(stream_message.client_id, (message, *system_id));
-                        }
-                        _ => {}
+                    if let RemoteMethod::Stream(system_id) = handler {
+                        world
+                            .resource_mut::<ActiveStreams>()
+                            .insert(stream_message.client_id, (message, *system_id));
                     };
                 }
                 BrpStreamMessageKind::Disconnect => {

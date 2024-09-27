@@ -483,7 +483,7 @@ pub struct HostPort(pub u16);
 pub enum RemoteMethod {
     /// A normal method that is called once per request.
     Normal(SystemId<In<Option<Value>>, BrpResult>),
-    /// A streaming method that is called every frame while a client is connected.
+    /// A streaming method that is called every frame per *connected client*.
     Stream(SystemId<In<Option<Value>>, Option<BrpResult>>),
 }
 
@@ -745,7 +745,7 @@ fn process_remote_requests(world: &mut World) {
                 message: format!("Method `{}` not found", message.method),
                 data: None,
             }));
-            return;
+            continue;
         };
 
         let result = match handler {
@@ -753,7 +753,7 @@ fn process_remote_requests(world: &mut World) {
                 world.run_system_with_input(*system_id, message.params)
             }
             _ => {
-                return;
+                continue;
             }
         };
 
@@ -766,7 +766,7 @@ fn process_remote_requests(world: &mut World) {
                     message: format!("Failed to run method handler: {error}"),
                     data: None,
                 }));
-                return;
+                continue;
             }
         };
 
