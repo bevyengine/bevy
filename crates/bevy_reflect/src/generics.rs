@@ -2,13 +2,11 @@ use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
-use bevy_utils::HashMap;
 use core::fmt::{Debug, Formatter};
 
 #[derive(Clone, Default)]
 pub struct Generics {
     infos: Box<[GenericInfo]>,
-    index_map: HashMap<Cow<'static, str>, usize>,
 }
 
 impl Debug for Generics {
@@ -23,12 +21,13 @@ impl Generics {
     pub fn new() -> Self {
         Self {
             infos: Box::new([]),
-            index_map: HashMap::new(),
         }
     }
 
     pub fn get(&self, name: &str) -> Option<&GenericInfo> {
-        self.index_map.get(name).map(|&index| &self.infos[index])
+        // For small sets of generics (the most common case),
+        // a linear search is often faster using a `HashMap`.
+        self.infos.iter().find(|info| info.name() == name)
     }
 
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &GenericInfo> {
@@ -46,18 +45,9 @@ impl Generics {
 
 impl FromIterator<GenericInfo> for Generics {
     fn from_iter<T: IntoIterator<Item = GenericInfo>>(iter: T) -> Self {
-        let mut index_map = HashMap::new();
-        let infos = iter
-            .into_iter()
-            .enumerate()
-            .map(|(index, info)| {
-                index_map.insert(info.name().clone(), index);
-                info
-            })
-            .collect::<Vec<_>>()
-            .into();
-
-        Self { infos, index_map }
+        Self {
+            infos: iter.into_iter().collect(),
+        }
     }
 }
 
