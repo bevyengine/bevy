@@ -1,4 +1,5 @@
-use std::{borrow::Cow, marker::PhantomData};
+use alloc::borrow::Cow;
+use core::marker::PhantomData;
 
 use crate::{
     archetype::ArchetypeComponentId,

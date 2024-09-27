@@ -37,7 +37,7 @@ use bevy_utils::{
     prelude::default,
     tracing::{error, warn},
 };
-use std::mem;
+use core::mem;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);

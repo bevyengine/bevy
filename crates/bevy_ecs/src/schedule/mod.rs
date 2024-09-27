@@ -17,7 +17,7 @@ pub use self::graph_utils::NodeId;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
     pub use crate::{
@@ -96,8 +96,9 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use alloc::sync::Arc;
             use bevy_tasks::{ComputeTaskPool, TaskPool};
-            use std::sync::{Arc, Barrier};
+            use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -715,7 +716,7 @@ mod tests {
     }
 
     mod system_ambiguity {
-        use std::collections::BTreeSet;
+        use alloc::collections::BTreeSet;
 
         use super::*;
         // Required to make the derive macro behave

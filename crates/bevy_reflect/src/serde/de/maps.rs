@@ -2,9 +2,8 @@ use crate::{
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     DynamicMap, Map, MapInfo, TypeRegistry,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Map`] values.
 ///

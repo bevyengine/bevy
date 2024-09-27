@@ -211,7 +211,7 @@ pub fn measure_text_system(
             );
         }
     }
-    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
+    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -346,5 +346,5 @@ pub fn text_system(
             );
         }
     }
-    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
+    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }

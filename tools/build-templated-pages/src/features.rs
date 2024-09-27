@@ -1,4 +1,5 @@
-use std::{cmp::Ordering, fs::File};
+use core::cmp::Ordering;
+use std::fs::File;
 
 use serde::Serialize;
 use tera::{Context, Tera};
@@ -37,7 +38,7 @@ fn parse_features(panic_on_missing: bool) -> Vec<Feature> {
         .unwrap()
         .iter()
         .flat_map(|v| {
-            std::iter::once(v.as_str().unwrap().to_string()).chain(
+            core::iter::once(v.as_str().unwrap().to_string()).chain(
                 features
                     .get(v.as_str().unwrap())
                     .unwrap()

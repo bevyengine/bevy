@@ -2,9 +2,8 @@ use crate::{
     serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     ArrayInfo, DynamicArray, TypeRegistry,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{Error, SeqAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Array`] values.
 ///

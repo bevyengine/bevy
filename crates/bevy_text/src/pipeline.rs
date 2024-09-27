@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
@@ -109,7 +109,7 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let mut spans: Vec<(&str, Attrs)> = std::mem::take(&mut self.spans_buffer)
+        let mut spans: Vec<(&str, Attrs)> = core::mem::take(&mut self.spans_buffer)
             .into_iter()
             .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();

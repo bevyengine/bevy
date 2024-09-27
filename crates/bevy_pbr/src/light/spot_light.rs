@@ -117,7 +117,7 @@ impl Default for SpotLight {
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
+            outer_angle: core::f32::consts::FRAC_PI_4,
         }
     }
 }

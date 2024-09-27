@@ -11,11 +11,11 @@ use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
-use cursor::CursorPlugin;
-use std::{
+use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
+use cursor::CursorPlugin;
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };

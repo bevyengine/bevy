@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
-use std::ops::{DerefMut, Range};
+use core::ops::{DerefMut, Range};
 
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]

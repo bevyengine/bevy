@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
-use std::f32::consts::{FRAC_PI_2, TAU};
+use core::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -367,7 +367,7 @@ where
         to: Vec2,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
-        self.arc_2d_from_to(center, from, to, color, std::convert::identity)
+        self.arc_2d_from_to(center, from, to, color, core::convert::identity)
     }
 
     /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.

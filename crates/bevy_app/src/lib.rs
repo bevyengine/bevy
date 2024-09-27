@@ -7,6 +7,8 @@
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
+extern crate alloc;
+
 mod app;
 mod main_schedule;
 mod panic_handler;

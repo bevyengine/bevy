@@ -1,4 +1,5 @@
-use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc, sync::Arc};
+use alloc::{rc::Rc, sync::Arc};
+use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 

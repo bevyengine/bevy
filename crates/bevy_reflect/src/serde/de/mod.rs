@@ -21,7 +21,7 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
+    use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
 
     use serde::{de::DeserializeSeed, Deserialize};
 

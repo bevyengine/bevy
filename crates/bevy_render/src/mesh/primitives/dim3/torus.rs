@@ -1,5 +1,5 @@
 use bevy_math::{ops, primitives::Torus, Vec3};
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -34,7 +34,7 @@ impl Default for TorusMeshBuilder {
             torus: Torus::default(),
             minor_resolution: 24,
             major_resolution: 32,
-            angle_range: (0.0..=2.0 * std::f32::consts::PI),
+            angle_range: (0.0..=2.0 * core::f32::consts::PI),
         }
     }
 }
@@ -91,7 +91,7 @@ impl MeshBuilder for TorusMeshBuilder {
         let end_angle = self.angle_range.end();
 
         let segment_stride = (end_angle - start_angle) / self.major_resolution as f32;
-        let side_stride = 2.0 * std::f32::consts::PI / self.minor_resolution as f32;
+        let side_stride = 2.0 * core::f32::consts::PI / self.minor_resolution as f32;
 
         for segment in 0..=self.major_resolution {
             let theta = start_angle + segment_stride * segment as f32;

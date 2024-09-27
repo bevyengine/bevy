@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
     world::OnAdd,
 };
-use std::{marker::PhantomData, ops::Deref};
+use core::{marker::PhantomData, ops::Deref};
 
 pub use bevy_render_macros::ExtractComponent;
 
