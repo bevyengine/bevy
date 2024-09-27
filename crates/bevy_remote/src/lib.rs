@@ -2,7 +2,7 @@
 //!
 //! Adding the [`RemotePlugin`] to your [`App`] will setup everythinng needed without
 //! starting any transports. To start accepting remote connections you will need to
-//! add a second plugin like the [`http::RemoteHttpPlugin`] to enable communication
+//! add a second plugin like the [`RemoteHttpPlugin`](http::RemoteHttpPlugin) to enable communication
 //! over HTTP. These *remote clients* can inspect and alter the state of the
 //! entity-component system.
 //!
