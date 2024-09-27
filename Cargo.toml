@@ -333,7 +333,7 @@ x11 = ["bevy_internal/x11"]
 android-native-activity = ["bevy_internal/android-native-activity"]
 
 # Android GameActivity support. Provided by Jetpack library.
-# Default, choose between this and `android-native-activity`. 
+# Default, choose between this and `android-native-activity`.
 android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
