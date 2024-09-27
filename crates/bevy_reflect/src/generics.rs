@@ -17,6 +17,13 @@ impl Generics {
         // a linear search is often faster using a `HashMap`.
         self.0.iter().find(|info| info.name() == name)
     }
+
+    pub fn with(mut self, info: impl Into<GenericInfo>) -> Self {
+        self.0 = IntoIterator::into_iter(self.0)
+            .chain(core::iter::once(info.into()))
+            .collect();
+        self
+    }
 }
 
 impl FromIterator<GenericInfo> for Generics {
@@ -60,6 +67,18 @@ impl GenericInfo {
             Self::Const(info) => info.ty(),
         }
     });
+}
+
+impl From<TypeParamInfo> for GenericInfo {
+    fn from(info: TypeParamInfo) -> Self {
+        Self::Type(info)
+    }
+}
+
+impl From<ConstParamInfo> for GenericInfo {
+    fn from(info: ConstParamInfo) -> Self {
+        Self::Const(info)
+    }
 }
 
 #[derive(Clone, Debug)]
