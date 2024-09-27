@@ -70,7 +70,7 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>) -> vec4<f32> {
     raymarch.march_behind_surfaces = false;
 
     let raymarch_result = depth_ray_march_march(&raymarch);
-    if (raymarch_result.hit) {
+    if raymarch_result.hit {
         return vec4(
             textureSampleLevel(color_texture, color_sampler, raymarch_result.hit_uv, 0.0).rgb,
             0.0
@@ -94,7 +94,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Don't do anything if the surface is too rough, since we can't blur or do
     // temporal accumulation yet.
     let perceptual_roughness = pbr_input.material.perceptual_roughness;
-    if (perceptual_roughness > ssr_settings.perceptual_roughness_threshold) {
+    if perceptual_roughness > ssr_settings.perceptual_roughness_threshold {
         return fragment;
     }
 
@@ -175,9 +175,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let environment_light = environment_map::environment_map_light(&lighting_input, false);
 
     // Accumulate the environment map light.
-    indirect_light += view.exposure *
-        (environment_light.diffuse * diffuse_occlusion +
-        environment_light.specular * specular_occlusion);
+    indirect_light += view.exposure * (environment_light.diffuse * diffuse_occlusion + environment_light.specular * specular_occlusion);
 #endif
 
     // Write the results.

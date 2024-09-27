@@ -34,12 +34,11 @@ fn chromatic_aberration(start_pos: vec2<f32>) -> vec3<f32> {
     // Determine the number of samples. We aim for one sample per texel, unless
     // that's higher than the developer-specified maximum number of samples, in
     // which case we choose the maximum number of samples.
-    let texel_length = length((end_pos - start_pos) *
-        vec2<f32>(textureDimensions(chromatic_aberration_source_texture)));
+    let texel_length = length((end_pos - start_pos) * vec2<f32>(textureDimensions(chromatic_aberration_source_texture)));
     let sample_count = min(u32(ceil(texel_length)), chromatic_aberration_settings.max_samples);
 
     var color: vec3<f32>;
-    if (sample_count > 1u) {
+    if sample_count > 1u {
         // The LUT texture is in clamp-to-edge mode, so we start at 0.5 texels
         // from the sides so that we have a nice gradient over the entire LUT
         // range.

@@ -16,12 +16,12 @@ fn color_sweep(uv_input: vec2<f32>) -> vec3<f32> {
     let steps = 24.0;
     uv.y = uv.y * (1.0 + 1.0 / steps);
     let ratio = 2.0;
-    
+
     let h = PI * 2.0 * floor(1.0 + steps * uv.y) / steps;
     let L = floor(uv.x * steps * ratio) / (steps * ratio) - 0.5;
-    
+
     var color = vec3(0.0);
-    if uv.y < 1.0 { 
+    if uv.y < 1.0 {
         color = cos(h + vec3(0.0, 1.0, 2.0) * PI * 2.0 / 3.0);
         let maxRGB = max(color.r, max(color.g, color.b));
         let minRGB = min(color.r, min(color.g, color.b));
@@ -57,7 +57,7 @@ fn fragment(
     }
     var color = vec4(out, 1.0);
 #ifdef TONEMAP_IN_SHADER
-    color = tone_mapping(color, mesh_view_bindings::view.color_grading);
+    color = tone_mapping(color, mesh_view_bindings,:: view.color_grading);
 #endif
     return color;
 }

@@ -47,7 +47,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // If soft shadows are enabled, use the PCSS path. Cubemaps assume a
     // left-handed coordinate space, so we have to flip the z-axis when
     // sampling.
-    if ((*light).soft_shadow_size > 0.0) {
+    if (*light).soft_shadow_size > 0.0 {
         return sample_shadow_cubemap_pcss(
             frag_ls * flip_z,
             distance_to_light,
@@ -76,22 +76,19 @@ fn fetch_spot_shadow(
     var spot_dir = vec3<f32>((*light).light_custom_data.x, 0.0, (*light).light_custom_data.y);
     // reconstruct spot dir from x/z and y-direction flag
     spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
-    if (((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if ((*light).flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u {
         spot_dir.y = -spot_dir.y;
     }
 
     // view matrix z_axis is the reverse of transform.forward()
     let fwd = -spot_dir;
     let distance_to_light = dot(fwd, surface_to_light);
-    let offset_position =
-        -surface_to_light
-        + ((*light).shadow_depth_bias * normalize(surface_to_light))
-        + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
+    let offset_position = -surface_to_light + ((*light).shadow_depth_bias * normalize(surface_to_light)) + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
 
     // the construction of the up and right vectors needs to precisely mirror the code
     // in render/light.rs:spot_light_view_matrix
     var sign = -1.0;
-    if (fwd.z >= 0.0) {
+    if fwd.z >= 0.0 {
         sign = 1.0;
     }
     let a = -1.0 / (fwd.z + sign);
@@ -116,9 +113,10 @@ fn fetch_spot_shadow(
 
     // If soft shadows are enabled, use the PCSS path.
     let array_index = i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset;
-    if ((*light).soft_shadow_size > 0.0) {
+    if (*light).soft_shadow_size > 0.0 {
         return sample_shadow_map_pcss(
-            shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE, (*light).soft_shadow_size);
+            shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE, (*light).soft_shadow_size
+        );
     }
 
     return sample_shadow_map(shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE);
@@ -128,7 +126,7 @@ fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
     let light = &view_bindings::lights.directional_lights[light_id];
 
     for (var i: u32 = 0u; i < (*light).num_cascades; i = i + 1u) {
-        if (-view_z < (*light).cascades[i].far_bound) {
+        if -view_z < (*light).cascades[i].far_bound {
             return i;
         }
     }
@@ -148,13 +146,12 @@ fn world_to_directional_light_local(
     let cascade = &(*light).cascades[cascade_index];
 
     let offset_position_clip = (*cascade).clip_from_world * offset_position;
-    if (offset_position_clip.w <= 0.0) {
+    if offset_position_clip.w <= 0.0 {
         return vec4(0.0);
     }
     let offset_position_ndc = offset_position_clip.xyz / offset_position_clip.w;
     // No shadow outside the orthographic projection volume
-    if (any(offset_position_ndc.xy < vec2<f32>(-1.0)) || offset_position_ndc.z < 0.0
-            || any(offset_position_ndc > vec3<f32>(1.0))) {
+    if any(offset_position_ndc.xy < vec2<f32>(-1.0)) || offset_position_ndc.z < 0.0 || any(offset_position_ndc > vec3<f32>(1.0)) {
         return vec4(0.0);
     }
 
@@ -183,7 +180,7 @@ fn sample_directional_cascade(
     let offset_position = vec4<f32>(frag_position.xyz + normal_offset + depth_offset, frag_position.w);
 
     let light_local = world_to_directional_light_local(light_id, cascade_index, offset_position);
-    if (light_local.w == 0.0) {
+    if light_local.w == 0.0 {
         return 1.0;
     }
 
@@ -191,9 +188,10 @@ fn sample_directional_cascade(
     let texel_size = (*cascade).texel_size;
 
     // If soft shadows are enabled, use the PCSS path.
-    if ((*light).soft_shadow_size > 0.0) {
+    if (*light).soft_shadow_size > 0.0 {
         return sample_shadow_map_pcss(
-            light_local.xy, light_local.z, array_index, texel_size, (*light).soft_shadow_size);
+            light_local.xy, light_local.z, array_index, texel_size, (*light).soft_shadow_size
+        );
     }
 
     return sample_shadow_map(light_local.xy, light_local.z, array_index, texel_size);
@@ -203,7 +201,7 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade_index = get_cascade_index(light_id, view_z);
 
-    if (cascade_index >= (*light).num_cascades) {
+    if cascade_index >= (*light).num_cascades {
         return 1.0;
     }
 
@@ -211,10 +209,10 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
 
     // Blend with the next cascade, if there is one.
     let next_cascade_index = cascade_index + 1u;
-    if (next_cascade_index < (*light).num_cascades) {
+    if next_cascade_index < (*light).num_cascades {
         let this_far_bound = (*light).cascades[cascade_index].far_bound;
         let next_near_bound = (1.0 - (*light).cascades_overlap_proportion) * this_far_bound;
-        if (-view_z >= next_near_bound) {
+        if -view_z >= next_near_bound {
             let next_shadow = sample_directional_cascade(light_id, next_cascade_index, frag_position, surface_normal);
             shadow = mix(shadow, next_shadow, (-view_z - next_near_bound) / (this_far_bound - next_near_bound));
         }
@@ -230,7 +228,7 @@ fn cascade_debug_visualization(
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
     let cascade_color_hsv = vec3(
-        f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u) * PI_2,
+        f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT,} u + 1u) * PI_2,
         1.0,
         0.5
     );

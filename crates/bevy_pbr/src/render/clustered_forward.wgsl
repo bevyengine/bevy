@@ -15,24 +15,25 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
     var z_slice: u32 = 0u;
     if is_orthographic {
         // NOTE: view_z is correct in the orthographic case
-        z_slice = u32(floor((view_z - bindings::lights.cluster_factors.z) * bindings::lights.cluster_factors.w));
+        z_slice = u32(floor((view_z - bindings::, lights.cluster_factors.z) * bindings,:: lights.cluster_factors.w));
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        z_slice = u32(log(-view_z) * bindings::lights.cluster_factors.z - bindings::lights.cluster_factors.w + 1.0);
+        z_slice = u32(log(-view_z) * bindings,:: lights.cluster_factors.z - bindings,:: lights.cluster_factors.w + 1.0);
     }
     // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
-    return min(z_slice, bindings::lights.cluster_dimensions.z - 1u);
+    return min(z_slice, bindings,:: lights.cluster_dimensions.z - 1u);
 }
 
 fn fragment_cluster_index(frag_coord: vec2<f32>, view_z: f32, is_orthographic: bool) -> u32 {
-    let xy = vec2<u32>(floor((frag_coord - bindings::view.viewport.xy) * bindings::lights.cluster_factors.xy));
+    let xy = vec2<u32>(floor((frag_coord - bindings::, view.viewport.xy) * bindings,:: lights.cluster_factors.xy));
     let z_slice = view_z_to_z_slice(view_z, is_orthographic);
     // NOTE: Restricting cluster index to avoid undefined behavior when accessing uniform buffer
     // arrays based on the cluster index.
     return min(
-        (xy.y * bindings::lights.cluster_dimensions.x + xy.x) * bindings::lights.cluster_dimensions.z + z_slice,
-        bindings::lights.cluster_dimensions.w - 1u
+        (xy.y * bindings::, lights.cluster_dimensions.x + xy.x
+    ) * bindings::lights.cluster_dimensions.z + z_slice,
+    bindings::lights.cluster_dimensions.w - 1u
     );
 }
 
@@ -47,8 +48,8 @@ fn unpack_offset_and_counts(cluster_index: u32) -> vec3<u32> {
     //  [      offset      | point light count | spot light count ]
     return vec3<u32>(
         (offset_and_counts >> (CLUSTER_COUNT_SIZE * 2u)) & ((1u << (32u - (CLUSTER_COUNT_SIZE * 2u))) - 1u),
-        (offset_and_counts >> CLUSTER_COUNT_SIZE)        & ((1u << CLUSTER_COUNT_SIZE) - 1u),
-        offset_and_counts                                & ((1u << CLUSTER_COUNT_SIZE) - 1u),
+        (offset_and_counts >> CLUSTER_COUNT_SIZE) & ((1u << CLUSTER_COUNT_SIZE) - 1u),
+        offset_and_counts & ((1u << CLUSTER_COUNT_SIZE) - 1u),
     );
 #endif
 }
@@ -59,8 +60,7 @@ fn get_clusterable_object_id(index: u32) -> u32 {
 #else
     // The index is correct but in clusterable_object_index_lists we pack 4 u8s into a u32
     // This means the index into clusterable_object_index_lists is index / 4
-    let indices = bindings::clusterable_object_index_lists.data[index >> 4u][(index >> 2u) &
-        ((1u << 2u) - 1u)];
+    let indices = bindings::clusterable_object_index_lists.data[index >> 4u][(index >> 2u) & ((1u << 2u) - 1u)];
     // And index % 4 gives the sub-index of the u8 within the u32 so we shift by 8 * sub-index
     return (indices >> (8u * (index & ((1u << 2u) - 1u)))) & ((1u << 8u) - 1u);
 #endif
@@ -85,7 +85,7 @@ fn cluster_debug_visualization(
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
     let slice_color_hsv = vec3(
-        f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,
+        f32(z_slice) / f32(bindings,:: lights.cluster_dimensions.z + 1u) * PI_2,
         1.0,
         0.5
     );
@@ -101,16 +101,16 @@ fn cluster_debug_visualization(
     // complexity measure.
     let cluster_overlay_alpha = 0.1;
     let max_complexity_per_cluster = 64.0;
-    output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r + cluster_overlay_alpha *
-        smoothStep(
-            0.0,
-            max_complexity_per_cluster,
-            f32(offset_and_counts[1] + offset_and_counts[2]));
-    output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g + cluster_overlay_alpha *
-        (1.0 - smoothStep(
-            0.0,
-            max_complexity_per_cluster,
-            f32(offset_and_counts[1] + offset_and_counts[2])));
+    output_color.r = (1.0 - cluster_overlay_alpha) * output_color.r + cluster_overlay_alpha * smoothStep(
+        0.0,
+        max_complexity_per_cluster,
+        f32(offset_and_counts[1] + offset_and_counts[2])
+    );
+    output_color.g = (1.0 - cluster_overlay_alpha) * output_color.g + cluster_overlay_alpha * (1.0 - smoothStep(
+        0.0,
+        max_complexity_per_cluster,
+        f32(offset_and_counts[1] + offset_and_counts[2])
+    ));
 #endif // CLUSTERED_FORWARD_DEBUG_CLUSTER_COMPLEXITY
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     // NOTE: Visualizes the cluster to which the fragment belongs

@@ -187,10 +187,7 @@ fn gaussian_blur(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec
         let uv_offset = offset * (f32(i) + w1 / (w0 + w1));
         let weight = w0 + w1;
 
-        sum += (
-            textureSampleLevel(color_texture_a, color_texture_sampler, uv + uv_offset, 0.0).rgb +
-            textureSampleLevel(color_texture_a, color_texture_sampler, uv - uv_offset, 0.0).rgb
-        ) * weight;
+        sum += (textureSampleLevel(color_texture_a, color_texture_sampler, uv + uv_offset, 0.0).rgb + textureSampleLevel(color_texture_a, color_texture_sampler, uv - uv_offset, 0.0).rgb) * weight;
         weight_sum += weight * 2.0;
     }
 
@@ -216,7 +213,8 @@ fn box_blur_a(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
     var sum = vec3(0.0);
     for (var i = 0; i <= support; i += 1) {
         sum += textureSampleLevel(
-            color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+            color_texture_a, color_texture_sampler, uv + offset * f32(i), 0.0
+        ).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);
@@ -242,7 +240,8 @@ fn box_blur_b(frag_coord: vec4<f32>, coc: f32, frag_offset: vec2<f32>) -> vec4<f
     var sum = vec3(0.0);
     for (var i = 0; i <= support; i += 1) {
         sum += textureSampleLevel(
-            color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0).rgb;
+            color_texture_b, color_texture_sampler, uv + offset * f32(i), 0.0
+        ).rgb;
     }
 
     return vec4(sum / vec3(1.0 + f32(support)), 1.0);

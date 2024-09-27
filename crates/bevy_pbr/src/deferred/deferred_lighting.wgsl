@@ -60,7 +60,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var output_color = vec4(0.0);
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+    if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
@@ -68,12 +68,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001); 
+        let NdotV = max(dot(pbr_input.N, pbr_input.V), 0.0001);
         var perceptual_roughness: f32 = pbr_input.material.perceptual_roughness;
         let roughness = lighting::perceptualRoughnessToRoughness(perceptual_roughness);
         // Use SSAO to estimate the specular occlusion.
         // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"
-        pbr_input.specular_occlusion =  saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
+        pbr_input.specular_occlusion = saturate(pow(NdotV + ssao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ssao);
 #endif // SCREEN_SPACE_AMBIENT_OCCLUSION
 
         output_color = pbr_functions::apply_pbr_lighting(pbr_input);

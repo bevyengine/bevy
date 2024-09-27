@@ -280,7 +280,8 @@ fn compute_specular_layer_values_for_point_light(
     // see http://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf p14-16
     let centerToRay = dot(light_to_frag, R) * R - light_to_frag;
     let closestPoint = light_to_frag + centerToRay * saturate(
-        light_position_radius * inverseSqrt(dot(centerToRay, centerToRay)));
+        light_position_radius * inverseSqrt(dot(centerToRay, centerToRay))
+    );
     let LspecLengthInverse = inverseSqrt(dot(closestPoint, closestPoint));
     let normalizationFactor = a / saturate(a + (light_position_radius * 0.5 * LspecLengthInverse));
     let intensity = normalizationFactor * normalizationFactor;
@@ -489,8 +490,7 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
         light_to_frag,
         (*light).position_radius.w,
     );
-    var clearcoat_specular_derived_input =
-        derive_lighting_input(clearcoat_N, V, clearcoat_specular_L_intensity.xyz);
+    var clearcoat_specular_derived_input = derive_lighting_input(clearcoat_N, V, clearcoat_specular_L_intensity.xyz);
 
     // Calculate the specular light.
     let clearcoat_specular_intensity = clearcoat_specular_L_intensity.w;
@@ -532,8 +532,7 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     color = diffuse + specular_light;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL);
+    return color * (*light).color_inverse_square_range.rgb * (rangeAttenuation * derived_input.NdotL);
 }
 
 fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
@@ -590,8 +589,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     // from the main layer normal.
     var derived_clearcoat_input = derive_lighting_input(clearcoat_N, V, L);
 
-    let Fc_Frc =
-        specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, 1.0);
+    let Fc_Frc = specular_clearcoat(input, &derived_clearcoat_input, clearcoat_strength, 1.0);
     let inv_Fc = 1.0 - Fc_Frc.r;
     let Frc = Fc_Frc.g;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
@@ -601,8 +599,7 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     // Account for the Fresnel term from the clearcoat darkening the main layer.
     //
     // <https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/integrationinthesurfaceresponse>
-    color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL +
-        Frc * derived_clearcoat_input.NdotL;
+    color = (diffuse + specular_light * inv_Fc) * inv_Fc * derived_input.NdotL + Frc * derived_clearcoat_input.NdotL;
 #else   // STANDARD_MATERIAL_CLEARCOAT
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT

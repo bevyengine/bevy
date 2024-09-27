@@ -116,7 +116,8 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let frag_coord = position;
     let ndc_end_depth_from_buffer = textureLoad(depth_texture, vec2<i32>(frag_coord.xy), 0);
     let view_end_depth_from_buffer = -position_ndc_to_view(
-        frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
+        frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))
+    ).z;
 
     // Calculate the start position of the ray. Since we're only rendering front
     // faces of the AABB, this is the current fragment's depth.
@@ -133,7 +134,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         // Calculate the intersection of the ray and the plane. The ray must
         // intersect in front of us (t > 0).
         let t = -plane.w / dot(plane.xyz, view_start_pos.xyz);
-        if (t < 0.0) {
+        if t < 0.0 {
             continue;
         }
         let hit_pos = view_start_pos.xyz * t;
@@ -145,7 +146,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         );
 
         // If those tests pass, we found our backface.
-        if (all(other_sides)) {
+        if all(other_sides) {
             end_depth_view = -hit_pos.z;
             break;
         }
@@ -184,8 +185,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // [2]: https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law
 
     // Use Beer's law again to accumulate the ambient light all along the path.
-    var accumulated_color = exp(-ray_length_view * (absorption + scattering)) * ambient_color *
-        ambient_intensity;
+    var accumulated_color = exp(-ray_length_view * (absorption + scattering)) * ambient_color * ambient_intensity;
 
     // This is the amount of the background that shows through. We're actually
     // going to recompute this over and over again for each directional light,
@@ -195,15 +195,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // If we have a density texture, transform to its local space.
 #ifdef DENSITY_TEXTURE
     let Ro_uvw = (uvw_from_world * vec4(Ro_world, 1.0)).xyz;
-    let Rd_step_uvw = mat3x3(uvw_from_world[0].xyz, uvw_from_world[1].xyz, uvw_from_world[2].xyz) *
-        (Rd_world * step_size_world);
+    let Rd_step_uvw = mat3x3(uvw_from_world[0].xyz, uvw_from_world[1].xyz, uvw_from_world[2].xyz) * (Rd_world * step_size_world);
 #endif  // DENSITY_TEXTURE
 
     for (var light_index = 0u; light_index < directional_light_count; light_index += 1u) {
         // Volumetric lights are all sorted first, so the first time we come to
         // a non-volumetric light, we know we've seen them all.
         let light = &lights.directional_lights[light_index];
-        if (((*light).flags & DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
+        if ((*light).flags & DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0 {
             break;
         }
 
@@ -221,7 +220,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
         // Start raymarching.
         for (var step = 0u; step < step_count; step += 1u) {
             // As an optimization, break if we've gotten too dark.
-            if (background_alpha < 0.001) {
+            if background_alpha < 0.001 {
                 break;
             }
 
@@ -237,7 +236,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // but sometimes due to floating point error they can. Handle this
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
-            if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
+            if all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0)) {
                 density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
             } else {
                 density = 0.0;
@@ -269,25 +268,22 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             // Otherwise, sample the shadow map to determine whether, and by how
             // much, this sample is in the light.
-            if (local_light_attenuation != 0.0) {
+            if local_light_attenuation != 0.0 {
                 let cascade = &(*light).cascades[cascade_index];
                 let array_index = i32((*light).depth_texture_base_index + cascade_index);
-                local_light_attenuation =
-                    sample_shadow_map_hardware(light_local.xy, light_local.z, array_index);
+                local_light_attenuation = sample_shadow_map_hardware(light_local.xy, light_local.z, array_index);
             }
 
-            if (local_light_attenuation != 0.0) {
+            if local_light_attenuation != 0.0 {
                 let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
-                let light_factors_per_step = fog_color * light_tint * light_attenuation *
-                    scattering * density * step_size_world * light_intensity * exposure;
+                let light_factors_per_step = fog_color * light_tint * light_attenuation * scattering * density * step_size_world * light_intensity * exposure;
 
                 // Modulate the factor we calculated above by the phase, fog color,
                 // light color, light tint.
                 let light_color_per_step = (*light).color.rgb * phase * light_factors_per_step;
 
                 // Accumulate the light.
-                accumulated_color += light_color_per_step * local_light_attenuation *
-                    background_alpha;
+                accumulated_color += light_color_per_step * local_light_attenuation * background_alpha;
             }
         }
     }

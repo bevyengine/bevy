@@ -12,7 +12,8 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
         packed_uv_rect.x & 0xffffu,
         packed_uv_rect.x >> 16u,
         packed_uv_rect.y & 0xffffu,
-        packed_uv_rect.y >> 16u)) / 65535.0;
+        packed_uv_rect.y >> 16u
+    )) / 65535.0;
 
     let lightmap_uv = mix(uv_rect.xy, uv_rect.zw, uv);
 
@@ -25,5 +26,6 @@ fn lightmap(uv: vec2<f32>, exposure: f32, instance_index: u32) -> vec3<f32> {
         lightmaps_texture,
         lightmaps_sampler,
         lightmap_uv,
-        0.0).rgb * exposure;
+        0.0
+    ).rgb * exposure;
 }

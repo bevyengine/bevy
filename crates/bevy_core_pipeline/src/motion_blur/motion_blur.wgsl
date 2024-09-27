@@ -27,10 +27,10 @@ struct MotionBlur {
 @fragment
 fn fragment(
     #ifdef MULTISAMPLED
-        @builtin(sample_index) sample_index: u32,
+    @builtin(sample_index) sample_index: u32,
     #endif
     in: FullscreenVertexOutput
-) -> @location(0) vec4<f32> { 
+) -> @location(0) vec4<f32> {
     let texture_size = vec2<f32>(textureDimensions(screen_texture));
     let frag_coords = vec2<i32>(in.uv * texture_size);
 
@@ -74,7 +74,7 @@ fn fragment(
     var weight_total = 0.0;
     let n_samples = i32(settings.samples);
     let noise = utils::interleaved_gradient_noise(vec2<f32>(frag_coords), globals.frame_count); // 0 to 1
-       
+
     for (var i = -n_samples; i < n_samples; i++) {
         // The current sample step vector, from in.uv
         let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples);
@@ -146,8 +146,7 @@ fn fragment(
         accumulator += weight * sample_color;
     }
 
-    let has_moved_less_than_a_pixel = 
-        dot(this_motion_vector * texture_size, this_motion_vector * texture_size) < 1.0;
+    let has_moved_less_than_a_pixel = dot(this_motion_vector * texture_size, this_motion_vector * texture_size) < 1.0;
     // In case no samples were accepted, fall back to base color.
     // We also fall back if motion is small, to not break antialiasing.
     if weight_total <= 0.0 || has_moved_less_than_a_pixel {

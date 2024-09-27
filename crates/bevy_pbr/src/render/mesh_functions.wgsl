@@ -103,7 +103,7 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
 #endif  // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 6
 
     let visibility_buffer_index = mesh[instance_index].flags & 0xffffu;
-    if (visibility_buffer_index > visibility_buffer_array_len) {
+    if visibility_buffer_index > visibility_buffer_array_len {
         return -16;
     }
 

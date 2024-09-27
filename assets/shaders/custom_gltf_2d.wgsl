@@ -35,5 +35,5 @@ struct FragmentInput {
 fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
     let d = min(input.barycentric.x, min(input.barycentric.y, input.barycentric.z));
     let t = 0.05 * (0.85 + sin(5.0 * globals.time));
-    return mix(vec4(1.0,1.0,1.0,1.0), input.color, smoothstep(t, t+0.01, d));
+    return mix(vec4(1.0, 1.0, 1.0, 1.0), input.color, smoothstep(t, t + 0.01, d));
 }

@@ -116,79 +116,79 @@ fn view_frustum_intersects_obb(
         );
 
         // Check the frustum plane.
-        if (!maths::sphere_intersects_plane_half_space(
-                plane_normal, aabb_center, relative_radius)) {
-            return false;
-        }
+        if (!maths::sphere_intersects_plane_half_space(plane_normal, aabb_center, relative_radius)) {
+                return false;
+            }
     }
 
-    return true;
-}
+        return true;
+    }
 #endif
 
-@compute
-@workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
+    @compute
+    @workgroup_size(64)
+    fn main(@builtin(global_invocation_id), global_invocation_id,: vec3<u32>) {
     // Figure out our instance index. If this thread doesn't correspond to any
     // index, bail.
-    let instance_index = global_invocation_id.x;
-    if (instance_index >= arrayLength(&work_items)) {
-        return;
-    }
+        let instance_index = global_invocation_id.x;
+        if instance_index >= arrayLength(&work_items) {
+            return;
+        }
 
     // Unpack.
-    let input_index = work_items[instance_index].input_index;
-    let output_index = work_items[instance_index].output_index;
-    let world_from_local_affine_transpose = current_input[input_index].world_from_local;
-    let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
+        let input_index = work_items[instance_index].input_index;
+        let output_index = work_items[instance_index].output_index;
+        let world_from_local_affine_transpose = current_input[input_index].world_from_local;
+        let world_from_local = maths::affine3_to_square(world_from_local_affine_transpose);
 
     // Cull if necessary.
 #ifdef FRUSTUM_CULLING
-    let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
-    let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
+        let aabb_center = mesh_culling_data[input_index].aabb_center.xyz;
+        let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
     // Do an OBB-based frustum cull.
-    let model_center = world_from_local * vec4(aabb_center, 1.0);
-    if (!view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents)) {
-        return;
-    }
+        let model_center = world_from_local * vec4(aabb_center, 1.0);
+        if !view_frustum_intersects_obb(world_from_local, model_center, aabb_half_extents) {
+            return;
+        }
 #endif
 
     // Calculate inverse transpose.
-    let local_from_world_transpose = transpose(maths::inverse_affine3(transpose(
-        world_from_local_affine_transpose)));
+        let local_from_world_transpose = transpose(maths,:: inverse_affine3(transpose(
+            world_from_local_affine_transpose
+        )));
 
     // Pack inverse transpose.
-    let local_from_world_transpose_a = mat2x4<f32>(
-        vec4<f32>(local_from_world_transpose[0].xyz, local_from_world_transpose[1].x),
-        vec4<f32>(local_from_world_transpose[1].yz, local_from_world_transpose[2].xy));
-    let local_from_world_transpose_b = local_from_world_transpose[2].z;
+        let local_from_world_transpose_a = mat2x4<f32>(
+            vec4<f32>(local_from_world_transpose[0].xyz, local_from_world_transpose[1].x),
+            vec4<f32>(local_from_world_transpose[1].yz, local_from_world_transpose[2].xy)
+        );
+        let local_from_world_transpose_b = local_from_world_transpose[2].z;
 
     // Look up the previous model matrix.
-    let previous_input_index = current_input[input_index].previous_input_index;
-    var previous_world_from_local: mat3x4<f32>;
-    if (previous_input_index == 0xffffffff) {
-        previous_world_from_local = world_from_local_affine_transpose;
-    } else {
-        previous_world_from_local = previous_input[previous_input_index].world_from_local;
-    }
+        let previous_input_index = current_input[input_index].previous_input_index;
+        var previous_world_from_local: mat3x4<f32>;
+        if previous_input_index == 0xffffffff {
+            previous_world_from_local = world_from_local_affine_transpose;
+        } else {
+            previous_world_from_local = previous_input[previous_input_index].world_from_local;
+        }
 
     // Figure out the output index. In indirect mode, this involves bumping the
     // instance index in the indirect parameters structure. Otherwise, this
     // index was directly supplied to us.
 #ifdef INDIRECT
-    let mesh_output_index = indirect_parameters[output_index].instance_index +
-        atomicAdd(&indirect_parameters[output_index].instance_count, 1u);
+        let mesh_output_index = indirect_parameters[output_index].instance_index + atomicAdd(&indirect_parameters[output_index].instance_count, 1u);
 #else
-    let mesh_output_index = output_index;
+        let mesh_output_index = output_index;
 #endif
 
     // Write the output.
-    output[mesh_output_index].world_from_local = world_from_local_affine_transpose;
-    output[mesh_output_index].previous_world_from_local = previous_world_from_local;
-    output[mesh_output_index].local_from_world_transpose_a = local_from_world_transpose_a;
-    output[mesh_output_index].local_from_world_transpose_b = local_from_world_transpose_b;
-    output[mesh_output_index].flags = current_input[input_index].flags;
-    output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
-    output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
-}
+        output[mesh_output_index].world_from_local = world_from_local_affine_transpose;
+        output[mesh_output_index].previous_world_from_local = previous_world_from_local;
+        output[mesh_output_index].local_from_world_transpose_a = local_from_world_transpose_a;
+        output[mesh_output_index].local_from_world_transpose_b = local_from_world_transpose_b;
+        output[mesh_output_index].flags = current_input[input_index].flags;
+        output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
+        output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
+    }

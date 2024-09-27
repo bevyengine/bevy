@@ -19,12 +19,12 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph(vertex_index, bevy_pbr::morph::position_offset, i);
+        vertex.position += weight * morph(vertex_index, bevy_pbr,:: morph,:: position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph(vertex_index, bevy_pbr::morph::normal_offset, i);
+        vertex.normal += weight * morph(vertex_index, bevy_pbr,:: morph,:: normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph(vertex_index, bevy_pbr::morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph(vertex_index, bevy_pbr,:: morph,:: tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -96,7 +96,8 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VISIBILITY_RANGE_DITHER
     out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
-        vertex_no_morph.instance_index, world_from_local[3]);
+        vertex_no_morph.instance_index, world_from_local[3]
+    );
 #endif
 
     return out;

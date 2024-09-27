@@ -137,7 +137,7 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     var p0 = line_width * sigma * ab_norm;
     var p1 = line_width * sigma * normal / dot(normal, ab_norm);
     var p2 = line_width * sigma * cb_norm;
-    
+
     var screen = screen_b + position.x * p0 + position.y * p1 + position.z * p2;
 
     var depth = depth(clip_b);

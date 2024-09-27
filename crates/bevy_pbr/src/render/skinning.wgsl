@@ -18,10 +18,7 @@ fn skin_model(
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
-    return weights.x * joint_matrices.data[indexes.x]
-        + weights.y * joint_matrices.data[indexes.y]
-        + weights.z * joint_matrices.data[indexes.z]
-        + weights.w * joint_matrices.data[indexes.w];
+    return weights.x * joint_matrices.data[indexes.x] + weights.y * joint_matrices.data[indexes.y] + weights.z * joint_matrices.data[indexes.z] + weights.w * joint_matrices.data[indexes.w];
 }
 
 // Returns the skinned position of a vertex with the given weights from the
@@ -32,10 +29,7 @@ fn skin_prev_model(
     indexes: vec4<u32>,
     weights: vec4<f32>,
 ) -> mat4x4<f32> {
-    return weights.x * prev_joint_matrices.data[indexes.x]
-        + weights.y * prev_joint_matrices.data[indexes.y]
-        + weights.z * prev_joint_matrices.data[indexes.z]
-        + weights.w * prev_joint_matrices.data[indexes.w];
+    return weights.x * prev_joint_matrices.data[indexes.x] + weights.y * prev_joint_matrices.data[indexes.y] + weights.z * prev_joint_matrices.data[indexes.z] + weights.w * prev_joint_matrices.data[indexes.w];
 }
 
 fn inverse_transpose_3x3m(in: mat3x3<f32>) -> mat3x3<f32> {

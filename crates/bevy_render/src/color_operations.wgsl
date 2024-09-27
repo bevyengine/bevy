@@ -26,9 +26,9 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
     let c = x_max - x_min;  // chroma
 
     var swizzle = vec3<f32>(0.0);
-    if (x_max == rgb.r) {
+    if x_max == rgb.r {
         swizzle = vec3(rgb.gb, 0.0);
-    } else if (x_max == rgb.g) {
+    } else if x_max == rgb.g {
         swizzle = vec3(rgb.br, 2.0);
     } else {
         swizzle = vec3(rgb.rg, 4.0);
@@ -38,7 +38,7 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
 
     // Avoid division by zero.
     var s = 0.0;
-    if (x_max > 0.0) {
+    if x_max > 0.0 {
         s = c / x_max;
     }
 
