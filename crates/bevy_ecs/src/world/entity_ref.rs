@@ -955,7 +955,7 @@ impl<'w> EntityWorldMut<'w> {
         let world = &mut self.world;
         let storages = &mut world.storages;
         let components = &mut world.components;
-        let bundle_id = world.bundles.init_info::<T>(components, storages);
+        let bundle_id = world.bundles.register_info::<T>(components, storages);
         // SAFETY: We just ensured this bundle exists
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
@@ -1221,7 +1221,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
+        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info) };
@@ -1237,7 +1237,7 @@ impl<'w> EntityWorldMut<'w> {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
 
-        let retained_bundle = self.world.bundles.init_info::<T>(components, storages);
+        let retained_bundle = self.world.bundles.register_info::<T>(components, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;
@@ -3107,7 +3107,7 @@ mod tests {
     #[test]
     fn entity_mut_insert_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_id = world.register_component::<TestComponent>();
 
         let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(42), |ptr| {
@@ -3135,8 +3135,8 @@ mod tests {
     #[test]
     fn entity_mut_insert_bundle_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
-        let test_component_2_id = world.init_component::<TestComponent2>();
+        let test_component_id = world.register_component::<TestComponent>();
+        let test_component_2_id = world.register_component::<TestComponent2>();
 
         let component_ids = [test_component_id, test_component_2_id];
         let test_component_value = TestComponent(42);
@@ -3175,7 +3175,7 @@ mod tests {
     #[test]
     fn entity_mut_remove_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_id = world.register_component::<TestComponent>();
 
         let mut entity = world.spawn(TestComponent(42));
         entity.remove_by_id(test_component_id);
@@ -3192,8 +3192,8 @@ mod tests {
     #[test]
     fn entity_ref_except() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
+        world.register_component::<TestComponent>();
+        world.register_component::<TestComponent2>();
 
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
@@ -3458,7 +3458,7 @@ mod tests {
     #[test]
     fn filtered_entity_ref_normal() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let e: FilteredEntityRef = world.spawn(A).into();
 
@@ -3472,7 +3472,7 @@ mod tests {
     #[test]
     fn filtered_entity_ref_missing() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let e: FilteredEntityRef = world.spawn(()).into();
 
@@ -3486,7 +3486,7 @@ mod tests {
     #[test]
     fn filtered_entity_mut_normal() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let mut e: FilteredEntityMut = world.spawn(A).into();
 
@@ -3502,7 +3502,7 @@ mod tests {
     #[test]
     fn filtered_entity_mut_missing() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let mut e: FilteredEntityMut = world.spawn(()).into();
 

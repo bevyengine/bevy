@@ -181,8 +181,8 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
             ]
         );
 
@@ -235,10 +235,10 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<A>(),
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
-                world.init_component::<B>(),
+                world.register_component::<A>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+                world.register_component::<B>(),
             ]
         );
 
@@ -288,7 +288,7 @@ mod tests {
             },
         );
 
-        assert_eq!(ids, &[world.init_component::<C>(),]);
+        assert_eq!(ids, &[world.register_component::<C>(),]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
@@ -2011,7 +2011,7 @@ mod tests {
         struct Y;
 
         let mut world = World::new();
-        let x_id = world.init_component::<X>();
+        let x_id = world.register_component::<X>();
 
         let mut e = world.spawn_empty();
 
