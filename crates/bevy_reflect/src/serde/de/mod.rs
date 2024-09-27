@@ -24,12 +24,15 @@ mod tuples;
 mod tests {
     use bincode::Options;
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
+    use serde::de::IgnoredAny;
+    use serde::Deserializer;
 
     use serde::{de::DeserializeSeed, Deserialize};
 
     use bevy_utils::{HashMap, HashSet};
 
     use crate as bevy_reflect;
+    use crate::serde::ReflectDeserializerProcessor;
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
         DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
@@ -275,7 +278,8 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
-        let reflect_deserializer = TypedReflectDeserializer::new_internal(registration, &registry);
+        let reflect_deserializer =
+            TypedReflectDeserializer::new_internal(registration, &registry, None);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -515,6 +519,73 @@ mod tests {
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+    }
+
+    #[test]
+    fn should_use_processor_for_custom_deserialization() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        let expected = Foo { bar: 123, qux: 456 };
+
+        let input = r#"(
+            bar: 123,
+            qux: 123,
+        )"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut deserializer_processor = ReflectDeserializerProcessor::new(
+            |registration| registration.type_id() == TypeId::of::<i64>(),
+            |_, deserializer| {
+                let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                Ok(Box::new(456_i64))
+            },
+        );
+        let reflect_deserializer = TypedReflectDeserializer::new_internal(
+            registration,
+            &registry,
+            Some(&mut deserializer_processor),
+        );
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        let output =
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
+                .unwrap();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_propagate_processor_error() {
+        let registry = get_registry();
+
+        let input = r#"{"i32":123}"#;
+        let mut deserializer_processor = ReflectDeserializerProcessor::new(
+            |registration| registration.type_id() == TypeId::of::<i32>(),
+            |_, _| Err(serde::de::Error::custom("my custom error")),
+        );
+
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let reflect_deserializer =
+            ReflectDeserializer::new_with_processor(&registry, &mut deserializer_processor);
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom error (stack: `i32`)".to_string())
+        );
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(error, ron::Error::Message("my custom error".to_string()));
     }
 
     #[cfg(feature = "functions")]

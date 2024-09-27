@@ -8,6 +8,8 @@ use crate::{
 };
 use serde::de::{Error, SeqAccess};
 
+use super::ReflectDeserializerProcessor;
+
 pub(super) trait TupleLikeInfo {
     fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E>;
     fn field_len(&self) -> usize;
@@ -69,6 +71,7 @@ pub(super) fn visit_tuple<'de, T, V>(
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
+    mut processor: Option<&mut ReflectDeserializerProcessor>,
 ) -> Result<DynamicTuple, V::Error>
 where
     T: TupleLikeInfo,
@@ -95,6 +98,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
+                processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);
