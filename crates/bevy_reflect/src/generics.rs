@@ -4,20 +4,42 @@ use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use core::ops::Deref;
 
+/// The generic parameters of a type.
+///
+/// This is automatically generated via the [`Reflect` derive macro]
+/// and stored on the [`TypeInfo`] returned by [`Typed::type_info`]
+/// for types that have generics.
+///
+/// It supports both type parameters and const parameters
+/// so long as they implement [`TypePath`].
+///
+/// If the type has no generics, this will be empty.
+///
+/// If the type is marked with `#[reflect(type_path = false)]`,
+/// the generics will be empty even if the type has generics.
+///
+/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
+/// [`TypeInfo`]: crate::type_info::TypeInfo
+/// [`Typed::type_info`]: crate::Typed::type_info
 #[derive(Clone, Default, Debug)]
 pub struct Generics(Box<[GenericInfo]>);
 
 impl Generics {
+    /// Creates an empty set of generics.
     pub fn new() -> Self {
         Self(Box::new([]))
     }
 
+    /// Finds the generic parameter with the given name.
+    ///
+    /// Returns `None` if no such parameter exists.
     pub fn get_named(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
         self.0.iter().find(|info| info.name() == name)
     }
 
+    /// Adds the given generic parameter to the set.
     pub fn with(mut self, info: impl Into<GenericInfo>) -> Self {
         self.0 = IntoIterator::into_iter(self.0)
             .chain(core::iter::once(info.into()))
@@ -40,13 +62,21 @@ impl Deref for Generics {
     }
 }
 
+/// An enum representing a generic parameter.
 #[derive(Clone, Debug)]
 pub enum GenericInfo {
+    /// A type parameter.
+    ///
+    /// An example would be `T` in `struct Foo<T, U>`.
     Type(TypeParamInfo),
+    /// A const parameter.
+    ///
+    /// An example would be `N` in `struct Foo<const N: usize>`.
     Const(ConstParamInfo),
 }
 
 impl GenericInfo {
+    /// The name of the generic parameter.
     pub fn name(&self) -> &Cow<'static, str> {
         match self {
             Self::Type(info) => info.name(),
@@ -54,6 +84,7 @@ impl GenericInfo {
         }
     }
 
+    /// Whether the generic parameter is a const parameter.
     pub fn is_const(&self) -> bool {
         match self {
             Self::Type(_) => false,
@@ -81,6 +112,9 @@ impl From<ConstParamInfo> for GenericInfo {
     }
 }
 
+/// Type information for a generic type parameter.
+///
+/// An example of a type parameter would be `T` in `struct Foo<T>`.
 #[derive(Clone, Debug)]
 pub struct TypeParamInfo {
     name: Cow<'static, str>,
@@ -89,6 +123,7 @@ pub struct TypeParamInfo {
 }
 
 impl TypeParamInfo {
+    /// Creates a new type parameter with the given name.
     pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
@@ -97,15 +132,35 @@ impl TypeParamInfo {
         }
     }
 
+    /// Sets the default type for the parameter.
     pub fn with_default<T: TypePath + ?Sized>(mut self) -> Self {
         self.default = Some(Type::of::<T>());
         self
     }
 
+    /// The name of the type parameter.
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 
+    /// The default type for the parameter, if any.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{GenericInfo, Reflect, Typed};
+    /// #[derive(Reflect)]
+    /// struct Foo<T = f32>(T);
+    ///
+    /// let generics = Foo::<String>::type_info().generics();
+    /// let GenericInfo::Type(info) = generics.get_named("T").unwrap() else {
+    ///     panic!("expected a type parameter");
+    /// };
+    ///
+    /// let default = info.default().unwrap();
+    ///
+    /// assert!(default.is::<f32>());
+    /// ```
     pub fn default(&self) -> Option<&Type> {
         self.default.as_ref()
     }
@@ -113,6 +168,9 @@ impl TypeParamInfo {
     impl_type_methods!(ty);
 }
 
+/// Type information for a const generic parameter.
+///
+/// An example of a const parameter would be `N` in `struct Foo<const N: usize>`.
 #[derive(Clone, Debug)]
 pub struct ConstParamInfo {
     name: Cow<'static, str>,
@@ -123,6 +181,7 @@ pub struct ConstParamInfo {
 }
 
 impl ConstParamInfo {
+    /// Creates a new const parameter with the given name.
     pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
@@ -131,15 +190,35 @@ impl ConstParamInfo {
         }
     }
 
+    /// Sets the default value for the parameter.
     pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
         self.default = Some(Arc::new(default));
         self
     }
 
+    /// The name of the const parameter.
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 
+    /// The default value for the parameter, if any.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{GenericInfo, Reflect, Typed};
+    /// #[derive(Reflect)]
+    /// struct Foo<const N: usize = 10>([u8; N]);
+    ///
+    /// let generics = Foo::<5>::type_info().generics();
+    /// let GenericInfo::Const(info) = generics.get_named("N").unwrap() else {
+    ///    panic!("expected a const parameter");
+    /// };
+    ///
+    /// let default = info.default().unwrap();
+    ///
+    /// assert_eq!(default.downcast_ref::<usize>().unwrap(), &10);
+    /// ```
     pub fn default(&self) -> Option<&dyn Reflect> {
         self.default.as_deref()
     }
@@ -152,6 +231,7 @@ macro_rules! impl_generic_info_methods {
     ($field:ident) => {
         $crate::generics::impl_generic_info_methods!(self => &self.$field);
 
+        /// Sets the generic parameters for this type.
         pub fn with_generics(mut self, generics: crate::generics::Generics) -> Self {
             self.$field = generics;
             self
@@ -159,6 +239,7 @@ macro_rules! impl_generic_info_methods {
     };
     // Implements only a getter method for the given expression.
     ($self:ident => $expr:expr) => {
+        /// Gets the generic parameters for this type.
         pub fn generics(&$self) -> &crate::generics::Generics {
             $expr
         }
