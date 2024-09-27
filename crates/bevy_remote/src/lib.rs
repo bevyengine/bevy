@@ -247,7 +247,6 @@
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
 use async_channel::{Receiver, Sender};
-use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
