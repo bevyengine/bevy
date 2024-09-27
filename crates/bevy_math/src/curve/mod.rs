@@ -244,7 +244,7 @@ pub trait Curve<T> {
 
     /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
     /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends. 
+    /// coincides with where this curve ends.
     ///
     /// # Errors
     ///
@@ -275,7 +275,7 @@ pub trait Curve<T> {
     ///
     /// # Error
     ///
-    /// A [`ReverseError`] is returned if this curve's domain isn't bounded
+    /// A [`ReverseError`] is returned if this curve's domain isn't bounded.
     fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
     where
         Self: Sized,
@@ -289,8 +289,8 @@ pub trait Curve<T> {
             .ok_or(ReverseError::SourceDomainEndInfinite)
     }
 
-    /// Create a new [`Curve`] repeating this curve `n` times, producing another curve with outputs
-    /// of the same type. The domain of the new curve will be bigger by a factor of `n`.
+    /// Create a new [`Curve`] repeating this curve `N` times, producing another curve with outputs
+    /// of the same type. The domain of the new curve will be bigger by a factor of `n + 1`.
     ///
     /// # Notes
     ///
@@ -302,7 +302,7 @@ pub trait Curve<T> {
     ///
     /// # Error
     ///
-    /// A [`RepeatError`] is returned if this curve's domain isn't bounded
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
     fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
     where
         Self: Sized,
@@ -338,7 +338,7 @@ pub trait Curve<T> {
     ///
     /// # Error
     ///
-    /// A [`RepeatError`] is returned if this curve's domain isn't bounded
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
     fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
     where
         Self: Sized,
@@ -356,9 +356,9 @@ pub trait Curve<T> {
     /// another curve with outputs of the same type. The domain of the new curve will be twice as
     /// long. The transition point is guaranteed to not make any jumps.
     ///
-    /// # Error 
+    /// # Error
     ///
-    /// A [`PingPongError`] is returned if this curve's domain isn't right-finite
+    /// A [`PingPongError`] is returned if this curve's domain isn't right-finite.
     fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
     where
         Self: Sized,
@@ -374,7 +374,7 @@ pub trait Curve<T> {
 
     /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another
     /// curve with outputs of the same type. The domain of the other curve is translated so that
-    /// its start coincides with where this curve ends. 
+    /// its start coincides with where this curve ends.
     ///
     ///
     /// Additionally the transition of the samples is guaranteed to make no sudden jumps. This is
@@ -383,7 +383,7 @@ pub trait Curve<T> {
     /// realized by translating the other curve so that its start sample point coincides with the
     /// current curves' end sample point.
     ///
-    /// # Error 
+    /// # Error
     ///
     /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
     /// `other`'s domain doesn't have a finite start.
@@ -828,7 +828,7 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct LinearReparamCurve<T, C> {
-    /// Invariants: The domain of this curve must always be bounded.
+    /// Invariants: The domain of the inner curve must always be bounded.
     base: C,
     /// Invariants: This interval must always be bounded.
     new_domain: Interval,

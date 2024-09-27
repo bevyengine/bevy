@@ -118,7 +118,7 @@ where
     fn sample_unchecked(&self, t: f32) -> T {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()) % d.length();
+        let cyclic_t = (t - d.start()).rem_euclid(d.length());
         let t = if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
@@ -135,7 +135,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::repeat`].
+/// Curves of this type are produced by [`Curve::forever`].
 ///
 /// # Domain
 ///
@@ -161,7 +161,7 @@ where
     fn sample_unchecked(&self, t: f32) -> T {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()) % d.length();
+        let cyclic_t = (t - d.start()).rem_euclid(d.length());
         let t = if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
@@ -227,7 +227,7 @@ where
 /// # Domain
 ///
 /// The first curve's domain must be right-finite and the second's must be left-finite to get a
-/// valid [`ChainCurve`].
+/// valid [`ContinuationCurve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
