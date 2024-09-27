@@ -31,7 +31,7 @@ pub mod prelude {
         bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
-        texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
+        texture_slice::{SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }

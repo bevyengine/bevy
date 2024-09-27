@@ -12,17 +12,15 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{Insets, UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
-use bevy_sprite::BorderRect;
+#[cfg(feature = "bevy_text")]
+use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
-
-#[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
 
 mod convert;
 pub mod debug;
@@ -346,7 +344,7 @@ pub fn ui_layout_system(
                 node.unrounded_size = layout_size;
             }
 
-            node.bypass_change_detection().border = BorderRect {
+            node.bypass_change_detection().border = Insets {
                 left: layout.border.left * inverse_target_scale_factor,
                 right: layout.border.right * inverse_target_scale_factor,
                 top: layout.border.top * inverse_target_scale_factor,

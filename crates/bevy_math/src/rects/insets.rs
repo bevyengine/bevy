@@ -1,23 +1,23 @@
 use bevy_reflect::Reflect;
 
-/// Struct defining a [`Sprite`](crate::Sprite) border with padding values
+/// Struct defining insets relative to a rect, commonly used for defining visual components.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
-pub struct BorderRect {
-    /// Pixel padding to the left
+pub struct Insets {
+    /// Left inset
     pub left: f32,
-    /// Pixel padding to the right
+    /// Right inset
     pub right: f32,
-    /// Pixel padding to the top
+    /// Top inset
     pub top: f32,
-    /// Pixel padding to the bottom
+    /// Bottom inset
     pub bottom: f32,
 }
 
-impl BorderRect {
-    /// An empty border with zero padding values in each direction
+impl Insets {
+    /// An empty inset
     pub const ZERO: Self = Self::square(0.);
 
-    /// Creates a new border as a square, with identical pixel padding values on every direction
+    /// Creates identical insets in every direction
     #[must_use]
     #[inline]
     pub const fn square(value: f32) -> Self {
@@ -29,9 +29,9 @@ impl BorderRect {
         }
     }
 
-    /// Creates a new border as a rectangle, with:
-    /// - `horizontal` for left and right pixel padding
-    /// - `vertical` for top and bottom pixel padding
+    /// Creates insets with:
+    /// - `horizontal` for left and right insets
+    /// - `vertical` for top and bottom insets
     #[must_use]
     #[inline]
     pub const fn rectangle(horizontal: f32, vertical: f32) -> Self {
@@ -44,13 +44,13 @@ impl BorderRect {
     }
 }
 
-impl From<f32> for BorderRect {
+impl From<f32> for Insets {
     fn from(v: f32) -> Self {
         Self::square(v)
     }
 }
 
-impl From<[f32; 4]> for BorderRect {
+impl From<[f32; 4]> for Insets {
     fn from([left, right, top, bottom]: [f32; 4]) -> Self {
         Self {
             left,

@@ -15,7 +15,9 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{
+    FloatOrd, Insets, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles,
+};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
@@ -36,7 +38,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::PositionedGlyph;
 #[cfg(feature = "bevy_text")]
@@ -179,7 +181,7 @@ pub struct ExtractedUiNode {
     /// Border radius of the UI node.
     pub border_radius: ResolvedBorderRadius,
     /// Border thickness of the UI node.
-    pub border: BorderRect,
+    pub border: Insets,
     pub node_type: NodeType,
 }
 
@@ -365,7 +367,7 @@ pub fn extract_uinode_borders(
         }
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
+        if !uinode.is_empty() && uinode.border() != Insets::ZERO {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
@@ -409,7 +411,7 @@ pub fn extract_uinode_borders(
                     flip_x: false,
                     flip_y: false,
                     camera_entity,
-                    border: BorderRect::square(uinode.outline_width()),
+                    border: Insets::square(uinode.outline_width()),
                     border_radius: uinode.outline_radius(),
                     node_type: NodeType::Border,
                 },
@@ -595,7 +597,7 @@ pub fn extract_uinode_text(
                     flip_x: false,
                     flip_y: false,
                     camera_entity,
-                    border: BorderRect::ZERO,
+                    border: Insets::ZERO,
                     border_radius: ResolvedBorderRadius::ZERO,
                     node_type: NodeType::Rect,
                 },

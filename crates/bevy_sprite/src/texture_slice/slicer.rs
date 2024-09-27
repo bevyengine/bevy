@@ -1,5 +1,5 @@
-use super::{BorderRect, TextureSlice};
-use bevy_math::{vec2, Rect, Vec2};
+use super::TextureSlice;
+use bevy_math::{vec2, Insets, Rect, Vec2};
 use bevy_reflect::Reflect;
 
 /// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
@@ -13,7 +13,7 @@ use bevy_reflect::Reflect;
 #[derive(Debug, Clone, Reflect)]
 pub struct TextureSlicer {
     /// The sprite borders, defining the 9 sections of the image
-    pub border: BorderRect,
+    pub border: Insets,
     /// Defines how the center part of the 9 slices will scale
     pub center_scale_mode: SliceScaleMode,
     /// Defines how the 4 side parts of the 9 slices will scale
@@ -48,7 +48,7 @@ impl TextureSlicer {
     #[must_use]
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
         let coef = render_size / base_rect.size();
-        let BorderRect {
+        let Insets {
             left,
             right,
             top,
@@ -294,7 +294,7 @@ mod test {
     #[test]
     fn test_horizontal_sizes_uniform() {
         let slicer = TextureSlicer {
-            border: BorderRect {
+            border: Insets {
                 left: 10.,
                 right: 10.,
                 top: 10.,
@@ -326,7 +326,7 @@ mod test {
     #[test]
     fn test_horizontal_sizes_non_uniform_bigger() {
         let slicer = TextureSlicer {
-            border: BorderRect {
+            border: Insets {
                 left: 20.,
                 right: 10.,
                 top: 10.,
@@ -358,7 +358,7 @@ mod test {
     #[test]
     fn test_horizontal_sizes_non_uniform_smaller() {
         let slicer = TextureSlicer {
-            border: BorderRect {
+            border: Insets {
                 left: 5.,
                 right: 10.,
                 top: 10.,
@@ -403,7 +403,7 @@ mod test {
     #[test]
     fn test_horizontal_sizes_non_uniform_zero() {
         let slicer = TextureSlicer {
-            border: BorderRect {
+            border: Insets {
                 left: 0.,
                 right: 10.,
                 top: 10.,
