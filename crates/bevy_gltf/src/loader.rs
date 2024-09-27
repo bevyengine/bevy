@@ -313,7 +313,8 @@ async fn load_gltf<'a, 'b, 'c>(
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<_> = weights.into_f32().collect();
                             Box::new(MorphWeightsKeyframes {
-                                morph_target_count: weights.len() / keyframe_timestamps.len(),
+                                morph_target_count: (weights.len() / keyframe_timestamps.len())
+                                    as u32,
                                 weights,
                             }) as Box<dyn Keyframes>
                         }

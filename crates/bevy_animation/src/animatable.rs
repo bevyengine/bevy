@@ -206,14 +206,12 @@ pub(crate) trait GetKeyframe {
 /// This is factored out so that it can be shared between implementations of
 /// [`crate::keyframes::Keyframes`].
 pub(crate) fn interpolate_keyframes<T>(
-    dest: &mut T,
     keyframes: &(impl GetKeyframe<Output = T> + ?Sized),
     interpolation: Interpolation,
     step_start: usize,
     time: f32,
-    weight: f32,
     duration: f32,
-) -> Result<(), AnimationEvaluationError>
+) -> Result<T, AnimationEvaluationError>
 where
     T: Animatable + Clone,
 {
@@ -265,9 +263,7 @@ where
         }
     };
 
-    *dest = T::interpolate(dest, &value, weight);
-
-    Ok(())
+    Ok(value)
 }
 
 /// Evaluates a cubic Bézier curve at a value `t`, given two endpoints and the

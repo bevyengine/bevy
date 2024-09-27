@@ -41,6 +41,7 @@ blake3 = { version = "1.0" }
 thiserror = "1"
 thread_local = "1"
 uuid = { version = "1.7", features = ["v4"] }
+smallvec = "1"
 
 [lints]
 workspace = true

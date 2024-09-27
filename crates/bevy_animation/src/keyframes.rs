@@ -1,8 +1,9 @@
 //! Keyframes of animation clips.
 
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{self, Debug, Formatter},
+    marker::PhantomData,
 };
 
 use bevy_derive::{Deref, DerefMut};
@@ -14,6 +15,7 @@ use bevy_transform::prelude::Transform;
 
 use crate::{
     animatable,
+    graph::AnimationNodeIndex,
     prelude::{Animatable, GetKeyframe},
     AnimationEntityMut, AnimationEvaluationError, Interpolation,
 };
@@ -80,7 +82,7 @@ pub trait AnimatableProperty: Reflect + TypePath + 'static {
 /// Keyframes in a [`crate::VariableCurve`] that animate an
 /// [`AnimatableProperty`].
 ///
-/// This is the a generic type of [`Keyframes`] that can animate any
+/// This is the generic type of [`Keyframes`] that can animate any
 /// [`AnimatableProperty`]. See the documentation for [`AnimatableProperty`] for
 /// more information as to how to use this type.
 ///
@@ -92,7 +94,28 @@ pub struct AnimatablePropertyKeyframes<P>(pub Vec<P::Property>)
 where
     P: AnimatableProperty;
 
+/// A [`KeyframeEvaluator`] for [`AnimatableProperty`] instances.
+///
+/// You shouldn't ordinarily need to instantiate one of these manually. Bevy
+/// will automatically do so when you use an [`AnimatablePropertyKeyframes`]
+/// instance.
+#[derive(Reflect)]
+pub struct AnimatablePropertyKeyframeEvaluator<P>(
+    SimpleKeyframeEvaluator<AnimatablePropertyKeyframes<P>, P::Property>,
+)
+where
+    P: AnimatableProperty;
+
 impl<P> Clone for AnimatablePropertyKeyframes<P>
+where
+    P: AnimatableProperty,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<P> Clone for AnimatablePropertyKeyframeEvaluator<P>
 where
     P: AnimatableProperty,
 {
@@ -112,70 +135,139 @@ where
     }
 }
 
-/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
-/// control over how animations are evaluated.
+impl<P> Debug for AnimatablePropertyKeyframeEvaluator<P>
+where
+    P: AnimatableProperty,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("AnimatablePropertyKeyframeEvaluator")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+/// A low-level trait for use in [`crate::VariableCurve`] that allows a custom
+/// [`KeyframeEvaluator`] to be constructed.
 ///
-/// You can implement this trait when the generic
-/// [`AnimatablePropertyKeyframes`] isn't sufficiently-expressive for your
-/// needs. For example, [`MorphWeights`] implements this trait instead of using
-/// [`AnimatablePropertyKeyframes`] because it needs to animate arbitrarily many
-/// weights at once, which can't be done with [`Animatable`] as that works on
-/// fixed-size values only.
+/// You should usually prefer to use [`AnimatablePropertyKeyframes`] instead of
+/// implementing this trait manually. Only implement this trait if you need a
+/// custom [`KeyframeEvaluator`]. See the [`KeyframeEvaluator`] documentation
+/// for more information on when this might be necessary.
 pub trait Keyframes: Reflect + Debug + Send + Sync {
     /// Returns a boxed clone of this value.
     fn clone_value(&self) -> Box<dyn Keyframes>;
 
-    /// Interpolates between the existing value and the value of the first
-    /// keyframe, and writes the value into `transform` and/or `entity` as
-    /// appropriate.
+    /// Returns this value upcast to [`Any`].
+    fn as_any(&self) -> &dyn Any;
+
+    /// Returns a newly-instantiated [`KeyframeEvaluator`] for use with these
+    /// keyframes.
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator>;
+}
+
+/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// control over how animations are evaluated.
+///
+/// You can implement this trait when the generic
+/// [`AnimatablePropertyKeyframeEvaluator`] isn't sufficiently-expressive for
+/// your needs. For example, [`MorphWeights`] implements this trait instead of
+/// using [`AnimatablePropertyKeyframeEvaluator`] because it needs to animate
+/// arbitrarily many weights at once, which can't be done with [`Animatable`] as
+/// that works on fixed-size values only.
+///
+/// If you implement this trait, you should also implement [`Keyframes`], as
+/// that trait allows creating instances of this one.
+///
+/// Implementations of [`KeyframeEvaluator`] should maintain a *stack* of
+/// (value, weight, node index) triples, as well as a *blend register*, which is
+/// either a (value, weight) pair or empty. *Value* here refers to an instance
+/// of the value being animated: for example, [`Vec3`] in the case of
+/// translation keyframes.  The stack stores intermediate values generated while
+/// evaluating the [`AnimationGraph`], while the blend register stores the
+/// result of a blend operation.
+pub trait KeyframeEvaluator: Reflect {
+    /// Blends the top element of the stack with the blend register.
     ///
-    /// Arguments:
+    /// The semantics of this method are as follows:
     ///
-    /// * `transform`: The transform of the entity, if present.
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
+    ///    wₘ. If the stack was empty, return success.
     ///
-    /// * `entity`: Allows access to the rest of the components of the entity.
+    /// 2. If the blend register is empty, set the blend register value to vₘ
+    ///    and the blend register weight to wₘ; then, return success.
     ///
-    /// * `weight`: The blend weight between the existing component value (0.0)
-    ///   and the one computed from the keyframes (1.0).
-    fn apply_single_keyframe<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        entity: AnimationEntityMut<'a>,
+    /// 3. If the blend register is nonempty, call its current value vₙ and its
+    ///    current weight wₙ. Then, set the value of the blend register to
+    ///    `interpolate(vₙ, vₘ, wₘ / (wₘ + wₙ))`, and set the weight of the blend
+    ///    register to wₘ + wₙ.
+    ///
+    /// 4. Return success.
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+
+    /// Pushes the current value of the blend register onto the stack.
+    ///
+    /// If the blend register is empty, this method does nothing successfully.
+    /// Otherwise, this method pushes the current value of the blend register
+    /// onto the stack, alongside the weight and graph node supplied to this
+    /// function. The weight present in the blend register is discarded; only
+    /// the weight parameter to this function is pushed onto the stack. The
+    /// blend register is emptied after this process.
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
 
-    /// Interpolates between the existing value and the value of the two nearest
-    /// keyframes, and writes the value into `transform` and/or `entity` as
-    /// appropriate.
+    /// Pops the top value off the stack and writes it into the appropriate component.
     ///
-    /// Arguments:
+    /// If the stack is empty, this method does nothing successfully. Otherwise,
+    /// it pops the top value off the stack, fetches the associated component
+    /// from either the `transform` or `entity` values as appropriate, and
+    /// updates the appropriate property with the value popped from the stack.
+    /// The weight and node index associated with the popped stack element are
+    /// discarded. After doing this, the stack is emptied.
     ///
-    /// * `transform`: The transform of the entity, if present.
-    ///
-    /// * `entity`: Allows access to the rest of the components of the entity.
-    ///
-    /// * `interpolation`: The type of interpolation to use.
-    ///
-    /// * `step_start`: The index of the first keyframe.
-    ///
-    /// * `time`: The blend weight between the first keyframe (0.0) and the next
-    ///   keyframe (1.0).
-    ///
-    /// * `weight`: The blend weight between the existing component value (0.0)
-    ///   and the one computed from the keyframes (1.0).
-    ///
-    /// If `interpolation` is `Interpolation::Linear`, then pseudocode for this
-    /// function could be `property = lerp(property, lerp(keyframes[step_start],
-    /// keyframes[step_start + 1], time), weight)`.
-    #[allow(clippy::too_many_arguments)]
-    fn apply_tweened_keyframes<'a>(
-        &self,
+    /// The property on the component must be overwritten with the value from
+    /// the stack, not blended with it.
+    fn commit<'a>(
+        &mut self,
         transform: Option<Mut<'a, Transform>>,
         entity: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError>;
+
+    /// Pushes the value from the first keyframe (keyframe 0) onto the stack
+    /// alongside the given weight and graph node.
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError>;
+
+    /// Samples the value in between two keyframes according to the given
+    /// interpolation mode.
+    ///
+    /// This method first computes the interpolated value in between keyframe
+    /// `step_start` and keyframe `step_start + 1` according to the
+    /// `interpolation` mode and the `time` value. For example, an interpolation
+    /// mode of `Interpolation::Linear` and a time value of 0.5 computes a value
+    /// halfway between the keyframe `step_start` and the following one. Then,
+    /// this method pushes the resulting value onto the stack, alongside the
+    /// given `weight` and `graph_node`.
+    ///
+    /// Be sure not to confuse the `time` and `weight` values. The former
+    /// determines the amount by which two *keyframes* are blended together,
+    /// while `weight` ultimately determines how much the *stack values* will be
+    /// blended together (see the definition of [`KeyframeEvaluator::blend`]).
+    #[allow(clippy::too_many_arguments)]
+    fn apply_tweened_keyframes(
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError>;
 }
@@ -200,6 +292,13 @@ pub trait Keyframes: Reflect + Debug + Send + Sync {
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct TranslationKeyframes(pub Vec<Vec3>);
 
+/// A [`KeyframeEvaluator`] for use with [`TranslationKeyframes`].
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Clone, Default, Reflect, Debug)]
+pub struct TranslationKeyframeEvaluator(SimpleKeyframeEvaluator<TranslationKeyframes, Vec3>);
+
 /// Keyframes for animating [`Transform::scale`].
 ///
 /// An example of a [`crate::AnimationClip`] that animates translation:
@@ -219,6 +318,13 @@ pub struct TranslationKeyframes(pub Vec<Vec3>);
 ///     );
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct ScaleKeyframes(pub Vec<Vec3>);
+
+/// A [`KeyframeEvaluator`] for use with [`ScaleKeyframes`].
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Clone, Default, Reflect, Debug)]
+pub struct ScaleKeyframeEvaluator(SimpleKeyframeEvaluator<ScaleKeyframes, Vec3>);
 
 /// Keyframes for animating [`Transform::rotation`].
 ///
@@ -241,17 +347,64 @@ pub struct ScaleKeyframes(pub Vec<Vec3>);
 #[derive(Clone, Reflect, Debug, Deref, DerefMut)]
 pub struct RotationKeyframes(pub Vec<Quat>);
 
+/// A [`KeyframeEvaluator`] for use with [`RotationKeyframes`].
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Clone, Default, Reflect, Debug)]
+pub struct RotationKeyframeEvaluator(SimpleKeyframeEvaluator<RotationKeyframes, Quat>);
+
 /// Keyframes for animating [`MorphWeights`].
 #[derive(Clone, Debug, Reflect)]
 pub struct MorphWeightsKeyframes {
     /// The total number of morph weights.
-    pub morph_target_count: usize,
+    pub morph_target_count: u32,
 
     /// The morph weights.
     ///
     /// The length of this vector should be the total number of morph weights
     /// times the number of keyframes.
     pub weights: Vec<f32>,
+}
+
+/// A [`KeyframeEvaluator`] for use with [`MorphWeightsKeyframes`].
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Clone, Debug, Reflect)]
+pub struct MorphWeightsKeyframeEvaluator {
+    /// The values of the stack, in which each element is a list of morph target
+    /// weights.
+    ///
+    /// The stack elements are concatenated and tightly packed together.
+    ///
+    /// The number of elements in this stack will always be a multiple of
+    /// [`Self::morph_target_count`].
+    stack_morph_target_weights: Vec<f32>,
+
+    /// The blend weights and graph node indices for each element of the stack.
+    ///
+    /// This should have as many elements as there are stack nodes. In other
+    /// words, `Self::stack_morph_target_weights.len() *
+    /// Self::morph_target_counts as usize ==
+    /// Self::stack_blend_weights_and_graph_nodes`.
+    stack_blend_weights_and_graph_nodes: Vec<(f32, AnimationNodeIndex)>,
+
+    /// The morph target weights in the blend register, if any.
+    ///
+    /// This field should be ignored if [`Self::blend_register_blend_weight`] is
+    /// `None`. If non-empty, it will always have [`Self::morph_target_count`]
+    /// elements in it.
+    blend_register_morph_target_weights: Vec<f32>,
+
+    /// The weight in the blend register.
+    ///
+    /// This will be `None` if the blend register is empty. In that case,
+    /// [`Self::blend_register_blend_weight`] will be empty.
+    blend_register_blend_weight: Option<f32>,
+
+    /// The number of morph targets that are to be animated.
+    morph_target_count: u32,
 }
 
 impl<T> From<T> for TranslationKeyframes
@@ -268,44 +421,97 @@ impl Keyframes for TranslationKeyframes {
         Box::new(self.clone())
     }
 
-    fn apply_single_keyframe<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
-        weight: f32,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator> {
+        Box::new(TranslationKeyframeEvaluator::default())
+    }
+}
+
+impl KeyframeEvaluator for TranslationKeyframeEvaluator {
+    fn blend<'a>(
+        &mut self,
+        graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        let value = self
+        self.0.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.0.push_blend(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        mut transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        transform
+            .as_mut()
+            .ok_or_else(
+                || AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>()),
+            )?
+            .translation = self
+            .0
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<TranslationKeyframes>)?
+            .value;
+        self.0.stack.clear();
+        Ok(())
+    }
+
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let value = *Keyframes::as_any(keyframes)
+            .downcast_ref::<TranslationKeyframes>()
+            .unwrap()
+            .0
             .first()
             .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
-        component.translation = Animatable::interpolate(&component.translation, value, weight);
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
         Ok(())
     }
 
     fn apply_tweened_keyframes<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        animatable::interpolate_keyframes(
-            &mut component.translation,
-            &(*self)[..],
+        let keyframes = Keyframes::as_any(keyframes)
+            .downcast_ref::<TranslationKeyframes>()
+            .unwrap();
+        let value = animatable::interpolate_keyframes(
+            &keyframes.0[..],
             interpolation,
             step_start,
             time,
-            weight,
             duration,
-        )
+        )?;
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
+        Ok(())
     }
 }
 
@@ -323,44 +529,94 @@ impl Keyframes for ScaleKeyframes {
         Box::new(self.clone())
     }
 
-    fn apply_single_keyframe<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator> {
+        Box::new(ScaleKeyframeEvaluator::default())
+    }
+}
+
+impl KeyframeEvaluator for ScaleKeyframeEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.0.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        let value = self
+        self.0.push_blend(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        mut transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        transform
+            .as_mut()
+            .ok_or_else(
+                || AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>()),
+            )?
+            .scale = self
+            .0
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<ScaleKeyframes>)?
+            .value;
+        self.0.stack.clear();
+        Ok(())
+    }
+
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let value = *Keyframes::as_any(keyframes)
+            .downcast_ref::<ScaleKeyframes>()
+            .unwrap()
+            .0
             .first()
             .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
-        component.scale = Animatable::interpolate(&component.scale, value, weight);
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
         Ok(())
     }
 
     fn apply_tweened_keyframes<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        animatable::interpolate_keyframes(
-            &mut component.scale,
-            &(*self)[..],
+        let keyframes = Keyframes::as_any(keyframes)
+            .downcast_ref::<ScaleKeyframes>()
+            .unwrap();
+        let value = animatable::interpolate_keyframes(
+            &keyframes.0[..],
             interpolation,
             step_start,
             time,
-            weight,
             duration,
-        )
+        )?;
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
+        Ok(())
     }
 }
 
@@ -378,44 +634,94 @@ impl Keyframes for RotationKeyframes {
         Box::new(self.clone())
     }
 
-    fn apply_single_keyframe<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator> {
+        Box::new(RotationKeyframeEvaluator::default())
+    }
+}
+
+impl KeyframeEvaluator for RotationKeyframeEvaluator {
+    fn commit<'a>(
+        &mut self,
+        mut transform: Option<Mut<'a, Transform>>,
         _: AnimationEntityMut<'a>,
-        weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        let value = self
+        transform
+            .as_mut()
+            .ok_or_else(
+                || AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>()),
+            )?
+            .rotation = self
+            .0
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<RotationKeyframes>)?
+            .value;
+        self.0.stack.clear();
+        Ok(())
+    }
+
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let value = Keyframes::as_any(keyframes)
+            .downcast_ref::<RotationKeyframes>()
+            .unwrap()
+            .0
             .first()
             .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
-        component.rotation = Animatable::interpolate(&component.rotation, value, weight);
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value: *value,
+            weight,
+            graph_node,
+        });
         Ok(())
     }
 
     fn apply_tweened_keyframes<'a>(
-        &self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        animatable::interpolate_keyframes(
-            &mut component.rotation,
-            &(*self)[..],
+        let keyframes = Keyframes::as_any(keyframes)
+            .downcast_ref::<RotationKeyframes>()
+            .unwrap();
+        let value = animatable::interpolate_keyframes(
+            &keyframes.0[..],
             interpolation,
             step_start,
             time,
-            weight,
             duration,
-        )
+        )?;
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
+        Ok(())
+    }
+
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.0.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.0.push_blend(weight, graph_node)
     }
 }
 
@@ -437,48 +743,181 @@ where
         Box::new((*self).clone())
     }
 
-    fn apply_single_keyframe<'a>(
-        &self,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator> {
+        Box::new(AnimatablePropertyKeyframeEvaluator::<P>(
+            SimpleKeyframeEvaluator::default(),
+        ))
+    }
+}
+
+impl<P> KeyframeEvaluator for AnimatablePropertyKeyframeEvaluator<P>
+where
+    P: AnimatableProperty,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.0.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.0.push_blend(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
         _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
-        weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
+        *P::get_mut(&mut *entity.get_mut::<P::Component>().ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
-        })?;
-        let property = P::get_mut(&mut component)
-            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
-        let value = self
+        })?)
+        .ok_or_else(|| {
+            AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P::Property>())
+        })? = self.0.stack.pop().ok_or_else(inconsistent::<P>)?.value;
+        self.0.stack.clear();
+        Ok(())
+    }
+
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let value = (*Keyframes::as_any(keyframes)
+            .downcast_ref::<AnimatablePropertyKeyframes<P>>()
+            .unwrap()
+            .0
             .first()
-            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?;
-        <P::Property>::interpolate(property, value, weight);
+            .ok_or(AnimationEvaluationError::KeyframeNotPresent(0))?)
+        .clone();
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
         Ok(())
     }
 
     fn apply_tweened_keyframes<'a>(
-        &self,
-        _: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
-        })?;
-        let property = P::get_mut(&mut component)
-            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
-        animatable::interpolate_keyframes(
-            property,
-            self,
+        let keyframes = (*Keyframes::as_any(keyframes)
+            .downcast_ref::<AnimatablePropertyKeyframes<P>>()
+            .unwrap())
+        .clone();
+        let value = animatable::interpolate_keyframes(
+            &keyframes.0[..],
             interpolation,
             step_start,
             time,
-            weight,
             duration,
         )?;
+        self.0.stack.push(SimpleKeyframeEvaluatorStackElement {
+            value,
+            weight,
+            graph_node,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Clone, Reflect, Debug)]
+struct SimpleKeyframeEvaluator<K, P>
+where
+    K: Keyframes,
+    P: Animatable,
+{
+    stack: Vec<SimpleKeyframeEvaluatorStackElement<P>>,
+    blend_register: Option<(P, f32)>,
+    #[reflect(ignore)]
+    phantom: PhantomData<K>,
+}
+
+#[derive(Clone, Reflect, Debug)]
+struct SimpleKeyframeEvaluatorStackElement<P>
+where
+    P: Animatable,
+{
+    value: P,
+    weight: f32,
+    graph_node: AnimationNodeIndex,
+}
+
+impl<K, P> Default for SimpleKeyframeEvaluator<K, P>
+where
+    K: Keyframes,
+    P: Animatable,
+{
+    fn default() -> Self {
+        SimpleKeyframeEvaluator {
+            stack: vec![],
+            blend_register: None,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<K, P> SimpleKeyframeEvaluator<K, P>
+where
+    K: Keyframes,
+    P: Animatable + Debug,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        let Some(top) = self.stack.last() else {
+            return Ok(());
+        };
+        if top.graph_node != graph_node {
+            return Ok(());
+        }
+
+        let SimpleKeyframeEvaluatorStackElement {
+            value: value_to_blend,
+            weight: weight_to_blend,
+            graph_node: _,
+        } = self.stack.pop().unwrap();
+
+        match self.blend_register {
+            None => self.blend_register = Some((value_to_blend, weight_to_blend)),
+            Some((ref mut current_value, ref mut current_weight)) => {
+                *current_weight += weight_to_blend;
+                *current_value = P::interpolate(
+                    current_value,
+                    &value_to_blend,
+                    weight_to_blend / *current_weight,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn push_blend(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        if let Some((value, _)) = self.blend_register.take() {
+            self.stack.push(SimpleKeyframeEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
+        }
         Ok(())
     }
 }
@@ -519,54 +958,154 @@ impl Keyframes for MorphWeightsKeyframes {
         Box::new(self.clone())
     }
 
-    fn apply_single_keyframe<'a>(
-        &self,
-        _: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
-        weight: f32,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
-        })?;
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
-        // TODO: Go 4 weights at a time to make better use of SIMD.
-        for (morph_target_index, morph_weight) in dest.weights_mut().iter_mut().enumerate() {
-            *morph_weight =
-                f32::interpolate(morph_weight, &self.weights[morph_target_index], weight);
+    fn create_keyframe_evaluator(&self) -> Box<dyn KeyframeEvaluator> {
+        Box::new(MorphWeightsKeyframeEvaluator {
+            stack_morph_target_weights: vec![],
+            stack_blend_weights_and_graph_nodes: vec![],
+            blend_register_morph_target_weights: vec![],
+            blend_register_blend_weight: None,
+            morph_target_count: self.morph_target_count,
+        })
+    }
+}
+
+impl KeyframeEvaluator for MorphWeightsKeyframeEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
+            return Ok(());
+        };
+        if top_graph_node != graph_node {
+            return Ok(());
+        }
+
+        let (weight_to_blend, _) = self.stack_blend_weights_and_graph_nodes.pop().unwrap();
+        let stack_iter = self
+            .stack_morph_target_weights
+            .drain((self.stack_morph_target_weights.len() - self.morph_target_count as usize)..);
+
+        match self.blend_register_blend_weight {
+            None => {
+                self.blend_register_blend_weight = Some(weight_to_blend);
+                self.blend_register_morph_target_weights.clear();
+                self.blend_register_morph_target_weights.extend(stack_iter);
+            }
+
+            Some(ref mut current_weight) => {
+                *current_weight += weight_to_blend;
+                for (dest, src) in self
+                    .blend_register_morph_target_weights
+                    .iter_mut()
+                    .zip(stack_iter)
+                {
+                    *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                }
+            }
         }
 
         Ok(())
     }
 
-    fn apply_tweened_keyframes<'a>(
-        &self,
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        if self.blend_register_blend_weight.take().is_some() {
+            self.stack_morph_target_weights
+                .append(&mut self.blend_register_morph_target_weights);
+            self.stack_blend_weights_and_graph_nodes
+                .push((weight, graph_node));
+        }
+        Ok(())
+    }
+
+    fn commit<'a>(
+        &mut self,
         _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        for (dest, src) in entity
+            .get_mut::<MorphWeights>()
+            .ok_or_else(|| {
+                AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
+            })?
+            .weights_mut()
+            .iter_mut()
+            .zip(
+                self.stack_morph_target_weights
+                    [(self.stack_morph_target_weights.len() - self.morph_target_count as usize)..]
+                    .iter(),
+            )
+        {
+            *dest = *src;
+        }
+        self.stack_morph_target_weights.clear();
+        self.stack_blend_weights_and_graph_nodes.clear();
+        Ok(())
+    }
+
+    fn apply_single_keyframe(
+        &mut self,
+        keyframes: &dyn Keyframes,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let morph_weights_keyframes = Keyframes::as_any(keyframes)
+            .downcast_ref::<MorphWeightsKeyframes>()
+            .unwrap();
+        if morph_weights_keyframes.weights.len()
+            < (morph_weights_keyframes.morph_target_count as usize)
+        {
+            return Err(AnimationEvaluationError::KeyframeNotPresent(0));
+        }
+        self.stack_morph_target_weights.extend(
+            morph_weights_keyframes.weights
+                [0..(morph_weights_keyframes.morph_target_count as usize)]
+                .iter()
+                .cloned(),
+        );
+        self.stack_blend_weights_and_graph_nodes
+            .push((weight, graph_node));
+        Ok(())
+    }
+
+    fn apply_tweened_keyframes<'a>(
+        &mut self,
+        keyframes: &dyn Keyframes,
         interpolation: Interpolation,
         step_start: usize,
         time: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
         duration: f32,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
-        })?;
+        let morph_weights_keyframes = Keyframes::as_any(keyframes)
+            .downcast_ref::<MorphWeightsKeyframes>()
+            .unwrap();
 
         // TODO: Go 4 weights at a time to make better use of SIMD.
-        for (morph_target_index, morph_weight) in dest.weights_mut().iter_mut().enumerate() {
-            animatable::interpolate_keyframes(
-                morph_weight,
-                &GetMorphWeightKeyframe {
-                    keyframes: self,
-                    morph_target_index,
-                },
-                interpolation,
-                step_start,
-                time,
-                weight,
-                duration,
-            )?;
+        self.stack_morph_target_weights
+            .reserve(self.morph_target_count as usize);
+        for morph_target_index in 0..self.morph_target_count {
+            self.stack_morph_target_weights
+                .push(animatable::interpolate_keyframes(
+                    &GetMorphWeightKeyframe {
+                        keyframes: morph_weights_keyframes,
+                        morph_target_index: morph_target_index as usize,
+                    },
+                    interpolation,
+                    step_start,
+                    time,
+                    duration,
+                )?);
         }
+
+        self.stack_blend_weights_and_graph_nodes
+            .push((weight, graph_node));
 
         Ok(())
     }
@@ -576,9 +1115,15 @@ impl GetKeyframe for GetMorphWeightKeyframe<'_> {
     type Output = f32;
 
     fn get_keyframe(&self, keyframe_index: usize) -> Option<&Self::Output> {
-        self.keyframes
-            .weights
-            .as_slice()
-            .get(keyframe_index * self.keyframes.morph_target_count + self.morph_target_index)
+        self.keyframes.weights.as_slice().get(
+            keyframe_index * self.keyframes.morph_target_count as usize + self.morph_target_index,
+        )
     }
+}
+
+fn inconsistent<P>() -> AnimationEvaluationError
+where
+    P: 'static,
+{
+    AnimationEvaluationError::InconsistentKeyframeImplementation(TypeId::of::<P>())
 }
