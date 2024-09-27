@@ -81,6 +81,7 @@ pub fn derive_label(
         .unwrap(),
     );
     quote! {
+        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
         const _: () = {
             extern crate alloc;
 
