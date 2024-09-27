@@ -5,8 +5,7 @@ use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
 use bevy::remote::{
     builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
-    http::DEFAULT_ADDR,
-    http::DEFAULT_PORT,
+    http::DEFAULT_SOCKET,
     BrpRequest,
 };
 
@@ -27,10 +26,10 @@ use bevy::remote::{
 #[derive(FromArgs)]
 struct Args {
     /// the host IP address to connect to
-    #[argh(option, default = "DEFAULT_ADDR.to_string()")]
+    #[argh(option, default = "DEFAULT_SOCKET.ip().to_string()")]
     host: String,
     /// the port to connect to
-    #[argh(option, default = "DEFAULT_PORT")]
+    #[argh(option, default = "DEFAULT_SOCKET.port()")]
     port: u16,
     /// the full type names of the components to query for
     #[argh(positional, greedy)]
