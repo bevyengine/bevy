@@ -150,6 +150,8 @@
 
 #![deny(missing_docs)]
 
+extern crate alloc;
+
 pub mod backend;
 pub mod events;
 pub mod focus;

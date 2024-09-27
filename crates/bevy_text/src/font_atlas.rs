@@ -116,8 +116,8 @@ impl FontAtlas {
     }
 }
 
-impl std::fmt::Debug for FontAtlas {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for FontAtlas {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("FontAtlas")
             .field("glyph_to_atlas_index", &self.glyph_to_atlas_index)
             .field("texture_atlas", &self.texture_atlas)

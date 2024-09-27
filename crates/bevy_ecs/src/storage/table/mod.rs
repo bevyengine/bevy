@@ -9,8 +9,8 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{
+use core::panic::Location;
+use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
@@ -764,7 +764,7 @@ impl Tables {
     }
 
     /// Iterates through all of the tables stored within in [`TableId`] order.
-    pub fn iter(&self) -> std::slice::Iter<'_, Table> {
+    pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
     }
 
@@ -822,7 +822,7 @@ mod tests {
         storage::{Storages, TableBuilder, TableRow},
     };
     #[cfg(feature = "track_change_detection")]
-    use std::panic::Location;
+    use core::panic::Location;
 
     #[derive(Component)]
     struct W<T>(T);

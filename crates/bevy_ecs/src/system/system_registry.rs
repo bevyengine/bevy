@@ -1,14 +1,14 @@
-use std::marker::PhantomData;
-
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     change_detection::Mut,
     entity::Entity,
-    system::{input::SystemInput, BoxedSystem, IntoSystem, System},
+    system::input::SystemInput,
+    system::{BoxedSystem, IntoSystem, System},
     world::{Command, World},
-    {self as bevy_ecs},
 };
 use bevy_ecs_macros::{Component, Resource};
+use core::marker::PhantomData;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -96,14 +96,14 @@ impl<I: SystemInput, O> PartialEq for SystemId<I, O> {
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I: SystemInput, O> std::hash::Hash for SystemId<I, O> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<I: SystemInput, O> core::hash::Hash for SystemId<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity.hash(state);
     }
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for SystemId<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
 }
@@ -597,8 +597,8 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     SelfRemove(SystemId<I, O>),
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()

@@ -11,22 +11,21 @@ use crate::{
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
+use alloc::{borrow::Cow, sync::Arc};
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{
+use core::panic::Location;
+use core::{
     alloc::Layout,
     any::{Any, TypeId},
-    borrow::Cow,
     cell::UnsafeCell,
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
-    sync::Arc,
 };
 use thiserror::Error;
 
@@ -774,7 +773,7 @@ pub struct ComponentDescriptor {
 
 // We need to ignore the `drop` field in our `Debug` impl
 impl Debug for ComponentDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
@@ -799,7 +798,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type: T::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -834,7 +833,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -847,7 +846,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -1595,7 +1594,7 @@ impl<T: Component> ComponentIdFor<'_, T> {
     }
 }
 
-impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
+impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
         &self.0.component_id
@@ -1707,7 +1706,7 @@ pub struct RequiredComponent {
 pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
 
 impl Debug for RequiredComponents {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("RequiredComponents")
             .field(&self.0.keys())
             .finish()

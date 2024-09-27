@@ -3,12 +3,9 @@ use crate::{
     GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{
-    keyframes::{
-        Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
-    },
-    AnimationTarget, AnimationTargetId,
+use alloc::collections::VecDeque;
+use bevy_animation::prelude::{
+    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
 };
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
@@ -61,14 +58,16 @@ use gltf::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{value, Value};
-#[cfg(feature = "bevy_animation")]
-use smallvec::SmallVec;
 use std::{
-    collections::VecDeque,
     io::Error,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+#[cfg(feature = "bevy_animation")]
+use {
+    bevy_animation::{AnimationTarget, AnimationTargetId},
+    smallvec::SmallVec,
+};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -1423,7 +1422,7 @@ fn load_node(
                                 // NOTE: KHR_punctual_lights defines the intensity units for point lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a point light, luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
                                 range: light.range().unwrap_or(20.0),
                                 radius: 0.0,
                                 ..Default::default()
@@ -1449,7 +1448,7 @@ fn load_node(
                                 // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
                                 range: light.range().unwrap_or(20.0),
                                 radius: light.range().unwrap_or(0.0),
                                 inner_angle: inner_cone_angle,

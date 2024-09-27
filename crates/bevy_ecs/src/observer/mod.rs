@@ -18,7 +18,7 @@ use crate::{
 };
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
-use std::{
+use core::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -121,7 +121,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 }
 
 impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
             .field("propagate", &self.propagate)
@@ -528,7 +528,7 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use alloc::vec;
 
     use bevy_ptr::OwningPtr;
 

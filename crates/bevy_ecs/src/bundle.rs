@@ -23,8 +23,8 @@ use crate::{
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{any::TypeId, ptr::NonNull};
+use core::panic::Location;
+use core::{any::TypeId, ptr::NonNull};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -1343,7 +1343,7 @@ impl Bundles {
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(core::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });

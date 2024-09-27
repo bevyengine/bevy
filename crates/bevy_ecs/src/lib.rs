@@ -13,6 +13,8 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
+extern crate alloc;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -41,14 +43,6 @@ pub use bevy_ptr as ptr;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[cfg(feature = "reflect_functions")]
-    pub use crate::reflect::AppFunctionRegistry;
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
-    };
-    #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -72,6 +66,16 @@ pub mod prelude {
             OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_reflect")]
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
+
+    #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
 }
 
 #[cfg(test)]
@@ -88,17 +92,16 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
+    use alloc::sync::Arc;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::{
+    use core::{
         any::TypeId,
         marker::PhantomData,
         num::NonZero,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc, Mutex,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
+    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);

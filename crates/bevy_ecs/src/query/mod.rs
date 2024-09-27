@@ -82,7 +82,7 @@ impl<T, U> DebugCheckedUnwrap for Result<T, U> {
         if let Ok(inner) = self {
             inner
         } else {
-            std::hint::unreachable_unchecked()
+            core::hint::unreachable_unchecked()
         }
     }
 }
@@ -96,7 +96,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
         if let Some(inner) = self {
             inner
         } else {
-            std::hint::unreachable_unchecked()
+            core::hint::unreachable_unchecked()
         }
     }
 }
@@ -113,7 +113,8 @@ mod tests {
         world::World,
     };
     use bevy_ecs_macros::{QueryData, QueryFilter};
-    use std::{any::type_name, collections::HashSet, fmt::Debug, hash::Hash};
+    use core::{any::type_name, fmt::Debug, hash::Hash};
+    use std::collections::HashSet;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);

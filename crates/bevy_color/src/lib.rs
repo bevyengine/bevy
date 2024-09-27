@@ -160,7 +160,7 @@ where
 
 macro_rules! impl_componentwise_vector_space {
     ($ty: ident, [$($element: ident),+]) => {
-        impl std::ops::Add<Self> for $ty {
+        impl core::ops::Add<Self> for $ty {
             type Output = Self;
 
             fn add(self, rhs: Self) -> Self::Output {
@@ -170,13 +170,13 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::AddAssign<Self> for $ty {
+        impl core::ops::AddAssign<Self> for $ty {
             fn add_assign(&mut self, rhs: Self) {
                 *self = *self + rhs;
             }
         }
 
-        impl std::ops::Neg for $ty {
+        impl core::ops::Neg for $ty {
             type Output = Self;
 
             fn neg(self) -> Self::Output {
@@ -186,7 +186,7 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::Sub<Self> for $ty {
+        impl core::ops::Sub<Self> for $ty {
             type Output = Self;
 
             fn sub(self, rhs: Self) -> Self::Output {
@@ -196,13 +196,13 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::SubAssign<Self> for $ty {
+        impl core::ops::SubAssign<Self> for $ty {
             fn sub_assign(&mut self, rhs: Self) {
                 *self = *self - rhs;
             }
         }
 
-        impl std::ops::Mul<f32> for $ty {
+        impl core::ops::Mul<f32> for $ty {
             type Output = Self;
 
             fn mul(self, rhs: f32) -> Self::Output {
@@ -212,7 +212,7 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::Mul<$ty> for f32 {
+        impl core::ops::Mul<$ty> for f32 {
             type Output = $ty;
 
             fn mul(self, rhs: $ty) -> Self::Output {
@@ -222,13 +222,13 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::MulAssign<f32> for $ty {
+        impl core::ops::MulAssign<f32> for $ty {
             fn mul_assign(&mut self, rhs: f32) {
                 *self = *self * rhs;
             }
         }
 
-        impl std::ops::Div<f32> for $ty {
+        impl core::ops::Div<f32> for $ty {
             type Output = Self;
 
             fn div(self, rhs: f32) -> Self::Output {
@@ -238,7 +238,7 @@ macro_rules! impl_componentwise_vector_space {
             }
         }
 
-        impl std::ops::DivAssign<f32> for $ty {
+        impl core::ops::DivAssign<f32> for $ty {
             fn div_assign(&mut self, rhs: f32) {
                 *self = *self / rhs;
             }

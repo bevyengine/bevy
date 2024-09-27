@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 use super::compensation_curve::AutoExposureCompensationCurve;
 use bevy_asset::Handle;

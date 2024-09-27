@@ -6,7 +6,7 @@ use crate::{
     Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 
-use std::fmt::Formatter;
+use core::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
 #[derive(Debug, Default)]
@@ -403,7 +403,7 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicEnum(")?;
         enum_debug(self, f)?;
         write!(f, ")")

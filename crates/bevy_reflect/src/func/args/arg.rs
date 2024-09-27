@@ -2,7 +2,7 @@ use crate::{
     func::args::{ArgError, FromArg, Ownership},
     PartialReflect, Reflect, TypePath,
 };
-use std::ops::Deref;
+use core::ops::Deref;
 
 /// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -85,8 +85,8 @@ impl<'a> Arg<'a> {
         match self.value {
             ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
-                expected: std::borrow::Cow::Borrowed(T::type_path()),
-                received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
             }),
             ArgValue::Ref(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -128,8 +128,8 @@ impl<'a> Arg<'a> {
                     .try_downcast_ref()
                     .ok_or_else(|| ArgError::UnexpectedType {
                         index: self.index,
-                        expected: std::borrow::Cow::Borrowed(T::type_path()),
-                        received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                        received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
                     })?)
             }
             ArgValue::Mut(_) => Err(ArgError::InvalidOwnership {
@@ -168,12 +168,12 @@ impl<'a> Arg<'a> {
                 received: Ownership::Ref,
             }),
             ArgValue::Mut(arg) => {
-                let received = std::borrow::Cow::Owned(arg.reflect_type_path().to_string());
+                let received = alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string());
                 Ok(arg
                     .try_downcast_mut()
                     .ok_or_else(|| ArgError::UnexpectedType {
                         index: self.index,
-                        expected: std::borrow::Cow::Borrowed(T::type_path()),
+                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
                         received,
                     })?)
             }

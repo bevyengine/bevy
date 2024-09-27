@@ -12,9 +12,11 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
+extern crate alloc;
+
 use bevy_derive::Deref;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 use winit::event_loop::EventLoop;
 #[cfg(target_os = "android")]
 pub use winit::platform::android::activity as android_activity;

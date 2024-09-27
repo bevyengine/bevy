@@ -2,13 +2,13 @@
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
 
+use alloc::borrow::Cow;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
-use std::{
-    borrow::Cow,
+use core::{
     hash::{Hash, Hasher},
     ops::Deref,
 };
@@ -86,17 +86,17 @@ impl Name {
     }
 }
 
-impl std::fmt::Display for Name {
+impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name, f)
     }
 }
 
-impl std::fmt::Debug for Name {
+impl core::fmt::Debug for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&self.name, f)
     }
 }
 
@@ -130,12 +130,12 @@ pub struct NameOrEntity {
     pub entity: Entity,
 }
 
-impl<'a> std::fmt::Display for NameOrEntityItem<'a> {
+impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self.name {
-            Some(name) => std::fmt::Display::fmt(name, f),
-            None => std::fmt::Display::fmt(&self.entity, f),
+            Some(name) => core::fmt::Display::fmt(name, f),
+            None => core::fmt::Display::fmt(&self.entity, f),
         }
     }
 }
@@ -196,13 +196,13 @@ impl PartialEq for Name {
 impl Eq for Name {}
 
 impl PartialOrd for Name {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for Name {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.name.cmp(&other.name)
     }
 }

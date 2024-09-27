@@ -36,8 +36,8 @@ use bevy_picking::backend::prelude::*;
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
-pub struct UiPickingBackend;
-impl Plugin for UiPickingBackend {
+pub struct UiPickingBackendPlugin;
+impl Plugin for UiPickingBackendPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
     }

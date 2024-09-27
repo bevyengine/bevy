@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
     component::{ComponentId, StorageType},
@@ -262,7 +262,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         // SAFETY:
         // - We have included all required accesses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 
     /// Create a [`QueryState`] with the accesses of the builder.
