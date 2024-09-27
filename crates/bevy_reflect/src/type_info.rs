@@ -293,6 +293,20 @@ impl TypeInfo {
             Self::Opaque(_) => ReflectKind::Opaque,
         }
     }
+
+    impl_generic_info_methods!(self => {
+        match self {
+            Self::Struct(info) => info.generics(),
+            Self::TupleStruct(info) => info.generics(),
+            Self::Tuple(info) => info.generics(),
+            Self::List(info) => info.generics(),
+            Self::Array(info) => info.generics(),
+            Self::Map(info) => info.generics(),
+            Self::Set(info) => info.generics(),
+            Self::Enum(info) => info.generics(),
+            Self::Opaque(info) => info.generics(),
+        }
+    });
 }
 
 macro_rules! impl_cast_method {

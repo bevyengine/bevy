@@ -148,14 +148,19 @@ impl ConstParamInfo {
 }
 
 macro_rules! impl_generic_info_methods {
+    // Implements both getter and setter methods for the given field.
     ($field:ident) => {
+        $crate::generics::impl_generic_info_methods!(self => &self.$field);
+
         pub fn with_generics(mut self, generics: crate::generics::Generics) -> Self {
             self.$field = generics;
             self
         }
-
-        pub fn generics(&self) -> &crate::generics::Generics {
-            &self.$field
+    };
+    // Implements only a getter method for the given expression.
+    ($self:ident => $expr:expr) => {
+        pub fn generics(&$self) -> &crate::generics::Generics {
+            $expr
         }
     };
 }
