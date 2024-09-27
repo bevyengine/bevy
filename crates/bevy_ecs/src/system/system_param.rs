@@ -384,8 +384,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY:
-        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         let result = unsafe {
             state.as_readonly().get_single_unchecked_manual(
@@ -408,8 +407,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         world: UnsafeWorldCell,
     ) -> bool {
         state.validate_world(world.id());
-        // SAFETY:
-        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         let result = unsafe {
             state.as_readonly().get_single_unchecked_manual(
@@ -450,8 +448,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY:
-        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         let result = unsafe {
             state.as_readonly().get_single_unchecked_manual(
@@ -477,8 +474,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         world: UnsafeWorldCell,
     ) -> bool {
         state.validate_world(world.id());
-        // SAFETY:
-        // the query ensures that the components it accesses are not mutably accessible somewhere else
+        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
         let result = unsafe {
             state.as_readonly().get_single_unchecked_manual(
@@ -519,7 +515,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY: query has unique world access
+        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
         let result =
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         let single = result.unwrap();
@@ -535,7 +531,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        QuerySingle::validate_param(state.as_readonly(), system_meta, world)
+        // SAFETY: Delegate to another `SystemParam` implementation.
+        unsafe { QuerySingle::validate_param(state.as_readonly(), system_meta, world) }
     }
 }
 
@@ -567,7 +564,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY: query has unique world access
+        // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
         let result =
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         match result {
@@ -586,11 +583,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        Option::<QuerySingle<'a, D::ReadOnly, F>>::validate_param(
-            state.as_readonly(),
-            system_meta,
-            world,
-        )
+        // SAFETY: Delegate to another `SystemParam` implementation.
+        unsafe {
+            Option::<QuerySingle<'a, D::ReadOnly, F>>::validate_param(
+                state.as_readonly(),
+                system_meta,
+                world,
+            )
+        }
     }
 }
 
