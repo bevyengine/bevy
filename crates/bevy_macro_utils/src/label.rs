@@ -81,21 +81,25 @@ pub fn derive_label(
         .unwrap(),
     );
     quote! {
-        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
-                ::std::boxed::Box::new(::core::clone::Clone::clone(self))
-            }
+        const _: () = {
+            extern crate alloc;
 
-            fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
-                self
-            }
+            impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+                fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
+                    alloc::boxed::Box::new(::core::clone::Clone::clone(self))
+                }
 
-            fn dyn_hash(&self, mut state: &mut dyn ::core::hash::Hasher) {
-                let ty_id = ::core::any::TypeId::of::<Self>();
-                ::core::hash::Hash::hash(&ty_id, &mut state);
-                ::core::hash::Hash::hash(self, &mut state);
+                fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
+                    self
+                }
+
+                fn dyn_hash(&self, mut state: &mut dyn ::core::hash::Hasher) {
+                    let ty_id = ::core::any::TypeId::of::<Self>();
+                    ::core::hash::Hash::hash(&ty_id, &mut state);
+                    ::core::hash::Hash::hash(self, &mut state);
+                }
             }
-        }
+        };
     }
     .into()
 }
