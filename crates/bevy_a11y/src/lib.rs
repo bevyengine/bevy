@@ -7,10 +7,10 @@
 
 //! Accessibility for Bevy
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+extern crate alloc;
+
+use alloc::sync::Arc;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 pub use accesskit;
 use accesskit::NodeBuilder;

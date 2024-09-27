@@ -1,4 +1,5 @@
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
+use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},
     prelude::Entity,
@@ -8,7 +9,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::default;
-use std::collections::BTreeMap;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
 ///
@@ -217,7 +217,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Re-extracting an entity that was already extracted will have no effect.
     #[must_use]
     pub fn extract_entity(self, entity: Entity) -> Self {
-        self.extract_entities(std::iter::once(entity))
+        self.extract_entities(core::iter::once(entity))
     }
 
     /// Despawns all entities with no components.

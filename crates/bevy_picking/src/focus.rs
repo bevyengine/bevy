@@ -3,10 +3,9 @@
 //! The most important type in this module is the [`HoverMap`], which maps pointers to the entities
 //! they are hovering over.
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    fmt::Debug,
-};
+use alloc::collections::BTreeMap;
+use core::fmt::Debug;
+use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},

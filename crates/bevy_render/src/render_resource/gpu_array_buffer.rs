@@ -7,9 +7,9 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::{prelude::Component, system::Resource};
+use core::marker::PhantomData;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
-use std::marker::PhantomData;
 use wgpu::{BindingResource, BufferUsages};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].

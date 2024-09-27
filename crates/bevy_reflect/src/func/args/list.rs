@@ -5,7 +5,7 @@ use crate::{
     },
     PartialReflect, Reflect, TypePath,
 };
-use std::collections::VecDeque;
+use alloc::collections::VecDeque;
 
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

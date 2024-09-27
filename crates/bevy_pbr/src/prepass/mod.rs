@@ -39,7 +39,7 @@ use crate::meshlet::{
 };
 use crate::*;
 
-use std::{hash::Hash, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 

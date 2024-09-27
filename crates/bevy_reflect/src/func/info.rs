@@ -353,7 +353,7 @@ all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 ///
 /// [`type_name`]: std::any::type_name
 fn create_info<F>() -> FunctionInfo {
-    let name = std::any::type_name::<F>();
+    let name = core::any::type_name::<F>();
 
     if name.ends_with("{{closure}}") || name.starts_with("fn(") {
         FunctionInfo::anonymous()
@@ -374,7 +374,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_function_info::add"
         );
 
@@ -398,7 +398,7 @@ mod tests {
         let add = add as fn(i32, i32) -> i32;
 
         // Sanity check:
-        assert_eq!(std::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
+        assert_eq!(core::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
 
         let info = add.get_function_info();
         assert!(info.name().is_none());
@@ -414,7 +414,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_anonymous_function_info::{{closure}}"
         );
 
@@ -433,7 +433,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_closure_info::{{closure}}"
         );
 

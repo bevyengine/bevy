@@ -73,7 +73,7 @@ impl FileAssetWriter {
     /// watching for changes.
     ///
     /// See `get_base_path` below.
-    pub fn new<P: AsRef<Path> + std::fmt::Debug>(path: P, create_root: bool) -> Self {
+    pub fn new<P: AsRef<Path> + core::fmt::Debug>(path: P, create_root: bool) -> Self {
         let root_path = get_base_path().join(path.as_ref());
         if create_root {
             if let Err(e) = std::fs::create_dir_all(&root_path) {

@@ -45,13 +45,14 @@ use widget::UiImageSize;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+    pub use {
+        crate::{
+            geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
+            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+        },
+        // `bevy_sprite` re-exports for texture slicing
+        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
     };
-    // `bevy_sprite` re-exports for texture slicing
-    #[doc(hidden)]
-    pub use bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer};
 }
 
 use bevy_app::prelude::*;
@@ -194,7 +195,7 @@ impl Plugin for UiPlugin {
         build_ui_render(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingBackend);
+        app.add_plugins(picking_backend::UiPickingBackendPlugin);
     }
 
     fn finish(&self, app: &mut App) {

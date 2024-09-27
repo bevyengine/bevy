@@ -18,8 +18,8 @@ pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{
+use core::panic::Location;
+use core::{
     any::Any,
     fmt::Debug,
     marker::PhantomData,
@@ -315,8 +315,8 @@ pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>
 ) {
     assert_component_access_compatibility(
         &system_meta.name,
-        std::any::type_name::<D>(),
-        std::any::type_name::<F>(),
+        core::any::type_name::<D>(),
+        core::any::type_name::<F>(),
         &system_meta.component_access_set,
         &state.component_access,
         world,
@@ -591,14 +591,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.init_resource::<T>();
+        let component_id = world.components.register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
@@ -639,7 +639,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                     panic!(
                         "Resource requested by {} does not exist: {}",
                         system_meta.name,
-                        std::any::type_name::<T>()
+                        core::any::type_name::<T>()
                     )
                 });
         Res {
@@ -698,18 +698,18 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.init_resource::<T>();
+        let component_id = world.components.register_resource::<T>();
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
@@ -748,7 +748,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 panic!(
                     "Resource requested by {} does not exist: {}",
                     system_meta.name,
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 )
             });
         ResMut {
@@ -1193,7 +1193,7 @@ impl<'w, T> Debug for NonSend<'w, T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("NonSend").field(&self.value).finish()
     }
 }
@@ -1248,14 +1248,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.init_non_send::<T>();
+        let component_id = world.components.register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
@@ -1296,7 +1296,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
-                        std::any::type_name::<T>()
+                        core::any::type_name::<T>()
                     )
                 });
 
@@ -1352,18 +1352,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.set_non_send();
 
-        let component_id = world.components.init_non_send::<T>();
+        let component_id = world.components.register_non_send::<T>();
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_component_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
@@ -1403,7 +1403,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
                     panic!(
                         "Non-send resource requested by {} does not exist: {}",
                         system_meta.name,
-                        std::any::type_name::<T>()
+                        core::any::type_name::<T>()
                     )
                 });
         NonSendMut {
@@ -1866,7 +1866,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
 ///     // Use the lifetimes in this type, or they will be unbound.
-///     phantom: core::marker::PhantomData<&'w &'s ()>
+///     phantom: std::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
 /// #    bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
@@ -2273,7 +2273,7 @@ mod tests {
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         system::assert_is_system,
     };
-    use std::cell::RefCell;
+    use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
@@ -2465,7 +2465,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
@@ -2480,7 +2480,7 @@ mod tests {
         }
 
         let mut world = World::new();
-        world.insert_non_send_resource(std::ptr::null_mut::<u8>());
+        world.insert_non_send_resource(core::ptr::null_mut::<u8>());
         let mut schedule = crate::schedule::Schedule::default();
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
