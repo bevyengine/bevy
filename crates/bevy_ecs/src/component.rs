@@ -28,6 +28,7 @@ use std::{
     mem::needs_drop,
     sync::Arc,
 };
+use thiserror::Error;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -1028,11 +1029,11 @@ impl Components {
         required: ComponentId,
         requiree: ComponentId,
         constructor: fn() -> R,
-    ) {
+    ) -> Result<(), RequiredComponentsError> {
         // SAFETY: We just created the components.
         unsafe {
-            self.register_required_components_recursive_unchecked(required, requiree, constructor);
-        };
+            self.register_required_components_recursive_unchecked(required, requiree, constructor)
+        }
     }
 
     /// Recursively registers the given component `R` and its [required components] as required by `T`.
@@ -1057,7 +1058,7 @@ impl Components {
         required: ComponentId,
         requiree: ComponentId,
         constructor: fn() -> R,
-    ) {
+    ) -> Result<(), RequiredComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
@@ -1065,15 +1066,15 @@ impl Components {
         };
 
         // Cannot directly require the same component twice.
-        assert!(
-            !required_components
-                .0
-                .get(&required)
-                .is_some_and(|c| c.inheritance_depth == 0),
-            "Component {:?} is already a required component for {:?}",
-            required,
-            requiree
-        );
+        if required_components
+            .0
+            .get(&required)
+            .is_some_and(|c| c.inheritance_depth == 0)
+        {
+            return Err(RequiredComponentsError::DuplicateRegistration(
+                required, requiree,
+            ));
+        }
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
@@ -1181,6 +1182,8 @@ impl Components {
                 }
             }
         }
+
+        Ok(())
     }
 
     // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
@@ -1619,6 +1622,18 @@ impl<T: Component> FromWorld for InitComponentId<T> {
             marker: PhantomData,
         }
     }
+}
+
+/// An error returned when the registration of a required component fails.
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum RequiredComponentsError {
+    /// The component is already a directly required component for the requiree.
+    #[error("Component {0:?} is already a directly required component for {1:?}")]
+    DuplicateRegistration(ComponentId, ComponentId),
+    /// An archetype with the component that requires other components already exists
+    #[error("An archetype with the component that requires other components already exists")]
+    ArchetypeExists(ComponentId),
 }
 
 /// A Required Component constructor. See [`Component`] for details.

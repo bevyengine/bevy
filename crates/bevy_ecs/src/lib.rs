@@ -77,6 +77,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::RequiredComponentsError;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -2157,7 +2158,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn runtime_required_components_existing_archetype() {
         #[derive(Component)]
         struct X;
@@ -2170,12 +2170,14 @@ mod tests {
         // Registering required components after the archetype has already been created should panic.
         // This may change in the future.
         world.spawn(X);
-        world.register_required_components::<X, Y>();
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::ArchetypeExists(_))
+        ));
     }
 
     #[test]
-    #[should_panic]
-    fn runtime_required_components_panic_with_duplicate() {
+    fn runtime_required_components_fail_with_duplicate() {
         #[derive(Component)]
         #[require(Y)]
         struct X;
@@ -2185,8 +2187,11 @@ mod tests {
 
         let mut world = World::new();
 
-        // This should panic: Tried to register Y as a requirement for X, but the requirement already exists.
-        world.register_required_components::<X, Y>();
+        // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::DuplicateRegistration(_, _))
+        ));
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are
