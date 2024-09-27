@@ -82,7 +82,7 @@ impl<T, U> DebugCheckedUnwrap for Result<T, U> {
         if let Ok(inner) = self {
             inner
         } else {
-            std::hint::unreachable_unchecked()
+            core::hint::unreachable_unchecked()
         }
     }
 }
@@ -96,23 +96,25 @@ impl<T> DebugCheckedUnwrap for Option<T> {
         if let Some(inner) = self {
             inner
         } else {
-            std::hint::unreachable_unchecked()
+            core::hint::unreachable_unchecked()
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
-    use crate::schedule::{IntoSystemConfigs, Schedule};
-    use crate::system::{IntoSystem, Query, System, SystemState};
-    use crate::{self as bevy_ecs, component::Component, world::World};
+    use crate::{
+        self as bevy_ecs,
+        component::Component,
+        prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without},
+        query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData},
+        schedule::{IntoSystemConfigs, Schedule},
+        system::{IntoSystem, Query, System, SystemState},
+        world::World,
+    };
     use bevy_ecs_macros::{QueryData, QueryFilter};
-    use std::any::type_name;
+    use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::collections::HashSet;
-    use std::fmt::Debug;
-    use std::hash::Hash;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);

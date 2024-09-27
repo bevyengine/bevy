@@ -9,7 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_picking = ["dep:bevy_picking", "dep:bevy_window"]
+default = ["bevy_sprite_picking_backend"]
+bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
 webgl = []
 webgpu = []
 

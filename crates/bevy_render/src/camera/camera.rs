@@ -28,13 +28,12 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, warn_once};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -92,7 +91,8 @@ pub struct ComputedCameraValues {
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -614,7 +614,8 @@ impl Default for CameraOutputMode {
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component, Debug)]
+#[reflect(opaque)]
+#[reflect(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -901,7 +902,8 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -1076,7 +1078,7 @@ pub fn sort_cameras(
     sorted_cameras
         .0
         .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            std::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
             ord => ord,
         });
     let mut previous_order_target = None;

@@ -9,15 +9,16 @@ pub use interval::{interval, Interval};
 use itertools::Itertools;
 
 use crate::StableInterpolate;
+use core::{marker::PhantomData, ops::Deref};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
-use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
+///
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
 /// of output data can be represented as well.
 pub trait Curve<T> {
@@ -1020,7 +1021,7 @@ mod tests {
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
-    use std::f32::consts::TAU;
+    use core::f32::consts::TAU;
 
     #[test]
     fn curve_can_be_made_into_an_object() {

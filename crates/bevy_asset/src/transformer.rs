@@ -1,16 +1,18 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
 use atomicow::CowArc;
 use bevy_utils::{ConditionalSendFuture, HashMap};
-use serde::{Deserialize, Serialize};
-use std::{
+use core::{
     borrow::Borrow,
     convert::Infallible,
     hash::Hash,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use serde::{Deserialize, Serialize};
 
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
+///
+/// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
 pub trait AssetTransformer: Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;
@@ -19,7 +21,7 @@ pub trait AssetTransformer: Send + Sync + 'static {
     /// The settings type used by this [`AssetTransformer`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
-    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
     /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets

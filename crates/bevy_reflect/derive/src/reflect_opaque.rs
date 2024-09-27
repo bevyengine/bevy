@@ -1,13 +1,10 @@
-use crate::container_attributes::ContainerAttributes;
-use crate::derive_data::ReflectTraitToImpl;
-use crate::type_path::CustomPathDef;
-use syn::parse::ParseStream;
-use syn::token::Paren;
-use syn::{parenthesized, Attribute, Generics, Path};
+use crate::{
+    container_attributes::ContainerAttributes, derive_data::ReflectTraitToImpl,
+    type_path::CustomPathDef,
+};
+use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, Path};
 
-/// A struct used to define a simple reflected value type (such as primitives).
-///
-///
+/// A struct used to define a simple reflection-opaque types (including primitives).
 ///
 /// This takes the form:
 ///
@@ -21,11 +18,17 @@ use syn::{parenthesized, Attribute, Generics, Path};
 /// // With generics and where clause
 /// ::my_crate::foo::Bar<T1, T2> where T1: Bar (TraitA, TraitB)
 ///
-/// // With a custom path (not with impl_from_reflect_value)
+/// // With a custom path (not with impl_from_reflect_opaque)
 /// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
-pub(crate) struct ReflectValueDef {
-    #[allow(dead_code)]
+pub(crate) struct ReflectOpaqueDef {
+    #[cfg_attr(
+        not(feature = "documentation"),
+        expect(
+            dead_code,
+            reason = "The is used when the `documentation` feature is enabled.",
+        )
+    )]
     pub attrs: Vec<Attribute>,
     pub type_path: Path,
     pub generics: Generics,
@@ -33,7 +36,7 @@ pub(crate) struct ReflectValueDef {
     pub custom_path: Option<CustomPathDef>,
 }
 
-impl ReflectValueDef {
+impl ReflectOpaqueDef {
     pub fn parse_reflect(input: ParseStream) -> syn::Result<Self> {
         Self::parse(input, ReflectTraitToImpl::Reflect)
     }
@@ -61,7 +64,7 @@ impl ReflectValueDef {
                 attrs
             });
         }
-        Ok(ReflectValueDef {
+        Ok(Self {
             attrs,
             type_path,
             generics,

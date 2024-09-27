@@ -3,7 +3,7 @@
 mod range;
 mod render_layers;
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 pub use range::*;
 pub use render_layers::*;
@@ -544,7 +544,6 @@ mod test {
     use super::*;
     use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
-    use std::mem::size_of;
 
     #[test]
     fn visibility_propagation() {

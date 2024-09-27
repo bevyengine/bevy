@@ -1,16 +1,18 @@
-use std::fmt;
+use core::fmt;
 
 use taffy::TaffyTree;
 
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::prelude::Resource;
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    prelude::Resource,
+};
 use bevy_hierarchy::Children;
 use bevy_math::UVec2;
-use bevy_utils::default;
-use bevy_utils::tracing::warn;
+use bevy_utils::{default, tracing::warn};
 
-use crate::layout::convert;
-use crate::{LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style};
+use crate::{
+    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -246,7 +248,7 @@ without UI components as a child of an entity with UI components, results may be
                                         #[cfg(feature = "bevy_text")]
                                         buffer,
                                         #[cfg(not(feature = "bevy_text"))]
-                                        font_system: std::marker::PhantomData,
+                                        font_system: core::marker::PhantomData,
                                     },
                                     style,
                                 );

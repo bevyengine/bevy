@@ -1,19 +1,22 @@
 mod parallel_scope;
 
-use core::panic::Location;
+use core::{marker::PhantomData, panic::Location};
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
+use super::{
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
-    component::{ComponentId, ComponentInfo},
+    change_detection::Mut,
+    component::{Component, ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
-    system::{RunSystemWithInput, SystemId},
+    system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
-        SpawnBatchIter, World,
+        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
+        EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -91,7 +94,9 @@ const _: () = {
     // SAFETY: Only reads Entities
     unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
         type State = FetchState;
+
         type Item<'w, 's> = Commands<'w, 's>;
+
         fn init_state(
             world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
@@ -103,6 +108,7 @@ const _: () = {
                 ),
             }
         }
+
         unsafe fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
@@ -117,6 +123,7 @@ const _: () = {
                 );
             };
         }
+
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -128,6 +135,7 @@ const _: () = {
                 world,
             );
         }
+
         fn queue(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -139,13 +147,28 @@ const _: () = {
                 world,
             );
         }
+
+        #[inline]
+        unsafe fn validate_param(
+            state: &Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: UnsafeWorldCell,
+        ) -> bool {
+            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
+                &state.state,
+                system_meta,
+                world,
+            )
+        }
+
+        #[inline]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
-            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
@@ -689,7 +712,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + 'static,
+    {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
@@ -742,18 +768,41 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_system<
-        I: 'static + Send,
-        O: 'static + Send,
-        M,
-        S: IntoSystem<I, O, M> + 'static,
-    >(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
+    }
+
+    /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + Send + 'static>(
+        &mut self,
+        system: S,
+    ) {
+        self.run_system_cached_with(system, ());
+    }
+
+    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        M: 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
+    {
+        self.queue(RunSystemCachedWith::new(system, input));
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -906,6 +955,38 @@ impl EntityCommands<'_> {
         }
     }
 
+    /// Get an [`EntityEntryCommands`] for the [`Component`] `T`,
+    /// allowing you to modify it or insert it if it isn't already present.
+    ///
+    /// See also [`insert_if_new`](Self::insert_if_new), which lets you insert a [`Bundle`] without overwriting it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Level(u32);
+    ///
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .entry::<Level>()
+    ///         // Modify the component if it exists
+    ///         .and_modify(|mut lvl| lvl.0 += 1)
+    ///         // Otherwise insert a default value
+    ///         .or_insert(Level(0));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(level_up_system);
+    /// ```
+    pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<T> {
+        EntityEntryCommands {
+            entity_commands: self.reborrow(),
+            marker: PhantomData,
+        }
+    }
+
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -1010,6 +1091,9 @@ impl EntityCommands<'_> {
     /// components will leave the old values instead of replacing them with new
     /// ones.
     ///
+    /// See also [`entry`](Self::entry), which lets you modify a [`Component`] if it's present,
+    /// as well as initialize it with a default value.
+    ///
     /// # Panics
     ///
     /// The command will panic when applied if the associated entity does not exist.
@@ -1067,7 +1151,7 @@ impl EntityCommands<'_> {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
         })})
     }
 
@@ -1417,6 +1501,113 @@ impl EntityCommands<'_> {
     }
 }
 
+/// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
+pub struct EntityEntryCommands<'a, T> {
+    entity_commands: EntityCommands<'a>,
+    marker: PhantomData<T>,
+}
+
+impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Modify the component `T` if it exists, using the the function `modify`.
+    pub fn and_modify(mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> Self {
+        self.entity_commands = self
+            .entity_commands
+            .queue(move |mut entity: EntityWorldMut| {
+                if let Some(value) = entity.get_mut() {
+                    modify(value);
+                }
+            });
+        self
+    }
+
+    /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
+    ///
+    /// See also [`or_insert_with`](Self::or_insert_with).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
+    /// See [`or_try_insert`](Self::or_try_insert) for a non-panicking version.
+    #[track_caller]
+    pub fn or_insert(mut self, default: T) -> Self {
+        self.entity_commands = self
+            .entity_commands
+            .queue(insert(default, InsertMode::Keep));
+        self
+    }
+
+    /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
+    ///
+    /// Unlike [`or_insert`](Self::or_insert), this will not panic if the entity does not exist.
+    ///
+    /// See also [`or_insert_with`](Self::or_insert_with).
+    #[track_caller]
+    pub fn or_try_insert(mut self, default: T) -> Self {
+        self.entity_commands = self
+            .entity_commands
+            .queue(try_insert(default, InsertMode::Keep));
+        self
+    }
+
+    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
+    ///
+    /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
+    /// See [`or_try_insert_with`](Self::or_try_insert_with) for a non-panicking version.
+    #[track_caller]
+    pub fn or_insert_with(self, default: impl Fn() -> T) -> Self {
+        self.or_insert(default())
+    }
+
+    /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
+    ///
+    /// Unlike [`or_insert_with`](Self::or_insert_with), this will not panic if the entity does not exist.
+    ///
+    /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
+    #[track_caller]
+    pub fn or_try_insert_with(self, default: impl Fn() -> T) -> Self {
+        self.or_try_insert(default())
+    }
+
+    /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already present.
+    ///
+    /// See also [`or_insert`](Self::or_insert) and [`or_from_world`](Self::or_from_world).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
+    #[track_caller]
+    pub fn or_default(self) -> Self
+    where
+        T: Default,
+    {
+        #[allow(clippy::unwrap_or_default)]
+        // FIXME: use `expect` once stable
+        self.or_insert(T::default())
+    }
+
+    /// [Insert](EntityCommands::insert) `T::from_world` into this entity, if `T` is not already present.
+    ///
+    /// See also [`or_insert`](Self::or_insert) and [`or_default`](Self::or_default).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity does not exist.
+    #[track_caller]
+    pub fn or_from_world(mut self) -> Self
+    where
+        T: FromWorld,
+    {
+        self.entity_commands = self
+            .entity_commands
+            .queue(insert_from_world::<T>(InsertMode::Keep));
+        self
+    }
+}
+
 impl<F> Command for F
 where
     F: FnOnce(&mut World) + Send + 'static,
@@ -1485,7 +1676,7 @@ where
         ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                std::any::type_name::<B>(),
+                core::any::type_name::<B>(),
                 invalid_entities
             );
         }
@@ -1520,7 +1711,26 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds the component using its `FromWorld` implementation.
+#[track_caller]
+fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity: Entity, world: &mut World| {
+        let value = T::from_world(world);
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.insert_with_caller(
+                value,
+                mode,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
+        } else {
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1569,6 +1779,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1599,6 +1810,7 @@ fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1660,14 +1872,12 @@ mod tests {
         self as bevy_ecs,
         component::Component,
         system::{Commands, Resource},
-        world::{CommandQueue, World},
+        world::{CommandQueue, FromWorld, World},
     };
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         any::TypeId,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
 
     #[allow(dead_code)]
@@ -1695,6 +1905,50 @@ mod tests {
 
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
+    }
+
+    impl FromWorld for W<String> {
+        fn from_world(world: &mut World) -> Self {
+            let v = world.resource::<W<usize>>();
+            Self("*".repeat(v.0))
+        }
+    }
+
+    #[test]
+    fn entity_commands_entry() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+        let entity = commands.spawn_empty().id();
+        commands
+            .entity(entity)
+            .entry::<W<u32>>()
+            .and_modify(|_| unreachable!());
+        queue.apply(&mut world);
+        assert!(!world.entity(entity).contains::<W<u32>>());
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u32>>()
+            .or_insert(W(0))
+            .and_modify(|mut val| {
+                val.0 = 21;
+            });
+        queue.apply(&mut world);
+        assert_eq!(21, world.get::<W<u32>>(entity).unwrap().0);
+        let mut commands = Commands::new(&mut queue, &world);
+        commands
+            .entity(entity)
+            .entry::<W<u64>>()
+            .and_modify(|_| unreachable!())
+            .or_insert(W(42));
+        queue.apply(&mut world);
+        assert_eq!(42, world.get::<W<u64>>(entity).unwrap().0);
+        world.insert_resource(W(5_usize));
+        let mut commands = Commands::new(&mut queue, &world);
+        commands.entity(entity).entry::<W<String>>().or_from_world();
+        queue.apply(&mut world);
+        assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
     }
 
     #[test]

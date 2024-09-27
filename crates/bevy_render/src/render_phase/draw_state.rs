@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_color::LinearRgba;
 use bevy_utils::{default, detailed_trace};
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{IndexFormat, QuerySet, RenderPass};
 
 /// Tracks the state of a [`TrackedRenderPass`].

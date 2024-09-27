@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use core::{
+    marker::PhantomData,
+    ops::{Div, DivAssign, Mul, MulAssign},
+};
 
-use crate::primitives::Frustum;
-use crate::view::VisibilitySystems;
+use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
 use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -221,7 +221,7 @@ impl CameraProjection for PerspectiveProjection {
 impl Default for PerspectiveProjection {
     fn default() -> Self {
         PerspectiveProjection {
-            fov: std::f32::consts::PI / 4.0,
+            fov: core::f32::consts::PI / 4.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
