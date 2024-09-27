@@ -256,22 +256,20 @@ use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
     entity::Entity,
+    schedule::IntoSystemConfigs,
     system::{Commands, In, IntoSystem, Res, Resource, System, SystemId},
-    world::{Mut, World},
+    world::World,
 };
 use bevy_reflect::Reflect;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{prelude::default, HashMap};
-use futures_util::SinkExt;
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
     server::conn::http1,
     service, Request, Response,
 };
-use hyper_tungstenite::HyperWebsocket;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use smol::{
@@ -280,9 +278,14 @@ use smol::{
 };
 use smol_hyper::rt::{FuturesIo, SmolTimer};
 use std::net::{TcpListener, TcpStream};
+use stream::{
+    process_brp_websocket, process_remote_stream_messages, ActiveStreams, BrpStreamMailBox,
+    BrpStreamMessage,
+};
 
 pub mod builtin_methods;
 pub mod error_codes;
+mod stream;
 
 /// The default port that Bevy will listen on.
 ///
@@ -446,8 +449,12 @@ impl Plugin for RemotePlugin {
         app.insert_resource(HostAddress(self.address))
             .insert_resource(HostPort(self.port))
             .insert_resource(remote_methods)
+            .init_resource::<ActiveStreams>()
             .add_systems(Startup, start_server)
-            .add_systems(Update, process_remote_requests);
+            .add_systems(
+                Update,
+                (process_remote_requests, process_remote_stream_messages).chain(),
+            );
     }
 }
 
@@ -691,17 +698,29 @@ pub struct BrpMessage {
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
-#[derive(Debug, Component, Clone)]
-struct ActiveStream(BrpMessage, RemoteMethod);
+/// A unique identifier for a client. Only available in stream requests.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct BrpClientId(pub usize);
+
+struct TcpClient {
+    id: BrpClientId,
+    stream: Async<TcpStream>,
+}
 
 /// A system that starts up the Bevy Remote Protocol server.
 fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<HostPort>) {
     // Create the channel and the mailbox.
     let (request_sender, request_receiver) = channel::bounded(CHANNEL_SIZE);
+    let (stream_request_sender, stream_request_receiver) = channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpMailbox(request_receiver));
-
+    commands.insert_resource(BrpStreamMailBox(stream_request_receiver));
     IoTaskPool::get()
-        .spawn(server_main(address.0, remote_port.0, request_sender))
+        .spawn(server_main(
+            address.0,
+            remote_port.0,
+            request_sender,
+            stream_request_sender,
+        ))
         .detach();
 }
 
@@ -716,93 +735,42 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpMailbox>().try_recv() {
-        world.resource_scope(|world, methods: Mut<RemoteMethods>| {
-            // Fetch the handler for the method. If there's no such handler
-            // registered, return an error.
-            let Some(handler) = methods.0.get(&message.method) else {
+        let methods = world.resource::<RemoteMethods>();
+
+        // Fetch the handler for the method. If there's no such handler
+        // registered, return an error.
+        let Some(handler) = methods.0.get(&message.method) else {
+            let _ = message.sender.send_blocking(Err(BrpError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: format!("Method `{}` not found", message.method),
+                data: None,
+            }));
+            return;
+        };
+
+        let result = match handler {
+            RemoteMethod::Normal(system_id) => {
+                world.run_system_with_input(*system_id, message.params)
+            }
+            _ => {
+                return;
+            }
+        };
+
+        // Execute the handler, and send the result back to the client.
+        let result = match result {
+            Ok(result) => result,
+            Err(error) => {
                 let _ = message.sender.send_blocking(Err(BrpError {
-                    code: error_codes::METHOD_NOT_FOUND,
-                    message: format!("Method `{}` not found", message.method),
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("Failed to run method handler: {error}"),
                     data: None,
                 }));
                 return;
-            };
-
-            let result = match handler {
-                RemoteMethod::Normal(system_id) => {
-                    world.run_system_with_input(*system_id, message.params)
-                }
-                RemoteMethod::Stream(system_id) => {
-                    world.spawn(ActiveStream(
-                        message.clone(),
-                        RemoteMethod::Stream(*system_id),
-                    ));
-
-                    return;
-                }
-            };
-
-            // Execute the handler, and send the result back to the client.
-            let result = match result {
-                Ok(result) => result,
-                Err(error) => {
-                    let _ = message.sender.send_blocking(Err(BrpError {
-                        code: error_codes::INTERNAL_ERROR,
-                        message: format!("Failed to run method handler: {error}"),
-                        data: None,
-                    }));
-                    return;
-                }
-            };
-
-            let _ = message.sender.send_blocking(result);
-        });
-    }
-
-    let streams: Vec<_> = world
-        .query::<(Entity, &ActiveStream)>()
-        .iter(world)
-        .map(|item| (item.0, item.1.clone()))
-        .collect();
-
-    let to_remove: Vec<_> = streams
-        .into_iter()
-        .filter_map(|(entity, stream)| match stream.1 {
-            RemoteMethod::Stream(system_id) => {
-                let message = stream.0;
-                let result = world.run_system_with_input(system_id, message.params);
-
-                let should_remove = match result {
-                    Ok(handler_result) => {
-                        if let Some(handler_result) = handler_result {
-                            let handler_err = handler_result.is_err();
-                            let channel_result = message.sender.send_blocking(handler_result);
-
-                            // Remove the entity when the handler return error or channel closed
-                            handler_err || channel_result.is_err()
-                        } else {
-                            false
-                        }
-                    }
-                    Err(error) => {
-                        let _ = message.sender.send_blocking(Err(BrpError {
-                            code: error_codes::INTERNAL_ERROR,
-                            message: format!("Failed to run method handler: {error}"),
-                            data: None,
-                        }));
-
-                        true
-                    }
-                };
-
-                should_remove.then_some(entity)
             }
-            _ => unreachable!(),
-        })
-        .collect();
+        };
 
-    for entity in to_remove {
-        world.despawn(entity);
+        let _ = message.sender.send_blocking(result);
     }
 }
 
@@ -811,39 +779,40 @@ async fn server_main(
     address: IpAddr,
     port: u16,
     request_sender: Sender<BrpMessage>,
+    stream_request_sender: Sender<BrpStreamMessage>,
 ) -> AnyhowResult<()> {
-    listen(
-        Async::<TcpListener>::bind((address, port))?,
-        &request_sender,
-    )
-    .await
-}
-
-async fn listen(
-    listener: Async<TcpListener>,
-    request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<()> {
+    let listener = Async::<TcpListener>::bind((address, port))?;
+    let mut client_id: usize = 0;
     loop {
-        let (client, _) = listener.accept().await?;
+        let (stream, _) = listener.accept().await?;
+        client_id = client_id.wrapping_add(1);
+        let client = TcpClient {
+            id: BrpClientId(client_id),
+            stream,
+        };
         let request_sender = request_sender.clone();
+        let stream_request_sender = stream_request_sender.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let _ = handle_client(client, request_sender).await;
+                let _ = handle_client(client, request_sender, stream_request_sender).await;
             })
             .detach();
     }
 }
 
 async fn handle_client(
-    client: Async<TcpStream>,
+    client: TcpClient,
     request_sender: Sender<BrpMessage>,
+    stream_request_sender: Sender<BrpStreamMessage>,
 ) -> AnyhowResult<()> {
     http1::Builder::new()
         .keep_alive(true)
         .timer(SmolTimer::new())
         .serve_connection(
-            FuturesIo::new(client),
-            service::service_fn(|request| process_request(request, &request_sender)),
+            FuturesIo::new(client.stream),
+            service::service_fn(|request| {
+                process_request(request, &request_sender, &stream_request_sender, client.id)
+            }),
         )
         .with_upgrades()
         .await?;
@@ -852,44 +821,25 @@ async fn handle_client(
 }
 
 async fn process_request(
-    mut request: Request<Incoming>,
+    request: Request<Incoming>,
     request_sender: &Sender<BrpMessage>,
+    stream_request_sender: &Sender<BrpStreamMessage>,
+    client_id: BrpClientId,
 ) -> AnyhowResult<Response<Full<Bytes>>> {
     if hyper_tungstenite::is_upgrade_request(&request) {
-        let (response, websocket) = hyper_tungstenite::upgrade(&mut request, None)?;
-        let body = match validate_websocket_request(&request) {
-            Ok(body) => body,
-            Err(err) => {
-                let response = serde_json::to_string(&BrpError {
-                    code: error_codes::INVALID_REQUEST,
-                    message: format!("{err}"),
-                    data: None,
-                })?;
-
-                return Ok(Response::new(Full::new(response.into_bytes().into())));
-            }
-        };
-
-        let request_sender = request_sender.clone();
-
-        IoTaskPool::get()
-            .spawn(async move { process_brp_websocket(websocket, request_sender, body).await })
-            .detach();
-
-        return Ok(response);
+        return process_brp_websocket(request, stream_request_sender, client_id).await;
     }
-    let batch_bytes = request.into_body().collect().await?.to_bytes();
-    let serialized = process_brp_batch(batch_bytes, request_sender).await?;
 
-    Ok(Response::new(Full::new(serialized)))
+    process_brp_batch(request, request_sender).await
 }
 
 /// A helper function for the Bevy Remote Protocol server that handles a batch
 /// of requests coming from a client.
 async fn process_brp_batch(
-    bytes: Bytes,
+    request: Request<Incoming>,
     request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<Bytes> {
+) -> AnyhowResult<Response<Full<Bytes>>> {
+    let bytes = request.into_body().collect().await?.to_bytes();
     let batch: Result<BrpBatch, _> = serde_json::from_slice(&bytes);
     let serialized = match batch {
         Ok(BrpBatch::Single(request)) => {
@@ -911,7 +861,7 @@ async fn process_brp_batch(
         })?,
     };
 
-    Ok(serialized.into_bytes().into())
+    Ok(Response::new(Full::new(serialized.into_bytes().into())))
 }
 
 /// A helper function for the Bevy Remote Protocol server that processes a single
@@ -960,72 +910,4 @@ async fn process_single_request(
 
     let result = result_receiver.recv().await?;
     Ok(BrpResponse::new(request.id, result))
-}
-
-async fn process_brp_websocket(
-    websocket: HyperWebsocket,
-    request_sender: Sender<BrpMessage>,
-    request: BrpRequest,
-) -> AnyhowResult<()> {
-    let mut websocket = websocket.await?;
-
-    let (result_sender, result_receiver) = channel::bounded(1);
-
-    let id = request.id;
-
-    let _ = request_sender
-        .send(BrpMessage {
-            method: request.method,
-            params: request.params,
-            sender: result_sender,
-        })
-        .await;
-
-    while let Ok(result) = result_receiver.recv().await {
-        let response = serde_json::to_string(&BrpResponse::new(id.clone(), result))?;
-        websocket.send(tungstenite::Message::text(response)).await?;
-    }
-
-    Ok(())
-}
-
-fn validate_websocket_request(request: &Request<Incoming>) -> AnyhowResult<BrpRequest> {
-    let body = request
-        .uri()
-        .query()
-        .map(|query| {
-            // Simple query string parsing
-            let mut map = HashMap::new();
-            for pair in query.split('&') {
-                let mut it = pair.split('=').take(2);
-                let (Some(k), Some(v)) = (it.next(), it.next()) else {
-                    continue;
-                };
-                map.insert(k, v);
-            }
-            map
-        })
-        .and_then(|query| query.get("body").cloned())
-        .ok_or_else(|| anyhow::anyhow!("Missing body"))?;
-
-    let body = urlencoding::decode(body)?.into_owned();
-    let batch = serde_json::from_str(&body).map_err(|err| anyhow::anyhow!(err))?;
-
-    let body = match batch {
-        BrpBatch::Batch(_vec) => {
-            anyhow::bail!("Batch requests are not supported for streaming")
-        }
-        BrpBatch::Single(value) => value,
-    };
-
-    match serde_json::from_value::<BrpRequest>(body) {
-        Ok(req) => {
-            if req.jsonrpc != "2.0" {
-                anyhow::bail!("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`")
-            }
-
-            Ok(req)
-        }
-        Err(err) => anyhow::bail!(err),
-    }
 }
