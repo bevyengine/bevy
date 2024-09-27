@@ -467,19 +467,27 @@ impl Hash for Type {
 }
 
 macro_rules! impl_type_methods {
+    // Generates the type methods based off a single field.
     ($field:ident) => {
+        $crate::type_info::impl_type_methods!(self => {
+            &self.$field
+        });
+    };
+    // Generates the type methods based off a custom expression.
+    ($self:ident => $expr:expr) => {
         /// The underlying Rust [type].
         ///
         /// [type]: crate::type_info::Type
-        pub fn ty(&self) -> &$crate::type_info::Type {
-            &self.$field
+        pub fn ty(&$self) -> &$crate::type_info::Type {
+            $expr
         }
 
         /// The [`TypeId`] of this type.
         ///
         /// [`TypeId`]: std::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
-            self.$field.id()
+            self.ty().id()
+
         }
 
         /// The [stable, full type path] of this type.
@@ -489,7 +497,7 @@ macro_rules! impl_type_methods {
         /// [stable, full type path]: TypePath
         /// [`type_path_table`]: Self::type_path_table
         pub fn type_path(&self) -> &'static str {
-            self.$field.path()
+            self.ty().path()
         }
 
         /// A representation of the type path of this type.
@@ -498,7 +506,7 @@ macro_rules! impl_type_methods {
         ///
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn type_path_table(&self) -> &$crate::type_path::TypePathTable {
-            &self.$field.type_path_table()
+            &self.ty().type_path_table()
         }
 
         /// Check if the given type matches this one.
@@ -510,7 +518,7 @@ macro_rules! impl_type_methods {
         /// [`TypeId`]: std::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn is<T: ::core::any::Any>(&self) -> bool {
-            self.$field.is::<T>()
+            self.ty().is::<T>()
         }
     };
 }

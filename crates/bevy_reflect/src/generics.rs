@@ -1,6 +1,7 @@
 use crate::type_info::impl_type_methods;
-use crate::{Type, TypePath};
+use crate::{Reflect, Type, TypePath};
 use alloc::borrow::Cow;
+use alloc::sync::Arc;
 use bevy_utils::HashMap;
 use core::fmt::{Debug, Formatter};
 
@@ -24,19 +25,6 @@ impl Generics {
             infos: Box::new([]),
             index_map: HashMap::new(),
         }
-    }
-
-    pub fn with<T: TypePath + ?Sized>(
-        mut self,
-        name: impl Into<Cow<'static, str>>,
-        is_const: bool,
-    ) -> Self {
-        let name = name.into();
-        self.index_map.insert(name.clone(), self.infos.len());
-        self.infos = IntoIterator::into_iter(self.infos)
-            .chain(core::iter::once(GenericInfo::new::<T>(name, is_const)))
-            .collect();
-        self
     }
 
     pub fn get(&self, name: &str) -> Option<&GenericInfo> {
@@ -74,27 +62,95 @@ impl FromIterator<GenericInfo> for Generics {
 }
 
 #[derive(Clone, Debug)]
-pub struct GenericInfo {
-    name: Cow<'static, str>,
-    ty: Type,
-    is_const: bool,
+pub enum GenericInfo {
+    Type(TypeParamInfo),
+    Const(ConstParamInfo),
 }
 
 impl GenericInfo {
-    pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>, is_const: bool) -> Self {
+    pub fn name(&self) -> &Cow<'static, str> {
+        match self {
+            Self::Type(info) => info.name(),
+            Self::Const(info) => info.name(),
+        }
+    }
+
+    pub fn is_const(&self) -> bool {
+        match self {
+            Self::Type(_) => false,
+            Self::Const(_) => true,
+        }
+    }
+
+    impl_type_methods!(self => {
+        match self {
+            Self::Type(info) => info.ty(),
+            Self::Const(info) => info.ty(),
+        }
+    });
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeParamInfo {
+    name: Cow<'static, str>,
+    ty: Type,
+    default: Option<Type>,
+}
+
+impl TypeParamInfo {
+    pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: name.into(),
             ty: Type::of::<T>(),
-            is_const,
+            default: None,
         }
+    }
+
+    pub fn with_default<T: TypePath + ?Sized>(mut self) -> Self {
+        self.default = Some(Type::of::<T>());
+        self
     }
 
     pub fn name(&self) -> &Cow<'static, str> {
         &self.name
     }
 
-    pub fn is_const(&self) -> bool {
-        self.is_const
+    pub fn default(&self) -> Option<&Type> {
+        self.default.as_ref()
+    }
+
+    impl_type_methods!(ty);
+}
+
+#[derive(Clone, Debug)]
+pub struct ConstParamInfo {
+    name: Cow<'static, str>,
+    ty: Type,
+    // Rust currently only allows certain primitive types in const generic position,
+    // meaning that `Reflect` is guaranteed to be implemented for the default value.
+    default: Option<Arc<dyn Reflect>>,
+}
+
+impl ConstParamInfo {
+    pub fn new<T: TypePath + ?Sized>(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            ty: Type::of::<T>(),
+            default: None,
+        }
+    }
+
+    pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
+        self.default = Some(Arc::new(default));
+        self
+    }
+
+    pub fn name(&self) -> &Cow<'static, str> {
+        &self.name
+    }
+
+    pub fn default(&self) -> Option<&dyn Reflect> {
+        self.default.as_deref()
     }
 
     impl_type_methods!(ty);
@@ -179,5 +235,26 @@ mod tests {
         assert_eq!(n.name(), "N");
         assert!(n.ty().is::<usize>());
         assert!(n.is_const());
+    }
+
+    #[test]
+    fn should_store_defaults() {
+        #[derive(Reflect)]
+        struct Test<T, U: Debug = String, const N: usize = 10>([(T, U); N]);
+
+        let generics = <Test<f32> as Typed>::type_info()
+            .as_tuple_struct()
+            .unwrap()
+            .generics();
+
+        let GenericInfo::Type(u) = generics.get("U").unwrap() else {
+            panic!("expected a type parameter");
+        };
+        assert_eq!(u.default().unwrap(), &Type::of::<String>());
+
+        let GenericInfo::Const(n) = generics.get("N").unwrap() else {
+            panic!("expected a const parameter");
+        };
+        assert_eq!(n.default().unwrap().downcast_ref::<usize>().unwrap(), &10);
     }
 }

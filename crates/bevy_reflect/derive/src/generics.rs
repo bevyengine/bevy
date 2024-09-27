@@ -1,8 +1,8 @@
 use crate::derive_data::ReflectMeta;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::punctuated::Punctuated;
-use syn::{GenericParam, Path, Token};
+use syn::{GenericParam, Token};
 
 /// Creates a `TokenStream` for generating an expression that creates a `Generics` instance.
 ///
@@ -23,17 +23,41 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
         .filter_map(|param| match param {
             GenericParam::Type(ty_param) => {
                 let ident = &ty_param.ident;
-                Some(generate_generic_info(
-                    ident,
-                    ident.to_string(),
-                    false,
-                    bevy_reflect_path,
-                ))
+                let name = ident.to_string();
+                let with_default = ty_param
+                    .default
+                    .as_ref()
+                    .map(|default_ty| quote!(.with_default::<#default_ty>()));
+
+                Some(quote! {
+                    #bevy_reflect_path::GenericInfo::Type(
+                        #bevy_reflect_path::TypeParamInfo::new::<#ident>(
+                            ::alloc::borrow::Cow::Borrowed(#name),
+                        )
+                        #with_default
+                    )
+                })
             }
             GenericParam::Const(const_param) => {
                 let ty = &const_param.ty;
                 let name = const_param.ident.to_string();
-                Some(generate_generic_info(ty, name, true, bevy_reflect_path))
+                let with_default = const_param.default.as_ref().map(|default| {
+                    // We add the `as #ty` to ensure that the correct type is inferred.
+                    quote!(.with_default(#default as #ty))
+                });
+
+                Some(quote! {
+                    #[allow(
+                        clippy::unnecessary_cast,
+                        reason = "reflection requires an explicit type hint for const generics"
+                    )]
+                    #bevy_reflect_path::GenericInfo::Const(
+                        #bevy_reflect_path::ConstParamInfo::new::<#ty>(
+                            ::alloc::borrow::Cow::Borrowed(#name),
+                        )
+                        #with_default
+                    )
+                })
             }
             GenericParam::Lifetime(_) => None,
         })
@@ -45,18 +69,4 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
     }
 
     Some(quote!(#bevy_reflect_path::Generics::from_iter([ #generics ])))
-}
-
-fn generate_generic_info(
-    ty: impl ToTokens,
-    name: String,
-    is_const: bool,
-    bevy_reflect_path: &Path,
-) -> TokenStream {
-    quote! {
-        #bevy_reflect_path::GenericInfo::new::<#ty>(
-            ::alloc::borrow::Cow::Borrowed(#name),
-            #is_const
-        )
-    }
 }
