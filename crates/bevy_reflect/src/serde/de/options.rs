@@ -8,22 +8,16 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Option`] values.
-pub(super) struct OptionVisitor<'a> {
-    enum_info: &'static EnumInfo,
-    registry: &'a TypeRegistry,
+pub(super) struct OptionVisitor<'a, 'p> {
+    pub enum_info: &'static EnumInfo,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
 }
 
-impl<'a> OptionVisitor<'a> {
-    pub fn new(enum_info: &'static EnumInfo, registry: &'a TypeRegistry) -> Self {
-        Self {
-            enum_info,
-            registry,
-        }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
+impl<'de> Visitor<'de> for OptionVisitor<'_, '_> {
     type Value = DynamicEnum;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -40,7 +34,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
         Ok(option)
     }
 
-    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    fn visit_some<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -49,7 +43,11 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let field = tuple_info.field_at(0).unwrap();
                 let registration = try_get_registration(*field.ty(), self.registry)?;
-                let de = TypedReflectDeserializer::new_internal(registration, self.registry);
+                let de = TypedReflectDeserializer::new_internal(
+                    registration,
+                    self.registry,
+                    self.processor.as_deref_mut(),
+                );
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
