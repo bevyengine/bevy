@@ -20,7 +20,6 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-async-channel = "2"
 
 # other
 anyhow = "1"
@@ -28,8 +27,9 @@ hyper = { version = "1", features = ["server", "http1"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 http-body-util = "0.1"
+async-channel = "2"
 
-# http (Not on WASM)
+# dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 async-io = "2"
 smol-hyper = "0.1"
