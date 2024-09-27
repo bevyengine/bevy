@@ -1,6 +1,6 @@
 //! Types that enable reflection support.
 
-use std::{
+use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
 };
@@ -139,7 +139,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
             or `#[reflect(FromWorld)]`?",
             // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
     };
 

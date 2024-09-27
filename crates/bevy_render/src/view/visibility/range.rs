@@ -1,7 +1,7 @@
 //! Specific distances from the camera in which entities are visible, also known
 //! as *hierarchical levels of detail* or *HLOD*s.
 
-use std::{
+use core::{
     hash::{Hash, Hasher},
     ops::Range,
 };

@@ -1,6 +1,6 @@
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use std::ops::{Div, DivAssign, Mul, MulAssign, Neg};
+use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]

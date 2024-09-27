@@ -4,12 +4,12 @@
 //! <https://github.com/serde-rs/serde/issues/1937#issuecomment-812137971>
 
 pub(crate) mod array {
+    use core::marker::PhantomData;
     use serde::{
         de::{SeqAccess, Visitor},
         ser::SerializeTuple,
         Deserialize, Deserializer, Serialize, Serializer,
     };
-    use std::marker::PhantomData;
 
     pub fn serialize<S: Serializer, T: Serialize, const N: usize>(
         data: &[T; N],
@@ -30,7 +30,7 @@ pub(crate) mod array {
     {
         type Value = [T; N];
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
             formatter.write_str(&format!("an array of length {}", N))
         }
 

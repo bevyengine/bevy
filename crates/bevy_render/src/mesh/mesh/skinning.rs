@@ -7,7 +7,7 @@ use bevy_ecs::{
 };
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect, IterEntities)]
 #[reflect(Component, MapEntities, VisitEntities, Default, Debug)]

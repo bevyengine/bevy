@@ -5,13 +5,12 @@ use crate::{
     ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Type, TypeInfo, TypePath,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
-use std::{
-    borrow::Cow,
+use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
-    sync::Arc,
 };
 
 /// A trait used to power [struct-like] operations via [reflection].
@@ -450,7 +449,7 @@ impl PartialReflect for DynamicStruct {
         struct_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
         write!(f, ")")
@@ -465,7 +464,7 @@ impl PartialReflect for DynamicStruct {
 impl_type_path!((in bevy_reflect) DynamicStruct);
 
 impl Debug for DynamicStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -487,7 +486,7 @@ where
 
 impl IntoIterator for DynamicStruct {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -557,7 +556,7 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
 /// // }
 /// ```
 #[inline]
-pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_struct(
         dyn_struct
             .get_represented_type_info()

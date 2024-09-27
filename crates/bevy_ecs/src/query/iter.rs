@@ -6,7 +6,7 @@ use crate::{
     storage::{Table, TableRow, Tables},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{
+use core::{
     borrow::Borrow,
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
@@ -1705,7 +1705,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     // whether the query iteration is dense or not. Mirrors QueryState's `is_dense` field.
     is_dense: bool,
-    storage_id_iter: std::slice::Iter<'s, StorageId>,
+    storage_id_iter: core::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
@@ -1982,7 +1982,13 @@ impl<T> Ord for NeutralOrd<T> {
 #[cfg(test)]
 mod tests {
     #[allow(unused_imports)]
-    use crate::{self as bevy_ecs, component::Component, entity::Entity, prelude::World};
+    use crate::component::Component;
+    #[allow(unused_imports)]
+    use crate::entity::Entity;
+    #[allow(unused_imports)]
+    use crate::prelude::World;
+    #[allow(unused_imports)]
+    use crate::{self as bevy_ecs};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);

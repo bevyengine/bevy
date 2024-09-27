@@ -14,6 +14,7 @@ use crate::{
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -29,13 +30,12 @@ use bevy_utils::{
     HashSet,
 };
 use bevy_window::{PrimaryWindow, WindowRef};
+use core::ops::Deref;
 use std::{
-    borrow::Cow,
-    ops::Deref,
     path::Path,
     sync::{
         mpsc::{Receiver, Sender},
-        Arc, Mutex,
+        Mutex,
     },
 };
 use wgpu::{

@@ -51,6 +51,8 @@
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
 
+extern crate alloc;
+
 mod components;
 pub use components::*;
 
