@@ -31,10 +31,10 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{
-    event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents,
+use bevy_ecs::{
+    event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
+    prelude::*,
 };
-use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
@@ -162,7 +162,7 @@ mod tests {
         system::{Local, Res, ResMut, Resource},
     };
     use bevy_utils::Duration;
-    use std::error::Error;
+    use core::error::Error;
 
     #[derive(Event)]
     struct TestEvent<T: Default> {

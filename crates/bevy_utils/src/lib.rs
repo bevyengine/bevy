@@ -12,7 +12,6 @@
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
-//!
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -148,6 +147,7 @@ pub type HashSet<K> = hashbrown::HashSet<K, BuildHasherDefault<AHasher>>;
 pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
+///
 /// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.
 /// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`] implementation
 /// designed to work with [`Hashed`]
@@ -349,7 +349,7 @@ impl Hasher for NoOpHasher {
 /// // Make sure the message only gets printed if a panic occurs.
 /// // If we remove this line, then the message will be printed regardless of whether a panic occurs
 /// // -- similar to a `try ... finally` block.
-/// std::mem::forget(_catch);
+/// core::mem::forget(_catch);
 /// # }
 /// #
 /// # test_panic(false, |_| unreachable!());
@@ -431,7 +431,7 @@ mod tests {
                 0
             }
             fn write(&mut self, _: &[u8]) {
-                panic!("Hashing of std::any::TypeId changed");
+                panic!("Hashing of core::any::TypeId changed");
             }
             fn write_u64(&mut self, _: u64) {}
         }

@@ -409,7 +409,7 @@ impl FogFalloff {
         extinction_color: Color,
         inscattering_color: Color,
     ) -> FogFalloff {
-        use std::f32::consts::E;
+        use core::f32::consts::E;
 
         let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
         let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();

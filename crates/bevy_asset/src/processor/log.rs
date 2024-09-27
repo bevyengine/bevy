@@ -1,7 +1,6 @@
 use crate::AssetPath;
 use async_fs::File;
-use bevy_utils::tracing::error;
-use bevy_utils::HashSet;
+use bevy_utils::{tracing::error, HashSet};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use std::path::PathBuf;
 use thiserror::Error;
@@ -15,6 +14,7 @@ pub(crate) enum LogEntry {
 }
 
 /// A "write ahead" logger that helps ensure asset importing is transactional.
+///
 /// Prior to processing an asset, we write to the log to indicate it has started
 /// After processing an asset, we write to the log to indicate it has finished.
 /// On startup, the log can be read to determine if any transactions were incomplete.

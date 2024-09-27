@@ -27,6 +27,8 @@
 //! }
 //! ```
 
+extern crate alloc;
+
 mod audio;
 mod audio_output;
 mod audio_source;
@@ -48,9 +50,7 @@ pub use audio::*;
 pub use audio_source::*;
 pub use pitch::*;
 
-pub use rodio::cpal::Sample as CpalSample;
-pub use rodio::source::Source;
-pub use rodio::Sample;
+pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;
 
 use bevy_app::prelude::*;

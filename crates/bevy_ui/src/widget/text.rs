@@ -144,6 +144,7 @@ fn create_text_measure(
 }
 
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
@@ -210,7 +211,7 @@ pub fn measure_text_system(
             );
         }
     }
-    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
+    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -345,5 +346,5 @@ pub fn text_system(
             );
         }
     }
-    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
+    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }

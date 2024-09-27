@@ -247,10 +247,8 @@
 
 #![cfg(not(target_family = "wasm"))]
 
-use std::{
-    net::{IpAddr, Ipv4Addr},
-    sync::RwLock,
-};
+use core::net::{IpAddr, Ipv4Addr};
+use std::sync::RwLock;
 
 use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;
@@ -291,6 +289,7 @@ pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 const CHANNEL_SIZE: usize = 16;
 
 /// Add this plugin to your [`App`] to allow remote connections to inspect and modify entities.
+///
 /// This the main plugin for `bevy_remote`. See the [crate-level documentation] for details on
 /// the protocol and its default methods.
 ///

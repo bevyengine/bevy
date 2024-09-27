@@ -1,6 +1,6 @@
 use crate::{
-    BorderRadius, ContentSize, DefaultUiCamera, Node, Outline, OverflowAxis, ScrollPosition, Style,
-    TargetCamera, UiScale,
+    BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
+    ScrollPosition, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -14,13 +14,15 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
-#[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
+use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
+
+#[cfg(feature = "bevy_text")]
+use bevy_text::{CosmicBuffer, TextPipeline};
 
 mod convert;
 pub mod debug;
@@ -344,6 +346,13 @@ pub fn ui_layout_system(
                 node.unrounded_size = layout_size;
             }
 
+            node.bypass_change_detection().border = BorderRect {
+                left: layout.border.left * inverse_target_scale_factor,
+                right: layout.border.right * inverse_target_scale_factor,
+                top: layout.border.top * inverse_target_scale_factor,
+                bottom: layout.border.bottom * inverse_target_scale_factor,
+            };
+
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 
             if let Some(border_radius) = maybe_border_radius {
@@ -355,11 +364,15 @@ pub fn ui_layout_system(
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
-                node.outline_width = outline
-                    .width
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.);
+                node.outline_width = if style.display != Display::None {
+                    outline
+                        .width
+                        .resolve(node.size().x, viewport_size)
+                        .unwrap_or(0.)
+                        .max(0.)
+                } else {
+                    0.
+                };
 
                 node.outline_offset = outline
                     .offset
@@ -447,43 +460,43 @@ fn approx_round_layout_coords(value: Vec2) -> Vec2 {
 mod tests {
     use taffy::TraversePartialTree;
 
-    use bevy_asset::AssetEvent;
-    use bevy_asset::Assets;
+    use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2dBundle;
-    use bevy_ecs::entity::Entity;
-    use bevy_ecs::event::Events;
-    use bevy_ecs::prelude::{Commands, Component, In, Query, With};
-    use bevy_ecs::query::Without;
-    use bevy_ecs::schedule::apply_deferred;
-    use bevy_ecs::schedule::IntoSystemConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::system::RunSystemOnce;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{
+        entity::Entity,
+        event::Events,
+        prelude::{Commands, Component, In, Query, With},
+        query::Without,
+        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
+        system::RunSystemOnce,
+        world::World,
+    };
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
-    use bevy_render::camera::ManualTextureViews;
-    use bevy_render::camera::OrthographicProjection;
-    use bevy_render::prelude::Camera;
-    use bevy_render::texture::Image;
-    use bevy_transform::prelude::GlobalTransform;
-    use bevy_transform::systems::{propagate_transforms, sync_simple_transforms};
-    use bevy_utils::prelude::default;
-    use bevy_utils::HashMap;
-    use bevy_window::PrimaryWindow;
-    use bevy_window::Window;
-    use bevy_window::WindowCreated;
-    use bevy_window::WindowResized;
-    use bevy_window::WindowResolution;
-    use bevy_window::WindowScaleFactorChanged;
+    use bevy_render::{
+        camera::{ManualTextureViews, OrthographicProjection},
+        prelude::Camera,
+        texture::Image,
+    };
+    use bevy_transform::{
+        prelude::GlobalTransform,
+        systems::{propagate_transforms, sync_simple_transforms},
+    };
+    use bevy_utils::{prelude::default, HashMap};
+    use bevy_window::{
+        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
+        WindowScaleFactorChanged,
+    };
 
-    use crate::layout::approx_round_layout_coords;
-    use crate::layout::ui_surface::UiSurface;
-    use crate::prelude::*;
-    use crate::ui_layout_system;
-    use crate::update::update_target_camera_system;
-    use crate::ContentSize;
+    use crate::{
+        layout::{approx_round_layout_coords, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::update_target_camera_system,
+        ContentSize,
+    };
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -834,7 +847,10 @@ mod tests {
             .fold(
                 Option::<(Rect, bool)>::None,
                 |option_rect, (entity, node, global_transform)| {
-                    let current_rect = node.logical_rect(global_transform);
+                    let current_rect = Rect::from_center_size(
+                        global_transform.translation().truncate(),
+                        node.size(),
+                    );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity:?} doesn't have a logical size"

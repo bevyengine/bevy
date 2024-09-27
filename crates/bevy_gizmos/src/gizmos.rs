@@ -1,6 +1,6 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -13,8 +13,7 @@ use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 

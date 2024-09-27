@@ -1,7 +1,9 @@
 //! The example demonstrates what type data is, how to create it, and how to use it.
 
-use bevy::prelude::*;
-use bevy::reflect::{FromType, TypeRegistry};
+use bevy::{
+    prelude::*,
+    reflect::{FromType, TypeRegistry},
+};
 
 // It's recommended to read this example from top to bottom.
 // Comments are provided to explain the code and its purpose as you go along.

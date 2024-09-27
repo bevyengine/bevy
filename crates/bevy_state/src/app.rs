@@ -2,11 +2,13 @@ use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
 use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
-use crate::state::{
-    setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-    StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+use crate::{
+    state::{
+        setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
+        StateTransition, StateTransitionEvent, StateTransitionSteps, States, SubStates,
+    },
+    state_scoped::clear_state_scoped_entities,
 };
-use crate::state_scoped::clear_state_scoped_entities;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{FromReflect, GetTypeRegistration, Typed};
@@ -103,7 +105,7 @@ impl AppExtStates for SubApp {
                 entered: Some(state),
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("State {} is already initialized.", name);
         }
 
@@ -159,7 +161,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("Computed state {} is already initialized.", name);
         }
 
@@ -187,7 +189,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("Sub state {} is already initialized.", name);
         }
 
@@ -199,7 +201,7 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
         // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],

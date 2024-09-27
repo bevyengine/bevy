@@ -7,40 +7,41 @@
 
 //! Animation for the game engine Bevy
 
+extern crate alloc;
+
 pub mod animatable;
 pub mod graph;
 pub mod keyframes;
 pub mod transition;
 mod util;
 
-use std::any::{Any, TypeId};
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::iter;
+use alloc::collections::BTreeMap;
+use core::{
+    any::{Any, TypeId},
+    cell::RefCell,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    iter,
+};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_ecs::world::EntityMutExcept;
+use bevy_ecs::{
+    entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
+};
 use bevy_math::FloatExt;
-use bevy_reflect::utility::NonGenericTypeInfoCell;
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_reflect::{
-    ApplyError, DynamicStruct, FieldIter, FromReflect, FromType, GetTypeRegistration, NamedField,
-    PartialReflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct,
-    StructInfo, TypeInfo, TypePath, TypeRegistration, Typed,
+    prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,
+    FromReflect, FromType, GetTypeRegistration, NamedField, PartialReflect, Reflect,
+    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, StructInfo,
+    TypeInfo, TypePath, TypeRegistration, Typed,
 };
 use bevy_time::Time;
-use bevy_transform::prelude::Transform;
-use bevy_transform::TransformSystem;
+use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_ui::UiSystem;
-use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
+    hashbrown::HashMap,
     tracing::{trace, warn},
     NoOpHash,
 };
@@ -1093,28 +1094,33 @@ pub fn advance_animations(
         });
 }
 
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type AnimationEntityMut<'w> = EntityMutExcept<
+    'w,
+    (
+        AnimationTarget,
+        Transform,
+        AnimationPlayer,
+        Handle<AnimationGraph>,
+    ),
+>;
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(
-        Option<&mut Transform>,
-        EntityMutExcept<(Transform, AnimationPlayer, Handle<AnimationGraph>)>,
-    )>,
+    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(mut transform, mut entity_mut)| {
-            let Some(&AnimationTarget {
+        .for_each(|(target, mut transform, mut entity_mut)| {
+            let &AnimationTarget {
                 id: target_id,
                 player: player_id,
-            }) = entity_mut.get::<AnimationTarget>()
-            else {
-                return;
-            };
+            } = target;
 
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {

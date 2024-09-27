@@ -1,5 +1,7 @@
-use syn::parse::{Parse, ParseStream, Peek};
-use syn::punctuated::Punctuated;
+use syn::{
+    parse::{Parse, ParseStream, Peek},
+    punctuated::Punctuated,
+};
 
 /// Returns a [`syn::parse::Parser`] which parses a stream of zero or more occurrences of `T`
 /// separated by punctuation of type `P`, with optional trailing punctuation.

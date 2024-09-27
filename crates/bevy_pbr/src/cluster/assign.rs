@@ -360,7 +360,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(std::iter::repeat(None).take(cluster_count));
+        cluster_aabb_spheres.extend(core::iter::repeat(None).take(cluster_count));
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
@@ -792,6 +792,7 @@ fn ndc_position_to_cluster(
 }
 
 /// Calculate bounds for the clusterable object using a view space aabb.
+///
 /// Returns a `(Vec3, Vec3)` containing minimum and maximum with
 ///     `X` and `Y` in normalized device coordinates with range `[-1, 1]`
 ///     `Z` in view space, with range `[-inf, -f32::MIN_POSITIVE]`

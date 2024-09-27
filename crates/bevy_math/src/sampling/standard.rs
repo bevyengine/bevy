@@ -21,7 +21,7 @@
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(Standard).take(5).collect();
 //! ```
 
-use std::f32::consts::TAU;
+use core::f32::consts::TAU;
 
 use crate::{
     primitives::{Circle, Sphere},

@@ -9,8 +9,7 @@ use bevy::{
     reflect::TypePath,
 };
 use flate2::read::GzDecoder;
-use std::io::prelude::*;
-use std::marker::PhantomData;
+use std::{io::prelude::*, marker::PhantomData};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
@@ -112,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Sprite::default(),
-        TransformBundle::default(),
+        Transform::default(),
         VisibilityBundle::default(),
     ));
 }

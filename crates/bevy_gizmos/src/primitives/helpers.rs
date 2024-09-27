@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use core::f32::consts::TAU;
 
 use bevy_math::{ops, Vec2};
 
@@ -37,7 +37,7 @@ pub(crate) fn circle_coordinates_closed(
     radius: f32,
     resolution: u32,
 ) -> impl Iterator<Item = Vec2> {
-    circle_coordinates(radius, resolution).chain(std::iter::once(single_circle_coordinate(
+    circle_coordinates(radius, resolution).chain(core::iter::once(single_circle_coordinate(
         radius, resolution, resolution,
     )))
 }

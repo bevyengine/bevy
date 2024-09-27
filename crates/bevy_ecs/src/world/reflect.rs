@@ -6,8 +6,7 @@ use thiserror::Error;
 
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
-use crate::prelude::*;
-use crate::world::ComponentId;
+use crate::{prelude::*, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
@@ -247,7 +246,7 @@ pub enum GetComponentReflectError {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     use bevy_reflect::Reflect;
 

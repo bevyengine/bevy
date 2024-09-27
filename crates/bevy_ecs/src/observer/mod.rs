@@ -7,14 +7,22 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
-use crate::entity::EntityHashMap;
-use crate::observer::entity_observer::ObservedBy;
-use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
-use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+use crate::{
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    entity::EntityHashMap,
+    observer::entity_observer::ObservedBy,
+    prelude::*,
+    system::IntoObserverSystem,
+    world::{DeferredWorld, *},
+};
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
-use std::ops::{Deref, DerefMut};
-use std::{fmt::Debug, marker::PhantomData};
+use core::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -113,7 +121,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 }
 
 impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
             .field("propagate", &self.propagate)
@@ -520,16 +528,16 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use alloc::vec;
 
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+    use crate::{
+        observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
+        prelude::*,
+        traversal::Traversal,
     };
-    use crate::prelude::*;
-    use crate::traversal::Traversal;
 
     #[derive(Component)]
     struct A;
@@ -725,7 +733,7 @@ mod tests {
         world.flush();
 
         let mut event = EventWithData { counter: 0 };
-        let component_a = world.init_component::<A>();
+        let component_a = world.register_component::<A>();
         world.trigger_targets_ref(&mut event, component_a);
         assert_eq!(5, event.counter);
     }
@@ -748,7 +756,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.init_component::<OnRemove>();
+        let on_remove = world.register_component::<OnRemove>();
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
@@ -771,8 +779,8 @@ mod tests {
     fn observer_multiple_components() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        world.init_component::<A>();
-        world.init_component::<B>();
+        world.register_component::<A>();
+        world.register_component::<B>();
 
         world.observe(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| res.observed("add_ab"));
 
@@ -875,7 +883,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        let component_id = world.init_component::<A>();
+        let component_id = world.register_component::<A>();
         world.spawn(
             Observer::new(|_: Trigger<OnAdd>, mut res: ResMut<Order>| res.observed("event_a"))
                 .with_component(component_id),
@@ -897,7 +905,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = world.init_component::<EventA>();
+        let event_a = world.register_component::<EventA>();
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
@@ -1159,5 +1167,27 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14467
+    // Fails prior to https://github.com/bevyengine/bevy/pull/15398
+    #[test]
+    fn observer_on_remove_during_despawn_spawn_empty() {
+        let mut world = World::new();
+
+        // Observe the removal of A - this will run during despawn
+        world.observe(|_: Trigger<OnRemove, A>, mut cmd: Commands| {
+            // Spawn a new entity - this reserves a new ID and requires a flush
+            // afterward before Entities::free can be called.
+            cmd.spawn_empty();
+        });
+
+        let ent = world.spawn(A).id();
+
+        // Despawn our entity, which runs the OnRemove observer and allocates a
+        // new Entity.
+        // Should not panic - if it does, then Entities was not flushed properly
+        // after the observer's spawn_empty.
+        world.despawn(ent);
     }
 }

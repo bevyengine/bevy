@@ -107,14 +107,14 @@
 //!
 //! let mut registry = FunctionRegistry::default();
 //!
-//! // You can register functions and methods by their `std::any::type_name`:
+//! // You can register functions and methods by their `core::any::type_name`:
 //! registry.register(add).unwrap();
 //!
 //! // Or you can register them by a custom name:
 //! registry.register_with_name("mul", |a: i32, b: i32| a * b).unwrap();
 //!
 //! // You can then retrieve and call these functions by name:
-//! let reflect_add = registry.get(std::any::type_name_of_val(&add)).unwrap();
+//! let reflect_add = registry.get(core::any::type_name_of_val(&add)).unwrap();
 //! let value = reflect_add.call(ArgList::default().push_owned(10_i32).push_owned(5_i32)).unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&15));
 //!
@@ -159,8 +159,10 @@ mod return_type;
 mod tests {
     use alloc::borrow::Cow;
 
-    use crate::func::args::{ArgError, ArgList, Ownership};
-    use crate::TypePath;
+    use crate::{
+        func::args::{ArgError, ArgList, Ownership},
+        TypePath,
+    };
 
     use super::*;
 
