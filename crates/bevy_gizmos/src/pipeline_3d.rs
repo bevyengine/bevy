@@ -351,18 +351,17 @@ fn queue_line_gizmos_3d(
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    view_key,
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                    line_style: config.line_style,
-                },
-            );
-
-            if !line_gizmo.strip {
+            if line_gizmo.list_vertex_count > 0 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: false,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
                 transparent_phase.add(Transparent3d {
                     entity,
                     draw_function,
@@ -371,7 +370,19 @@ fn queue_line_gizmos_3d(
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::NONE,
                 });
-            } else {
+            }
+
+            if line_gizmo.strip_vertex_count >= 2 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: true,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
                 transparent_phase.add(Transparent3d {
                     entity,
                     draw_function: draw_function_strip,
@@ -454,7 +465,7 @@ fn queue_line_joint_gizmos_3d(
                 continue;
             };
 
-            if !line_gizmo.strip || line_gizmo.joints == GizmoLineJoint::None {
+            if line_gizmo.strip_vertex_count < 3 || line_gizmo.joints == GizmoLineJoint::None {
                 continue;
             }
 

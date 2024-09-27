@@ -75,13 +75,13 @@ pub mod prelude {
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
-use bevy_color::LinearRgba;
 use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
-use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+
+use crate::gizmos::GizmoBuffer;
 
 #[cfg(feature = "bevy_render")]
 use {
@@ -123,6 +123,7 @@ use core::{any::TypeId, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
+use std::marker::PhantomData;
 
 #[cfg(feature = "bevy_render")]
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -242,8 +243,7 @@ impl AppGizmoBuilder for App {
             .world_mut()
             .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
 
-        handles.list.insert(TypeId::of::<Config>(), None);
-        handles.strip.insert(TypeId::of::<Config>(), None);
+        handles.handles.insert(TypeId::of::<Config>(), None);
 
         // These handles are safe to mutate in any order
         self.allow_ambiguous_resource::<LineGizmoHandles>();
@@ -296,8 +296,7 @@ impl AppGizmoBuilder for App {
 // group creation.
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    list: TypeIdMap<Option<Handle<LineGizmo>>>,
-    strip: TypeIdMap<Option<Handle<LineGizmo>>>,
+    handles: TypeIdMap<Option<Handle<LineGizmo>>>,
 }
 
 /// Start a new gizmo clearing context.
@@ -378,47 +377,32 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     mut storage: ResMut<GizmoStorage<Config, ()>>,
     config_store: Res<GizmoConfigStore>,
 ) {
-    if storage.list_positions.is_empty() {
-        handles.list.insert(TypeId::of::<Config>(), None);
-    } else if let Some(handle) = handles.list.get_mut(&TypeId::of::<Config>()) {
-        if let Some(handle) = handle {
-            let list = line_gizmos.get_mut(handle.id()).unwrap();
-
-            list.positions = mem::take(&mut storage.list_positions);
-            list.colors = mem::take(&mut storage.list_colors);
-        } else {
-            let list = LineGizmo {
-                strip: false,
-                config_ty: TypeId::of::<Config>(),
-                positions: mem::take(&mut storage.list_positions),
-                colors: mem::take(&mut storage.list_colors),
-                joints: GizmoLineJoint::None,
-            };
-
-            *handle = Some(line_gizmos.add(list));
-        }
-    }
-
     let (config, _) = config_store.config::<Config>();
-    if storage.strip_positions.is_empty() {
-        handles.strip.insert(TypeId::of::<Config>(), None);
-    } else if let Some(handle) = handles.strip.get_mut(&TypeId::of::<Config>()) {
+    if storage.list_positions.is_empty() && storage.strip_positions.is_empty() {
+        handles.handles.insert(TypeId::of::<Config>(), None);
+    } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let strip = line_gizmos.get_mut(handle.id()).unwrap();
+            let linegizmo = line_gizmos.get_mut(handle.id()).unwrap();
 
-            strip.positions = mem::take(&mut storage.strip_positions);
-            strip.colors = mem::take(&mut storage.strip_colors);
-            strip.joints = config.line_joints;
+            linegizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
+            linegizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
+            linegizmo.buffer.strip_positions = mem::take(&mut storage.strip_positions);
+            linegizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
+            linegizmo.joints = config.line_joints;
         } else {
-            let strip = LineGizmo {
-                strip: true,
-                joints: config.line_joints,
+            let linegizmo = LineGizmo {
                 config_ty: TypeId::of::<Config>(),
-                positions: mem::take(&mut storage.strip_positions),
-                colors: mem::take(&mut storage.strip_colors),
+                buffer: GizmoBuffer {
+                    list_positions: mem::take(&mut storage.list_positions),
+                    list_colors: mem::take(&mut storage.list_colors),
+                    strip_positions: mem::take(&mut storage.strip_positions),
+                    strip_colors: mem::take(&mut storage.strip_colors),
+                    marker: PhantomData,
+                },
+                joints: config.line_joints,
             };
 
-            *handle = Some(line_gizmos.add(strip));
+            *handle = Some(line_gizmos.add(linegizmo));
         }
     }
 }
@@ -429,7 +413,7 @@ fn extract_gizmo_data(
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
+    for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
         };
@@ -478,13 +462,9 @@ struct LineGizmoUniform {
 /// A gizmo asset that represents a line.
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct LineGizmo {
-    /// Positions of the gizmo's vertices
-    pub positions: Vec<Vec3>,
-    /// Colors of the gizmo's vertices
-    pub colors: Vec<LinearRgba>,
-    /// Whether this gizmo's topology is a line-strip or line-list
-    pub strip: bool,
-    /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
+    /// Gizmo vertex buffers.
+    buffer: GizmoBuffer<DefaultGizmoConfigGroup, ()>,
+    /// Whether this gizmo should draw line joints on line-strips.
     pub joints: GizmoLineJoint,
     /// The type of the gizmo's configuration group
     pub config_ty: TypeId,
@@ -493,10 +473,12 @@ pub struct LineGizmo {
 #[cfg(feature = "bevy_render")]
 #[derive(Debug, Clone)]
 struct GpuLineGizmo {
-    position_buffer: Buffer,
-    color_buffer: Buffer,
-    vertex_count: u32,
-    strip: bool,
+    list_position_buffer: Buffer,
+    list_color_buffer: Buffer,
+    list_vertex_count: u32,
+    strip_position_buffer: Buffer,
+    strip_color_buffer: Buffer,
+    strip_vertex_count: u32,
     joints: GizmoLineJoint,
 }
 
@@ -509,25 +491,37 @@ impl RenderAsset for GpuLineGizmo {
         gizmo: Self::SourceAsset,
         render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let position_buffer_data = cast_slice(&gizmo.positions);
-        let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let list_position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Position Buffer"),
-            contents: position_buffer_data,
+            contents: cast_slice(&gizmo.buffer.list_positions),
         });
 
-        let color_buffer_data = cast_slice(&gizmo.colors);
-        let color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+        let list_color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("LineGizmo Color Buffer"),
-            contents: color_buffer_data,
+            contents: cast_slice(&gizmo.buffer.list_colors),
+        });
+
+        let strip_position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Strip Position Buffer"),
+            contents: cast_slice(&gizmo.buffer.strip_positions),
+        });
+
+        let strip_color_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            usage: BufferUsages::VERTEX,
+            label: Some("LineGizmo Strip Color Buffer"),
+            contents: cast_slice(&gizmo.buffer.strip_positions),
         });
 
         Ok(GpuLineGizmo {
-            position_buffer,
-            color_buffer,
-            vertex_count: gizmo.positions.len() as u32,
-            strip: gizmo.strip,
+            list_position_buffer,
+            list_color_buffer,
+            list_vertex_count: gizmo.buffer.list_positions.len() as u32,
+            strip_position_buffer,
+            strip_color_buffer,
+            strip_vertex_count: gizmo.buffer.strip_positions.len() as u32,
             joints: gizmo.joints,
         })
     }
@@ -614,30 +608,35 @@ impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> 
             return RenderCommandResult::Skip;
         };
 
-        if line_gizmo.vertex_count < 2 {
+        let vertex_count = if STRIP {
+            line_gizmo.strip_vertex_count
+        } else {
+            line_gizmo.list_vertex_count
+        };
+
+        if vertex_count < 2 {
             return RenderCommandResult::Success;
         }
 
-        let instances = if line_gizmo.strip && STRIP {
+        let instances = if STRIP {
             let item_size = VertexFormat::Float32x3.size();
-            let buffer_size = line_gizmo.position_buffer.size() - item_size;
+            let buffer_size = line_gizmo.strip_position_buffer.size() - item_size;
 
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
+            pass.set_vertex_buffer(0, line_gizmo.strip_position_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(1, line_gizmo.strip_position_buffer.slice(item_size..));
 
             let item_size = VertexFormat::Float32x4.size();
-            let buffer_size = line_gizmo.color_buffer.size() - item_size;
-            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..buffer_size));
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
+            let buffer_size = line_gizmo.strip_color_buffer.size() - item_size;
 
-            u32::max(line_gizmo.vertex_count, 1) - 1
-        } else if !STRIP {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.color_buffer.slice(..));
+            pass.set_vertex_buffer(2, line_gizmo.strip_color_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(3, line_gizmo.strip_color_buffer.slice(item_size..));
 
-            line_gizmo.vertex_count / 2
+            vertex_count - 1
         } else {
-            return RenderCommandResult::Skip;
+            pass.set_vertex_buffer(0, line_gizmo.list_position_buffer.slice(..));
+            pass.set_vertex_buffer(1, line_gizmo.list_color_buffer.slice(..));
+
+            vertex_count / 2
         };
 
         pass.draw(0..6, 0..instances);
@@ -669,7 +668,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             return RenderCommandResult::Skip;
         };
 
-        if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {
+        if line_gizmo.strip_vertex_count <= 2 {
             return RenderCommandResult::Success;
         };
 
@@ -680,24 +679,29 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         let instances = {
             let item_size = VertexFormat::Float32x3.size();
             // position_a
-            let buffer_size_a = line_gizmo.position_buffer.size() - item_size * 2;
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size_a));
+            let buffer_size_a = line_gizmo.strip_position_buffer.size() - item_size * 2;
+            pass.set_vertex_buffer(0, line_gizmo.strip_position_buffer.slice(..buffer_size_a));
             // position_b
-            let buffer_size_b = line_gizmo.position_buffer.size() - item_size;
+            let buffer_size_b = line_gizmo.strip_position_buffer.size() - item_size;
             pass.set_vertex_buffer(
                 1,
-                line_gizmo.position_buffer.slice(item_size..buffer_size_b),
+                line_gizmo
+                    .strip_position_buffer
+                    .slice(item_size..buffer_size_b),
             );
             // position_c
-            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(item_size * 2..));
+            pass.set_vertex_buffer(2, line_gizmo.strip_position_buffer.slice(item_size * 2..));
 
             // color
             let item_size = VertexFormat::Float32x4.size();
-            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            let buffer_size = line_gizmo.strip_color_buffer.size() - item_size;
             // This corresponds to the color of position_b, hence starts from `item_size`
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
+            pass.set_vertex_buffer(
+                3,
+                line_gizmo.strip_color_buffer.slice(item_size..buffer_size),
+            );
 
-            u32::max(line_gizmo.vertex_count, 2) - 2
+            line_gizmo.strip_vertex_count - 2
         };
 
         let vertices = match line_gizmo.joints {

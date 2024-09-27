@@ -236,16 +236,17 @@ where
 {
 }
 
-struct GizmoBuffer<Config, Clear>
+#[derive(Debug, Clone)]
+pub(crate) struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    list_positions: Vec<Vec3>,
-    list_colors: Vec<LinearRgba>,
-    strip_positions: Vec<Vec3>,
-    strip_colors: Vec<LinearRgba>,
-    marker: PhantomData<(Config, Clear)>,
+    pub(crate) list_positions: Vec<Vec3>,
+    pub(crate) list_colors: Vec<LinearRgba>,
+    pub(crate) strip_positions: Vec<Vec3>,
+    pub(crate) strip_colors: Vec<LinearRgba>,
+    pub(crate) marker: PhantomData<(Config, Clear)>,
 }
 
 impl<Config, Clear> Default for GizmoBuffer<Config, Clear>
