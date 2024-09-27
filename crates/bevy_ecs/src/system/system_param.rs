@@ -356,6 +356,8 @@ fn assert_component_access_compatibility(
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
     for QuerySingle<'a, D, F>
 {
@@ -371,7 +373,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        Query::new_archetype(state, archetype, system_meta)
+        Query::new_archetype(state, archetype, system_meta);
     }
 
     #[inline]
@@ -420,6 +422,8 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
     }
 }
 
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Option<QuerySingle<'a, D, F>>
 {
@@ -435,7 +439,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        QuerySingle::new_archetype(state, archetype, system_meta)
+        QuerySingle::new_archetype(state, archetype, system_meta);
     }
 
     #[inline]
@@ -483,14 +487,12 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
                 world.change_tick(),
             )
         };
-        match result {
-            Ok(_) => true,
-            Err(QuerySingleError::NoEntities(_)) => true,
-            Err(QuerySingleError::MultipleEntities(_)) => false,
-        }
+        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
     }
 }
 
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for QuerySingleMut<'a, D, F>
 {
@@ -506,7 +508,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        Query::new_archetype(state, archetype, system_meta)
+        Query::new_archetype(state, archetype, system_meta);
     }
 
     #[inline]
@@ -537,6 +539,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     }
 }
 
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Option<QuerySingleMut<'a, D, F>>
 {
@@ -552,7 +556,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        QuerySingleMut::new_archetype(state, archetype, system_meta)
+        QuerySingleMut::new_archetype(state, archetype, system_meta);
     }
 
     #[inline]

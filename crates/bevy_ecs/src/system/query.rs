@@ -8,8 +8,8 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use core::borrow::Borrow;
-use std::{
+use core::{
+    borrow::Borrow,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
