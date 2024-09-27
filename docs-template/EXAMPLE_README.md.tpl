@@ -106,24 +106,18 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> build
+cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
 ```
 
-For example, to compile to a 64-bit ARM platform, the command looks like this:
+For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a build
+cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
 ```
 
-After compile, move the compiled `so` file to `project_name/app/src/main/jniLibs/<target_name>` to link it.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
 
-You can use `-o` option in `cargo-ndk` directly set output folder(which will also set up <target_name> folder), for example project the command looks like this:
-
-```sh
-cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
-```
-
-Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
 
 After this you can build it with `gradlew`:
 
@@ -133,7 +127,7 @@ After this you can build it with `gradlew`:
 
 Or build it with Android Studio.
 
-Then you can test it in your android project.
+Then you can test it in your Android project.
 
 #### About `libc++_shared.so`
 
@@ -141,7 +135,7 @@ Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `o
 
 To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
 
-Alternatively, you can modify project files to include it when building apk, which is used in this example. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -161,8 +155,8 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
+In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
+[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
@@ -175,7 +169,7 @@ Then build it as the [Build & Run](#build--run) section stated above.
 
 #### About `cargo-apk`
 
-You can also build apk with `cargo-apk`, a simpler tool that compile rust code to apk directly, but this tool is deprecated, and it doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside mobile example with an instruction to use it.
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
 Example | File | Description
 --- | --- | ---
