@@ -136,12 +136,12 @@ impl MeshletMesh {
             build_and_compress_meshlet_vertex_data(
                 meshlet,
                 meshlets.get(i).vertices,
+                &vertex_buffer,
                 &mut quantized_positions,
                 &mut vertex_positions,
                 &mut vertex_normals,
                 &mut vertex_uvs,
                 &mut bevy_meshlets,
-                &vertex_buffer,
             );
         }
 
@@ -340,12 +340,12 @@ fn split_simplified_group_into_new_meshlets(
 fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
+    vertex_buffer: &[u8],
     quantized_positions: &mut Vec<IVec3>,
     vertex_positions: &mut BitVec<u8>,
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
     meshlets: &mut Vec<Meshlet>,
-    vertex_buffer: &[u8],
 ) {
     let start_vertex_position_bit = vertex_positions.len() as u32;
     let start_vertex_attribute_id = vertex_normals.len() as u32;
