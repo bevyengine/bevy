@@ -16,6 +16,8 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
+extern crate alloc;
+
 use core::error::Error;
 
 #[cfg(target_os = "android")]
