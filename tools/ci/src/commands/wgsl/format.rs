@@ -17,7 +17,7 @@ impl Prepare for WgslFormatCommand {
         let files = &get_wgsl_files();
         let mut commands = vec![];
         // wgslfmt can take multiple runs to fully format a file
-        let mut format_command: Vec<_> = std::iter::from_fn(|| {
+        let mut format_command: Vec<_> = core::iter::from_fn(|| {
             Some(PreparedCommand::new::<Self>(
                 cmd!(sh, "wgslfmt {files...}"),
                 "wgslfmt failed unexpectedly.",
