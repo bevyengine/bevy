@@ -36,6 +36,7 @@ pub(crate) struct AtmosphereBindGroupLayouts {
     pub multiscattering_lut: BindGroupLayout,
     pub sky_view_lut: BindGroupLayout,
     pub aerial_view_lut: BindGroupLayout,
+    pub render_sky: BindGroupLayout,
 }
 
 impl FromWorld for AtmosphereBindGroupLayouts {
@@ -101,11 +102,24 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
+        let render_sky = render_device.create_bind_group_layout(
+            "render_sky_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                ),
+            ),
+        );
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            render_sky,
         }
     }
 }
@@ -170,6 +184,7 @@ pub(crate) struct AtmospherePipelines {
     pub multiscattering_lut: CachedComputePipelineId,
     pub sky_view_lut: CachedRenderPipelineId,
     pub aerial_view_lut: CachedComputePipelineId,
+    pub render_sky: CachedRenderPipelineId,
 }
 
 impl FromWorld for AtmospherePipelines {
@@ -197,7 +212,7 @@ impl FromWorld for AtmospherePipelines {
             }),
         });
 
-        let multi_scattering_lut =
+        let multiscattering_lut =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("multi_scattering_lut_pipeline".into()),
                 layout: vec![layouts.multiscattering_lut.clone()],
@@ -236,11 +251,32 @@ impl FromWorld for AtmospherePipelines {
             entry_point: "main".into(),
         });
 
+        let render_sky = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+            label: Some("render_sky_pipeline".into()),
+            layout: vec![layouts.render_sky.clone()],
+            push_constant_ranges: vec![],
+            vertex: fullscreen_shader_vertex_state(),
+            primitive: PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: MultisampleState::default(),
+            fragment: Some(FragmentState {
+                shader: shaders::RENDER_SKY.clone(),
+                shader_defs: vec![],
+                entry_point: "main".into(),
+                targets: vec![Some(ColorTargetState {
+                    format: TextureFormat::Rgba8Unorm, //TODO: support HDR
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+        });
+
         Self {
             transmittance_lut,
-            multiscattering_lut: multi_scattering_lut,
+            multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            render_sky,
         }
     }
 }
@@ -349,6 +385,7 @@ pub(crate) struct AtmosphereBindGroups {
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,
     pub aerial_view_lut: BindGroup,
+    pub render_sky: BindGroup,
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -431,11 +468,22 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
+        let render_sky = render_device.create_bind_group(
+            "render_sky_bind_group",
+            &layouts.render_sky,
+            &BindGroupEntries::sequential((
+                view_binding.clone(),
+                &textures.sky_view_lut.default_view,
+                &samplers.sky_view_lut,
+            )),
+        );
+
         commands.entity(entity).insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            render_sky,
         });
     }
 }

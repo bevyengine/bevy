@@ -83,11 +83,14 @@ impl ViewNode for AtmosphereNode {
                 depth_stencil_attachment: None,
                 ..Default::default()
             });
-            transmittance_lut_pass.set_pipeline(transmittance_lut_pipeline); //TODO: MESH VIEW BIND GROUP
+            transmittance_lut_pass.set_pipeline(transmittance_lut_pipeline);
             transmittance_lut_pass.set_bind_group(
                 0,
                 &bind_groups.transmittance_lut,
-                &[atmosphere_uniforms_offset.index()],
+                &[
+                    atmosphere_uniforms_offset.index(),
+                    settings_uniforms_offset.index(),
+                ],
             );
             transmittance_lut_pass.draw(0..3, 0..1);
         }

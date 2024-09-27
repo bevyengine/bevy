@@ -23,13 +23,13 @@ struct Atmosphere {
 }
 
 struct AtmosphereSettings {
-    transmittance_lut_size: vec2<f32>,
+    transmittance_lut_size: vec2<u32>,
+    multiscattering_lut_size: vec2<u32>,
+    sky_view_lut_size: vec2<u32>,
     transmittance_lut_samples: u32,
-    multiscattering_lut_size: vec2<f32>,
     multiscattering_lut_dirs: u32,
+    aerial_view_lut_size: vec3<u32>, //Gross ordering for padding reasons
     multiscattering_lut_samples: u32,
-    sky_view_lut_size: vec2<f32>,
     sky_view_lut_samples: u32,
-    aerial_view_lut_size: vec3<f32>,
-    aerial_lut_samples: vec3<f32>,
+    aerial_view_lut_samples: u32,
 }

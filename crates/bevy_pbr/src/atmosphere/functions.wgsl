@@ -81,12 +81,12 @@ fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
 
 fn sample_transmittance_lut(atmosphere: Atmosphere, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
-    return textureSample(transmittance_lut, transmittance_lut_sampler, uv).rgb;
+    return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_multiscattering_lut(atmosphere: Atmosphere, multiscattering_lut: texture_3d<f32>, multiscattering_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
-    let uv = multiscattering_lut_r_mu_to_uv(r, mu);
-    return textureSample(multiscattering_lut, multiscattering_lut_sampler, uv).rgba;
+fn sample_multiscattering_lut(atmosphere: Atmosphere, multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler, r: f32, mu: f32) -> vec3<f32> {
+    let uv = multiscattering_lut_r_mu_to_uv(atmosphere, r, mu);
+    return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
 /// Simplified ray-sphere intersection
@@ -163,21 +163,10 @@ fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
 
-fn sample_local_inscattering(atmosphere: Atmosphere, lights: Lights, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler, view_height: f32, view_dir: vec3<f32>) -> vec3<f32> {
-    for (let light_i = 0u; light_i < lights.n_directional_lights; light_i++) {
-        let light = &lights.directional_lights[light_i];
-        let mu_light = (*light).direction_to_light.y;
-        let neg_LdotV = dot(view_dir, (*light).direction_to_light);
-        let rayleigh_phase = rayleigh(neg_LdotV);
-        let mie_phase = henyey_greenstein(neg(LdotV), atmosphere.mie);
-        let phase = rayleigh_phase + mie_phase; //TODO: check this
-
-        let ground_dist = distance_to_bottom_atmosphere_boundary(atmosphere, r, mu_light);
-        let atmosphere_dist = distance_to_top_atmosphere_boundary(atmosphere, r, mu_light);
-        let vis = step(atmosphere_dist, ground_dist); //TODO: need to check that the intersection tests return infinity on a miss
-        let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, r, mu_light);
-        let shadow_factor = transmittance_to_light * vis;
-
-        local_illuminance += (transmittance_to_sample * shadow_factor * phase + psi_ms) * (*light).color;
-    }
+fn sample_local_inscattering(
+    atmosphere: Atmosphere, lights: Lights,
+    transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler,
+    multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler,
+    transmittance_to_sample: vec3<f32>, view_height: f32, view_dir: vec3<f32>
+) -> vec3<f32> {
 }

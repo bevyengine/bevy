@@ -216,13 +216,13 @@ fn extract_atmosphere(
 #[derive(Clone, Component, Reflect, ShaderType)]
 pub struct AtmosphereSettings {
     pub transmittance_lut_size: UVec2,
-    pub transmittance_lut_samples: u32,
     pub multiscattering_lut_size: UVec2,
-    pub multiscattering_lut_dirs: u32,
-    pub multiscattering_lut_samples: u32,
     pub sky_view_lut_size: UVec2,
-    pub sky_view_lut_samples: u32,
+    pub multiscattering_lut_dirs: u32,
+    pub transmittance_lut_samples: u32,
     pub aerial_view_lut_size: UVec3,
+    pub multiscattering_lut_samples: u32,
+    pub sky_view_lut_samples: u32,
     pub aerial_view_lut_samples: u32,
 }
 
