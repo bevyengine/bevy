@@ -1,5 +1,5 @@
 //! Handle user specified rumble request events.
-use crate::{GilrsGamepads, Gilrs};
+use crate::{Gilrs, GilrsGamepads};
 use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;

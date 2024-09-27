@@ -1,6 +1,6 @@
 use crate::{
     converter::{convert_axis, convert_button},
-    GilrsGamepads, Gilrs,
+    Gilrs, GilrsGamepads,
 };
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::Commands;
