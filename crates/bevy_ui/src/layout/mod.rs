@@ -23,7 +23,7 @@ use ui_surface::UiSurface;
 
 use bevy_text::CosmicFontSystem;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
+use bevy_text::CosmicBuffer;
 
 mod convert;
 pub mod debug;
