@@ -220,7 +220,7 @@ pub(crate) fn meta_transform_settings<S: Settings>(
         } else {
             error!(
                 "Configured settings type {} does not match AssetLoader settings type",
-                std::any::type_name::<S>(),
+                core::any::type_name::<S>(),
             );
         }
     }

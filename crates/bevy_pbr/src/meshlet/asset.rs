@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
@@ -8,10 +9,7 @@ use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
-use std::{
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::io::{Read, Write};
 
 /// Unique identifier for the [`MeshletMesh`] asset format.
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
@@ -200,7 +198,7 @@ fn write_slice<T: Pod>(
 fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error> {
     let len = read_u64(reader)? as usize;
 
-    let mut data: Arc<[T]> = std::iter::repeat_with(T::zeroed).take(len).collect();
+    let mut data: Arc<[T]> = core::iter::repeat_with(T::zeroed).take(len).collect();
     let slice = Arc::get_mut(&mut data).unwrap();
     reader.read_exact(bytemuck::cast_slice_mut(slice))?;
 

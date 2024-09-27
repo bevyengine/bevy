@@ -15,10 +15,10 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
-use std::sync::Arc;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -57,7 +57,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         Err(e) => {
             error!("Error running render graph:");
             {
-                let mut src: &dyn std::error::Error = &e;
+                let mut src: &dyn core::error::Error = &e;
                 loop {
                     error!("> {}", src);
                     match src.source() {

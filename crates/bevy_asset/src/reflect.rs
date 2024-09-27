@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
@@ -243,7 +243,7 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     use crate as bevy_asset;
     use crate::{Asset, AssetApp, AssetPlugin, ReflectAsset, UntypedHandle};

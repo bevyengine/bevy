@@ -11,8 +11,8 @@ use bevy_render::{
 use bevy_sprite::BorderRect;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
+use core::num::NonZero;
 use smallvec::SmallVec;
-use std::num::NonZero;
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
@@ -83,7 +83,7 @@ impl Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by `ui_stack_system`
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
@@ -189,7 +189,7 @@ impl Node {
         self.padding
     }
 
-    /// Returns the combined inset on each edge including both padding and border thickness.
+    /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
     #[inline]
     pub fn content_inset(&self) -> BorderRect {
         BorderRect {

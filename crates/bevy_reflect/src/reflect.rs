@@ -3,7 +3,7 @@ use crate::{
     tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
-use std::{
+use core::{
     any::{Any, TypeId},
     fmt::Debug,
 };
@@ -253,7 +253,7 @@ where
     /// [`List`]: crate::List
     /// [`Map`]: crate::Map
     /// [type path]: TypePath::type_path
-    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
@@ -408,7 +408,7 @@ impl dyn PartialReflect {
 }
 
 impl Debug for dyn PartialReflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -488,7 +488,7 @@ impl dyn Reflect {
 }
 
 impl Debug for dyn Reflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -515,15 +515,15 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::std::any::Any> {
+            fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
                 self
             }
 
-            fn as_any(&self) -> &dyn ::std::any::Any {
+            fn as_any(&self) -> &dyn ::core::any::Any {
                 self
             }
 
-            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
                 self
             }
 

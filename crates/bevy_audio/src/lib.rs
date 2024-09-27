@@ -27,6 +27,8 @@
 //! }
 //! ```
 
+extern crate alloc;
+
 mod audio;
 mod audio_output;
 mod audio_source;

@@ -105,7 +105,7 @@ impl AppExtStates for SubApp {
                 entered: Some(state),
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("State {} is already initialized.", name);
         }
 
@@ -161,7 +161,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("Computed state {} is already initialized.", name);
         }
 
@@ -189,7 +189,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
         } else {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("Sub state {} is already initialized.", name);
         }
 
@@ -201,7 +201,7 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            let name = std::any::type_name::<S>();
+            let name = core::any::type_name::<S>();
             warn!("State scoped entities are enabled for state `{}`, but the state isn't installed in the app!", name);
         }
         // We work with [`StateTransition`] in set [`StateTransitionSteps::ExitSchedules`] as opposed to [`OnExit`],

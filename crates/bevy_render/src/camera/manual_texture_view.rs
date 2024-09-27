@@ -34,7 +34,7 @@ impl ManualTextureView {
 #[derive(Default, Clone, Resource, ExtractResource)]
 pub struct ManualTextureViews(HashMap<ManualTextureViewHandle, ManualTextureView>);
 
-impl std::ops::Deref for ManualTextureViews {
+impl core::ops::Deref for ManualTextureViews {
     type Target = HashMap<ManualTextureViewHandle, ManualTextureView>;
 
     fn deref(&self) -> &Self::Target {
@@ -42,7 +42,7 @@ impl std::ops::Deref for ManualTextureViews {
     }
 }
 
-impl std::ops::DerefMut for ManualTextureViews {
+impl core::ops::DerefMut for ManualTextureViews {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

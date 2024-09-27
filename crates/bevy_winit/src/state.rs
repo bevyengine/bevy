@@ -18,7 +18,7 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::{HashMap, Instant};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,

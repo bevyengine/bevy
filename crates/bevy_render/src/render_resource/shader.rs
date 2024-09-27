@@ -1,9 +1,10 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
+use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::tracing::error;
-use std::{borrow::Cow, marker::Copy};
+use core::marker::Copy;
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -251,7 +252,7 @@ pub enum ShaderLoaderError {
     #[error("Could not load shader: {0}")]
     Io(#[from] std::io::Error),
     #[error("Could not parse shader: {0}")]
-    Parse(#[from] std::string::FromUtf8Error),
+    Parse(#[from] alloc::string::FromUtf8Error),
 }
 
 impl AssetLoader for ShaderLoader {

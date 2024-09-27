@@ -1,5 +1,5 @@
 use crate::define_atomic_id;
-use std::ops::Deref;
+use core::ops::Deref;
 
 use crate::render_resource::resource_macros::*;
 

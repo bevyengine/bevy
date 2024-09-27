@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
 use crate::DefaultCameraView;

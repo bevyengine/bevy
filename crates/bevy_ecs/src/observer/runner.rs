@@ -1,4 +1,4 @@
-use std::any::Any;
+use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
@@ -70,7 +70,7 @@ impl Component for ObserverState {
             });
         });
         hooks.on_remove(|mut world, entity, _| {
-            let descriptor = std::mem::take(
+            let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
                     .get_mut::<ObserverState>()
@@ -393,7 +393,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     _: ComponentId,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_type = world.init_component::<E>();
+        let event_type = world.register_component::<E>();
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
             components.push(id);

@@ -15,13 +15,14 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
+
+#[cfg(feature = "bevy_text")]
+use bevy_text::{CosmicBuffer, TextPipeline};
 
 mod convert;
 pub mod debug;
