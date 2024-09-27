@@ -1410,7 +1410,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.
 ///
-/// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
+/// This [`SystemParam`] fails validation if non-send resource doesn't exist.
 /// This will cause systems that use it to be skipped.
 ///
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
