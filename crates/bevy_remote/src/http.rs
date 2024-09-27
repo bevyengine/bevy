@@ -16,6 +16,7 @@ use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::system::{Res, Resource};
 use bevy_tasks::IoTaskPool;
 use core::net::{IpAddr, Ipv4Addr};
+use core::net::{SocketAddr, SocketAddrV4};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
@@ -24,8 +25,8 @@ use hyper::{
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
+use std::net::TcpListener;
 use std::net::TcpStream;
-use std::net::{SocketAddr, SocketAddrV4, TcpListener};
 
 /// The default host socket that Bevy will use for its server.
 ///
