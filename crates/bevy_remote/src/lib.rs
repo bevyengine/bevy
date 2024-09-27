@@ -649,7 +649,7 @@ pub enum BrpBatch {
 
 /// A message from the Bevy Remote Protocol server thread to the main world.
 ///
-/// This is placed in the [`BrpMailbox`].
+/// This is placed in the [`BrpReceiver`].
 #[derive(Debug, Clone)]
 pub struct BrpMessage {
     /// The request method.
@@ -664,7 +664,7 @@ pub struct BrpMessage {
     pub sender: Sender<BrpResult>,
 }
 
-/// A resource holding the matching sender for the [`BrpMailbox`]'s receiver.
+/// A resource holding the matching sender for the [`BrpReceiver`]'s receiver.
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpSender(Sender<BrpMessage>);
 
@@ -673,26 +673,26 @@ pub struct BrpSender(Sender<BrpMessage>);
 /// Every frame, the `process_remote_requests` system drains this mailbox and
 /// processes the messages within.
 #[derive(Debug, Resource, Deref, DerefMut)]
-pub struct BrpMailbox(Receiver<BrpMessage>);
+pub struct BrpReceiver(Receiver<BrpMessage>);
 
 fn setup_mailbox_channel(mut commands: Commands) {
     // Create the channel and the mailbox.
     let (request_sender, request_receiver) = async_channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpSender(request_sender));
-    commands.insert_resource(BrpMailbox(request_receiver));
+    commands.insert_resource(BrpReceiver(request_receiver));
 }
 
-/// A system that receives requests placed in the [`BrpMailbox`] and processes
+/// A system that receives requests placed in the [`BrpReceiver`] and processes
 /// them, using the [`RemoteMethods`] resource to map each request to its handler.
 ///
 /// This needs exclusive access to the [`World`] because clients can manipulate
 /// anything in the ECS.
 fn process_remote_requests(world: &mut World) {
-    if !world.contains_resource::<BrpMailbox>() {
+    if !world.contains_resource::<BrpReceiver>() {
         return;
     }
 
-    while let Ok(message) = world.resource_mut::<BrpMailbox>().try_recv() {
+    while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
         // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
         let methods = world.resource::<RemoteMethods>();
