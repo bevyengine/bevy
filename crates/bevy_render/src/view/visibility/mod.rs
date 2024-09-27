@@ -174,7 +174,8 @@ impl ViewVisibility {
 /// * To show or hide an entity, you should set its [`Visibility`].
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
-///   * You may use the [`VisibilityBundle`] to guarantee this.
+///   * ~~You may use the [`VisibilityBundle`] to guarantee this.~~ [`VisibilityBundle`] is now deprecated.
+///     [`InheritedVisibility`] and [`ViewVisibility`] are automatically inserted whenever [`Visibility`] is inserted.
 #[derive(Bundle, Debug, Clone, Default)]
 #[deprecated(
     since = "0.15.0",
