@@ -279,7 +279,9 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<Events<WindowScaleFactorChanged>>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
             .add_systems(
                 Update,
                 (
