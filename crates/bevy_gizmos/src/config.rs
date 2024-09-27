@@ -54,7 +54,7 @@ pub enum GizmoLineStyle {
 pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
-#[derive(Default, Reflect, GizmoConfigGroup)]
+#[derive(Default, Reflect, GizmoConfigGroup, Clone, Debug)]
 pub struct DefaultGizmoConfigGroup;
 
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
@@ -133,7 +133,7 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
-#[derive(Clone, Reflect)]
+#[derive(Clone, Reflect, Component)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///

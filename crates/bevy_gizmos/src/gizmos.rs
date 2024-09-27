@@ -1,6 +1,11 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use std::{
+    iter,
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -9,6 +14,7 @@ use bevy_ecs::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_reflect::Reflect;
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -142,6 +148,28 @@ where
     pub config_ext: &'w Config,
 }
 
+impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Target = GizmoBuffer<Config, Clear>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.buffer
+    }
+}
+
+impl<'w, 's, Config, Clear> DerefMut for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.buffer
+    }
+}
+
 type GizmosState<Config, Clear> = (
     Deferred<'static, GizmoBuffer<Config, Clear>>,
     Res<'static, GizmoConfigStore>,
@@ -236,15 +264,18 @@ where
 {
 }
 
-struct GizmoBuffer<Config, Clear>
+#[derive(Debug, Clone, Reflect)]
+pub struct GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    pub enabled: bool,
     list_positions: Vec<Vec3>,
     list_colors: Vec<LinearRgba>,
     strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
+    #[reflect(ignore)]
     marker: PhantomData<(Config, Clear)>,
 }
 
@@ -255,6 +286,7 @@ where
 {
     fn default() -> Self {
         Self {
+            enabled: true,
             list_positions: default(),
             list_colors: default(),
             strip_positions: default(),
@@ -278,7 +310,7 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -409,10 +441,10 @@ where
             return;
         }
         self.extend_strip_positions(positions);
-        let len = self.buffer.strip_positions.len();
+        let len = self.strip_positions.len();
         let linear_color = LinearRgba::from(color.into());
-        self.buffer.strip_colors.resize(len - 1, linear_color);
-        self.buffer.strip_colors.push(LinearRgba::NAN);
+        self.strip_colors.resize(len - 1, linear_color);
+        self.strip_colors.push(LinearRgba::NAN);
     }
 
     /// Draw a line in 3D made of straight segments between the points, with a color gradient.
@@ -447,7 +479,7 @@ where
             strip_positions,
             strip_colors,
             ..
-        } = &mut *self.buffer;
+        } = self;
 
         let (min, _) = points.size_hint();
         strip_positions.reserve(min);
@@ -719,12 +751,12 @@ where
 
     #[inline]
     fn extend_list_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.list_positions.extend(positions);
+        self.list_positions.extend(positions);
     }
 
     #[inline]
     fn extend_list_colors(&mut self, colors: impl IntoIterator<Item = impl Into<Color>>) {
-        self.buffer.list_colors.extend(
+        self.list_colors.extend(
             colors
                 .into_iter()
                 .map(|color| LinearRgba::from(color.into())),
@@ -736,15 +768,14 @@ where
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
-        self.buffer
-            .list_colors
+        self.list_colors
             .extend(iter::repeat(linear_color).take(count));
     }
 
     #[inline]
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
-        self.buffer.strip_positions.extend(positions);
-        self.buffer.strip_positions.push(Vec3::NAN);
+        self.strip_positions.extend(positions);
+        self.strip_positions.push(Vec3::NAN);
     }
 }
 

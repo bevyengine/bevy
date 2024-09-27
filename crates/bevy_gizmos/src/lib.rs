@@ -51,6 +51,8 @@ mod pipeline_2d;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
 
+mod retained;
+
 /// The gizmos prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
