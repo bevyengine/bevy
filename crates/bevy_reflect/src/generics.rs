@@ -48,9 +48,9 @@ impl Generics {
     }
 }
 
-impl FromIterator<GenericInfo> for Generics {
-    fn from_iter<T: IntoIterator<Item = GenericInfo>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
+impl<T: Into<GenericInfo>> FromIterator<T> for Generics {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self(iter.into_iter().map(Into::into).collect())
     }
 }
 
