@@ -42,9 +42,9 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
     pub use crate::{
         alpha::AlphaMode,
         camera::{

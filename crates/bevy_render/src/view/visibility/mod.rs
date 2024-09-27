@@ -178,7 +178,7 @@ impl ViewVisibility {
 #[derive(Bundle, Debug, Clone, Default)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Visibility` directly instead. `InheritedVisibility` and `ViewVisibility` are now inserted automatically."
+    note = "Use the `Visibility` component instead. Inserting it will now also insert `InheritedVisibility` and `ViewVisibility` automatically."
 )]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
