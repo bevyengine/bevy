@@ -2,7 +2,7 @@
     unsafe_code,
     reason = "executor implementation requires use of AtomicPtr and lifetime transmutation"
 )]
-#![expect(
+#![allow(
     dead_code,
     reason = "feature gating means certain methods aren't used on certain targets"
 )]
