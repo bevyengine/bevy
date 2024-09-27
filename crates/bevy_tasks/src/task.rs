@@ -4,7 +4,7 @@ use core::{
     task::{Context, Poll},
 };
 
-/// Wraps `async_executor::Task`, a spawned future.
+/// Wraps `async_task::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
 ///
@@ -14,16 +14,16 @@ use core::{
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 #[derive(Debug)]
 #[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
-pub struct Task<T>(async_executor::Task<T>);
+pub struct Task<T>(async_task::Task<T>);
 
 impl<T> Task<T> {
-    /// Creates a new task from a given `async_executor::Task`
-    pub fn new(task: async_executor::Task<T>) -> Self {
+    /// Creates a new task from a given `async_task::Task`
+    pub fn new(task: async_task::Task<T>) -> Self {
         Self(task)
     }
 
     /// Detaches the task to let it keep running in the background. See
-    /// `async_executor::Task::detach`
+    /// `async_task::Task::detach`
     pub fn detach(self) {
         self.0.detach();
     }
@@ -36,7 +36,7 @@ impl<T> Task<T> {
     /// While it's possible to simply drop the [`Task`] to cancel it, this is a cleaner way of
     /// canceling because it also waits for the task to stop running.
     ///
-    /// See `async_executor::Task::cancel`
+    /// See `async_task::Task::cancel`
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
     }

@@ -1,8 +1,10 @@
 use core::marker::PhantomData;
 use std::thread::{self, ThreadId};
 
-use async_executor::{Executor, Task};
+use async_task::Task;
 use futures_lite::Future;
+
+use crate::executor::Executor;
 
 /// An executor that can only be ticked on the thread it was instantiated on. But
 /// can spawn `Send` tasks from other threads.
