@@ -77,7 +77,7 @@
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
 
-use std::{
+use core::{
     any::TypeId,
     fmt::{self, Debug, Formatter},
     marker::PhantomData,

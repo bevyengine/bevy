@@ -3,9 +3,9 @@
 use super::interval::*;
 use super::Curve;
 
-use std::any::type_name;
-use std::fmt::{self, Debug};
-use std::marker::PhantomData;
+use core::any::type_name;
+use core::fmt::{self, Debug};
+use core::marker::PhantomData;
 
 use bevy_reflect::utility::GenericTypePathCell;
 #[cfg(feature = "bevy_reflect")]
