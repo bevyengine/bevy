@@ -13,7 +13,7 @@ use itertools::Itertools;
 use crate::{StableInterpolate, VectorSpace};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
-use std::{marker::PhantomData, ops::Deref};
+use core::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.

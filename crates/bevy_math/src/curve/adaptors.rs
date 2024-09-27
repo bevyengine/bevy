@@ -1,6 +1,6 @@
 //! A module containing utility helper structs to transform a [`Curve`] into another. This is useful
 //! for building up complex curves from simple segments.
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::VectorSpace;
 
@@ -89,7 +89,7 @@ where
 /// # Notes
 ///
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-/// value at `domain.end()` in the original curve
+///   value at `domain.end()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
 ///
