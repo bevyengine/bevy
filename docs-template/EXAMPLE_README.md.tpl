@@ -103,7 +103,7 @@ Alternatively, you can install Android Studio.
 
 ### Build & Run
 
-To build an android app, you need to compile it to `so` first with `cargo-ndk`:
+To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
 cargo ndk -t <target_name> build
