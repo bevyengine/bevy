@@ -3,10 +3,11 @@ use crate::{
     DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
     StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
-use core::fmt::Formatter;
-use std::any::{Any, TypeId};
-use std::fmt::Debug;
-use std::hash::Hash;
+use core::{
+    any::{Any, TypeId},
+    fmt::{Debug, Formatter},
+    hash::Hash,
+};
 use thiserror::Error;
 
 /// A static accessor to compile-time type information.
@@ -32,7 +33,7 @@ use thiserror::Error;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, OpaqueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -207,7 +208,7 @@ pub enum TypeInfo {
     Map(MapInfo),
     Set(SetInfo),
     Enum(EnumInfo),
-    Value(ValueInfo),
+    Opaque(OpaqueInfo),
 }
 
 impl TypeInfo {
@@ -224,11 +225,12 @@ impl TypeInfo {
             Self::Map(info) => info.ty(),
             Self::Set(info) => info.ty(),
             Self::Enum(info) => info.ty(),
-            Self::Value(info) => info.ty(),
+            Self::Opaque(info) => info.ty(),
         }
     }
 
     /// The [`TypeId`] of the underlying type.
+    #[inline]
     pub fn type_id(&self) -> TypeId {
         self.ty().id()
     }
@@ -271,7 +273,7 @@ impl TypeInfo {
             Self::Map(info) => info.docs(),
             Self::Set(info) => info.docs(),
             Self::Enum(info) => info.docs(),
-            Self::Value(info) => info.docs(),
+            Self::Opaque(info) => info.docs(),
         }
     }
 
@@ -288,7 +290,7 @@ impl TypeInfo {
             Self::Map(_) => ReflectKind::Map,
             Self::Set(_) => ReflectKind::Set,
             Self::Enum(_) => ReflectKind::Enum,
-            Self::Value(_) => ReflectKind::Value,
+            Self::Opaque(_) => ReflectKind::Opaque,
         }
     }
 }
@@ -318,7 +320,7 @@ impl TypeInfo {
     impl_cast_method!(as_array: Array => ArrayInfo);
     impl_cast_method!(as_map: Map => MapInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
-    impl_cast_method!(as_value: Value => ValueInfo);
+    impl_cast_method!(as_opaque: Opaque => OpaqueInfo);
 }
 
 /// The base representation of a Rust type.
@@ -381,6 +383,7 @@ impl Type {
     }
 
     /// Returns the [`TypeId`] of the type.
+    #[inline]
     pub fn id(&self) -> TypeId {
         self.type_id
     }
@@ -458,7 +461,7 @@ impl PartialEq for Type {
 /// [type path]: TypePath
 impl Hash for Type {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.type_id.hash(state);
     }
 }
@@ -475,7 +478,7 @@ macro_rules! impl_type_methods {
         /// The [`TypeId`] of this type.
         ///
         /// [`TypeId`]: std::any::TypeId
-        pub fn type_id(&self) -> ::std::any::TypeId {
+        pub fn type_id(&self) -> ::core::any::TypeId {
             self.$field.id()
         }
 
@@ -506,7 +509,7 @@ macro_rules! impl_type_methods {
         ///
         /// [`TypeId`]: std::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
-        pub fn is<T: ::std::any::Any>(&self) -> bool {
+        pub fn is<T: ::core::any::Any>(&self) -> bool {
             self.$field.is::<T>()
         }
     };
@@ -514,22 +517,22 @@ macro_rules! impl_type_methods {
 
 pub(crate) use impl_type_methods;
 
-/// A container for compile-time info related to general value types, including primitives.
+/// A container for compile-time info related to reflection-opaque types, including primitives.
 ///
 /// This typically represents a type which cannot be broken down any further. This is often
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
-/// For example, [`i32`] cannot be broken down any further, so it is represented by a [`ValueInfo`].
+/// For example, [`i32`] cannot be broken down any further, so it is represented by an [`OpaqueInfo`].
 /// And while [`String`] itself is a struct, its fields are private, so we don't really treat
-/// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
+/// it _as_ a struct. It therefore makes more sense to represent it as an [`OpaqueInfo`].
 #[derive(Debug, Clone)]
-pub struct ValueInfo {
+pub struct OpaqueInfo {
     ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
-impl ValueInfo {
+impl OpaqueInfo {
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
@@ -538,7 +541,7 @@ impl ValueInfo {
         }
     }
 
-    /// Sets the docstring for this value.
+    /// Sets the docstring for this type.
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, doc: Option<&'static str>) -> Self {
         Self { docs: doc, ..self }
@@ -546,7 +549,7 @@ impl ValueInfo {
 
     impl_type_methods!(ty);
 
-    /// The docstring of this dynamic value, if any.
+    /// The docstring of this dynamic type, if any.
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs

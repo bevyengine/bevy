@@ -57,12 +57,12 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+use core::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
-use std::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
-use std::sync::atomic::AtomicI64 as AtomicIdCursor;
+use core::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
@@ -70,7 +70,7 @@ type IdCursor = i64;
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
 #[cfg(not(target_has_atomic = "64"))]
-use std::sync::atomic::AtomicIsize as AtomicIdCursor;
+use core::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -144,10 +144,11 @@ type IdCursor = isize;
 /// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq, Debug))]
+#[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 // Alignment repr necessary to allow LLVM to better output
 // optimised codegen for `to_bits`, `PartialEq` and `Ord`.
@@ -184,7 +185,7 @@ impl Eq for Entity {}
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Entity {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         // Make use of our `Ord` impl to ensure optimal codegen output
         Some(self.cmp(other))
     }
@@ -198,7 +199,7 @@ impl PartialOrd for Entity {
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Entity {
     #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         // This will result in better codegen for ordering comparisons, plus
         // avoids pitfalls with regards to macro codegen relying on property
         // position when we want to compare against the bit representation.
@@ -208,7 +209,7 @@ impl Ord for Entity {
 
 impl Hash for Entity {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.to_bits().hash(state);
     }
 }
@@ -450,10 +451,10 @@ pub struct ReserveEntitiesIterator<'a> {
     meta: &'a [EntityMeta],
 
     // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: std::slice::Iter<'a, u32>,
+    freelist_indices: core::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
-    new_indices: std::ops::Range<u32>,
+    new_indices: core::ops::Range<u32>,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {
@@ -1159,7 +1160,7 @@ mod tests {
     // part of the best-case performance changes in PR#9903.
     #[test]
     fn entity_hash_keeps_similar_ids_together() {
-        use std::hash::BuildHasher;
+        use core::hash::BuildHasher;
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
@@ -1174,7 +1175,7 @@ mod tests {
 
     #[test]
     fn entity_hash_id_bitflip_affects_high_7_bits() {
-        use std::hash::BuildHasher;
+        use core::hash::BuildHasher;
 
         let hash = EntityHash;
 

@@ -17,7 +17,7 @@ index 3e8082e23..624769443 100644
      fn default() -> Self {
 -        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
 -            // We leak `OutputStream` to prevent the audio from stopping.
--            std::mem::forget(stream);
+-            core::mem::forget(stream);
 -            Self {
 -                stream_handle: Some(stream_handle),
 -            }

@@ -1,11 +1,13 @@
-use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
-use crate::where_clause_options::WhereClauseOptions;
-use crate::ReflectMeta;
+use crate::{
+    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+    where_clause_options::WhereClauseOptions,
+    ReflectMeta,
+};
 use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
-pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
@@ -22,8 +24,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         meta,
         &where_clause_options,
         quote! {
-            let info = #bevy_reflect_path::ValueInfo::new::<Self>() #with_docs;
-            #bevy_reflect_path::TypeInfo::Value(info)
+            let info = #bevy_reflect_path::OpaqueInfo::new::<Self>() #with_docs;
+            #bevy_reflect_path::TypeInfo::Opaque(info)
         },
     );
 
@@ -96,22 +98,22 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
             #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
-                #bevy_reflect_path::ReflectKind::Value
+                #bevy_reflect_path::ReflectKind::Opaque
             }
 
             #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
-                #bevy_reflect_path::ReflectRef::Value(self)
+                #bevy_reflect_path::ReflectRef::Opaque(self)
             }
 
             #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
-                #bevy_reflect_path::ReflectMut::Value(self)
+                #bevy_reflect_path::ReflectMut::Opaque(self)
             }
 
             #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
-                #bevy_reflect_path::ReflectOwned::Value(self)
+                #bevy_reflect_path::ReflectOwned::Opaque(self)
             }
 
             #common_methods

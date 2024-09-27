@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -145,7 +145,7 @@ pub(crate) fn take_next_state<S: FreelyMutableState>(
 ) -> Option<S> {
     let mut next_state = next_state?;
 
-    match std::mem::take(next_state.bypass_change_detection()) {
+    match core::mem::take(next_state.bypass_change_detection()) {
         NextState::Pending(x) => {
             next_state.set_changed();
             Some(x)

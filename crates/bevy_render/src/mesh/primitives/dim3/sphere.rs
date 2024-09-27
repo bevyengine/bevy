@@ -1,4 +1,4 @@
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
@@ -124,7 +124,7 @@ impl SphereMeshBuilder {
             let azimuth = ops::atan2(point.z, point.x);
 
             let norm_inclination = inclination / PI;
-            let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
+            let norm_azimuth = 0.5 - (azimuth / core::f32::consts::TAU);
 
             [norm_azimuth, norm_inclination]
         });

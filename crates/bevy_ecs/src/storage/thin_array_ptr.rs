@@ -1,8 +1,11 @@
 use crate::query::DebugCheckedUnwrap;
-use std::alloc::{alloc, handle_alloc_error, realloc, Layout};
-use std::mem::{needs_drop, size_of};
-use std::num::NonZeroUsize;
-use std::ptr::{self, NonNull};
+use alloc::alloc::{alloc, handle_alloc_error, realloc};
+use core::{
+    alloc::Layout,
+    mem::{needs_drop, size_of},
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
+};
 
 /// Similar to [`Vec<T>`], but with the capacity and length cut out for performance reasons.
 ///
@@ -279,7 +282,7 @@ impl<T> ThinArrayPtr<T> {
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
-            std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+            alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
         }
         self.set_capacity(0);
     }
@@ -294,7 +297,7 @@ impl<T> ThinArrayPtr<T> {
         // - the data is valid - allocated with the same allocater
         // - non-null and well-aligned
         // - we have a shared reference to self - the data will not be mutated during 'a
-        unsafe { std::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
+        unsafe { core::slice::from_raw_parts(self.data.as_ptr(), slice_len) }
     }
 }
 

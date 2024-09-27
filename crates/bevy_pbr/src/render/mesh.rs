@@ -1,4 +1,4 @@
-use std::mem::{self, size_of};
+use core::mem::{self, size_of};
 
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};
@@ -8,8 +8,8 @@ use bevy_core_pipeline::{
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -40,19 +40,25 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::error, tracing::warn, Entry, HashMap, Parallel};
+use bevy_utils::{
+    tracing::{error, warn},
+    Entry, HashMap, Parallel,
+};
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use static_assertions::const_assert_eq;
 
-use crate::render::{
-    morph::{
-        extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices, MorphUniforms,
+use crate::{
+    render::{
+        morph::{
+            extract_morphs, no_automatic_morph_batching, prepare_morphs, MorphIndices,
+            MorphUniforms,
+        },
+        skin::no_automatic_skin_batching,
     },
-    skin::no_automatic_skin_batching,
+    *,
 };
-use crate::*;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 

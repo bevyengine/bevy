@@ -1,6 +1,8 @@
-use crate::derive_data::{ReflectMeta, ReflectTypePath};
-use crate::string_expr::StringExpr;
-use crate::where_clause_options::WhereClauseOptions;
+use crate::{
+    derive_data::{ReflectMeta, ReflectTypePath},
+    string_expr::StringExpr,
+    where_clause_options::WhereClauseOptions,
+};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
@@ -144,6 +146,7 @@ pub(crate) fn impl_typed(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::Typed for #type_path #ty_generics #where_reflect_clause {
+            #[inline]
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {
                 #type_info_cell
             }

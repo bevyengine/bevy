@@ -7,10 +7,10 @@ use bevy_render::{
 };
 use bitflags::bitflags;
 
-use crate::deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID;
-use crate::*;
+use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 
 /// An enum to define which UV attribute to use for a texture.
+///
 /// It is used for every texture in the [`StandardMaterial`].
 /// It only supports two UV attributes, [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_0`] and
 /// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
@@ -128,7 +128,6 @@ pub struct StandardMaterial {
     ///
     /// 0.089 is the minimum floating point value that won't be rounded down to 0 in the
     /// calculations used.
-    //
     // Technically for 32-bit floats, 0.045 could be used.
     // See <https://google.github.io/filament/Filament.html#materialsystem/parameterization/>
     pub perceptual_roughness: f32,

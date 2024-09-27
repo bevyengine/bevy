@@ -8,7 +8,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -354,8 +354,8 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> std::fmt::Debug for Query<'_, '_, D, F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
             .field("state", &self.state)

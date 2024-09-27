@@ -1,10 +1,8 @@
-use std::fmt::Debug;
-use std::hash::Hash;
+use core::{fmt::Debug, hash::Hash};
 
 use bevy_ecs::schedule::Schedule;
 
-use super::state_set::StateSet;
-use super::states::States;
+use super::{state_set::StateSet, states::States};
 
 /// A state whose value is automatically computed based on the values of other [`States`].
 ///

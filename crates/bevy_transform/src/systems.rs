@@ -186,13 +186,11 @@ unsafe fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-    use bevy_ecs::world::CommandQueue;
+    use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
-    use crate::bundles::TransformBundle;
-    use crate::systems::*;
+    use crate::{bundles::TransformBundle, systems::*};
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     #[test]
@@ -481,7 +479,7 @@ mod test {
         app.world_mut()
             .spawn(TransformBundle::IDENTITY)
             .add_children(&[child]);
-        std::mem::swap(
+        core::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
         );

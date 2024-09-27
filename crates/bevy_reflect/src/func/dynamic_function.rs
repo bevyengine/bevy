@@ -1,19 +1,17 @@
-use crate as bevy_reflect;
-use crate::__macro_exports::RegisterForReflection;
-use crate::func::args::{ArgInfo, ArgList};
-use crate::func::info::FunctionInfo;
-use crate::func::{
-    DynamicFunctionMut, Function, FunctionResult, IntoFunction, IntoFunctionMut, ReturnInfo,
-};
-use crate::serde::Serializable;
 use crate::{
+    self as bevy_reflect,
+    __macro_exports::RegisterForReflection,
+    func::{
+        args::ArgList, info::FunctionInfo, DynamicFunctionMut, Function, FunctionError,
+        FunctionResult, IntoFunction, IntoFunctionMut,
+    },
+    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
-use std::sync::Arc;
 
 /// A dynamic representation of a function.
 ///
@@ -64,8 +62,10 @@ impl<'env> DynamicFunction<'env> {
     /// The given function can be used to call out to any other callable,
     /// including functions, closures, or methods.
     ///
-    /// It's important that the function signature matches the provided [`FunctionInfo`].
-    /// This info may be used by consumers of this function for validation and debugging.
+    /// It's important that the function signature matches the provided [`FunctionInfo`]
+    /// as this will be used to validate arguments when [calling] the function.
+    ///
+    /// [calling]: DynamicFunction::call
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
         info: FunctionInfo,
@@ -89,21 +89,6 @@ impl<'env> DynamicFunction<'env> {
         self
     }
 
-    /// Set the argument information of the function.
-    ///
-    /// It's important that the arguments match the intended function signature,
-    /// as this can be used by consumers of this function for validation and debugging.
-    pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.info = self.info.with_args(args);
-        self
-    }
-
-    /// Set the return information of the function.
-    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
-        self.info = self.info.with_return_info(return_info);
-        self
-    }
-
     /// Call the function with the given arguments.
     ///
     /// # Example
@@ -120,8 +105,25 @@ impl<'env> DynamicFunction<'env> {
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 123);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error if the number of arguments provided does not match
+    /// the number of arguments expected by the function's [`FunctionInfo`].
+    ///
+    /// The function itself may also return any errors it needs to.
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args)
+        let expected_arg_count = self.info.arg_count();
+        let received_arg_count = args.len();
+
+        if expected_arg_count != received_arg_count {
+            Err(FunctionError::ArgCountMismatch {
+                expected: expected_arg_count,
+                received: received_arg_count,
+            })
+        } else {
+            (self.func)(args)
+        }
     }
 
     /// Returns the function info.
@@ -322,6 +324,21 @@ mod tests {
     }
 
     #[test]
+    fn should_return_error_on_arg_count_mismatch() {
+        let func = (|a: i32, b: i32| a + b).into_function();
+
+        let args = ArgList::default().push_owned(25_i32);
+        let error = func.call(args).unwrap_err();
+        assert!(matches!(
+            error,
+            FunctionError::ArgCountMismatch {
+                expected: 2,
+                received: 1
+            }
+        ));
+    }
+
+    #[test]
     fn should_clone_dynamic_function() {
         let hello = String::from("Hello");
 
@@ -379,7 +396,10 @@ mod tests {
                 }
             },
             // The `FunctionInfo` doesn't really matter for this test
-            FunctionInfo::anonymous(),
+            // so we can just give it dummy information.
+            FunctionInfo::anonymous()
+                .with_arg::<i32>("curr")
+                .with_arg::<()>("this"),
         );
 
         let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);

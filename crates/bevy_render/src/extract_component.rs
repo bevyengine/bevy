@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::lifetimeless::Read,
 };
-use std::{marker::PhantomData, ops::Deref};
+use core::{marker::PhantomData, ops::Deref};
 
 pub use bevy_render_macros::ExtractComponent;
 

@@ -13,8 +13,8 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
+use core::{cell::UnsafeCell, marker::PhantomData};
 use smallvec::SmallVec;
-use std::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -846,7 +846,7 @@ where
         assert!(
             access.is_compatible(&my_access),
             "`EntityRefExcept<{}>` conflicts with a previous access in this query.",
-            std::any::type_name::<B>(),
+            core::any::type_name::<B>(),
         );
         access.extend(&my_access);
     }
@@ -945,7 +945,7 @@ where
         assert!(
             access.is_compatible(&my_access),
             "`EntityMutExcept<{}>` conflicts with a previous access in this query.",
-            std::any::type_name::<B>()
+            core::any::type_name::<B>()
         );
         access.extend(&my_access);
     }
@@ -1182,13 +1182,13 @@ unsafe impl<T: Component> WorldQuery for &T {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1381,13 +1381,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1580,13 +1580,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         assert!(
             !access.access().has_component_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1682,7 +1682,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         assert!(
             !access.access().has_component_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
@@ -1905,9 +1905,9 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
-impl<T> std::fmt::Debug for Has<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "Has<{}>", std::any::type_name::<T>())
+impl<T> core::fmt::Debug for Has<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(f, "Has<{}>", core::any::type_name::<T>())
     }
 }
 
@@ -1976,7 +1976,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {

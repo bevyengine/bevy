@@ -1,9 +1,10 @@
 mod parallel_scope;
 
-use core::panic::Location;
-use std::marker::PhantomData;
+use core::{marker::PhantomData, panic::Location};
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
+use super::{
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
@@ -12,10 +13,10 @@ use crate::{
     entity::{Entities, Entity},
     event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
-    system::{RunSystemWithInput, SystemId},
+    system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
-        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
-        SpawnBatchIter, World,
+        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
+        EntityWorldMut, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -93,7 +94,9 @@ const _: () = {
     // SAFETY: Only reads Entities
     unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
         type State = FetchState;
+
         type Item<'w, 's> = Commands<'w, 's>;
+
         fn init_state(
             world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
@@ -105,6 +108,7 @@ const _: () = {
                 ),
             }
         }
+
         unsafe fn new_archetype(
             state: &mut Self::State,
             archetype: &bevy_ecs::archetype::Archetype,
@@ -119,6 +123,7 @@ const _: () = {
                 );
             };
         }
+
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -130,6 +135,7 @@ const _: () = {
                 world,
             );
         }
+
         fn queue(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
@@ -141,13 +147,28 @@ const _: () = {
                 world,
             );
         }
+
+        #[inline]
+        unsafe fn validate_param(
+            state: &Self::State,
+            system_meta: &bevy_ecs::system::SystemMeta,
+            world: UnsafeWorldCell,
+        ) -> bool {
+            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
+                &state.state,
+                system_meta,
+                world,
+            )
+        }
+
+        #[inline]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+            world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
-            let(f0,f1,) =  <(Deferred<'s,CommandQueue> , &'w Entities,)as bevy_ecs::system::SystemParam> ::get_param(&mut state.state,system_meta,world,change_tick);
+            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
@@ -691,7 +712,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// There is no way to get the output of a system when run as a command, because the
     /// execution of the system happens later. To get the output of a system, use
     /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-    pub fn run_system_with_input<I: 'static + Send>(&mut self, id: SystemId<I>, input: I) {
+    pub fn run_system_with_input<I>(&mut self, id: SystemId<I>, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + 'static,
+    {
         self.queue(RunSystemWithInput::new_with_input(id, input));
     }
 
@@ -744,18 +768,41 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_system<
-        I: 'static + Send,
-        O: 'static + Send,
-        M,
-        S: IntoSystem<I, O, M> + 'static,
-    >(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + Send + 'static,
+        O: Send + 'static,
+    {
         let entity = self.spawn_empty().id();
         self.queue(RegisterSystem::new(system, entity));
         SystemId::from_entity(entity)
+    }
+
+    /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + Send + 'static>(
+        &mut self,
+        system: S,
+    ) {
+        self.run_system_cached_with(system, ());
+    }
+
+    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
+    ///
+    /// See [`World::register_system_cached`] for more information.
+    pub fn run_system_cached_with<I, M, S>(&mut self, system: S, input: I::Inner<'static>)
+    where
+        I: SystemInput<Inner<'static>: Send> + Send + 'static,
+        M: 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
+    {
+        self.queue(RunSystemCachedWith::new(system, input));
     }
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
@@ -1104,7 +1151,7 @@ impl EntityCommands<'_> {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
         })})
     }
 
@@ -1629,7 +1676,7 @@ where
         ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                std::any::type_name::<B>(),
+                core::any::type_name::<B>(),
                 invalid_entities
             );
         }
@@ -1664,7 +1711,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1683,7 +1730,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1732,6 +1779,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1762,6 +1810,7 @@ fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1825,12 +1874,10 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         any::TypeId,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
 
     #[allow(dead_code)]

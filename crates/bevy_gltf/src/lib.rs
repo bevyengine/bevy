@@ -95,6 +95,8 @@
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
+extern crate alloc;
+
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
 use bevy_utils::HashMap;
@@ -107,8 +109,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -527,8 +528,8 @@ pub enum GltfAssetLabel {
     InverseBindMatrices(usize),
 }
 
-impl std::fmt::Display for GltfAssetLabel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GltfAssetLabel {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
             GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),

@@ -8,18 +8,15 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId},
+    system::{IntoObserverSystem, SystemId, SystemInput},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
+use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use std::{
-    fmt::Debug,
+    panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
-};
-use std::{
-    num::NonZero,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
 
@@ -79,7 +76,7 @@ pub struct App {
 }
 
 impl Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
         f.debug_map()
             .entries(self.sub_apps.sub_apps.iter())
@@ -167,8 +164,8 @@ impl App {
             panic!("App::run() was called while a plugin was building.");
         }
 
-        let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
-        let app = std::mem::replace(self, App::empty());
+        let runner = core::mem::replace(&mut self.runner, Box::new(run_once));
+        let app = core::mem::replace(self, App::empty());
         (runner)(app)
     }
 
@@ -212,7 +209,7 @@ impl App {
         let mut overall_plugins_state = match self.main_mut().plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+                let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
                 for plugin in &plugins {
                     // plugins installed to main need to see all sub-apps
                     if !plugin.ready(self) {
@@ -238,7 +235,7 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
         for plugin in &plugins {
             plugin.finish(self);
         }
@@ -252,7 +249,7 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
         for plugin in &plugins {
             plugin.cleanup(self);
         }
@@ -302,10 +299,14 @@ impl App {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.main_mut().register_system(system)
     }
 
@@ -742,7 +743,7 @@ impl App {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
         &mut self,
-        name: impl Into<std::borrow::Cow<'static, str>>,
+        name: impl Into<alloc::borrow::Cow<'static, str>>,
         function: F,
     ) -> &mut Self
     where
@@ -1114,7 +1115,8 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, sync::Mutex};
+    use core::{iter, marker::PhantomData};
+    use std::sync::Mutex;
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},

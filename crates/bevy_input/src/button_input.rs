@@ -1,12 +1,13 @@
 //! The generic input type.
 
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::system::Resource;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
-use std::hash::Hash;
+use core::hash::Hash;
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// A "press-able" input of type `T`.
 ///
@@ -153,8 +154,8 @@ use std::hash::Hash;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+/// [`ResMut`]: bevy_ecs::system::ResMut
+/// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {

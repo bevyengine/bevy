@@ -147,6 +147,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+extern crate alloc;
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -199,6 +201,7 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
@@ -207,7 +210,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use bevy_utils::{tracing::error, HashSet};
-use std::{any::TypeId, sync::Arc};
+use core::any::TypeId;
 
 #[cfg(all(feature = "file_watcher", not(feature = "multi_threaded")))]
 compile_error!(
@@ -615,18 +618,19 @@ mod tests {
         AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
         RecursiveDependencyLoadState,
     };
+    use alloc::sync::Arc;
     use bevy_app::{App, Update};
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::prelude::*;
     use bevy_ecs::{
         event::EventCursor,
+        prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
     use serde::{Deserialize, Serialize};
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -1487,7 +1491,7 @@ mod tests {
         );
         // remove event is emitted
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![
             AssetEvent::Added { id },
             AssetEvent::Unused { id },
@@ -1508,14 +1512,14 @@ mod tests {
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
 
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added { id: a_handle.id() }];
         assert_eq!(events, expected_events);
 
         gate_opener.open(dep_path);
         loop {
             app.update();
-            let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+            let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
             if events.is_empty() {
                 continue;
             }
@@ -1529,7 +1533,7 @@ mod tests {
             break;
         }
         app.update();
-        let events = std::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
+        let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
             id: dep_handle.id(),
         }];

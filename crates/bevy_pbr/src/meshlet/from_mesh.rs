@@ -1,9 +1,11 @@
 use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
+use alloc::borrow::Cow;
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
 use bevy_utils::HashMap;
+use core::ops::Range;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
@@ -11,7 +13,6 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
-use std::{borrow::Cow, ops::Range};
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -281,7 +282,7 @@ fn simplify_meshlet_group(
         vertices,
         group_indices.len() / 2,
         f32::MAX,
-        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, // TODO: Specify manual vertex locks instead of meshopt's overly-strict locks
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, /* TODO: Specify manual vertex locks instead of meshopt's overly-strict locks */
         Some(&mut error),
     );
 

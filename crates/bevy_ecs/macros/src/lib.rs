@@ -118,7 +118,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
             BundleFieldKind::Ignore => {
                 field_from_components.push(quote! {
-                    #field: ::std::default::Default::default(),
+                    #field: ::core::default::Default::default(),
                 });
             }
         }
@@ -269,6 +269,15 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
                 fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
                     <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
+                }
+
+                #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s Self::State,
+                    system_meta: &SystemMeta,
+                    world: UnsafeWorldCell<'w>,
+                ) -> bool {
+                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
                 }
 
                 #[inline]
@@ -512,6 +521,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 
+                #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s Self::State,
+                    system_meta: &#path::system::SystemMeta,
+                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                ) -> bool {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
+                }
+
+                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,

@@ -1,6 +1,9 @@
 use crate::{App, AppError, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
-use std::any::TypeId;
+use bevy_utils::{
+    tracing::{debug, warn},
+    TypeIdMap,
+};
+use core::any::TypeId;
 
 /// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
 ///
@@ -160,7 +163,7 @@ pub trait PluginGroup: Sized {
     fn build(self) -> PluginGroupBuilder;
     /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
     fn name() -> String {
-        std::any::type_name::<Self>().to_string()
+        core::any::type_name::<Self>().to_string()
     }
     /// Sets the value of the given [`Plugin`], if it exists
     fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
@@ -185,6 +188,7 @@ fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
+///
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.
@@ -215,7 +219,7 @@ impl PluginGroupBuilder {
             Some(i) => i,
             None => panic!(
                 "Plugin does not exist in group: {}.",
-                std::any::type_name::<Target>()
+                core::any::type_name::<Target>()
             ),
         }
     }
@@ -269,7 +273,7 @@ impl PluginGroupBuilder {
         let entry = self.plugins.get_mut(&TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "{} does not exist in this PluginGroup",
-                std::any::type_name::<T>(),
+                core::any::type_name::<T>(),
             )
         });
         entry.plugin = Box::new(plugin);
@@ -433,9 +437,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }
@@ -450,9 +454,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -467,9 +471,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -485,9 +489,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -503,9 +507,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -521,9 +525,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -541,9 +545,9 @@ mod tests {
         assert_eq!(
             group_b.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }
@@ -565,9 +569,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }
