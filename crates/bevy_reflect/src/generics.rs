@@ -2,6 +2,7 @@ use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
+use core::ops::Deref;
 
 #[derive(Clone, Default, Debug)]
 pub struct Generics(Box<[GenericInfo]>);
@@ -11,28 +12,24 @@ impl Generics {
         Self(Box::new([]))
     }
 
-    pub fn get(&self, name: &str) -> Option<&GenericInfo> {
+    pub fn get_named(&self, name: &str) -> Option<&GenericInfo> {
         // For small sets of generics (the most common case),
         // a linear search is often faster using a `HashMap`.
         self.0.iter().find(|info| info.name() == name)
-    }
-
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &GenericInfo> {
-        self.0.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 
 impl FromIterator<GenericInfo> for Generics {
     fn from_iter<T: IntoIterator<Item = GenericInfo>>(iter: T) -> Self {
         Self(iter.into_iter().collect())
+    }
+}
+
+impl Deref for Generics {
+    type Target = [GenericInfo];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -197,17 +194,17 @@ mod tests {
             .unwrap()
             .generics();
 
-        let t = generics.get("T").unwrap();
+        let t = generics.get_named("T").unwrap();
         assert_eq!(t.name(), "T");
         assert!(t.ty().is::<f32>());
         assert!(!t.is_const());
 
-        let u = generics.get("U").unwrap();
+        let u = generics.get_named("U").unwrap();
         assert_eq!(u.name(), "U");
         assert!(u.ty().is::<String>());
         assert!(!u.is_const());
 
-        let n = generics.get("N").unwrap();
+        let n = generics.get_named("N").unwrap();
         assert_eq!(n.name(), "N");
         assert!(n.ty().is::<usize>());
         assert!(n.is_const());
@@ -223,12 +220,12 @@ mod tests {
             .unwrap()
             .generics();
 
-        let GenericInfo::Type(u) = generics.get("U").unwrap() else {
+        let GenericInfo::Type(u) = generics.get_named("U").unwrap() else {
             panic!("expected a type parameter");
         };
         assert_eq!(u.default().unwrap(), &Type::of::<String>());
 
-        let GenericInfo::Const(n) = generics.get("N").unwrap() else {
+        let GenericInfo::Const(n) = generics.get_named("N").unwrap() else {
             panic!("expected a const parameter");
         };
         assert_eq!(n.default().unwrap().downcast_ref::<usize>().unwrap(), &10);
