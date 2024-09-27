@@ -2,7 +2,7 @@ use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, Meshl
 use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
-    render_resource::PrimitiveTopology,
+    render_resource::{PrimitiveTopology, COPY_BUFFER_ALIGNMENT},
 };
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
@@ -14,7 +14,7 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
-use std::{borrow::Cow, ops::Range};
+use std::{borrow::Cow, iter, ops::Range};
 
 const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 14;
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
@@ -145,8 +145,15 @@ impl MeshletMesh {
             );
         }
 
+        // Pad vertex positions buffer if needed
+        vertex_positions.set_uninitialized(false);
+        let mut vertex_positions = vertex_positions.into_vec();
+        let padding = COPY_BUFFER_ALIGNMENT as usize
+            - (vertex_positions.len() % COPY_BUFFER_ALIGNMENT as usize);
+        vertex_positions.extend(iter::repeat(0).take(padding));
+
         Ok(Self {
-            vertex_positions: vertex_positions.into_vec().into(),
+            vertex_positions: vertex_positions.into(),
             vertex_normals: vertex_normals.into(),
             vertex_uvs: vertex_uvs.into(),
             indices: meshlets.triangles.into(),
