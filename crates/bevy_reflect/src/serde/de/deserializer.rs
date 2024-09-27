@@ -108,15 +108,36 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// [`can_deserialize`]: Self::can_deserialize
 /// [`deserialize`]: Self::deserialize
 pub struct ReflectDeserializerProcessor<'p> {
-    /// When deserializing a value, do we want this processor to override the
-    /// default deserialization, and give us control?
+    /// When deserializing a value of which we know the type (via
+    /// [`TypeRegistration`]), do we want this processor to override the default
+    /// deserialization?
     ///
     /// If this returns [`true`], [`deserialize`] is used to create the
     /// reflected value.
     ///
     /// [`deserialize`]: Self::deserialize
     pub can_deserialize: Box<dyn FnMut(&TypeRegistration) -> bool + 'p>,
-    /// Deserializes a value for which [`can_deserialize`] returned true.
+    /// Deserializes a value for which [`can_deserialize`] returned [`true`].
+    ///
+    /// If you potentially return [`Ok`], you must consume the deserializer,
+    /// even if you don't use its output, otherwise the deserializer will be
+    /// in an invalid state.
+    ///
+    /// For example, the proper way to return a constant value is:
+    ///
+    /// ```
+    /// # use serde::Deserializer;
+    /// # use bevy_reflect::{PartialReflect, TypeRegistration};
+    /// use serde::de::IgnoredAny;
+    ///
+    /// fn deserialize(
+    ///     _registration: &TypeRegistration,
+    ///     deserializer: &mut dyn erased_serde::Deserializer
+    /// ) -> Result<Box<dyn PartialReflect>, erased_serde::Error> {
+    ///     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+    ///     Ok(Box::new(42_i32))
+    /// }
+    /// ```
     ///
     /// [`can_deserialize`]: Self::can_deserialize
     pub deserialize: Box<
