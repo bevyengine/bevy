@@ -206,14 +206,12 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, background_color) in
-        &uinode_query
-    {
+    for (uinode, transform, view_visibility, clip, camera, background_color) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
-      
+
         let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
@@ -368,11 +366,11 @@ pub fn extract_uinode_borders(
         else {
             continue;
         };
-      
+
         let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
-      
+
         // Skip invisible borders
         if !view_visibility.get()
             || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
