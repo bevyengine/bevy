@@ -31,7 +31,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Tick,
+        Components, RequiredComponents, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -276,6 +276,17 @@ impl World {
         unsafe { self.components.get_hooks_mut(index).debug_checked_unwrap() }
     }
 
+    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
+    ///
+    /// Will panic if `id` exists in any archetypes.
+    pub fn register_component_hooks_by_id(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<&mut ComponentHooks> {
+        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
+        self.components.get_hooks_mut(id)
+    }
+
     /// Registers the given component `R` as a [required component] for `T`.
     ///
     /// When `T` is added to an entity, `R` and its own required components will also be added
@@ -388,15 +399,17 @@ impl World {
         );
     }
 
-    /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] with the given id if it exists.
-    ///
-    /// Will panic if `id` exists in any archetypes.
-    pub fn register_component_hooks_by_id(
-        &mut self,
-        id: ComponentId,
-    ) -> Option<&mut ComponentHooks> {
-        assert!(!self.archetypes.archetypes.iter().any(|a| a.contains(id)), "Components hooks cannot be modified if the component already exists in an archetype, use register_component if the component with id {:?} may already be in use", id);
-        self.components.get_hooks_mut(id)
+    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
+    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+        let id = self.components().component_id::<C>()?;
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
+    }
+
+    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
