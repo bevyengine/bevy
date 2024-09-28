@@ -1,3 +1,42 @@
+//! Asset processing in Bevy is a framework for automatically transforming artist-authored assets into the format that best suits the needs of your particular game.
+//!
+//! You can think of the asset processing system as a "build system" for assets.
+//! When an artist adds a new asset to the project or an asset is changed (assuming asset hot reloading is enabled), the asset processing system will automatically perform the specified processing steps on the asset.
+//! This can include things like creating lightmaps for baked lighting, compressing a `.wav` file to an `.ogg`, or generating mipmaps for a texture.
+//!
+//! Its core values are:
+//!
+//! 1. Automatic: new and changed assets should be ready to use in-game without requiring any manual conversion or cleanup steps.
+//! 2. Configurable: every game has its own needs, and a high level of transparency and control is required.
+//! 3. Lossless: the original asset should always be preserved, ensuring artists can make changes later.
+//! 4. Deterministic: performing the same processing steps on the same asset should (generally) produce the exact same result. In cases where this doesn't make sense (steps that involve a degree of randomness or uncertainty), the results across runs should be "acceptably similar", as they will be generated once for a given set of inputs and cached.
+//!
+//! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
+//! While it may be possible to manually edit the final asset, this should be discouraged.
+//! Final post-processed assets should generally not be version-controlled, except to save developer time when recomputing heavy asset processing steps.
+//!
+//! # Usage
+//!
+//! Asset processing can be enabled or disabled in [`AssetPlugin`](crate::AssetPlugin) by setting the [`AssetMode`](crate::AssetMode).\
+//! Enable Bevy's `file_watcher` feature to automatically watch for changes to assets and reprocess them.
+//!
+//! To register a new asset processor, use [`AssetProcessor::register_processor`].
+//! To set the default asset processor for a given extension, use [`AssetProcessor::set_default_processor`].
+//! In most cases, these methods will be called directly on [`App`](bevy_app::App) using the [`AssetApp`](crate::AssetApp) extension trait.
+//!
+//! If a default asset processor is set, assets with a matching extension will be processed using that processor before loading.
+//!
+//! For an end-to-end example, check out the examples in the [`examples/asset/processing`](https://github.com/bevyengine/bevy/tree/latest/examples/asset/processing) directory of the Bevy repository.
+//!
+//!  # Defining asset processors
+//!
+//! Bevy provides two different ways to define new asset processors:
+//!
+//! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
+//! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
+//!
+//! In most cases, [`LoadTransformAndSave`] should be sufficient.
+
 mod log;
 mod process;
 
@@ -17,30 +56,25 @@ use crate::{
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
+use alloc::{collections::VecDeque, sync::Arc};
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{debug, error, trace, warn};
+use bevy_utils::{
+    tracing::{debug, error, trace, warn},
+    HashMap, HashSet,
+};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
-use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
-use std::{
-    collections::VecDeque,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-// Needed for doc strings
-#[allow(unused_imports)]
-use crate::io::{AssetReader, AssetWriter};
-
-/// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`] / [`AssetWriter`] pair),
+/// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
 ///
 /// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetSource`] for assets that
@@ -61,6 +95,7 @@ pub struct AssetProcessor {
     pub(crate) data: Arc<AssetProcessorData>,
 }
 
+/// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
@@ -89,6 +124,11 @@ impl AssetProcessor {
             false,
         );
         Self { server, data }
+    }
+
+    /// Gets a reference to the [`Arc`] containing the [`AssetProcessorData`].
+    pub fn data(&self) -> &Arc<AssetProcessorData> {
+        &self.data
     }
 
     /// The "internal" [`AssetServer`] used by the [`AssetProcessor`]. This is _separate_ from the asset processor used by
@@ -152,9 +192,9 @@ impl AssetProcessor {
 
     /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-        error!("Cannot run AssetProcessor in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        error!("Cannot run AssetProcessor in single threaded mode (or Wasm) yet.");
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let processor = _processor.clone();
             std::thread::spawn(move || {
@@ -167,11 +207,11 @@ impl AssetProcessor {
     /// Processes all assets. This will:
     /// * For each "processed [`AssetSource`]:
     /// * Scan the [`ProcessorTransactionLog`] and recover from any failures detected
-    /// * Scan the processed [`AssetReader`] to build the current view of already processed assets.
-    /// * Scan the unprocessed [`AssetReader`] and remove any final processed assets that are invalid or no longer exist.
-    /// * For each asset in the unprocessed [`AssetReader`], kick off a new "process job", which will process the asset
-    /// (if the latest version of the asset has not been processed).
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    /// * Scan the processed [`AssetReader`](crate::io::AssetReader) to build the current view of already processed assets.
+    /// * Scan the unprocessed [`AssetReader`](crate::io::AssetReader) and remove any final processed assets that are invalid or no longer exist.
+    /// * For each asset in the unprocessed [`AssetReader`](crate::io::AssetReader), kick off a new "process job", which will process the asset
+    ///     (if the latest version of the asset has not been processed).
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
@@ -322,9 +362,9 @@ impl AssetProcessor {
             "Folder {} was added. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
-        error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        error!("AddFolder event cannot be handled in single threaded mode (or Wasm) yet.");
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.process_assets_internal(scope, source, path)
@@ -439,7 +479,7 @@ impl AssetProcessor {
     }
 
     #[allow(unused)]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
@@ -464,7 +504,7 @@ impl AssetProcessor {
     async fn try_reprocessing_queued(&self) {
         loop {
             let mut check_reprocess_queue =
-                std::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
+                core::mem::take(&mut self.data.asset_infos.write().await.check_reprocess_queue);
             IoTaskPool::get().scope(|scope| {
                 for path in check_reprocess_queue.drain(..) {
                     let processor = self.clone();
@@ -486,13 +526,13 @@ impl AssetProcessor {
         let mut process_plans = self.data.processors.write();
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
-        process_plans.insert(std::any::type_name::<P>(), Arc::new(processor));
+        process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
     }
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
         let mut default_processors = self.data.default_processors.write();
-        default_processors.insert(extension.into(), std::any::type_name::<P>());
+        default_processors.insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -512,7 +552,13 @@ impl AssetProcessor {
     /// This info will later be used to determine whether or not to re-process an asset
     ///
     /// This will validate transactions and recover failed transactions when necessary.
-    #[allow(unused)]
+    #[cfg_attr(
+        any(target_arch = "wasm32", not(feature = "multi_threaded")),
+        expect(
+            dead_code,
+            reason = "This function is only used when the `multi_threaded` feature is enabled, and when not on WASM."
+        )
+    )]
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.asset_infos.write().await;
@@ -897,7 +943,7 @@ impl AssetProcessor {
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
                                 debug!("Asset {path:?} did not finish processing. Clearing state for that asset");
-                                let mut unrecoverable_err = |message: &dyn std::fmt::Display| {
+                                let mut unrecoverable_err = |message: &dyn core::fmt::Display| {
                                     error!("Failed to remove asset {path:?}: {message}");
                                     state_is_valid = false;
                                 };
@@ -961,6 +1007,7 @@ impl AssetProcessor {
 }
 
 impl AssetProcessorData {
+    /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
     pub fn new(source: AssetSources) -> Self {
         let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
         let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
@@ -1062,7 +1109,7 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
         };
         let span = info_span!(
             "asset processing",
-            processor = std::any::type_name::<T>(),
+            processor = core::any::type_name::<T>(),
             asset = context.path().to_string(),
         );
         self.0.process(context, meta, writer).instrument(span)
@@ -1098,6 +1145,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// * when the processor is running in parallel with an app
     /// * when processing assets in parallel, the processor might read an asset's `process_dependencies` when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
+    ///
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
     pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,
@@ -1299,7 +1347,7 @@ impl ProcessorAssetInfos {
                     info.dependants
                 );
                 self.non_existent_dependants
-                    .insert(old.clone(), std::mem::take(&mut info.dependants));
+                    .insert(old.clone(), core::mem::take(&mut info.dependants));
             }
             if let Some(processed_info) = &info.processed_info {
                 // Update "dependant" lists for this asset's "process dependencies" to use new path.

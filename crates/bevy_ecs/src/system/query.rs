@@ -8,7 +8,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -354,8 +354,8 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> std::fmt::Debug for Query<'_, '_, D, F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
             .field("state", &self.state)
@@ -403,6 +403,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
+    }
+
+    /// Returns a new `Query` reborrowing the access from this one. The current query will be unusable
+    /// while the new one exists.
+    ///
+    /// # Example
+    ///
+    /// For example this allows to call other methods or other systems that require an owned `Query` without
+    /// completely giving up ownership of it.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn helper_system(query: Query<&ComponentA>) { /* ... */}
+    ///
+    /// fn system(mut query: Query<&ComponentA>) {
+    ///     helper_system(query.reborrow());
+    ///     // Can still use query here:
+    ///     for component in &query {
+    ///         // ...
+    ///     }
+    /// }
+    /// ```
+    pub fn reborrow(&mut self) -> Query<'_, 's, D, F> {
+        // SAFETY: this query is exclusively borrowed while the new one exists, so
+        // no overlapping access can occur.
+        unsafe { Query::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -586,13 +616,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator>(
+    pub fn iter_many<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -640,13 +667,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator>(
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state.iter_many_unchecked_manual(
@@ -722,13 +746,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
@@ -1150,7 +1171,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if the number of query item is **not** exactly one.
+    /// This method panics if the number of query items is **not** exactly one.
     ///
     /// # Example
     ///
@@ -1368,12 +1389,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - We have exclusive access to the query
-        // - `self` has correctly captured its access
-        // - Access is checked to be a subset of the query's access when the state is created.
-        let world = unsafe { self.world.world() };
-        let state = self.state.transmute_filtered::<NewD, NewF>(world);
+        let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
         QueryLens {
             world: self.world,
             state,
@@ -1389,9 +1405,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
     ///
-    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
-    /// The returned query will only return items with both `A` and `B`. Note that since filter
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filters
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -1450,7 +1466,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
     ///
-    /// Note that the lens with iterate a subset of the original queries tables
+    /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
     /// terms like `Added` and `Changed` will only be respected if they are in
@@ -1464,14 +1480,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        // SAFETY:
-        // - The queries have correctly captured their access.
-        // - We have exclusive access to both queries.
-        // - Access for QueryLens is checked when state is created.
-        let world = unsafe { self.world.world() };
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(world, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
         QueryLens {
             world: self.world,
             state,

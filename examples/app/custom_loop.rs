@@ -8,6 +8,11 @@ use std::io;
 struct Input(String);
 
 fn my_runner(mut app: App) -> AppExit {
+    // Finalize plugin building, including running any necessary clean-up.
+    // This is normally completed by the default runner.
+    app.finish();
+    app.cleanup();
+
     println!("Type stuff into the console");
     for line in io::stdin().lines() {
         {

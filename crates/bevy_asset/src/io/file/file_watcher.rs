@@ -1,7 +1,8 @@
-use crate::io::{AssetSourceEvent, AssetWatcher};
-use crate::path::normalize_path;
-use bevy_utils::tracing::error;
-use bevy_utils::Duration;
+use crate::{
+    io::{AssetSourceEvent, AssetWatcher},
+    path::normalize_path,
+};
+use bevy_utils::{tracing::error, Duration};
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
@@ -46,7 +47,13 @@ impl FileWatcher {
 impl AssetWatcher for FileWatcher {}
 
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
-    let relative_path = absolute_path.strip_prefix(root).unwrap();
+    let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
+        panic!(
+            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}",
+            absolute_path,
+            root
+        )
+    });
     let is_meta = relative_path
         .extension()
         .map(|e| e == "meta")

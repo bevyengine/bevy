@@ -20,6 +20,7 @@ use wgpu::{
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],
     supported_compressed_formats: CompressedImageFormats,
@@ -78,7 +79,7 @@ pub fn ktx2_buffer_to_image(
             }
         }
     } else {
-        levels = ktx2.levels().map(|level| level.to_vec()).collect();
+        levels = ktx2.levels().map(<[u8]>::to_vec).collect();
     }
 
     // Identify the format
@@ -387,6 +388,7 @@ pub fn get_transcoded_formats(
     }
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
     ktx2: &ktx2::Reader<Data>,
     is_srgb: bool,
@@ -425,7 +427,7 @@ enum DataType {
     Sint,
 }
 
-// This can be obtained from std::mem::transmute::<f32, u32>(1.0f32). It is used for identifying
+// This can be obtained from core::mem::transmute::<f32, u32>(1.0f32). It is used for identifying
 // normalized sample types as in Unorm or Snorm.
 const F32_1_AS_U32: u32 = 1065353216;
 
@@ -473,6 +475,7 @@ fn sample_information_to_data_type(
     )
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_to_texture_format(
     data_format_descriptor: &BasicDataFormatDescriptor,
     sample_information: &[SampleInformation],
@@ -1194,6 +1197,7 @@ pub fn ktx2_dfd_to_texture_format(
     })
 }
 
+#[cfg(feature = "ktx2")]
 pub fn ktx2_format_to_texture_format(
     ktx2_format: ktx2::Format,
     is_srgb: bool,

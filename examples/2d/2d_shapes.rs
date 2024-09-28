@@ -1,18 +1,29 @@
 //! Shows how to render simple primitive shapes with a single color.
+//!
+//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
+//! `POLYGON_MODE_LINE` on the gpu.
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .run();
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins,
+        #[cfg(not(target_arch = "wasm32"))]
+        Wireframe2dPlugin,
+    ))
+    .add_systems(Startup, setup);
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, toggle_wireframe);
+    app.run();
 }
 
-const X_EXTENT: f32 = 600.;
+const X_EXTENT: f32 = 900.;
 
 fn setup(
     mut commands: Commands,
@@ -22,10 +33,13 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let shapes = [
-        Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+        Mesh2dHandle(meshes.add(Circle::new(50.0))),
+        Mesh2dHandle(meshes.add(CircularSector::new(50.0, 1.0))),
+        Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 1.25))),
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
         Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Rhombus::new(75.0, 100.0))),
         Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
         Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
         Mesh2dHandle(meshes.add(Triangle2d::new(
@@ -51,5 +65,26 @@ fn setup(
             ),
             ..default()
         });
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    commands.spawn(
+        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            }),
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        wireframe_config.global = !wireframe_config.global;
     }
 }

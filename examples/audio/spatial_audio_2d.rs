@@ -78,10 +78,7 @@ fn setup(
     commands.spawn(
         TextBundle::from_section(
             "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -111,7 +108,7 @@ fn update_emitters(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
+            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 500.0;
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
@@ -52,6 +52,9 @@ pub unsafe trait WorldQuery {
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
+
+    /// This function manually implements subtyping for the query fetches.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of this fetch.
     ///
@@ -130,8 +133,8 @@ pub unsafe trait WorldQuery {
     fn init_state(world: &mut World) -> Self::State;
 
     /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to the [`World`].
-    fn get_state(world: &World) -> Option<Self::State>;
+    /// access to [`Components`].
+    fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
@@ -144,10 +147,11 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -162,6 +166,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
+                )*)
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($name,)*) = fetch;
+                ($(
+                    $name::shrink_fetch($name),
                 )*)
             }
 
@@ -212,13 +223,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, _access);)*
             }
-
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            #[allow(unused_variables)]
+            fn init_state(world: &mut World) -> Self::State {
+                ($($name::init_state(world),)*)
             }
-
-            fn get_state(_world: &World) -> Option<Self::State> {
-                Some(($($name::get_state(_world)?,)*))
+            #[allow(unused_variables)]
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -229,4 +240,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);

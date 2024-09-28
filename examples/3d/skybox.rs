@@ -81,6 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
+            ..default()
         },
     ));
 
@@ -126,7 +127,10 @@ fn cycle_cubemap_asset(
         if supported_compressed_formats.contains(CUBEMAPS[new_index].1) {
             break;
         }
-        info!("Skipping unsupported format: {:?}", CUBEMAPS[new_index]);
+        info!(
+            "Skipping format which is not supported by current hardware: {:?}",
+            CUBEMAPS[new_index]
+        );
     }
 
     // Skip swapping to the same texture. Useful for when ktx2, zstd, or compressed texture support

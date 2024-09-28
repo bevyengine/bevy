@@ -1,4 +1,4 @@
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
@@ -51,6 +51,7 @@ pub enum ImageFormatSetting {
     #[default]
     FromExtension,
     Format(ImageFormat),
+    Guess,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -87,7 +88,7 @@ impl AssetLoader for ImageLoader {
     type Error = ImageLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
@@ -100,6 +101,18 @@ impl AssetLoader for ImageLoader {
                 ImageType::Extension(ext)
             }
             ImageFormatSetting::Format(format) => ImageType::Format(format),
+            ImageFormatSetting::Guess => {
+                let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
+                    error: err.into(),
+                    path: format!("{}", load_context.path().display()),
+                })?;
+                ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
+                    || FileTextureError {
+                        error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
+                        path: format!("{}", load_context.path().display()),
+                    },
+                )?)
+            }
         };
         Ok(Image::from_buffer(
             #[cfg(all(debug_assertions, feature = "dds"))]
@@ -141,8 +154,8 @@ pub struct FileTextureError {
     error: TextureError,
     path: String,
 }
-impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for FileTextureError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",

@@ -133,7 +133,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     });
 
     // spawn the game board
-    let cell_scene = asset_server.load("models/AlienCake/tile.glb#Scene0");
+    let cell_scene =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/tile.glb"));
     game.board = (0..BOARD_SIZE_J)
         .map(|j| {
             (0..BOARD_SIZE_I)
@@ -163,21 +164,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
-                scene: asset_server.load("models/AlienCake/alien.glb#Scene0"),
+                scene: asset_server
+                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
                 ..default()
             })
             .id(),
     );
 
     // load the scene for the cake
-    game.bonus.handle = asset_server.load("models/AlienCake/cakeBirthday.glb#Scene0");
+    game.bonus.handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/cakeBirthday.glb"));
 
     // scoreboard
     commands.spawn(
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font_size: 40.0,
+                font_size: 33.0,
                 color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
@@ -373,8 +376,9 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_seconds());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
+            cake_transform.scale = Vec3::splat(
+                1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_seconds())).abs(),
+            );
         }
     }
 }
@@ -411,7 +415,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font_size: 80.0,
+                    font_size: 67.0,
                     color: Color::srgb(0.5, 0.5, 1.0),
                     ..default()
                 },

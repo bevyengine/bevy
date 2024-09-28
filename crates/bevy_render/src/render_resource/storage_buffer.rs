@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
@@ -7,6 +7,8 @@ use encase::{
     StorageBuffer as StorageBufferWrapper,
 };
 use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsages};
+
+use super::IntoBinding;
 
 /// Stores data to be transferred to the GPU and made accessible to shaders as a storage buffer.
 ///
@@ -24,6 +26,8 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -136,6 +140,16 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 }
 
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.buffer()
+            .expect("Failed to get buffer")
+            .as_entire_buffer_binding()
+            .into_binding()
+    }
+}
+
 /// Stores data to be transferred to the GPU and made accessible to shaders as a dynamic storage buffer.
 ///
 /// Dynamic storage buffers can be made available to shaders in some combination of read/write mode, and can store large amounts
@@ -154,6 +168,8 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
 /// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`BufferVec`](crate::render_resource::BufferVec)
 /// * [`Texture`](crate::render_resource::Texture)
 ///
@@ -234,7 +250,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
         let capacity = self.buffer.as_deref().map(wgpu::Buffer::size).unwrap_or(0);
         let size = self.scratch.as_ref().len() as u64;
 
-        if capacity < size || self.changed {
+        if capacity < size || (self.changed && size > 0) {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: self.buffer_usage,
@@ -250,5 +266,12 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     pub fn clear(&mut self) {
         self.scratch.as_mut().clear();
         self.scratch.set_offset(0);
+    }
+}
+
+impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a DynamicStorageBuffer<T> {
+    #[inline]
+    fn into_binding(self) -> BindingResource<'a> {
+        self.binding().unwrap()
     }
 }

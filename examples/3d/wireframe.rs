@@ -115,8 +115,8 @@ fn setup(
     commands.spawn(
         TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -130,8 +130,7 @@ fn update_colors(
     mut text: Query<&mut Text>,
 ) {
     text.single_mut().sections[0].value = format!(
-        "
-Controls
+        "Controls
 ---------------
 Z - Toggle global
 X - Change global color
@@ -140,8 +139,7 @@ C - Change color of the green cube wireframe
 WireframeConfig
 -------------
 Global: {}
-Color: {:?}
-",
+Color: {:?}",
         config.global, config.default_color,
     );
 

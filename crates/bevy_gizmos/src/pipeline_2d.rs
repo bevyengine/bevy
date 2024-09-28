@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -19,7 +19,8 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline, SortedRenderPhase,
+        AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
+        ViewSortedRenderPhases,
     },
     render_resource::*,
     texture::BevyDefault,
@@ -138,7 +139,22 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             }),
             layout,
             primitive: PrimitiveState::default(),
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
                 mask: !0,
@@ -223,7 +239,22 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             }),
             layout,
             primitive: PrimitiveState::default(),
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.mesh_key.msaa_samples(),
                 mask: !0,
@@ -254,24 +285,24 @@ fn queue_line_gizmos_2d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut views: Query<(
-        &ExtractedView,
-        &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view_entity, view, msaa, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
+        let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
@@ -307,27 +338,27 @@ fn queue_line_joint_gizmos_2d(
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut views: Query<(
-        &ExtractedView,
-        &mut SortedRenderPhase<Transparent2d>,
-        Option<&RenderLayers>,
-    )>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo2d>()
         .unwrap();
 
-    for (view, mut transparent_phase, render_layers) in &mut views {
+    for (view_entity, view, msaa, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
+        let render_layers = render_layers.unwrap_or_default();
         for (entity, handle, config) in &line_gizmos {
-            let render_layers = render_layers.copied().unwrap_or_default();
-            if !config.render_layers.intersects(&render_layers) {
+            if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 

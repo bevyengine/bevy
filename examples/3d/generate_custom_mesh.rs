@@ -2,15 +2,18 @@
 //! assign a custom UV mapping for a custom texture,
 //! and how to change the UV mapping at run-time.
 
-use bevy::prelude::*;
-use bevy::render::{
-    mesh::{Indices, VertexAttributeValues},
-    render_asset::RenderAssetUsages,
-    render_resource::PrimitiveTopology,
+use bevy::{
+    prelude::*,
+    render::{
+        mesh::{Indices, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
+        render_resource::PrimitiveTopology,
+    },
 };
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
+// filtering entities in queries with `With`, they're usually not queried directly since they don't
+// contain information within them.
 #[derive(Component)]
 struct CustomUV;
 
@@ -66,10 +69,7 @@ fn setup(
     commands.spawn(
         TextBundle::from_section(
             "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -226,6 +226,34 @@ fn create_cube_mesh() -> Mesh {
     // should appear counter-clockwise from the front of the triangle, in this case from outside the cube).
     // Read more about how to correctly build a mesh manually in the Bevy documentation of a Mesh,
     // further examples and the implementation of the built-in shapes.
+    //
+    // The first two defined triangles look like this (marked with the vertex indices,
+    // and the axis), when looking down at the top (+y) of the cube:
+    //   -Z
+    //   ^
+    // 0---1
+    // |  /|
+    // | / | -> +X
+    // |/  |
+    // 3---2
+    //
+    // The right face's (+x) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 10--11
+    // |  /|
+    // | / | -> -Z
+    // |/  |
+    // 9---8
+    //
+    // The back face's (+z) triangles look like this, seen from the outside of the cube.
+    //   +Y
+    //   ^
+    // 17--18
+    // |\  |
+    // | \ | -> +X
+    // |  \|
+    // 16--19
     .with_inserted_indices(Indices::U32(vec![
         0,3,1 , 1,3,2, // triangles making up the top (+y) facing side.
         4,5,7 , 5,6,7, // bottom (-y)

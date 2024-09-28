@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 /// A static accessor to type paths and names.
 ///
@@ -79,12 +79,16 @@ use std::fmt;
 /// [`crate_name`]: TypePath::crate_name
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `TypePath` so cannot provide static type path information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait TypePath: 'static {
     /// Returns the fully qualified path of the underlying type.
     ///
     /// Generic parameter types are also fully expanded.
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option::Option<alloc::vec::Vec<usize>>"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option::Option<std::vec::Vec<usize>>"`.
     fn type_path() -> &'static str;
 
     /// Returns a short, pretty-print enabled path to the type.
@@ -116,7 +120,7 @@ pub trait TypePath: 'static {
 
     /// Returns the path to the module the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn module_path() -> Option<&'static str> {
@@ -129,6 +133,10 @@ pub trait TypePath: 'static {
 /// Since this is a supertrait of [`Reflect`] its methods can be called on a `dyn Reflect`.
 ///
 /// [`Reflect`]: crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `TypePath` so cannot provide dynamic type path information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
+)]
 pub trait DynamicTypePath {
     /// See [`TypePath::type_path`].
     fn reflect_type_path(&self) -> &str;
@@ -147,22 +155,27 @@ pub trait DynamicTypePath {
 }
 
 impl<T: TypePath> DynamicTypePath for T {
+    #[inline]
     fn reflect_type_path(&self) -> &str {
         Self::type_path()
     }
 
+    #[inline]
     fn reflect_short_type_path(&self) -> &str {
         Self::short_type_path()
     }
 
+    #[inline]
     fn reflect_type_ident(&self) -> Option<&str> {
         Self::type_ident()
     }
 
+    #[inline]
     fn reflect_crate_name(&self) -> Option<&str> {
         Self::crate_name()
     }
 
+    #[inline]
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
     }

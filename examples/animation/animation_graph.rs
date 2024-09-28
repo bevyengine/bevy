@@ -3,9 +3,6 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, path::Path};
-
 use bevy::{
     animation::animate_targets,
     color::palettes::{
@@ -17,12 +14,13 @@ use bevy::{
 };
 
 use argh::FromArgs;
+
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::asset::io::file::FileAssetReader;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::IoTaskPool;
-#[cfg(not(target_arch = "wasm32"))]
-use ron::ser::PrettyConfig;
+use {
+    bevy::{asset::io::file::FileAssetReader, tasks::IoTaskPool},
+    ron::ser::PrettyConfig,
+    std::{fs::File, path::Path},
+};
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
@@ -160,17 +158,17 @@ fn setup_assets_programmatically(
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
         1.0,
         animation_graph.root,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation1"),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation2"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
@@ -236,7 +234,7 @@ fn setup_scene(
     });
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         transform: Transform::from_scale(Vec3::splat(0.07)),
         ..default()
     });
@@ -254,13 +252,7 @@ fn setup_scene(
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
     commands.spawn(TextBundle {
-        text: Text::from_section(
-            HELP_TEXT,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        ),
+        text: Text::from_section(HELP_TEXT, TextStyle::default()),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -316,7 +308,7 @@ fn setup_node_rects(commands: &mut Commands) {
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
-                container.insert((
+                container = container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),

@@ -1,8 +1,7 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;
 use bevy::{
@@ -118,9 +117,9 @@ fn setup(
 
     // Insert a resource with the current scene information
     let animation_clips = [
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
@@ -136,7 +135,8 @@ fn setup(
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
 
     // NOTE: This fox model faces +z
-    let fox_handle = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (
@@ -168,7 +168,7 @@ fn setup(
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
-            let (s, c) = fox_angle.sin_cos();
+            let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {

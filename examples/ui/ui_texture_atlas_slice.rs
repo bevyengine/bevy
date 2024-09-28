@@ -50,11 +50,12 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let texture_handle = asset_server.load("textures/fantasy_ui_borders/border_sheet.png");
-    let atlas_layout = TextureAtlasLayout::from_grid(UVec2::new(50, 50), 6, 6, None, None);
+    let atlas_layout =
+        TextureAtlasLayout::from_grid(UVec2::new(50, 50), 6, 6, Some(UVec2::splat(2)), None);
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::square(24.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -105,7 +106,7 @@ fn setup(
                             "Button",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                             },
                         ));

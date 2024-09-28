@@ -3,8 +3,9 @@ use crate::{
     define_atomic_id,
     render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
 };
+use alloc::borrow::Cow;
 use bevy_asset::Handle;
-use std::{borrow::Cow, ops::Deref};
+use core::ops::Deref;
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
     PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
@@ -157,6 +158,15 @@ impl VertexBufferLayout {
             step_mode,
             attributes,
         }
+    }
+
+    /// Returns a [`VertexBufferLayout`] with the shader location of every attribute offset by
+    /// `location`.
+    pub fn offset_locations_by(mut self, location: u32) -> Self {
+        self.attributes.iter_mut().for_each(|attr| {
+            attr.shader_location += location;
+        });
+        self
     }
 }
 

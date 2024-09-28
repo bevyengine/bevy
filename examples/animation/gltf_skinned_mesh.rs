@@ -3,7 +3,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
+use bevy::{math::ops, prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()
@@ -27,7 +27,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf")),
         ..default()
     });
 }
@@ -68,6 +69,6 @@ fn joint_animation(
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =
-            Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+            Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

@@ -3,14 +3,13 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, AsyncReadExt, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
 };
 use flate2::read::GzDecoder;
-use std::io::prelude::*;
-use std::marker::PhantomData;
+use std::{io::prelude::*, marker::PhantomData};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
@@ -42,7 +41,7 @@ impl AssetLoader for GzAssetLoader {
     type Error = GzAssetLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -72,7 +71,11 @@ impl AssetLoader for GzAssetLoader {
         let mut reader = VecReader::new(bytes_uncompressed);
 
         let uncompressed = load_context
-            .load_direct_with_reader(&mut reader, contained_path)
+            .loader()
+            .direct()
+            .with_reader(&mut reader)
+            .untyped()
+            .load(contained_path)
             .await?;
 
         Ok(GzAsset { uncompressed })
@@ -108,8 +111,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Sprite::default(),
-        TransformBundle::default(),
-        VisibilityBundle::default(),
+        Transform::default(),
+        Visibility::default(),
     ));
 }
 

@@ -19,7 +19,7 @@ use crate::{
 struct QueryDataAttributes {
     pub is_mutable: bool,
 
-    pub derive_args: Punctuated<Meta, syn::token::Comma>,
+    pub derive_args: Punctuated<Meta, Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
@@ -48,7 +48,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         }
 
         attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated(syn::Meta::parse, Comma)?;
+            let meta = input.parse_terminated(Meta::parse, Comma)?;
             for meta in meta {
                 let ident = meta.path().get_ident().unwrap_or_else(|| {
                     panic!(
@@ -104,7 +104,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let read_only_struct_name = if attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
-        #[allow(clippy::redundant_clone)]
         struct_name.clone()
     };
 
@@ -112,7 +111,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let read_only_item_struct_name = if attributes.is_mutable {
         Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
-        #[allow(clippy::redundant_clone)]
         item_struct_name.clone()
     };
 
@@ -122,7 +120,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let new_ident = Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site());
         ensure_no_collision(new_ident, tokens.clone())
     } else {
-        #[allow(clippy::redundant_clone)]
         fetch_struct_name.clone()
     };
 
@@ -250,9 +247,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             user_where_clauses_with_world,
         );
         let read_only_structs = quote! {
-            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`]."]
+            #[doc = concat!(
+                "Automatically generated [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) type for a read-only variant of [`",
+                stringify!(#struct_name),
+                "`]."
+            )]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #(
@@ -331,9 +332,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         const _: () = {
             #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for caching."]
+            #[doc = concat!(
+                "Automatically generated internal [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) state type for [`",
+                stringify!(#struct_name),
+                "`], used for caching."
+            )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*

@@ -30,21 +30,22 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::GpuMesh;
-use bevy_render::texture::GpuImage;
 use bevy_render::{
-    mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
-    view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
+    mesh::{Mesh, RenderMesh},
+    render_asset::RenderAssets,
+    render_resource::Shader,
+    texture::{GpuImage, Image},
+    view::ViewVisibility,
+    Extract, ExtractSchedule, RenderApp,
 };
 use bevy_utils::HashSet;
 
@@ -145,7 +146,7 @@ fn extract_lightmaps(
     lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     images: Res<RenderAssets<GpuImage>>,
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     // Clear out the old frame's data.
     render_lightmaps.render_lightmaps.clear();

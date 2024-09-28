@@ -1,9 +1,7 @@
-use bevy_asset::{
-    io::{AsyncReadExt, Reader},
-    Asset, AssetLoader, LoadContext,
-};
+use alloc::sync::Arc;
+use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
-use std::{io::Cursor, sync::Arc};
+use std::io::Cursor;
 
 /// A source of audio data
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -46,7 +44,7 @@ impl AssetLoader for AudioLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<AudioSource, Self::Error> {
@@ -76,6 +74,7 @@ impl AssetLoader for AudioLoader {
 }
 
 /// A type implementing this trait can be converted to a [`rodio::Source`] type.
+///
 /// It must be [`Send`] and [`Sync`] in order to be registered.
 /// Types that implement this trait usually contain raw sound data that can be converted into an iterator of samples.
 /// This trait is implemented for [`AudioSource`].

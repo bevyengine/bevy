@@ -133,7 +133,7 @@ fn save_scene_system(world: &mut World) {
 
     // Writing the scene to a new file. Using a task to avoid calling the filesystem APIs in a system
     // as they are blocking
-    // This can't work in WASM as there is no filesystem access
+    // This can't work in Wasm as there is no filesystem access
     #[cfg(not(target_arch = "wasm32"))]
     IoTaskPool::get()
         .spawn(async move {
@@ -153,7 +153,7 @@ fn infotext_system(mut commands: Commands) {
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font_size: 50.0,
+                font_size: 42.0,
                 ..default()
             },
         )

@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 /// An axis-aligned bounding box, defined by:
 /// - a center,
 /// - the distances from the center to each faces along the axis,
-/// the faces are orthogonal to the axis.
+///     the faces are orthogonal to the axis.
 ///
 /// It is typically used as a component on an entity to represent the local space
 /// occupied by this entity, with faces orthogonal to its local axis.
@@ -18,7 +18,7 @@ use bevy_reflect::prelude::*;
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
-/// or `Sprite` component,
+///     or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
@@ -31,7 +31,7 @@ use bevy_reflect::prelude::*;
 /// [`Mesh`]: crate::mesh::Mesh
 /// [`Handle<Mesh>`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,
@@ -76,13 +76,13 @@ impl Aabb {
 
     /// Calculate the relative radius of the AABB with respect to a plane
     #[inline]
-    pub fn relative_radius(&self, p_normal: &Vec3A, model: &Mat3A) -> f32 {
+    pub fn relative_radius(&self, p_normal: &Vec3A, world_from_local: &Mat3A) -> f32 {
         // NOTE: dot products on Vec3A use SIMD and even with the overhead of conversion are net faster than Vec3
         let half_extents = self.half_extents;
         Vec3A::new(
-            p_normal.dot(model.x_axis),
-            p_normal.dot(model.y_axis),
-            p_normal.dot(model.z_axis),
+            p_normal.dot(world_from_local.x_axis),
+            p_normal.dot(world_from_local.y_axis),
+            p_normal.dot(world_from_local.z_axis),
         )
         .abs()
         .dot(half_extents)
@@ -117,16 +117,17 @@ pub struct Sphere {
 
 impl Sphere {
     #[inline]
-    pub fn intersects_obb(&self, aabb: &Aabb, local_to_world: &Affine3A) -> bool {
-        let aabb_center_world = local_to_world.transform_point3a(aabb.center);
+    pub fn intersects_obb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
+        let aabb_center_world = world_from_local.transform_point3a(aabb.center);
         let v = aabb_center_world - self.center;
         let d = v.length();
-        let relative_radius = aabb.relative_radius(&(v / d), &local_to_world.matrix3);
+        let relative_radius = aabb.relative_radius(&(v / d), &world_from_local.matrix3);
         d < self.radius + relative_radius
     }
 }
 
 /// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+///
 /// This bisecting plane partitions 3D space into two infinite regions,
 /// the half-space is one of those regions and excludes the bisecting plane.
 ///
@@ -168,7 +169,7 @@ impl HalfSpace {
     /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal(&self) -> Vec3A {
-        Vec3A::from(self.normal_d)
+        Vec3A::from_vec4(self.normal_d)
     }
 
     /// Returns the signed distance from the bisecting plane to the origin along
@@ -212,31 +213,31 @@ impl HalfSpace {
 /// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Frustum {
     #[reflect(ignore)]
     pub half_spaces: [HalfSpace; 6],
 }
 
 impl Frustum {
-    /// Returns a frustum derived from `view_projection`.
+    /// Returns a frustum derived from `clip_from_world`.
     #[inline]
-    pub fn from_view_projection(view_projection: &Mat4) -> Self {
-        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
-        frustum.half_spaces[5] = HalfSpace::new(view_projection.row(2));
+    pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
+        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
+        frustum.half_spaces[5] = HalfSpace::new(clip_from_world.row(2));
         frustum
     }
 
-    /// Returns a frustum derived from `view_projection`,
+    /// Returns a frustum derived from `clip_from_world`,
     /// but with a custom far plane.
     #[inline]
-    pub fn from_view_projection_custom_far(
-        view_projection: &Mat4,
+    pub fn from_clip_from_world_custom_far(
+        clip_from_world: &Mat4,
         view_translation: &Vec3,
         view_backward: &Vec3,
         far: f32,
     ) -> Self {
-        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
+        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
         let far_center = *view_translation - far * *view_backward;
         frustum.half_spaces[5] =
             HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
@@ -248,11 +249,11 @@ impl Frustum {
     // Rendering by Lengyel.
     /// Returns a frustum derived from `view_projection`,
     /// without a far plane.
-    fn from_view_projection_no_far(view_projection: &Mat4) -> Self {
-        let row3 = view_projection.row(3);
+    fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
+        let row3 = clip_from_world.row(3);
         let mut half_spaces = [HalfSpace::default(); 6];
         for (i, half_space) in half_spaces.iter_mut().enumerate().take(5) {
-            let row = view_projection.row(i / 2);
+            let row = clip_from_world.row(i / 2);
             *half_space = HalfSpace::new(if (i & 1) == 0 && i != 4 {
                 row3 + row
             } else {
@@ -280,11 +281,11 @@ impl Frustum {
     pub fn intersects_obb(
         &self,
         aabb: &Aabb,
-        model_to_world: &Affine3A,
+        world_from_local: &Affine3A,
         intersect_near: bool,
         intersect_far: bool,
     ) -> bool {
-        let aabb_center_world = model_to_world.transform_point3a(aabb.center).extend(1.0);
+        let aabb_center_world = world_from_local.transform_point3a(aabb.center).extend(1.0);
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
             if idx == 4 && !intersect_near {
                 continue;
@@ -293,7 +294,7 @@ impl Frustum {
                 continue;
             }
             let p_normal = half_space.normal();
-            let relative_radius = aabb.relative_radius(&p_normal, &model_to_world.matrix3);
+            let relative_radius = aabb.relative_radius(&p_normal, &world_from_local.matrix3);
             if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
                 return false;
             }
@@ -303,7 +304,7 @@ impl Frustum {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
     pub frusta: [Frustum; 6],
@@ -319,7 +320,7 @@ impl CubemapFrusta {
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
     pub frusta: EntityHashMap<Vec<Frustum>>,

@@ -23,20 +23,21 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::*,
     core_pipeline::{
-        bloom::BloomSettings, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
+        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
         tonemapping::Tonemapping,
     },
+    math::ops,
     pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::ColorGrading,
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
 };
 use rand::random;
 
@@ -57,8 +58,7 @@ fn main() {
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    app.insert_resource(Msaa::Off)
-        .add_plugins(TemporalAntiAliasPlugin);
+    app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
 }
@@ -137,15 +137,14 @@ fn setup(
     ));
 
     // Candle Flame
-    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
-    let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 20.;
+    let scaled_orange = LinearRgba::from(ORANGE_RED) * 4.;
     let emissive = LinearRgba {
         red: scaled_white.red + scaled_orange.red,
         green: scaled_white.green + scaled_orange.green,
         blue: scaled_white.blue + scaled_orange.blue,
         alpha: 1.0,
-    }
-    .into();
+    };
 
     commands.spawn((
         PbrBundle {
@@ -345,11 +344,16 @@ fn setup(
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
-                post_saturation: 1.2,
+                global: ColorGradingGlobal {
+                    post_saturation: 1.2,
+                    ..default()
+                },
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
             exposure: Exposure { ev100: 6.0 },
+            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+            msaa: Msaa::Off,
             ..default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -358,21 +362,19 @@ fn setup(
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         },
-        BloomSettings::default(),
+        Bloom::default(),
     ));
 
     // Controls Text
-    let text_style = TextStyle {
-        font_size: 18.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,
@@ -520,14 +522,13 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
-            commands.entity(camera_entity).insert((
-                TemporalJitter::default(),
-                TemporalAntiAliasSettings::default(),
-            ));
+            commands
+                .entity(camera_entity)
+                .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(TemporalJitter, TemporalAntiAliasSettings)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
 
@@ -578,7 +579,7 @@ fn example_control_system(
             0.0
         };
 
-    camera_transform.translation *= distance_change.exp();
+    camera_transform.translation *= ops::exp(distance_change);
 
     camera_transform.rotate_around(
         Vec3::ZERO,
@@ -642,9 +643,9 @@ fn flicker_system(
     time: Res<Time>,
 ) {
     let s = time.elapsed_seconds();
-    let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
-    let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
-    let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
+    let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
+    let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
+    let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;
     let (mut light, mut light_transform) = light.single_mut();
     let mut flame_transform = flame.single_mut();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);

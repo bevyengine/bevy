@@ -18,7 +18,7 @@ struct MotionBlur {
     samples: u32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: vec3<f32>
+    _webgl2_padding: vec2<f32>
 #endif
 }
 @group(0) @binding(4) var<uniform> settings: MotionBlur;
@@ -79,6 +79,12 @@ fn fragment(
         // The current sample step vector, from in.uv
         let step_vector = 0.5 * exposure_vector * (f32(i) + noise) / f32(n_samples);
         var sample_uv = in.uv + step_vector;
+
+        // If the sample is off screen, skip it.
+        if sample_uv.x < 0.0 || sample_uv.x > 1.0 || sample_uv.y < 0.0 || sample_uv.y > 1.0 {
+            continue;
+        }
+
         let sample_coords = vec2<i32>(sample_uv * texture_size);
 
     #ifdef MULTISAMPLED
@@ -103,7 +109,10 @@ fn fragment(
 
         var weight = 1.0;
         let is_sample_in_fg = !(depth_supported && sample_depth < this_depth && sample_depth > 0.0);
-        if is_sample_in_fg {
+        // If the depth is 0.0, this fragment has no depth written to it and we assume it is in the
+        // background. This ensures that things like skyboxes, which do not write to depth, are
+        // correctly sampled in motion blur.
+        if sample_depth != 0.0 && is_sample_in_fg {
             // The following weight calculation is used to eliminate ghosting artifacts that are
             // common in motion-vector-based motion blur implementations. While some resources
             // recommend using depth, I've found that sampling the velocity results in significantly

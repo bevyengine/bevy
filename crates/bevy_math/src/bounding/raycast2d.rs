@@ -1,8 +1,12 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{Dir2, Ray2d, Vec2};
+use crate::{ops::FloatPow, Dir2, Ray2d, Vec2};
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// A raycast intersection test for 2D bounding volumes
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RayCast2d {
     /// The ray for the test
     pub ray: Ray2d,
@@ -72,8 +76,8 @@ impl RayCast2d {
         let offset = self.ray.origin - circle.center;
         let projected = offset.dot(*self.ray.direction);
         let closest_point = offset - projected * *self.ray.direction;
-        let distance_squared = circle.radius().powi(2) - closest_point.length_squared();
-        if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
+        let distance_squared = circle.radius().squared() - closest_point.length_squared();
+        if distance_squared < 0. || projected.squared().copysign(-projected) < -distance_squared {
             None
         } else {
             let toi = -projected - distance_squared.sqrt();
@@ -100,6 +104,7 @@ impl IntersectsVolume<BoundingCircle> for RayCast2d {
 
 /// An intersection test that casts an [`Aabb2d`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
@@ -137,6 +142,7 @@ impl IntersectsVolume<Aabb2d> for AabbCast2d {
 
 /// An intersection test that casts a [`BoundingCircle`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingCircleCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,

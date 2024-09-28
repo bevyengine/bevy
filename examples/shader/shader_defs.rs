@@ -12,6 +12,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/shader_defs.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
@@ -56,7 +59,7 @@ fn setup(
 
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/shader_defs.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(

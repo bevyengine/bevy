@@ -1,21 +1,19 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Dir3, Quat, Rotation2d, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -188,13 +186,24 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
@@ -281,7 +290,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -305,7 +313,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -335,7 +342,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -358,7 +364,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -387,7 +392,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -418,7 +422,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
@@ -459,66 +462,31 @@ where
         strip_colors.push(LinearRgba::NAN);
     }
 
-    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes.
+    /// Draw a wireframe rectangle in 3D with the given `isometry` applied.
     ///
-    /// This should be called for each frame the sphere needs to be rendered.
+    /// If `isometry == Isometry3d::IDENTITY` then
     ///
-    /// # Example
-    /// ```
-    /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
-    /// # use bevy_math::prelude::*;
-    /// # use bevy_color::Color;
-    /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
-    ///
-    ///     // Each circle has 32 line-segments by default.
-    ///     // You may want to increase this for larger spheres.
-    ///     gizmos
-    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
-    ///         .circle_segments(64);
-    /// }
-    /// # bevy_ecs::system::assert_is_system(system);
-    /// ```
-    #[inline]
-    pub fn sphere(
-        &mut self,
-        position: Vec3,
-        rotation: Quat,
-        radius: f32,
-        color: impl Into<Color>,
-    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
-        SphereBuilder {
-            gizmos: self,
-            position,
-            rotation: rotation.normalize(),
-            radius,
-            color: color.into(),
-            circle_segments: DEFAULT_CIRCLE_SEGMENTS,
-        }
-    }
-
-    /// Draw a wireframe rectangle in 3D.
+    /// - the center is at `Vec3::ZERO`
+    /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Isometry3d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: Isometry3d, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
@@ -529,7 +497,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -570,7 +537,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -593,7 +559,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -622,7 +587,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -649,7 +613,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN, BLUE};
     /// fn system(mut gizmos: Gizmos) {
@@ -683,7 +646,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -706,7 +668,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
@@ -728,34 +689,31 @@ where
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    /// Draw a wireframe rectangle in 2D.
+    /// Draw a wireframe rectangle in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(
-        &mut self,
-        position: Vec2,
-        rotation: impl Into<Rotation2d>,
-        size: Vec2,
-        color: impl Into<Color>,
-    ) {
+    pub fn rect_2d(&mut self, isometry: Isometry2d, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let rotation: Rotation2d = rotation.into();
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
@@ -787,54 +745,6 @@ where
     fn extend_strip_positions(&mut self, positions: impl IntoIterator<Item = Vec3>) {
         self.buffer.strip_positions.extend(positions);
         self.buffer.strip_positions.push(Vec3::NAN);
-    }
-}
-
-/// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear = ()>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
-    radius: f32,
-    color: Color,
-    circle_segments: usize,
-}
-
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of line-segments per circle for this sphere.
-    pub fn circle_segments(mut self, segments: usize) -> Self {
-        self.circle_segments = segments;
-        self
-    }
-}
-
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        }
-        for axis in Vec3::AXES {
-            self.gizmos
-                .circle(
-                    self.position,
-                    Dir3::new_unchecked(self.rotation * axis),
-                    self.radius,
-                    self.color,
-                )
-                .segments(self.circle_segments);
-        }
     }
 }
 
