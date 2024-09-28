@@ -1304,6 +1304,11 @@ impl World {
     ///
     /// This enables the dynamic registration of new resource definitions at runtime for advanced
     /// use cases.
+    ///
+    /// # Notes
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
     pub fn register_resource_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
