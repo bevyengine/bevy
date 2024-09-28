@@ -25,9 +25,9 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// pass it in to your deserializer.
 ///
 /// Whenever the deserializer attempts to deserialize a value, it will first
-/// check using [`can_deserialize`] whether this processor should take control
-/// of the deserialization, and if so, pass control to your own [`deserialize`]
-/// function, which returns back a [`Box<dyn PartialReflect>`].
+/// check using [`should_deserialize`] whether this processor should take
+/// control of the deserialization, and if so, pass control to your own
+/// [`deserialize`] function, which returns back a [`Box<dyn PartialReflect>`].
 ///
 /// # Examples
 ///
@@ -78,7 +78,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// # ) -> Result<MyAsset, AssetError> {
 /// let mut ron_deserializer = ron::Deserializer::from_bytes(asset_bytes)?;
 /// let mut processor = ReflectDeserializerProcessor::new(
-///     |registration: &TypeRegistration| registration.data::<ReflectHandle>().is_some(),
+///     |registration: &TypeRegistration| Ok(registration.data::<ReflectHandle>().is_some()),
 ///     |registration, deserializer| {
 ///         let reflect_handle = registration.data::<ReflectHandle>().unwrap();
 ///         let asset_type_id = reflect_handle.asset_type_id();
@@ -104,25 +104,32 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// # }
 /// ```
 ///
-/// [`can_deserialize`]: Self::can_deserialize
+/// [`should_deserialize`]: Self::should_deserialize
 /// [`deserialize`]: Self::deserialize
 pub struct ReflectDeserializerProcessor<'p> {
     /// When deserializing a value of which we know the type (via
     /// [`TypeRegistration`]), do we want this processor to override the default
     /// deserialization?
     ///
-    /// If this returns [`true`], [`deserialize`] is used to create the
-    /// reflected value.
+    /// If this returns [`Ok(true)`], [`deserialize`] is used to create the
+    /// reflected value. If [`Ok(false)`], then the default deserialization
+    /// method is used.
+    ///
+    /// If this returns [`Err`], this will fail the deserialization in the same
+    /// way as if you had returned [`Err`] from [`deserialize`].
     ///
     /// [`deserialize`]: Self::deserialize
-    pub can_deserialize: Box<dyn FnMut(&TypeRegistration) -> bool + 'p>,
-    /// Deserializes a value for which [`can_deserialize`] returned [`true`].
+    pub should_deserialize:
+        Box<dyn FnMut(&TypeRegistration) -> Result<bool, erased_serde::Error> + 'p>,
+    /// Deserializes a value for which [`should_deserialize`] returned [`true`].
     ///
-    /// If you potentially return [`Ok`], you must consume the deserializer,
-    /// even if you don't use its output, otherwise the deserializer will be
-    /// in an invalid state.
+    /// If you potentially return [`Ok`], you must consume the deserializer by
+    /// attempting some sort of deserialization, even if you don't use its
+    /// output. Otherwise, the deserializer will be in an invalid state, and
+    /// future deserialization calls will cause errors.
     ///
-    /// For example, the proper way to return a constant value is:
+    /// For example, the proper way to return a constant value and consume the
+    /// deserializer, ignoring its output, is:
     ///
     /// ```
     /// # use serde::Deserializer;
@@ -138,7 +145,7 @@ pub struct ReflectDeserializerProcessor<'p> {
     /// }
     /// ```
     ///
-    /// [`can_deserialize`]: Self::can_deserialize
+    /// [`should_deserialize`]: Self::should_deserialize
     pub deserialize: Box<
         dyn FnMut(
                 &TypeRegistration,
@@ -151,7 +158,7 @@ pub struct ReflectDeserializerProcessor<'p> {
 impl<'p> ReflectDeserializerProcessor<'p> {
     /// Creates a new processor from [`FnMut`]s.
     pub fn new(
-        can_deserialize: impl FnMut(&TypeRegistration) -> bool + 'p,
+        should_deserialize: impl FnMut(&TypeRegistration) -> Result<bool, erased_serde::Error> + 'p,
         deserialize: impl FnMut(
                 &TypeRegistration,
                 &mut dyn erased_serde::Deserializer,
@@ -159,7 +166,7 @@ impl<'p> ReflectDeserializerProcessor<'p> {
             + 'p,
     ) -> Self {
         Self {
-            can_deserialize: Box::new(can_deserialize),
+            should_deserialize: Box::new(should_deserialize),
             deserialize: Box::new(deserialize),
         }
     }
@@ -192,7 +199,7 @@ impl<'p> ReflectDeserializerProcessor<'p> {
 /// This means that if the actual type is needed, these dynamic representations will need to
 /// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
 ///
-/// If you want to override serialization for a specific [`TypeRegistration`],
+/// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
 /// take priority over all other deserialization methods - see [`new_with_processor`].
 ///
@@ -285,7 +292,7 @@ impl<'a, 'p> ReflectDeserializer<'a, 'p> {
     }
 }
 
-impl<'a, 'p, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a, 'p> {
+impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_, '_> {
     type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -359,7 +366,7 @@ impl<'a, 'p, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a, 'p> {
 /// This means that if the actual type is needed, these dynamic representations will need to
 /// be converted to the concrete type using [`FromReflect`] or [`ReflectFromReflect`].
 ///
-/// If you want to override serialization for a specific [`TypeRegistration`],
+/// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
 /// take priority over all other deserialization methods - see [`new_with_processor`].
 ///
@@ -485,7 +492,7 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
             // First, check if our processor wants to deserialize this type
             // This takes priority over any other deserialization operations
             if let Some(processor) = self.processor.as_deref_mut() {
-                if (processor.can_deserialize)(self.registration) {
+                if (processor.should_deserialize)(self.registration).map_err(make_custom_error)? {
                     let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
                     return (processor.deserialize)(self.registration, &mut deserializer)
                         .map_err(make_custom_error);
