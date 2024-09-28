@@ -7,6 +7,8 @@ use crate::PartialReflect;
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns an owned value.
+    ///
+    /// Owned values can be unit (`()`).
     Owned(Box<dyn PartialReflect>),
     /// The function returns a reference to a value.
     Ref(&'a dyn PartialReflect),
