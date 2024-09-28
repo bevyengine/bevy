@@ -9,7 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
-use std::fmt;
+use core::fmt;
 use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
@@ -355,7 +355,6 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-///
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
@@ -407,7 +406,6 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    ///
     pub fn parse(string: &str) -> PathResult<Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
@@ -493,13 +491,13 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-impl std::ops::Index<usize> for ParsedPath {
+impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
-impl std::ops::IndexMut<usize> for ParsedPath {
+impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
@@ -573,7 +571,7 @@ mod tests {
         }
     }
 
-    fn access_field(field: &'static str) -> Access {
+    fn access_field(field: &'static str) -> Access<'static> {
         Access::Field(field.into())
     }
 

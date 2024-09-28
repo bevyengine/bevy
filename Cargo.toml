@@ -45,6 +45,13 @@ ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
+# see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "warn"
+std_instead_of_alloc = "warn"
+alloc_instead_of_core = "warn"
+
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
@@ -52,8 +59,44 @@ unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
-[lints]
-workspace = true
+# Unfortunately, cargo does not currently support overriding workspace lints
+# inside a particular crate. See https://github.com/rust-lang/cargo/issues/13157
+#
+# We require an override for cases like `std_instead_of_core`, which are intended
+# for the library contributors and not for how users should consume Bevy.
+# To ensure examples aren't subject to these lints, below is a duplication of the
+# workspace lints, with the "overrides" applied.
+#
+# [lints]
+# workspace = true
+
+[lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "allow"
+std_instead_of_alloc = "allow"
+alloc_instead_of_core = "allow"
+
+[lints.rust]
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [features]
 default = [
@@ -75,6 +118,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_remote",
   "multi_threaded",
   "png",
   "hdr",
@@ -173,6 +217,9 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Enable the Bevy Remote Protocol
+bevy_remote = ["bevy_internal/bevy_remote"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -376,6 +423,7 @@ rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -385,6 +433,16 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+hyper = { version = "1", features = ["server", "http1"] }
+http-body-util = "0.1"
+anyhow = "1"
+macro_rules_attribute = "0.2"
+
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+smol = "2"
+smol-macros = "0.1"
+smol-hyper = "0.1"
+ureq = { version = "2.10.1", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -3383,6 +3441,28 @@ name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "client"
+path = "examples/remote/client.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.client]
+name = "client"
+description = "A simple command line client that can control Bevy apps via the BRP"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "server"
+path = "examples/remote/server.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.server]
+name = "server"
+description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
+wasm = false
 
 [[example]]
 name = "anisotropy"

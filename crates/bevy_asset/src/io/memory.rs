@@ -1,14 +1,13 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
+use alloc::sync::Arc;
 use bevy_utils::HashMap;
+use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncSeek};
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
-use std::io::SeekFrom;
 use std::{
+    io::SeekFrom,
     path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
 };
 
 #[derive(Default, Debug)]
@@ -153,7 +152,7 @@ impl Stream for DirStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         let dir = this.dir.0.read();
@@ -234,7 +233,7 @@ struct DataReader {
 impl AsyncRead for DataReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.data.value().len() {
@@ -251,7 +250,7 @@ impl AsyncRead for DataReader {
 impl AsyncSeek for DataReader {
     fn poll_seek(
         mut self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
         pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
         let result = match pos {

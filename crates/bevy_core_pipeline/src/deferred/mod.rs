@@ -1,7 +1,7 @@
 pub mod copy_lighting_id;
 pub mod node;
 
-use std::ops::Range;
+use core::ops::Range;
 
 use bevy_ecs::prelude::*;
 use bevy_render::{

@@ -15,12 +15,12 @@ use winit::{
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
-use crate::winit_monitors::WinitMonitors;
 use crate::{
     accessibility::{
         prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
     },
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
+    winit_monitors::WinitMonitors,
 };
 
 /// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
@@ -322,7 +322,7 @@ pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -
     }
 
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
@@ -345,7 +345,7 @@ pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -
 pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
                 Equal => b
@@ -393,7 +393,7 @@ pub fn winit_window_position(
 ) -> Option<PhysicalPosition<i32>> {
     match position {
         WindowPosition::Automatic => {
-            /* Window manager will handle position */
+            // Window manager will handle position
             None
         }
         WindowPosition::Centered(monitor_selection) => {
@@ -470,7 +470,7 @@ struct DisplayInfo {
 }
 
 impl core::fmt::Display for DisplayInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Display information:")?;
         write!(
             f,

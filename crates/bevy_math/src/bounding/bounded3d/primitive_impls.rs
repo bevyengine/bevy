@@ -475,7 +475,7 @@ mod tests {
 
         let aabb = cuboid.aabb_3d(Isometry3d::new(
             translation,
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         ));
         let expected_half_size = Vec3A::new(1.0606601, 1.0606601, 0.5);
         assert_eq!(aabb.min, Vec3A::from(translation) - expected_half_size);

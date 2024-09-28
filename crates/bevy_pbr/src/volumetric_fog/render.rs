@@ -1,6 +1,6 @@
 //! Rendering of fog volumes.
 
-use std::array;
+use core::array;
 
 use bevy_asset::{AssetId, Handle};
 use bevy_color::ColorToComponents as _;

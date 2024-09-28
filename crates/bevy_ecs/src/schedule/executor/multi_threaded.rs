@@ -1,14 +1,14 @@
-use std::{
-    any::Any,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use alloc::sync::Arc;
+use core::any::Any;
+use std::sync::{Mutex, MutexGuard};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-use bevy_utils::default;
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
-use std::panic::AssertUnwindSafe;
+use bevy_utils::tracing::info_span;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Span;
+use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
+use core::panic::AssertUnwindSafe;
 
 use concurrent_queue::ConcurrentQueue;
 use fixedbitset::FixedBitSet;
@@ -382,7 +382,7 @@ impl ExecutorState {
         }
 
         // can't borrow since loop mutably borrows `self`
-        let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
+        let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
 
         // Skipping systems may cause their dependents to become ready immediately.
         // If that happens, we need to run again immediately or we may fail to spawn those dependents.
@@ -568,18 +568,18 @@ impl ExecutorState {
 
         should_run &= system_conditions_met;
 
-        // SAFETY:
-        // - The caller ensures that `world` has permission to read any data
-        //   required by the system.
-        // - `update_archetype_component_access` has been called for system.
-        let valid_params = unsafe { system.validate_param_unsafe(world) };
-
-        if !valid_params {
-            warn_system_skipped!("System", system.name());
-            self.skipped_systems.insert(system_index);
+        if should_run {
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the system.
+            // - `update_archetype_component_access` has been called for system.
+            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            if !valid_params {
+                warn_system_skipped!("System", system.name());
+                self.skipped_systems.insert(system_index);
+            }
+            should_run &= valid_params;
         }
-
-        should_run &= valid_params;
 
         should_run
     }

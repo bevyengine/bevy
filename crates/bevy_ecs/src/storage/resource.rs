@@ -1,11 +1,14 @@
-use crate::archetype::ArchetypeComponentId;
-use crate::change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
-use crate::storage::{blob_vec::BlobVec, SparseSet};
+use crate::{
+    archetype::ArchetypeComponentId,
+    change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut},
+    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    storage::{blob_vec::BlobVec, SparseSet},
+};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{cell::UnsafeCell, mem::ManuallyDrop, thread::ThreadId};
+use core::panic::Location;
+use core::{cell::UnsafeCell, mem::ManuallyDrop};
+use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///

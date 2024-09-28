@@ -1,8 +1,9 @@
-use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
-use crate::{DynamicStruct, StructInfo, TypeRegistration, TypeRegistry};
-use core::fmt::Formatter;
+use crate::{
+    serde::de::struct_utils::{visit_struct, visit_struct_seq},
+    DynamicStruct, StructInfo, TypeRegistration, TypeRegistry,
+};
+use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, SeqAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Struct`] values.
 ///

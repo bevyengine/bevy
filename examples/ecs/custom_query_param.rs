@@ -78,6 +78,7 @@ fn print_components_read_only(
 }
 
 /// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
+///
 /// The [`QueryData`] derive macro will still create a read-only version, which will be have `ReadOnly`
 /// suffix.
 /// Note: if you want to use derive macros with read-only query variants, you need to pass them with

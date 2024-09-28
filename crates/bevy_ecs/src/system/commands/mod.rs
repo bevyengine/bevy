@@ -1,7 +1,6 @@
 mod parallel_scope;
 
-use core::panic::Location;
-use std::marker::PhantomData;
+use core::{marker::PhantomData, panic::Location};
 
 use super::{
     Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
@@ -786,7 +785,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`CachedSystemId`](crate::system::CachedSystemId) resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
+    pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + Send + 'static>(
+        &mut self,
+        system: S,
+    ) {
         self.run_system_cached_with(system, ());
     }
 
@@ -798,7 +800,7 @@ impl<'w, 's> Commands<'w, 's> {
     where
         I: SystemInput<Inner<'static>: Send> + Send + 'static,
         M: 'static,
-        S: IntoSystem<I, (), M> + 'static,
+        S: IntoSystem<I, (), M> + Send + 'static,
     {
         self.queue(RunSystemCachedWith::new(system, input));
     }
@@ -1149,7 +1151,7 @@ impl EntityCommands<'_> {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
         })})
     }
 
@@ -1674,7 +1676,7 @@ where
         ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                std::any::type_name::<B>(),
+                core::any::type_name::<B>(),
                 invalid_entities
             );
         }
@@ -1709,7 +1711,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1728,7 +1730,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1777,6 +1779,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1807,6 +1810,7 @@ fn clear() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes components from an entity.
+///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
@@ -1870,12 +1874,10 @@ mod tests {
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},
     };
-    use std::{
+    use alloc::sync::Arc;
+    use core::{
         any::TypeId,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
 
     #[allow(dead_code)]

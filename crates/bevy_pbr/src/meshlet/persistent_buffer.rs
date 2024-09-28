@@ -5,8 +5,8 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
+use core::{num::NonZero, ops::Range};
 use range_alloc::RangeAllocator;
-use std::{num::NonZero, ops::Range};
 
 /// Wrapper for a GPU buffer holding a large amount of data that persists across frames.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {

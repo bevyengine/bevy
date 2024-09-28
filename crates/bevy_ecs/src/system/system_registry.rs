@@ -1,11 +1,14 @@
-use crate::bundle::Bundle;
-use crate::change_detection::Mut;
-use crate::entity::Entity;
-use crate::system::input::SystemInput;
-use crate::system::{BoxedSystem, IntoSystem, System, SystemIn};
-use crate::world::{Command, World};
-use crate::{self as bevy_ecs};
+use crate::{
+    self as bevy_ecs,
+    bundle::Bundle,
+    change_detection::Mut,
+    entity::Entity,
+    system::input::SystemInput,
+    system::{BoxedSystem, IntoSystem, System},
+    world::{Command, World},
+};
 use bevy_ecs_macros::{Component, Resource};
+use core::marker::PhantomData;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -47,7 +50,7 @@ impl<I, O> RemovedSystem<I, O> {
 /// and are created via [`World::register_system`].
 pub struct SystemId<I: SystemInput = (), O = ()> {
     pub(crate) entity: Entity,
-    pub(crate) marker: std::marker::PhantomData<fn(I) -> O>,
+    pub(crate) marker: PhantomData<fn(I) -> O>,
 }
 
 impl<I: SystemInput, O> SystemId<I, O> {
@@ -68,7 +71,7 @@ impl<I: SystemInput, O> SystemId<I, O> {
     pub fn from_entity(entity: Entity) -> Self {
         Self {
             entity,
-            marker: std::marker::PhantomData,
+            marker: PhantomData,
         }
     }
 }
@@ -93,14 +96,14 @@ impl<I: SystemInput, O> PartialEq for SystemId<I, O> {
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I: SystemInput, O> std::hash::Hash for SystemId<I, O> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<I: SystemInput, O> core::hash::Hash for SystemId<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity.hash(state);
     }
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for SystemId<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
 }
@@ -535,28 +538,38 @@ where
 /// [`Commands`](crate::system::Commands).
 ///
 /// See [`World::register_system_cached`] for more information.
-pub struct RunSystemCachedWith<S: System<Out = ()>> {
+pub struct RunSystemCachedWith<S, I, O, M>
+where
+    I: SystemInput,
+    S: IntoSystem<I, O, M>,
+{
     system: S,
-    input: SystemIn<'static, S>,
+    input: I::Inner<'static>,
+    _phantom: PhantomData<(fn() -> O, fn() -> M)>,
 }
 
-impl<S: System<Out = ()>> RunSystemCachedWith<S> {
+impl<S, I, O, M> RunSystemCachedWith<S, I, O, M>
+where
+    I: SystemInput,
+    S: IntoSystem<I, O, M>,
+{
     /// Creates a new [`Command`] struct, which can be added to
     /// [`Commands`](crate::system::Commands).
-    pub fn new<M>(
-        system: impl IntoSystem<S::In, (), M, System = S>,
-        input: SystemIn<'static, S>,
-    ) -> Self {
+    pub fn new(system: S, input: I::Inner<'static>) -> Self {
         Self {
-            system: IntoSystem::into_system(system),
+            system,
             input,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<S: System<Out = ()>> Command for RunSystemCachedWith<S>
+impl<S, I, O, M> Command for RunSystemCachedWith<S, I, O, M>
 where
-    S::In: SystemInput<Inner<'static>: Send>,
+    I: SystemInput<Inner<'static>: Send> + Send + 'static,
+    O: Send + 'static,
+    S: IntoSystem<I, O, M> + Send + 'static,
+    M: 'static,
 {
     fn apply(self, world: &mut World) {
         let _ = world.run_system_cached_with(self.system, self.input);
@@ -584,8 +597,8 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     SelfRemove(SystemId<I, O>),
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
@@ -821,6 +834,40 @@ mod tests {
         assert!(matches!(output, Ok(x) if x == four()));
         let output = world.run_system_cached_with(four, ());
         assert!(matches!(output, Ok(x) if x == four()));
+    }
+
+    #[test]
+    fn cached_system_commands() {
+        fn sys(mut counter: ResMut<Counter>) {
+            counter.0 = 1;
+        }
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        world.commands().run_system_cached(sys);
+        world.flush_commands();
+
+        assert_eq!(world.resource::<Counter>().0, 1);
+    }
+
+    #[test]
+    fn cached_system_adapters() {
+        fn four() -> i32 {
+            4
+        }
+
+        fn double(In(i): In<i32>) -> i32 {
+            i * 2
+        }
+
+        let mut world = World::new();
+
+        let output = world.run_system_cached(four.pipe(double));
+        assert!(matches!(output, Ok(8)));
+
+        let output = world.run_system_cached(four.map(|i| i * 2));
+        assert!(matches!(output, Ok(8)));
     }
 
     #[test]

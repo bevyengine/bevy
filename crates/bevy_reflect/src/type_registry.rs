@@ -1,14 +1,15 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
+use alloc::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-use downcast_rs::{impl_downcast, Downcast};
-use serde::Deserialize;
-use std::ops::{Deref, DerefMut};
-use std::{
+use core::{
     any::TypeId,
     fmt::Debug,
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    ops::{Deref, DerefMut},
 };
+use downcast_rs::{impl_downcast, Downcast};
+use serde::Deserialize;
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// A registry of [reflected] types.
 ///
@@ -38,7 +39,7 @@ pub struct TypeRegistryArc {
 }
 
 impl Debug for TypeRegistryArc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.internal
             .read()
             .unwrap_or_else(PoisonError::into_inner)
@@ -265,7 +266,7 @@ impl TypeRegistry {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
                 T = T::type_path(),
-                D = std::any::type_name::<D>(),
+                D = core::any::type_name::<D>(),
             )
         });
         data.insert(D::from_type());
@@ -279,7 +280,6 @@ impl TypeRegistry {
     /// given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     #[inline]
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
@@ -289,7 +289,6 @@ impl TypeRegistry {
     /// the given [`TypeId`].
     ///
     /// If the specified type has not been registered, returns `None`.
-    ///
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -471,7 +470,7 @@ pub struct TypeRegistration {
 }
 
 impl Debug for TypeRegistration {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TypeRegistration")
             .field("type_info", &self.type_info)
             .finish()

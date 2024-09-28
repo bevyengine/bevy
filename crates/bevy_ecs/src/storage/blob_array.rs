@@ -1,13 +1,9 @@
 use super::blob_vec::array_layout;
 use crate::storage::blob_vec::array_layout_unchecked;
+use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use std::{
-    alloc::{handle_alloc_error, Layout},
-    cell::UnsafeCell,
-    num::NonZeroUsize,
-    ptr::NonNull,
-};
+use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
 /// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
 /// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
@@ -38,7 +34,7 @@ impl BlobArray {
     /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been placed into this [`BlobArray`].
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
-    /// [`needs_drop`]: core::mem::needs_drop
+    /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn with_capacity(
         item_layout: Layout,
         drop_fn: Option<unsafe fn(OwningPtr<'_>)>,
@@ -142,7 +138,9 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert!(slice_len <= self.capacity);
         // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, slice_len) }
+        unsafe {
+            core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, slice_len)
+        }
     }
 
     /// Clears the array, i.e. removing (and dropping) all of the elements.
@@ -189,7 +187,7 @@ impl BlobArray {
             if !self.is_zst() {
                 let layout =
                     array_layout(&self.item_layout, cap).expect("array layout should be valid");
-                std::alloc::dealloc(self.data.as_ptr().cast(), layout);
+                alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
             }
             #[cfg(debug_assertions)]
             {
@@ -228,7 +226,7 @@ impl BlobArray {
             let new_layout = array_layout(&self.item_layout, capacity.get())
                 .expect("array layout should be valid");
             // SAFETY: layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
-            let new_data = unsafe { std::alloc::alloc(new_layout) };
+            let new_data = unsafe { alloc::alloc::alloc(new_layout) };
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         }
         #[cfg(debug_assertions)]
@@ -263,7 +261,7 @@ impl BlobArray {
             // since the item size is always a multiple of its align, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
             let new_data = unsafe {
-                std::alloc::realloc(
+                alloc::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     // SAFETY: This is the Layout of the current array, it must be valid, if it hadn't have been, there would have been a panic on a previous allocation
                     array_layout_unchecked(&self.item_layout, current_capacity.get()),
@@ -291,7 +289,7 @@ impl BlobArray {
         debug_assert!(self.capacity > index);
         let size = self.item_layout.size();
         let dst = self.get_unchecked_mut(index);
-        std::ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
+        core::ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
@@ -345,7 +343,7 @@ impl BlobArray {
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         unsafe {
-            std::ptr::copy_nonoverlapping::<u8>(
+            core::ptr::copy_nonoverlapping::<u8>(
                 source,
                 destination.as_ptr(),
                 self.item_layout.size(),
@@ -405,7 +403,7 @@ impl BlobArray {
             debug_assert_ne!(index_to_keep, index_to_remove);
         }
         debug_assert_ne!(index_to_keep, index_to_remove);
-        std::ptr::swap_nonoverlapping::<u8>(
+        core::ptr::swap_nonoverlapping::<u8>(
             self.get_unchecked_mut(index_to_keep).as_ptr(),
             self.get_unchecked_mut(index_to_remove).as_ptr(),
             self.item_layout.size(),

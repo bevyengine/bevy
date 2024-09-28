@@ -28,8 +28,7 @@ use bevy_render::{
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
-use std::hash::Hash;
-use std::ops::Deref;
+use core::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
@@ -368,6 +367,7 @@ impl Plugin for LightProbePlugin {
 }
 
 /// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+///
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(

@@ -1,5 +1,4 @@
-use crate::derive_data::StructField;
-use crate::ReflectStruct;
+use crate::{derive_data::StructField, ReflectStruct};
 use quote::quote;
 
 /// A helper struct for creating remote-aware field accessors.
@@ -7,7 +6,7 @@ use quote::quote;
 /// These are "remote-aware" because when a field is a remote field, it uses a [`transmute`] internally
 /// to access the field.
 ///
-/// [`transmute`]: core::mem::transmute
+/// [`transmute`]: std::mem::transmute
 pub(crate) struct FieldAccessors {
     /// The referenced field accessors, such as `&self.foo`.
     pub fields_ref: Vec<proc_macro2::TokenStream>,

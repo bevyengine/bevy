@@ -1,16 +1,17 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
 
-use crate::component::Tick;
-use crate::schedule::InternedSystemSet;
-use crate::system::input::SystemInput;
-use crate::system::SystemIn;
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::world::DeferredWorld;
-use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
+use crate::{
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    query::Access,
+    schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+};
 
-use std::any::TypeId;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use core::any::TypeId;
 
 use super::IntoSystem;
 
@@ -206,7 +207,7 @@ where
     In: SystemInput + 'static,
     Out: 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
             .field("is_exclusive", &self.is_exclusive())

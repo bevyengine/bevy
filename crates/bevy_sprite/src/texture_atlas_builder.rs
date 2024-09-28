@@ -5,8 +5,10 @@ use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_utils::tracing::{debug, error, warn};
-use bevy_utils::HashMap;
+use bevy_utils::{
+    tracing::{debug, error, warn},
+    HashMap,
+};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
@@ -227,7 +229,7 @@ impl<'a> TextureAtlasBuilder<'a> {
 
             let last_attempt = current_height == max_height && current_width == max_width;
 
-            let mut target_bins = std::collections::BTreeMap::new();
+            let mut target_bins = alloc::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             rect_placements = match pack_rects(
                 &rects_to_place,

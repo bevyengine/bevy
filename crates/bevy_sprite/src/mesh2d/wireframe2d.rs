@@ -60,6 +60,7 @@ impl Plugin for Wireframe2dPlugin {
 pub struct Wireframe2d;
 
 /// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe2d`] component,
 /// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to true.
 ///

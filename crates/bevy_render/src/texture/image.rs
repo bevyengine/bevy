@@ -16,8 +16,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::prelude::*;
+use core::hash::Hash;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
@@ -324,6 +324,7 @@ pub enum ImageSamplerBorderColor {
 }
 
 /// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+///
 /// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.

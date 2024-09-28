@@ -1,16 +1,21 @@
-use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl};
-use crate::ident::ident_or_index;
-use crate::impls::impl_assertions;
-use crate::{from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME};
+use crate::{
+    derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
+    from_reflect,
+    ident::ident_or_index,
+    impls,
+    impls::impl_assertions,
+    ReflectDerive, REFLECT_ATTRIBUTE_NAME,
+};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, quote_spanned};
-use syn::parse::{Parse, ParseStream};
-use syn::spanned::Spanned;
-use syn::token::PathSep;
 use syn::{
-    parse_macro_input, DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    spanned::Spanned,
+    token::PathSep,
+    DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
 };
 
 /// Generates the remote wrapper type and implements all the necessary traits.
@@ -162,7 +167,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)
@@ -191,7 +196,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)

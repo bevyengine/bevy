@@ -11,6 +11,7 @@ use crate::{
     render_resource::{TextureView, VertexBufferLayout},
     texture::GpuImage,
 };
+use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle};
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{
@@ -21,7 +22,7 @@ use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
-use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
+use core::{hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{IndexFormat, VertexAttribute, VertexFormat, VertexStepMode};
 
@@ -364,7 +365,7 @@ impl Mesh {
     /// Removes the vertex `indices` from the mesh and returns them.
     #[inline]
     pub fn remove_indices(&mut self) -> Option<Indices> {
-        std::mem::take(&mut self.indices)
+        core::mem::take(&mut self.indices)
     }
 
     /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
@@ -441,7 +442,7 @@ impl Mesh {
 
                     warn!("{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
                         all attributes will be truncated to match the smallest.");
-                    vertex_count = Some(std::cmp::min(previous_vertex_count, attribute_len));
+                    vertex_count = Some(core::cmp::min(previous_vertex_count, attribute_len));
                 }
             } else {
                 vertex_count = Some(attribute_len);
@@ -570,7 +571,7 @@ impl Mesh {
                         let [_, b, c] = chunk else {
                             return Err(MeshWindingInvertError::AbruptIndicesEnd);
                         };
-                        std::mem::swap(b, c);
+                        core::mem::swap(b, c);
                     }
                     Ok(())
                 }
@@ -1657,8 +1658,8 @@ impl Indices {
 
 /// An Iterator for the [`Indices`].
 enum IndicesIter<'a> {
-    U16(std::slice::Iter<'a, u16>),
-    U32(std::slice::Iter<'a, u32>),
+    U16(core::slice::Iter<'a, u16>),
+    U32(core::slice::Iter<'a, u32>),
 }
 
 impl Iterator for IndicesIter<'_> {

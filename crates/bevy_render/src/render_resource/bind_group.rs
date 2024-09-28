@@ -7,8 +7,8 @@ use crate::{
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
+use core::ops::Deref;
 use encase::ShaderType;
-use std::ops::Deref;
 use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
@@ -396,6 +396,7 @@ impl OwnedBindingResource {
 }
 
 /// Converts a value to a [`ShaderType`] for use in a bind group.
+///
 /// This is automatically implemented for references that implement [`Into`].
 /// Generally normal [`Into`] / [`From`] impls should be preferred, but
 /// sometimes additional runtime metadata is required.

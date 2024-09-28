@@ -17,7 +17,7 @@ use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use crate::backend::HitData;
 
