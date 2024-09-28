@@ -1641,7 +1641,7 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 ///
 /// Use [`Option<QuerySingle<D, F>>`] instead if zero or one matching entities can exist.
 ///
-/// See [`Query`] for meaning behind the generic arguments.
+/// See [`Query`] for more details.
 pub struct QuerySingle<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
