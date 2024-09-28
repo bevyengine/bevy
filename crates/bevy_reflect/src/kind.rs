@@ -1,7 +1,8 @@
+use thiserror::Error;
+
 #[cfg(feature = "functions")]
 use crate::func::Function;
 use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct};
-use thiserror::Error;
 
 /// A zero-sized enumeration of the "kinds" of a reflected type.
 ///
@@ -272,8 +273,9 @@ impl ReflectOwned {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashSet;
+
+    use super::*;
 
     #[test]
     fn should_cast_ref() {
