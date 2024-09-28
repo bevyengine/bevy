@@ -5,7 +5,10 @@
 //! See the module doc for [`crate::reflect::component`].
 
 use crate::{
-    change_detection::Mut, component::ComponentId, system::Resource, world::{unsafe_world_cell::UnsafeWorldCell, World}
+    change_detection::Mut,
+    component::ComponentId,
+    system::Resource,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
@@ -58,7 +61,7 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::register_resource()`].
-    pub register_resource: fn(&mut World) -> ComponentId
+    pub register_resource: fn(&mut World) -> ComponentId,
 }
 
 impl ReflectResourceFns {
@@ -225,7 +228,7 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
 
             register_resource: |world: &mut World| -> ComponentId {
                 world.register_resource::<R>()
-            }
+            },
         })
     }
 }

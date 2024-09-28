@@ -120,7 +120,7 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
-    pub register_component: fn(&mut World) -> ComponentId
+    pub register_component: fn(&mut World) -> ComponentId,
 }
 
 impl ReflectComponentFns {
@@ -312,7 +312,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()
-            }
+            },
         })
     }
 }
