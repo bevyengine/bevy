@@ -3,7 +3,6 @@ use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -34,10 +33,8 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::new(15.0)).into(),
-            material: materials.add(Color::from(BLUE)).into(),
-        },
+        Mesh2d(meshes.add(Circle::new(15.0))),
+        MeshMaterial2d(materials.add(Color::from(BLUE))),
         Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
         AudioBundle {

@@ -141,10 +141,10 @@ fn toggle_shadows(
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
     )>,
 ) {
     if input.just_pressed(KeyCode::KeyC) {

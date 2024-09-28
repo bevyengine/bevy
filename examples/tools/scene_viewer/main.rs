@@ -83,7 +83,7 @@ fn setup_scene_after_load(
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     asset_server: Res<AssetServer>,
-    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;

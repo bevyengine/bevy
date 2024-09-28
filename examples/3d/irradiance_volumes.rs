@@ -389,7 +389,7 @@ fn change_main_object(
     mut app_status: ResMut<AppStatus>,
     mut sphere_query: Query<
         &mut Visibility,
-        (With<MainObject>, With<Handle<Mesh>>, Without<Handle<Scene>>),
+        (With<MainObject>, With<Mesh3d>, Without<Handle<Scene>>),
     >,
     mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
 ) {

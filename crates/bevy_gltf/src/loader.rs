@@ -20,7 +20,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
-    DirectionalLight, DirectionalLightBundle, Mesh3d, MeshMaterial3d, PointLight, PointLightBundle,
+    DirectionalLight, DirectionalLightBundle, MeshMaterial3d, PointLight, PointLightBundle,
     SpotLight, SpotLightBundle, StandardMaterial, UvChannel, MAX_JOINTS,
 };
 use bevy_render::{
@@ -29,7 +29,7 @@ use bevy_render::{
     mesh::{
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
+        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
     prelude::SpatialBundle,
     primitives::Aabb,

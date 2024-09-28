@@ -175,7 +175,7 @@ fn setup(
 // component as appropriate.
 fn set_visibility_ranges(
     mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    mut new_meshes: Query<Entity, Added<Mesh3d>>,
     parents: Query<(Option<&Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.

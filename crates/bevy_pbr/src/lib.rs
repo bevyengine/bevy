@@ -34,7 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
-mod mesh3d;
+mod mesh_material;
 mod parallax;
 mod pbr_material;
 mod prepass;
@@ -54,7 +54,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
-pub use mesh3d::*;
+pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
@@ -85,7 +85,7 @@ pub mod prelude {
             LightProbe,
         },
         material::{Material, MaterialPlugin},
-        mesh3d::{Mesh3d, MeshMaterial3d},
+        mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,

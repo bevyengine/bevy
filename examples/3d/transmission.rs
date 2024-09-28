@@ -392,7 +392,7 @@ impl Default for ExampleState {
 fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
+    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<
         (
             Entity,
@@ -608,8 +608,8 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Query<&mut Transform, (With<Flicker>, With<Handle<Mesh>>)>,
-    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Handle<Mesh>>)>,
+    mut flame: Query<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
+    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
     let s = time.elapsed_seconds();

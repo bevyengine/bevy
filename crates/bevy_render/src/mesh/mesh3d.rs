@@ -1,15 +1,14 @@
-use crate::Material;
-use bevy_asset::Handle;
+use crate::{mesh::Mesh, view::Visibility};
+use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{mesh::Mesh, view::Visibility};
 use bevy_transform::components::Transform;
 
 /// A component for rendering 3D meshes, typically with a [material] such as [`StandardMaterial`].
 ///
-/// [material]: crate::material::Material
-/// [`StandardMaterial`]: crate::StandardMaterial
+/// [material]: <https://docs.rs/bevy/latest/bevy/pbr/trait.Material.html>
+/// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
@@ -21,18 +20,14 @@ impl From<Handle<Mesh>> for Mesh3d {
     }
 }
 
-/// A [material](Material) for a [`Mesh3d`].
-#[derive(Component, Clone, Debug, Deref, DerefMut, PartialEq, Eq)]
-pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
-
-impl<M: Material> Default for MeshMaterial3d<M> {
-    fn default() -> Self {
-        Self(Handle::default())
+impl From<Mesh3d> for AssetId<Mesh> {
+    fn from(mesh: Mesh3d) -> Self {
+        mesh.id()
     }
 }
 
-impl<M: Material> From<Handle<M>> for MeshMaterial3d<M> {
-    fn from(handle: Handle<M>) -> Self {
-        Self(handle)
+impl From<&Mesh3d> for AssetId<Mesh> {
+    fn from(mesh: &Mesh3d) -> Self {
+        mesh.id()
     }
 }

@@ -26,12 +26,12 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities},
 };
 use bevy_utils::tracing::error;
 use core::{
@@ -687,7 +687,7 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-        for visible_entity in visible_entities.iter::<WithMesh>() {
+        for visible_entity in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };

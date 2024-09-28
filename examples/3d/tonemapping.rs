@@ -207,7 +207,7 @@ fn setup_image_viewer_scene(
 // ----------------------------------------------------------------------------
 
 fn drag_drop_image(
-    image_mat: Query<&Handle<StandardMaterial>, With<HDRViewer>>,
+    image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut drop_events: EventReader<FileDragAndDrop>,
@@ -236,7 +236,7 @@ fn drag_drop_image(
 }
 
 fn resize_image(
-    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,

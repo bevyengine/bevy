@@ -155,6 +155,18 @@ impl<M: Material2d> From<Handle<M>> for MeshMaterial2d<M> {
     }
 }
 
+impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: &MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`](crate::mesh2d::Mesh2d). Sprites are always transparent.
 ///

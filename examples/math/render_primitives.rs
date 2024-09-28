@@ -2,10 +2,7 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::{
-    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
-    sprite::MaterialMesh2dBundle,
-};
+use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -535,10 +532,8 @@ fn spawn_primitive_2d(
                     camera_mode,
                     primitive_state: state,
                 },
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(mesh).into(),
-                    material: material.clone().into(),
-                },
+                Mesh2d(meshes.add(mesh)),
+                MeshMaterial2d(material.clone()),
                 Transform::from_translation(POSITION),
             ));
         }

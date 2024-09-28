@@ -48,7 +48,7 @@ fn setup(
 }
 
 fn animate_materials(
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

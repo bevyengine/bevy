@@ -6,7 +6,6 @@ use bevy::{
         tonemapping::Tonemapping,
     },
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
@@ -48,21 +47,17 @@ fn setup(
 
     // Circle mesh
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::new(100.)).into(),
-            // 4. Put something bright in a dark environment to see the effect
-            material: materials.add(Color::srgb(7.5, 0.0, 7.5)).into(),
-        },
+        Mesh2d(meshes.add(Circle::new(100.))),
+        // 4. Put something bright in a dark environment to see the effect
+        MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
         Transform::from_translation(Vec3::new(-200., 0., 0.)),
     ));
 
     // Hexagon mesh
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(RegularPolygon::new(100., 6)).into(),
-            // 4. Put something bright in a dark environment to see the effect
-            material: materials.add(Color::srgb(6.25, 9.4, 9.1)).into(),
-        },
+        Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
+        // 4. Put something bright in a dark environment to see the effect
+        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
         Transform::from_translation(Vec3::new(200., 0., 0.)),
     ));
 

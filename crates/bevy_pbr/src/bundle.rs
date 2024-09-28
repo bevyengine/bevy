@@ -1,9 +1,8 @@
 #![expect(deprecated)]
 
 use crate::{
-    mesh3d::{Mesh3d, MeshMaterial3d},
-    CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
-    StandardMaterial,
+    CascadeShadowConfig, Cascades, DirectionalLight, Material, MeshMaterial3d, PointLight,
+    SpotLight, StandardMaterial,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -14,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };

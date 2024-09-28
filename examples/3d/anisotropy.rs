@@ -104,8 +104,11 @@ fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     new_meshes: Query<
-        (Entity, &Handle<StandardMaterial>),
-        (Added<Handle<StandardMaterial>>, Without<MaterialVariants>),
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (
+            Added<MeshMaterial3d<StandardMaterial>>,
+            Without<MaterialVariants>,
+        ),
     >,
 ) {
     for (entity, anisotropic_material_handle) in new_meshes.iter() {
@@ -163,7 +166,7 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut Handle<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {

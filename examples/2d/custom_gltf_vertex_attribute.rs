@@ -8,7 +8,7 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
         render_resource::*,
     },
-    sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2d},
+    sprite::{Material2d, Material2dKey, Material2dPlugin, Mesh2d},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -54,10 +54,8 @@ fn setup(
         .from_asset("models/barycentric/barycentric.gltf"),
     );
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: Mesh2d(mesh),
-            material: materials.add(CustomMaterial {}).into(),
-        },
+        Mesh2d(mesh),
+        MeshMaterial2d(materials.add(CustomMaterial {})),
         Transform::from_scale(150.0 * Vec3::ONE),
     ));
 

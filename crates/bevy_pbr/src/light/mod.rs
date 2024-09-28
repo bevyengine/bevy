@@ -7,7 +7,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    mesh::Mesh,
+    mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
         InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
@@ -697,7 +697,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -866,7 +866,7 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,

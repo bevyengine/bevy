@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+    sprite::{Material2d, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -32,15 +32,11 @@ fn setup(
 
     // quad
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            material: materials
-                .add(CustomMaterial {
-                    color: LinearRgba::BLUE,
-                    color_texture: Some(asset_server.load("branding/icon.png")),
-                })
-                .into(),
-        },
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(CustomMaterial {
+            color: LinearRgba::BLUE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+        })),
         Transform::default().with_scale(Vec3::splat(128.)),
     ));
 }

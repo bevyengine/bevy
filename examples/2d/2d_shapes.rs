@@ -5,10 +5,7 @@
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2d},
-};
+use bevy::{prelude::*, sprite::Mesh2d};
 
 fn main() {
     let mut app = App::new();
@@ -33,20 +30,20 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let shapes = [
-        Mesh2d(meshes.add(Circle::new(50.0))),
-        Mesh2d(meshes.add(CircularSector::new(50.0, 1.0))),
-        Mesh2d(meshes.add(CircularSegment::new(50.0, 1.25))),
-        Mesh2d(meshes.add(Ellipse::new(25.0, 50.0))),
-        Mesh2d(meshes.add(Annulus::new(25.0, 50.0))),
-        Mesh2d(meshes.add(Capsule2d::new(25.0, 50.0))),
-        Mesh2d(meshes.add(Rhombus::new(75.0, 100.0))),
-        Mesh2d(meshes.add(Rectangle::new(50.0, 100.0))),
-        Mesh2d(meshes.add(RegularPolygon::new(50.0, 6))),
-        Mesh2d(meshes.add(Triangle2d::new(
+        meshes.add(Circle::new(50.0)),
+        meshes.add(CircularSector::new(50.0, 1.0)),
+        meshes.add(CircularSegment::new(50.0, 1.25)),
+        meshes.add(Ellipse::new(25.0, 50.0)),
+        meshes.add(Annulus::new(25.0, 50.0)),
+        meshes.add(Capsule2d::new(25.0, 50.0)),
+        meshes.add(Rhombus::new(75.0, 100.0)),
+        meshes.add(Rectangle::new(50.0, 100.0)),
+        meshes.add(RegularPolygon::new(50.0, 6)),
+        meshes.add(Triangle2d::new(
             Vec2::Y * 50.0,
             Vec2::new(-50.0, -50.0),
             Vec2::new(50.0, -50.0),
-        ))),
+        )),
     ];
     let num_shapes = shapes.len();
 
@@ -55,10 +52,8 @@ fn setup(
         let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
 
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: shape,
-                material: materials.add(color).into(),
-            },
+            Mesh2d(shape),
+            MeshMaterial2d(materials.add(color)),
             Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,

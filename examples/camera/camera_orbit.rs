@@ -58,26 +58,20 @@ fn setup(
 
     commands.spawn((
         Name::new("Plane"),
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.3, 0.5, 0.3),
-                // Turning off culling keeps the plane visible when viewed from beneath.
-                cull_mode: None,
-                ..default()
-            }),
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.3, 0.5, 0.3),
+            // Turning off culling keeps the plane visible when viewed from beneath.
+            cull_mode: None,
             ..default()
-        },
+        })),
     ));
 
     commands.spawn((
         Name::new("Cube"),
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(1.5, 0.51, 1.5),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Transform::from_xyz(1.5, 0.51, 1.5),
     ));
 
     commands.spawn((

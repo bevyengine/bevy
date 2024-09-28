@@ -64,6 +64,18 @@ impl From<Handle<Mesh>> for Mesh2d {
     }
 }
 
+impl From<Mesh2d> for AssetId<Mesh> {
+    fn from(mesh: Mesh2d) -> Self {
+        mesh.id()
+    }
+}
+
+impl From<&Mesh2d> for AssetId<Mesh> {
+    fn from(mesh: &Mesh2d) -> Self {
+        mesh.id()
+    }
+}
+
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 

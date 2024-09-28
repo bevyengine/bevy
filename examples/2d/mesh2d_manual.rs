@@ -111,7 +111,7 @@ fn star(
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d,
-        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` to use 2d rendering instead of 3d
+        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` for 2D rendering
         Mesh2d(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
         SpatialBundle::INHERITED_IDENTITY,

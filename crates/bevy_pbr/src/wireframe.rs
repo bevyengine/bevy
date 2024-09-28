@@ -5,7 +5,9 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
+    extract_resource::ExtractResource,
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef},
+    prelude::*,
     render_resource::*,
 };
 
@@ -167,7 +169,7 @@ fn apply_wireframe_material(
     commands.insert_or_spawn_batch(material_to_spawn);
 }
 
-type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
+type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(

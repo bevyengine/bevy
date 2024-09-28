@@ -459,7 +459,7 @@ fn move_camera(
 fn print_mesh_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Handle<Mesh>, &ViewVisibility)>,
+    sprites: Query<(&Mesh3d, &ViewVisibility)>,
 ) {
     timer.tick(time.delta());
 

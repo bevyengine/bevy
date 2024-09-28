@@ -2,6 +2,7 @@
 mod mesh;
 
 pub mod allocator;
+mod mesh3d;
 pub mod morph;
 pub mod primitives;
 
@@ -10,6 +11,7 @@ use allocator::MeshAllocatorPlugin;
 use bevy_utils::HashSet;
 use core::hash::{Hash, Hasher};
 pub use mesh::*;
+pub use mesh3d::Mesh3d;
 pub use primitives::*;
 
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};

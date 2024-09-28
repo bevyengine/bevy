@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
-    sprite::{Anchor, MaterialMesh2dBundle, Mesh2d},
+    sprite::{Anchor, Mesh2d},
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -45,14 +45,14 @@ struct ConnectedGamepadsText;
 
 #[derive(Resource)]
 struct ButtonMaterials {
-    normal: Handle<ColorMaterial>,
-    active: Handle<ColorMaterial>,
+    normal: MeshMaterial2d<ColorMaterial>,
+    active: MeshMaterial2d<ColorMaterial>,
 }
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         Self {
-            normal: world.add_asset(NORMAL_BUTTON_COLOR),
-            active: world.add_asset(ACTIVE_BUTTON_COLOR),
+            normal: world.add_asset(NORMAL_BUTTON_COLOR).into(),
+            active: world.add_asset(ACTIVE_BUTTON_COLOR).into(),
         }
     }
 }
@@ -88,13 +88,13 @@ impl GamepadButtonBundle {
     pub fn new(
         button_type: GamepadButton,
         mesh: Mesh2d,
-        material: Handle<ColorMaterial>,
+        material: MeshMaterial2d<ColorMaterial>,
         x: f32,
         y: f32,
     ) -> Self {
         Self {
             mesh,
-            material: material.into(),
+            material,
             transform: Transform::from_xyz(x, y, 0.),
             react_to: ReactTo(button_type),
         }
@@ -339,8 +339,8 @@ fn setup_sticks(
                 ));
                 // cursor
                 parent.spawn((
-                    Mesh2d(meshes.circle.clone()),
-                    MeshMaterial2d(materials.normal.clone()),
+                    meshes.circle.clone(),
+                    materials.normal.clone(),
                     Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
                     MoveWithAxes {
                         x_axis,
@@ -434,7 +434,7 @@ fn setup_connected(mut commands: Commands) {
 fn update_buttons(
     gamepads: Query<&Gamepad>,
     materials: Res<ButtonMaterials>,
-    mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
+    mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
 ) {
     for buttons in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {
