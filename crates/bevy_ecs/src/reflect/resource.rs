@@ -5,9 +5,7 @@
 //! See the module doc for [`crate::reflect::component`].
 
 use crate::{
-    change_detection::Mut,
-    system::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    change_detection::Mut, component::ComponentId, system::Resource, world::{unsafe_world_cell::UnsafeWorldCell, World}
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
@@ -59,6 +57,8 @@ pub struct ReflectResourceFns {
     pub reflect_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World, &TypeRegistry),
+    /// Function pointer implementing [`ReflectResource::register_resource()`].
+    pub register_resource: fn(&mut World) -> ComponentId
 }
 
 impl ReflectResourceFns {
@@ -145,6 +145,11 @@ impl ReflectResource {
         (self.0.copy)(source_world, destination_world, registry);
     }
 
+    /// Register the type of this [`Resource`] in [`World`], returning the [`ComponentId`]
+    pub fn register_resource(&self, world: &mut World) -> ComponentId {
+        (self.0.register_resource)(world)
+    }
+
     /// Create a custom implementation of [`ReflectResource`].
     ///
     /// This is an advanced feature,
@@ -217,6 +222,10 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
                     from_reflect_with_fallback::<R>(source_resource, destination_world, registry);
                 destination_world.insert_resource(destination_resource);
             },
+
+            register_resource: |world: &mut World| -> ComponentId {
+                world.register_resource::<R>()
+            }
         })
     }
 }
