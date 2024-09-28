@@ -31,7 +31,8 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility, VisibleEntities},
+    Extract,
 };
 use bevy_utils::tracing::error;
 use core::{
@@ -273,6 +274,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+                .add_systems(ExtractSchedule, extract_material_meshes::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -524,6 +526,22 @@ pub const fn screen_space_specular_transmission_pipeline_key(
         }
         ScreenSpaceTransmissionQuality::Ultra => {
             MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
+        }
+    }
+}
+
+fn extract_material_meshes<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>), With<Mesh3d>>>,
+) {
+    if query.is_empty() {
+        return;
+    }
+
+    material_instances.clear();
+    for (entity, view_visibility, handle) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, handle.id());
         }
     }
 }
