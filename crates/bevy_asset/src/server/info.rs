@@ -166,7 +166,7 @@ impl AssetInfos {
         (handle.typed_unchecked(), should_load)
     }
 
-    pub(crate) fn get_or_create_path_handle_erased(
+    pub(crate) fn get_or_create_path_handle_untyped(
         &mut self,
         path: AssetPath<'static>,
         type_id: TypeId,

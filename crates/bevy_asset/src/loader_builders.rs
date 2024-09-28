@@ -27,9 +27,70 @@ impl ReaderRef<'_> {
 
 /// A builder for loading nested assets inside a `LoadContext`.
 ///
+/// # Loader state
+///
+/// The type parameters `T` and `M` determine how this loader will load assets:
+/// - `T`: the typing of this loader. When we load an asset, how do we know
+///   what type of asset to load?
+///
+///   See [`Untyped`] (the default) and [`Typed`].
+///
+/// - `M`: the load mode. Do we want to load this asset right now (in which case
+///   you will have to `await` the operation), or do we just want a [`Handle`],
+///   and leave the actual asset loading to later?
+///
+///   See [`Indirect`] (the default) and [`Direct`].
+///
+/// When configuring this builder, you can freely switch between these modes
+/// via functions like [`direct`]/[`indirect`].
+///
+/// ## Typing
+///
+/// To inform the loader of what type of asset to load:
+/// - in [`Untyped`] or [`Typed`]: statically providing a type parameter
+///   `A: Asset` to [`load`].
+///
+///   This is the simplest way to get a [`Handle<A>`] to the loaded asset, as
+///   long as you know the type of `A` at compile time.
+///
+/// - in [`Typed`]: providing the [`TypeId`] and [type name] of the asset at
+///   runtime.
+///
+///   If you know the type info of the asset at runtime, but not at compile
+///   time, use [`with_asset_type_info`] followed by [`load`] to start loading
+///   an asset of that type, and get back an [`UntypedHandle`].
+///
+/// - in [`Untyped`]: loading a [`LoadedUntypedAsset`], which is a type-erased
+///   version of the loaded asset.
+///
+///   If you have no idea what type of asset you will be loading (not even at
+///   runtime with a [`TypeId`]), use this.
+///
+/// ## Load mode
+///
+/// To inform the loader how you want to access the loaded asset:
+/// - [`Indirect`]: when you load the asset, you only want a [`Handle`] and do
+///   not care about the actual value of the asset.
+///
+///   Use this if you only need a [`Handle`] or [`UntypedHandle`].
+///
+/// - [`Direct`]: when you load the asset, you need to know the actual value of
+///   the loaded asset.
+///
+///   Note that this requires you to `await` a future, so you must be in an
+///   async context to use direct loading. In an asset loader, you will be in
+///   an async context.
+///
 /// # Lifetimes
+///
 /// - `ctx`: the lifetime of the associated [`AssetServer`](crate::AssetServer) reference
 /// - `builder`: the lifetime of the temporary builder structs
+///
+/// [`direct`]: Self::direct
+/// [`indirect`]: Self::indirect
+/// [`load`]: Self::load
+/// [type name]: core::any::type_name
+/// [`with_asset_type_info`]: Self::with_asset_type_info
 pub struct NestedLoader<'ctx, 'builder, T, M> {
     load_context: &'builder mut LoadContext<'ctx>,
     meta_transform: Option<MetaTransform>,
@@ -43,12 +104,18 @@ mod sealed {
     pub trait Mode {}
 }
 
+/// [`NestedLoader`] has not been configured with info on what type of asset to
+/// load.
+///
+/// [`load`]: NestedLoader::load
 pub struct Untyped {
     _priv: (),
 }
 
 impl sealed::Typing for Untyped {}
 
+/// [`NestedLoader`] has been configured with info on what type of asset to load
+/// at runtime.
 pub struct Typed<'builder> {
     asset_type_id: TypeId,
     asset_type_name: &'builder str,
@@ -56,12 +123,15 @@ pub struct Typed<'builder> {
 
 impl sealed::Typing for Typed<'_> {}
 
+/// [`NestedLoader`] will create and return asset handles immediately, but will
+/// not give you access to the actual loaded asset.
 pub struct Indirect {
     _priv: (),
 }
 
 impl sealed::Mode for Indirect {}
 
+/// [`NestedLoader`] will immediately load an asset when requested.
 pub struct Direct<'builder, 'reader> {
     reader: Option<&'builder mut (dyn Reader + 'reader)>,
 }
@@ -113,7 +183,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 // convert between typed and untyped
 
 impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
-    /// Specify the output asset type.
+    /// Specify the output asset type statically.
     #[must_use]
     pub fn with_asset_type<A: Asset>(self) -> NestedLoader<'ctx, 'builder, Typed<'static>, M> {
         NestedLoader {
@@ -127,7 +197,12 @@ impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
         }
     }
 
-    /// Specify the output asset type.
+    /// Specify the output asset type via runtime info.
+    ///
+    /// Use this if you only know the asset [`TypeId`] and [type name] at
+    /// runtime.
+    ///
+    /// [type name]: core::any::type_name
     #[must_use]
     pub fn with_asset_type_info(
         self,
@@ -147,7 +222,8 @@ impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
 }
 
 impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Typed<'_>, M> {
-    // todo docs
+    /// Configure this loader with no info to determine what type of asset to
+    /// load.
     #[must_use]
     pub fn untyped(self) -> NestedLoader<'ctx, 'builder, Untyped, M> {
         NestedLoader {
@@ -175,7 +251,7 @@ impl<'ctx, 'builder, T: sealed::Typing> NestedLoader<'ctx, 'builder, T, Indirect
 }
 
 impl<'ctx, 'builder, T: sealed::Typing> NestedLoader<'ctx, 'builder, T, Direct<'_, '_>> {
-    // todo docs
+    /// Create only asset handles, rather than loading the actual asset.
     pub fn indirect<'c>(self) -> NestedLoader<'ctx, 'builder, T, Indirect> {
         NestedLoader {
             load_context: self.load_context,

@@ -411,7 +411,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let path = path.into().into_owned();
         let mut infos = self.data.infos.write();
-        let (handle, should_load) = infos.get_or_create_path_handle_erased(
+        let (handle, should_load) = infos.get_or_create_path_handle_untyped(
             path.clone(),
             type_id,
             type_name,
@@ -626,7 +626,7 @@ impl AssetServer {
         let (base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
             let base_path = path.without_label().into_owned();
-            let (base_handle, _) = infos.get_or_create_path_handle_erased(
+            let (base_handle, _) = infos.get_or_create_path_handle_untyped(
                 base_path.clone(),
                 loader.asset_type_id(),
                 loader.asset_type_name(),
@@ -745,7 +745,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
-            let (handle, _) = self.data.infos.write().get_or_create_path_handle_erased(
+            let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
                 path,
                 loaded_asset.asset_type_id(),
                 loaded_asset.asset_type_name(),
@@ -1182,7 +1182,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let mut infos = self.data.infos.write();
         infos
-            .get_or_create_path_handle_erased(
+            .get_or_create_path_handle_untyped(
                 path.into().into_owned(),
                 type_id,
                 type_name,
