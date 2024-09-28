@@ -75,23 +75,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // This marker component ensures we can easily find either of the Birds by using With and
         // Without query filters.
         Left,
-        SpriteBundle {
-            texture: texture_left,
-            transform: Transform::from_xyz(-200.0, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(texture_left),
+        Transform::from_xyz(-200.0, 0.0, 0.0),
         bird_left,
     ));
 
     commands.spawn((
         Name::new("Bird Right"),
-        SpriteBundle {
-            // In contrast to the above, here we rely on the default `RenderAssetUsages` loader
-            // setting.
-            texture: asset_server.load(bird_right.get_texture_path()),
-            transform: Transform::from_xyz(200.0, 0.0, 0.0),
-            ..default()
-        },
+        // In contrast to the above, here we rely on the default `RenderAssetUsages` loader setting
+        Sprite::from_image(asset_server.load(bird_right.get_texture_path())),
+        Transform::from_xyz(200.0, 0.0, 0.0),
         bird_right,
     ));
 }

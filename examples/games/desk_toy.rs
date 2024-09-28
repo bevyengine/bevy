@@ -136,10 +136,7 @@ fn setup(
     // Spawn the Bevy logo sprite
     commands
         .spawn((
-            SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
-                ..default()
-            },
+            Sprite::from_image(asset_server.load("branding/icon.png")),
             BevyLogo,
         ))
         .with_children(|commands| {
