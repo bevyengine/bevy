@@ -212,11 +212,9 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 
     // Read bits for Z
     vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
-    bit_i += bits_per_channel.z;
 
     // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
-    var vertex_position = vec3<f32>(vertex_position_packed);
-    vertex_position += vec3(
+    var vertex_position = vec3<f32>(vertex_position_packed) += vec3(
         (*meshlet).min_vertex_position_channel_x,
         (*meshlet).min_vertex_position_channel_y,
         (*meshlet).min_vertex_position_channel_z,
