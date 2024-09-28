@@ -6,8 +6,7 @@ use crate::entity::Entity;
 
 /// Apply an operation to all entities in a container.
 ///
-/// This is implemented by default for types that implement [`IterEntities`] or
-/// where `&T` and `&mut T` both implement [`IntoIterator`].
+/// This is implemented by default for types that implement [`IterEntities`].
 ///
 /// It may be useful to implement directly for types that can't produce an
 /// iterator for lifetime reasons, such as those involving internal mutexes.
@@ -27,11 +26,8 @@ where
 
 /// Produce an iterator over all contained entities.
 ///
-/// This is implemented by default for types  where `&T` and `&mut T` both implement
+/// This is implemented by default for types  where `&T` implements
 /// [`IntoIterator`].
-///
-/// It may be useful to implement directly for types that can't produce an
-/// iterator for lifetime reasons, such as those involving internal mutexes.
 ///
 /// This trait is derivable for structs via `#[derive(IterEntities)]`. Fields
 /// not containing entities can be ignored with `#[iter_entities(ignore)]`.
