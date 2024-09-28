@@ -22,6 +22,8 @@ mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+mod animation;
+
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -33,6 +35,8 @@ pub mod prelude {
         texture_atlas::{TextureAtlas, TextureAtlasLayout},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        animation::player::{TransitionMode, SpriteAnimationPlayer},
+        animation::clip::{SpriteClip, ClipOverridable}
     };
 }
 
@@ -45,6 +49,7 @@ pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 pub use texture_slice::*;
+pub use animation::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
@@ -139,6 +144,8 @@ impl Plugin for SpritePlugin {
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(picking_backend::SpritePickingBackend);
+
+        app.add_plugins(SpriteAnimationPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
