@@ -232,13 +232,16 @@ pub unsafe trait SystemParam: Sized {
     /// same tick used for [`SystemParam::get_param`], the world access
     /// ensures that the queried data will be the same in both calls.
     ///
+    /// This method has to be called directly before [`SystemParam::get_param`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
+    ///
     /// # Safety
     ///
     /// - The passed [`UnsafeWorldCell`] must have read-only access to world data
     ///   registered in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
-    /// - This is called directly before [`SystemParam::get_param`] with no other world mutations inbetween.
     unsafe fn validate_param(
         _state: &Self::State,
         _system_meta: &SystemMeta,

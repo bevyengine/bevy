@@ -104,6 +104,10 @@ pub trait System: Send + Sync + 'static {
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
+    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
+    ///
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
@@ -112,14 +116,10 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    /// - This is called directly before [`System::run_unsafe`] with no other world mutations inbetween.
     unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    ///
-    /// This method still has to be called directly before [`System::run_unsafe`]/[`System::run`]
-    /// to return the correct result.
     fn validate_param(&mut self, world: &World) -> bool {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
