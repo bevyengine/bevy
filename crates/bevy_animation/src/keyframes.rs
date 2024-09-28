@@ -8,7 +8,7 @@ use core::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, world::Mut};
 use bevy_math::{Quat, Vec3};
-use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath, Typed};
+use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
@@ -69,16 +69,7 @@ pub trait AnimatableProperty: Reflect + TypePath + 'static {
     type Component: Component;
 
     /// The type of the property to be animated.
-    type Property: Animatable
-        + FromReflect
-        + GetTypeRegistration
-        + Reflect
-        + TypePath
-        + Typed
-        + Clone
-        + Sync
-        + Debug
-        + 'static;
+    type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug + 'static;
 
     /// Given a reference to the component, returns a reference to the property.
     ///
