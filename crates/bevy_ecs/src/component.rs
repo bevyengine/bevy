@@ -1017,31 +1017,6 @@ impl Components {
     ///
     /// [required components]: Component#required-components
     ///
-    /// # Panics
-    ///
-    /// Panics if the `required` component is already a directly required component for the `requiree`.
-    ///
-    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
-    /// will only be overwritten if the new requirement is more specific.
-    pub(crate) fn register_required_components_recursive<R: Component>(
-        &mut self,
-        required: ComponentId,
-        requiree: ComponentId,
-        constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
-        // SAFETY: We just created the components.
-        unsafe {
-            self.register_required_components_recursive_unchecked(required, requiree, constructor)
-        }
-    }
-
-    /// Recursively registers the given component `R` and its [required components] as required by `T`.
-    ///
-    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
-    /// The given `constructor` will be used for the creation of `R`.
-    ///
-    /// [required components]: Component#required-components
-    ///
     /// # Safety
     ///
     /// The given component IDs `required` and `requiree` must be valid.
@@ -1052,7 +1027,7 @@ impl Components {
     ///
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
-    pub(crate) unsafe fn register_required_components_recursive_unchecked<R: Component>(
+    pub(crate) unsafe fn register_required_components_recursive<R: Component>(
         &mut self,
         required: ComponentId,
         requiree: ComponentId,

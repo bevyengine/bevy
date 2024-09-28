@@ -506,8 +506,14 @@ impl World {
 
         let required = self.register_component::<R>();
 
-        self.components
-            .register_required_components_recursive::<R>(required, requiree, constructor)
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components.register_required_components_recursive::<R>(
+                required,
+                requiree,
+                constructor,
+            )
+        }
     }
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
