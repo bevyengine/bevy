@@ -19,7 +19,7 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
     let clip = SpriteClip {
-        // Handle ima
+        // Clip frames also accepts Handle<Image>
         clip: ClipFrames::from([0, 1, 2, 3, 4, 5, 6]),
         speed: 1.0,
         fps: 1,
