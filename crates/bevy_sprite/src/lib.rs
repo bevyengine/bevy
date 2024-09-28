@@ -25,6 +25,7 @@ mod texture_slice;
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

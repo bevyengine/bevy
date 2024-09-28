@@ -78,7 +78,8 @@ impl FromWorld for ButtonMeshes {
 
 #[derive(Bundle)]
 struct GamepadButtonBundle {
-    mesh_bundle: MaterialMesh2dBundle<ColorMaterial>,
+    mesh: Mesh2d,
+    material: MeshMaterial2d<ColorMaterial>,
     transform: Transform,
     react_to: ReactTo,
 }
@@ -92,10 +93,8 @@ impl GamepadButtonBundle {
         y: f32,
     ) -> Self {
         Self {
-            mesh_bundle: MaterialMesh2dBundle {
-                mesh,
-                material: material.into(),
-            },
+            mesh,
+            material: material.into(),
             transform: Transform::from_xyz(x, y, 0.),
             react_to: ReactTo(button_type),
         }
@@ -340,10 +339,8 @@ fn setup_sticks(
                 ));
                 // cursor
                 parent.spawn((
-                    MaterialMesh2dBundle {
-                        mesh: meshes.circle.clone(),
-                        material: materials.normal.clone().into(),
-                    },
+                    Mesh2d(meshes.circle.clone()),
+                    MeshMaterial2d(materials.normal.clone()),
                     Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
                     MoveWithAxes {
                         x_axis,
