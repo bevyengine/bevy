@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::{Indirect, NestedLoader, Untyped},
+    loader_builders::{Deferred, NestedLoader, Typed},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
@@ -550,7 +550,7 @@ impl<'a> LoadContext<'a> {
 
     /// Create a builder for loading nested assets in this context.
     #[must_use]
-    pub fn loader(&mut self) -> NestedLoader<'a, '_, Untyped, Indirect> {
+    pub fn loader(&mut self) -> NestedLoader<'a, '_, Typed, Deferred> {
         NestedLoader::new(self)
     }
 

@@ -25,15 +25,14 @@ impl ReaderRef<'_> {
     }
 }
 
-/// A builder for loading nested assets inside a `LoadContext`.
+/// A builder for loading nested assets inside a [`LoadContext`].
 ///
 /// # Loader state
 ///
 /// The type parameters `T` and `M` determine how this loader will load assets:
-/// - `T`: the typing of this loader. When we load an asset, how do we know
-///   what type of asset to load?
+/// - `T`: the typing of this loader. How do we know what type of asset to load?
 ///
-///   See [`Untyped`] (the default) and [`Typed`].
+///   See [`Typed`] (the default), [`Erased`], and [`UnknownType`].
 ///
 /// - `M`: the load mode. Do we want to load this asset right now (in which case
 ///   you will have to `await` the operation), or do we just want a [`Handle`],
@@ -47,20 +46,21 @@ impl ReaderRef<'_> {
 /// ## Typing
 ///
 /// To inform the loader of what type of asset to load:
-/// - in [`Untyped`] or [`Typed`]: statically providing a type parameter
-///   `A: Asset` to [`load`].
+/// - in [`Typed`]: statically providing a type parameter `A: Asset` to
+///   [`load`].
 ///
 ///   This is the simplest way to get a [`Handle<A>`] to the loaded asset, as
 ///   long as you know the type of `A` at compile time.
 ///
-/// - in [`Typed`]: providing the [`TypeId`] and [type name] of the asset at
+/// - in [`Erased`]: providing the [`TypeId`] and [type name] of the asset at
 ///   runtime.
 ///
 ///   If you know the type info of the asset at runtime, but not at compile
-///   time, use [`with_asset_type_info`] followed by [`load`] to start loading
-///   an asset of that type, and get back an [`UntypedHandle`].
+///   time, use [`erased`] followed by [`load`] to start loading an asset of
+///   that type. This lets you get an [`UntypedHandle`] (via [`Indirect`]), or a
+///   [`LoadedUntypedAsset`] (via [`Direct`]).
 ///
-/// - in [`Untyped`]: loading a [`LoadedUntypedAsset`], which is a type-erased
+/// - in [`UnknownType`]: loading a [`LoadedUntypedAsset`], which is a
 ///   version of the loaded asset.
 ///
 ///   If you have no idea what type of asset you will be loading (not even at
@@ -68,18 +68,38 @@ impl ReaderRef<'_> {
 ///
 /// ## Load mode
 ///
-/// To inform the loader how you want to access the loaded asset:
-/// - [`Indirect`]: when you load the asset, you only want a [`Handle`] and do
-///   not care about the actual value of the asset.
+/// To inform the loader how you want to load the asset:
+/// - [`Deferred`]: when you request to load the asset, you get a [`Handle`] for
+///   it, but the actual loading won't be completed until later.
 ///
 ///   Use this if you only need a [`Handle`] or [`UntypedHandle`].
 ///
-/// - [`Direct`]: when you load the asset, you need to know the actual value of
-///   the loaded asset.
+/// - [`Immediate`]: the load request will load the asset right then and there,
+///   waiting until the asset is fully loaded and giving you access to it.
 ///
 ///   Note that this requires you to `await` a future, so you must be in an
 ///   async context to use direct loading. In an asset loader, you will be in
 ///   an async context.
+///
+///   Use this if you need the *value* of another asset in order to load the
+///   current asset. For example, if you are deriving a new asset from the
+///   referenced asset, or you are building a collection of assets. This will
+///   add the path of the asset as a "load dependency".
+///
+///   If the current loader is used in a [`Process`] "asset preprocessor",
+///   such as a [`LoadTransformAndSave`] preprocessor, changing a "load
+///   dependency" will result in re-processing of the asset.
+///
+/// # Load kickoff
+///
+/// If the current context is a normal [`AssetServer::load`], an actual asset
+/// load will be kicked off immediately, which ensures the load happens as soon
+/// as possible. "Normal loads" kicked from within a normal Bevy App will
+/// generally configure the context to kick off loads immediately.
+///
+/// If the current context is configured to not load dependencies automatically
+/// (ex: [`AssetProcessor`]), a load will not be kicked off automatically. It is
+/// then the calling context's responsibility to begin a load if necessary.
 ///
 /// # Lifetimes
 ///
@@ -88,9 +108,13 @@ impl ReaderRef<'_> {
 ///
 /// [`direct`]: Self::direct
 /// [`indirect`]: Self::indirect
-/// [`load`]: Self::load
 /// [type name]: core::any::type_name
-/// [`with_asset_type_info`]: Self::with_asset_type_info
+/// [`load`]: Self::load
+/// [`erased`]: Self::erased
+/// [`AssetServer::load`]: crate::AssetServer::load
+/// [`AssetProcessor`]: crate::processor::AssetProcessor
+/// [`Process`]: crate::processor::Process
+/// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
 pub struct NestedLoader<'ctx, 'builder, T, M> {
     load_context: &'builder mut LoadContext<'ctx>,
     meta_transform: Option<MetaTransform>,
@@ -104,49 +128,56 @@ mod sealed {
     pub trait Mode {}
 }
 
-/// [`NestedLoader`] has not been configured with info on what type of asset to
-/// load.
+/// [`NestedLoader`] will be provided the type of asset as a type parameter on
+/// [`load`].
 ///
-/// [`load`]: NestedLoader::load
-pub struct Untyped {
+/// [`load`]: Self::load
+pub struct Typed {
     _priv: (),
 }
 
-impl sealed::Typing for Untyped {}
+impl sealed::Typing for Typed {}
 
 /// [`NestedLoader`] has been configured with info on what type of asset to load
 /// at runtime.
-pub struct Typed<'builder> {
+pub struct Erased<'builder> {
     asset_type_id: TypeId,
     asset_type_name: &'builder str,
 }
 
-impl sealed::Typing for Typed<'_> {}
+impl sealed::Typing for Erased<'_> {}
 
-/// [`NestedLoader`] will create and return asset handles immediately, but will
-/// not give you access to the actual loaded asset.
-pub struct Indirect {
+/// [`NestedLoader`] does not know what type of asset it will be loading.
+pub struct UnknownType {
     _priv: (),
 }
 
-impl sealed::Mode for Indirect {}
+impl sealed::Typing for UnknownType {}
+
+/// [`NestedLoader`] will create and return asset handles immediately, but only
+/// actually load the asset later.
+pub struct Deferred {
+    _priv: (),
+}
+
+impl sealed::Mode for Deferred {}
 
 /// [`NestedLoader`] will immediately load an asset when requested.
-pub struct Direct<'builder, 'reader> {
+pub struct Immediate<'builder, 'reader> {
     reader: Option<&'builder mut (dyn Reader + 'reader)>,
 }
 
-impl sealed::Mode for Direct<'_, '_> {}
+impl sealed::Mode for Immediate<'_, '_> {}
 
 // common to all states
 
-impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, Untyped, Indirect> {
+impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, Typed, Deferred> {
     pub(crate) fn new(load_context: &'builder mut LoadContext<'ctx>) -> Self {
         NestedLoader {
             load_context,
             meta_transform: None,
-            typing: Untyped { _priv: () },
-            mode: Indirect { _priv: () },
+            typing: Typed { _priv: () },
+            mode: Deferred { _priv: () },
         }
     }
 }
@@ -178,102 +209,109 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     ) -> Self {
         self.with_transform(move |meta| meta_transform_settings(meta, &settings))
     }
-}
 
-// convert between typed and untyped
+    // convert between `T`s
 
-impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
-    /// Specify the output asset type statically.
-    #[must_use]
-    pub fn with_asset_type<A: Asset>(self) -> NestedLoader<'ctx, 'builder, Typed<'static>, M> {
-        NestedLoader {
-            load_context: self.load_context,
-            meta_transform: self.meta_transform,
-            typing: Typed {
-                asset_type_id: TypeId::of::<A>(),
-                asset_type_name: core::any::type_name::<A>(),
-            },
-            mode: self.mode,
-        }
-    }
-
-    /// Specify the output asset type via runtime info.
-    ///
-    /// Use this if you only know the asset [`TypeId`] and [type name] at
-    /// runtime.
+    /// When [`load`]ing, the loader will attempt to load an asset with the
+    /// given [`TypeId`] and [type name].
     ///
     /// [type name]: core::any::type_name
     #[must_use]
-    pub fn with_asset_type_info(
+    pub fn erased(
         self,
         asset_type_id: TypeId,
         asset_type_name: &'builder str,
-    ) -> NestedLoader<'ctx, 'builder, Typed<'builder>, M> {
+    ) -> NestedLoader<'ctx, 'builder, Erased, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: Typed {
+            typing: Erased {
                 asset_type_id,
                 asset_type_name,
             },
             mode: self.mode,
         }
     }
-}
 
-impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Typed<'_>, M> {
-    /// Configure this loader with no info to determine what type of asset to
-    /// load.
+    /// When [`load`]ing, you must pass in the asset type as a type parameter
+    /// statically.
+    ///
+    /// If you don't know the type statically (at compile time), consider
+    /// [`erased`] or [`unknown_type`].
+    ///
+    /// [`load`]: Self::load
+    /// [`erased`]: Self::erased
+    /// [`unknown_type`]: Self::unknown_type
     #[must_use]
-    pub fn untyped(self) -> NestedLoader<'ctx, 'builder, Untyped, M> {
+    pub fn typed(self) -> NestedLoader<'ctx, 'builder, Typed, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: Untyped { _priv: () },
+            typing: Typed { _priv: () },
             mode: self.mode,
         }
     }
-}
 
-// convert between direct and indirect
-
-impl<'ctx, 'builder, T: sealed::Typing> NestedLoader<'ctx, 'builder, T, Indirect> {
-    /// Load assets directly, rather than creating handles.
+    /// When [`load`]ing, we will infer what type of asset to load from
+    /// metadata.
+    ///
+    /// [`load`]: Self::load
     #[must_use]
-    pub fn direct<'c>(self) -> NestedLoader<'ctx, 'builder, T, Direct<'builder, 'c>> {
+    pub fn of_unknown_type(self) -> NestedLoader<'ctx, 'builder, UnknownType, M> {
+        NestedLoader {
+            load_context: self.load_context,
+            meta_transform: self.meta_transform,
+            typing: UnknownType { _priv: () },
+            mode: self.mode,
+        }
+    }
+
+    // convert between `M`s
+
+    /// When [`load`]ing, create only asset handles, rather than loading the
+    /// actual asset.
+    ///
+    /// [`load`]: Self::load
+    pub fn indirect<'c>(self) -> NestedLoader<'ctx, 'builder, T, Deferred> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
             typing: self.typing,
-            mode: Direct { reader: None },
+            mode: Deferred { _priv: () },
         }
     }
-}
-
-impl<'ctx, 'builder, T: sealed::Typing> NestedLoader<'ctx, 'builder, T, Direct<'_, '_>> {
-    /// Create only asset handles, rather than loading the actual asset.
-    pub fn indirect<'c>(self) -> NestedLoader<'ctx, 'builder, T, Indirect> {
+    /// The [`load`] call itself will load an asset, rather than scheduling the
+    /// loading to happen later.
+    ///
+    /// This gives you access to the loaded asset, but requires you to be in an
+    /// async context, and be able to `await` the resulting future.
+    ///
+    /// [`load`]: Self::load
+    #[must_use]
+    pub fn immediate<'c>(self) -> NestedLoader<'ctx, 'builder, T, Immediate<'builder, 'c>> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
             typing: self.typing,
-            mode: Indirect { _priv: () },
+            mode: Immediate { reader: None },
         }
     }
 }
 
-// indirect loading logic
+// deferred loading logic
 
-impl NestedLoader<'_, '_, Untyped, Indirect> {
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`](crate::AssetServer::load), an actual asset
-    /// load will be kicked off immediately, which ensures the load happens as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off
-    /// loads immediately.
-    /// If the current context is configured to not load dependencies automatically
-    /// (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin
-    /// a load if necessary.
+impl NestedLoader<'_, '_, Typed, Deferred> {
+    /// Retrieves a handle for the asset at the given path and adds that path as
+    /// a dependency of this asset.
+    ///
+    /// This requires you to know the type of asset statically.
+    /// - If you have runtime info for what type of asset you're loading (e.g. a
+    ///   [`TypeId`]), use [`erased`].
+    /// - If you do not know at all what type of asset you're loading, use
+    ///   [`unknown_type`].
+    ///
+    /// [`erased`]: Self::erased
+    /// [`unknown_type`]: Self::unknown_type
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -288,25 +326,15 @@ impl NestedLoader<'_, '_, Untyped, Indirect> {
         self.load_context.dependencies.insert(handle.id().untyped());
         handle
     }
-
-    /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset without knowing its type.
-    pub fn load_untyped<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
-        let path = path.into().to_owned();
-        let handle = if self.load_context.should_load_dependencies {
-            self.load_context
-                .asset_server
-                .load_untyped_with_meta_transform(path, self.meta_transform)
-        } else {
-            self.load_context
-                .asset_server
-                .get_or_create_path_handle(path, self.meta_transform)
-        };
-        self.load_context.dependencies.insert(handle.id().untyped());
-        handle
-    }
 }
 
-impl NestedLoader<'_, '_, Typed<'_>, Indirect> {
+impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
+    /// Retrieves a handle for the asset at the given path and adds that path as
+    /// a dependency of this asset.
+    ///
+    /// This requires you to pass in the asset type ID and name into [`erased`].
+    ///
+    /// [`erased`]: Self::erased
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -334,9 +362,30 @@ impl NestedLoader<'_, '_, Typed<'_>, Indirect> {
     }
 }
 
-// direct loading logic
+impl NestedLoader<'_, '_, UnknownType, Deferred> {
+    /// Retrieves a handle for the asset at the given path and adds that path as
+    /// a dependency of this asset.
+    ///
+    /// This will infer the asset type from metadata.
+    pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
+        let path = path.into().to_owned();
+        let handle = if self.load_context.should_load_dependencies {
+            self.load_context
+                .asset_server
+                .load_unknown_type_with_meta_transform(path, self.meta_transform)
+        } else {
+            self.load_context
+                .asset_server
+                .get_or_create_path_handle(path, self.meta_transform)
+        };
+        self.load_context.dependencies.insert(handle.id().untyped());
+        handle
+    }
+}
 
-impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Direct<'builder, 'reader>> {
+// immediate loading logic
+
+impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>> {
     /// Specify the reader to use to read the asset data.
     #[must_use]
     pub fn with_reader(mut self, reader: &'builder mut (dyn Reader + 'reader)) -> Self {
@@ -394,39 +443,19 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Direct<'builder, 'reader>> {
             .await?;
         Ok((loader, asset))
     }
-
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
-    ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
-    ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
-    pub async fn load_untyped<'p>(
-        self,
-        path: impl Into<AssetPath<'p>>,
-    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
-        let path = path.into().into_owned();
-        self.load_internal(&path, None)
-            .await
-            .map(|(_, asset)| asset)
-    }
 }
 
-impl NestedLoader<'_, '_, Untyped, Direct<'_, '_>> {
-    /// Loads the asset at the given `path` directly. This is an async function that will wait until the asset is fully loaded before
-    /// returning. Use this if you need the _value_ of another asset in order to load the current asset. For example, if you are
-    /// deriving a new asset from the referenced asset, or you are building a collection of assets. This will add the `path` as a
-    /// "load dependency".
+impl NestedLoader<'_, '_, Typed, Immediate<'_, '_>> {
+    /// Attempts to load the asset at the given `path` immediately.
     ///
-    /// If the current loader is used in a [`Process`] "asset preprocessor", such as a [`LoadTransformAndSave`] preprocessor,
-    /// changing a "load dependency" will result in re-processing of the asset.
+    /// This requires you to know the type of asset statically.
+    /// - If you have runtime info for what type of asset you're loading (e.g. a
+    ///   [`TypeId`]), use [`erased`].
+    /// - If you do not know at all what type of asset you're loading, use
+    ///   [`unknown_type`].
     ///
-    /// [`Process`]: crate::processor::Process
-    /// [`LoadTransformAndSave`]: crate::processor::LoadTransformAndSave
+    /// [`erased`]: Self::erased
+    /// [`unknown_type`]: Self::unknown_type
     pub async fn load<'p, A: Asset>(
         self,
         path: impl Into<AssetPath<'p>>,
@@ -448,8 +477,12 @@ impl NestedLoader<'_, '_, Untyped, Direct<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, Typed<'_>, Direct<'_, '_>> {
-    // todo docs
+impl NestedLoader<'_, '_, Erased<'_>, Immediate<'_, '_>> {
+    /// Attempts to load the asset at the given `path` immediately.
+    ///
+    /// This requires you to pass in the asset type ID and name into [`erased`].
+    ///
+    /// [`erased`]: Self::erased
     pub async fn load<'p>(
         self,
         path: impl Into<AssetPath<'p>>,
@@ -457,6 +490,21 @@ impl NestedLoader<'_, '_, Typed<'_>, Direct<'_, '_>> {
         let path = path.into().into_owned();
         let asset_type_id = Some(self.typing.asset_type_id);
         self.load_internal(&path, asset_type_id)
+            .await
+            .map(|(_, asset)| asset)
+    }
+}
+
+impl NestedLoader<'_, '_, UnknownType, Immediate<'_, '_>> {
+    /// Attempts to load the asset at the given `path` immediately.
+    ///
+    /// This will infer the asset type from metadata.
+    pub async fn load<'p>(
+        self,
+        path: impl Into<AssetPath<'p>>,
+    ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        let path = path.into().into_owned();
+        self.load_internal(&path, None)
             .await
             .map(|(_, asset)| asset)
     }

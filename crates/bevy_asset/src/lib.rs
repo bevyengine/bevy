@@ -187,7 +187,7 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
-pub use loader_builders::{Direct, Indirect, NestedLoader, Typed, Untyped};
+pub use loader_builders::{Deferred, Erased, Immediate, NestedLoader, Typed, UnknownType};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -687,7 +687,7 @@ mod tests {
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
                     .loader()
-                    .direct()
+                    .immediate()
                     .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {

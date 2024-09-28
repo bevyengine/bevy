@@ -411,7 +411,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let path = path.into().into_owned();
         let mut infos = self.data.infos.write();
-        let (handle, should_load) = infos.get_or_create_path_handle_untyped(
+        let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
             type_id,
             type_name,
@@ -451,7 +451,7 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
-    pub(crate) fn load_untyped_with_meta_transform<'a>(
+    pub(crate) fn load_unknown_type_with_meta_transform<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
@@ -530,7 +530,7 @@ impl AssetServer {
     /// required to figure out the asset type before a handle can be created.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
-        self.load_untyped_with_meta_transform(path, None)
+        self.load_unknown_type_with_meta_transform(path, None)
     }
 
     /// Performs an async asset load.
@@ -626,7 +626,7 @@ impl AssetServer {
         let (base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
             let base_path = path.without_label().into_owned();
-            let (base_handle, _) = infos.get_or_create_path_handle_untyped(
+            let (base_handle, _) = infos.get_or_create_path_handle_erased(
                 base_path.clone(),
                 loader.asset_type_id(),
                 loader.asset_type_name(),
@@ -745,7 +745,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
-            let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
+            let (handle, _) = self.data.infos.write().get_or_create_path_handle_erased(
                 path,
                 loaded_asset.asset_type_id(),
                 loaded_asset.asset_type_name(),
@@ -1182,7 +1182,7 @@ impl AssetServer {
     ) -> UntypedHandle {
         let mut infos = self.data.infos.write();
         infos
-            .get_or_create_path_handle_untyped(
+            .get_or_create_path_handle_erased(
                 path.into().into_owned(),
                 type_id,
                 type_name,
