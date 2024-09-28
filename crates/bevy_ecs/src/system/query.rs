@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{
         QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData, WorldQuery,
+        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -1634,50 +1634,36 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
     }
 }
 
-/// [System parameter] that provides readonly access to single entity's components, much like [`Query::single`].
+/// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// This will cause systems that use it to be skipped.
+/// This will cause systems that use this parameter to be skipped.
 ///
 /// Use [`Option<QuerySingle<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for meaning behind the generic arguments.
-pub struct QuerySingle<'w, D: ReadOnlyQueryData, F: QueryFilter = ()> {
-    pub(crate) single: <D::ReadOnly as WorldQuery>::Item<'w>,
+pub struct QuerySingle<'w, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
 }
 
-impl<'w, D: ReadOnlyQueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
-    type Target = <D::ReadOnly as WorldQuery>::Item<'w>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.single
-    }
-}
-
-/// [System parameter] that provides mutable access to single entity's components, much like [`Query::single_mut`].
-///
-/// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// This will cause systems that use it to be skipped.
-///
-/// Use [`Option<QuerySingleMut<D, F>>`] instead if zero or one matching entities can exist.
-///
-/// See [`Query`] for meaning behind the generic arguments.
-pub struct QuerySingleMut<'w, D: QueryData, F: QueryFilter = ()> {
-    pub(crate) single: D::Item<'w>,
-    pub(crate) _filter: PhantomData<F>,
-}
-
-impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingleMut<'w, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
     type Target = D::Item<'w>;
 
     fn deref(&self) -> &Self::Target {
-        &self.single
+        &self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for QuerySingleMut<'w, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> DerefMut for QuerySingle<'w, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.single
+        &mut self.item
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> QuerySingle<'w, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> D::Item<'w> {
+        self.item
     }
 }

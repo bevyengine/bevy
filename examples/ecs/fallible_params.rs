@@ -6,10 +6,7 @@
 //! - [`QuerySingle<D, F>`], [`QuerySingleMut<D, F>`] - If there is no or more than one entities matching.
 //! - [`Option<QuerySingle<D, F>>`], [`Option<QuerySingleMut<D, F>>`] - If there are more than one entities matching.
 
-use bevy::{
-    ecs::system::{QuerySingle, QuerySingleMut},
-    prelude::*,
-};
+use bevy::prelude::*;
 use rand::Rng;
 
 fn main() {
@@ -125,7 +122,7 @@ fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time
 fn move_pointer(
     // `QuerySingleMut` ensures the system runs ONLY when exactly one entity exists.
     // It gives us mutable access to the query content.
-    mut player: QuerySingleMut<(&mut Transform, &Player)>,
+    mut player: QuerySingle<(&mut Transform, &Player)>,
     // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one entity exists.
     // It gives us readonly access to the query content.
     enemy: Option<QuerySingle<&Transform, (With<Enemy>, Without<Player>)>>,

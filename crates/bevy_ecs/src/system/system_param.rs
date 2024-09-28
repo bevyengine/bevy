@@ -10,7 +10,7 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     storage::{ResourceData, SparseSetIndex},
-    system::{Query, QuerySingle, QuerySingleMut, SystemMeta},
+    system::{Query, QuerySingle, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -358,7 +358,7 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for QuerySingle<'a, D, F>
 {
     type State = QueryState<D, F>;
@@ -373,7 +373,8 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        Query::new_archetype(state, archetype, system_meta);
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        unsafe { Query::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -384,18 +385,12 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
-                world,
-                system_meta.last_run,
-                change_tick,
-            )
-        };
+        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
+        let result =
+            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         let single = result.unwrap();
         QuerySingle {
-            single,
+            item: single,
             _filter: PhantomData,
         }
     }
@@ -422,7 +417,7 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> SystemParam
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Option<QuerySingle<'a, D, F>>
 {
     type State = QueryState<D, F>;
@@ -437,7 +432,8 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         archetype: &Archetype,
         system_meta: &mut SystemMeta,
     ) {
-        QuerySingle::new_archetype(state, archetype, system_meta);
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        unsafe { QuerySingle::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -448,18 +444,12 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
-                world,
-                system_meta.last_run,
-                change_tick,
-            )
-        };
+        // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
+        let result =
+            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         match result {
             Ok(single) => Some(QuerySingle {
-                single,
+                item: single,
                 _filter: PhantomData,
             }),
             Err(QuerySingleError::NoEntities(_)) => None,
@@ -487,111 +477,16 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> System
     }
 }
 
-// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
-// this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QuerySingleMut<'a, D, F>
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for QuerySingle<'a, D, F>
 {
-    type State = QueryState<D, F>;
-    type Item<'w, 's> = QuerySingleMut<'w, D, F>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        Query::init_state(world, system_meta)
-    }
-
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        Query::new_archetype(state, archetype, system_meta);
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        state.validate_world(world.id());
-        // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        let single = result.unwrap();
-        QuerySingleMut {
-            single,
-            _filter: PhantomData,
-        }
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        // SAFETY: Delegate to another `SystemParam` implementation.
-        unsafe { QuerySingle::validate_param(state.as_readonly(), system_meta, world) }
-    }
 }
 
-// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
-// this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for Option<QuerySingleMut<'a, D, F>>
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Option<QuerySingle<'a, D, F>>
 {
-    type State = QueryState<D, F>;
-    type Item<'w, 's> = Option<QuerySingleMut<'w, D, F>>;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        QuerySingleMut::init_state(world, system_meta)
-    }
-
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        QuerySingleMut::new_archetype(state, archetype, system_meta);
-    }
-
-    #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
-        change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        state.validate_world(world.id());
-        // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        match result {
-            Ok(single) => Some(QuerySingleMut {
-                single,
-                _filter: PhantomData,
-            }),
-            Err(QuerySingleError::NoEntities(_)) => None,
-            Err(QuerySingleError::MultipleEntities(e)) => panic!("{}", e),
-        }
-    }
-
-    #[inline]
-    unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        // SAFETY: Delegate to another `SystemParam` implementation.
-        unsafe {
-            Option::<QuerySingle<'a, D::ReadOnly, F>>::validate_param(
-                state.as_readonly(),
-                system_meta,
-                world,
-            )
-        }
-    }
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -1411,7 +1306,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// This will cause systems that use it to be skipped.
+/// This will cause systems that use this parameter to be skipped.
 ///
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {
