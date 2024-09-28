@@ -43,6 +43,8 @@ where
     }
 }
 
+/// Note: This is not a fully stable implementation of `TypePath` due to usage of `type_name`
+/// for function members.
 #[cfg(feature = "bevy_reflect")]
 impl<T, I> TypePath for SampleCurve<T, I>
 where
@@ -189,6 +191,8 @@ where
     }
 }
 
+/// Note: This is not a fully stable implementation of `TypePath` due to usage of `type_name`
+/// for function members.
 #[cfg(feature = "bevy_reflect")]
 impl<T, I> TypePath for UnevenSampleCurve<T, I>
 where
