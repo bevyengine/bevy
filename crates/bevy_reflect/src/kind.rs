@@ -4,7 +4,7 @@ use thiserror::Error;
 use crate::func::Function;
 use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct};
 
-/// A zero-sized enumeration of the "kinds" of a reflected type.
+/// An enumeration of the "kinds" of a reflected type.
 ///
 /// Each kind corresponds to a specific reflection trait,
 /// such as [`Struct`] or [`List`],
