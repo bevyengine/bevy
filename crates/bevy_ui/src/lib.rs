@@ -166,6 +166,7 @@ impl Plugin for UiPlugin {
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
+                #[cfg(feature = "bevy_text")]
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate)
