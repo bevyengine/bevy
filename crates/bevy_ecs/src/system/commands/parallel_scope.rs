@@ -17,6 +17,10 @@ struct ParallelCommandQueue {
 /// An alternative to [`Commands`] that can be used in parallel contexts, such as those
 /// in [`Query::par_iter`](crate::system::Query::par_iter).
 ///
+/// For cases where multiple non-computation-heavy (lightweight) bundles of the same
+/// [`Bundle`](crate::prelude::Bundle) type need to be spawned, consider using
+/// [`Commands::spawn_batch`] for better performance.
+///
 /// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
 ///
 /// Example:
