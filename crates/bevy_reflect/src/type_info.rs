@@ -501,7 +501,6 @@ macro_rules! impl_type_methods {
         /// [`TypeId`]: std::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
             self.ty().id()
-
         }
 
         /// The [stable, full type path] of this type.

@@ -7,12 +7,11 @@ use crate::{
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
-    ApplyError, Array, ArrayInfo, ArrayIter, ConstParamInfo, DynamicMap, DynamicSet,
-    DynamicTypePath, FromReflect, FromType, GenericInfo, Generics, GetTypeRegistration, List,
-    ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped, OpaqueInfo, PartialReflect, Reflect,
-    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed,
+    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
+    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
+    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
+    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
 };
 use alloc::{borrow::Cow, collections::VecDeque};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
@@ -1465,14 +1464,7 @@ impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usiz
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Typed for [T; N] {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| {
-            TypeInfo::Array(
-                ArrayInfo::new::<Self, T>(N).with_generics(Generics::from_iter([
-                    GenericInfo::Type(TypeParamInfo::new::<T>("T")),
-                    GenericInfo::Const(ConstParamInfo::new::<usize>("N")),
-                ])),
-            )
-        })
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
     }
 }
 
