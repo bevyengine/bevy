@@ -1173,7 +1173,7 @@ impl AssetServer {
     /// are not known statically.
     ///
     /// This will create a handle (and [`AssetInfo`]) if it does not exist.
-    pub(crate) fn get_or_create_path_handle_untyped<'a>(
+    pub(crate) fn get_or_create_path_handle_erased<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,

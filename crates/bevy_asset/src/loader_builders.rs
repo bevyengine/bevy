@@ -272,7 +272,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     /// actual asset.
     ///
     /// [`load`]: Self::load
-    pub fn indirect<'c>(self) -> NestedLoader<'ctx, 'builder, T, Deferred> {
+    pub fn deferred<'c>(self) -> NestedLoader<'ctx, 'builder, T, Deferred> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
@@ -350,7 +350,7 @@ impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
         } else {
             self.load_context
                 .asset_server
-                .get_or_create_path_handle_untyped(
+                .get_or_create_path_handle_erased(
                     path,
                     self.typing.asset_type_id,
                     self.typing.asset_type_name,
