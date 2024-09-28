@@ -246,7 +246,7 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
 
 fn extract_material_meshes_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>)>>,
 ) {
     material_instances.clear();
     for (entity, view_visibility, handle) in &query {
