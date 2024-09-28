@@ -219,7 +219,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     vertex_position += vec3(
         (*meshlet).min_vertex_position_channel_x,
         (*meshlet).min_vertex_position_channel_y,
-        (*meshlet).min_vertex_position_channel_z
+        (*meshlet).min_vertex_position_channel_z,
     );
 
     // Reverse vertex quantization
