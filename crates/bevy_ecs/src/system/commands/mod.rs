@@ -340,7 +340,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// and returns its corresponding [`EntityCommands`].
     ///
     /// In case multiple bundles of the same [`Bundle`] type need to be spawned,
-    /// [`spawn_batch`](Self::spawn_batch) should be user for better performance.
+    /// [`spawn_batch`](Self::spawn_batch) should be used for better performance.
     ///
     /// # Example
     ///
