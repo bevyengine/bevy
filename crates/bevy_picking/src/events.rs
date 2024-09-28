@@ -37,7 +37,7 @@
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
 //! general metadata about the pointer and it's location.
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Parent;
@@ -78,8 +78,8 @@ where
     const AUTO_PROPAGATE: bool = true;
 }
 
-impl<E: Debug + Clone + Reflect> std::fmt::Display for Pointer<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<E: Debug + Clone + Reflect> core::fmt::Display for Pointer<E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
             "{:?}, {:.1?}, {:.1?}",
             self.pointer_id, self.pointer_location.position, self.event
@@ -87,7 +87,7 @@ impl<E: Debug + Clone + Reflect> std::fmt::Display for Pointer<E> {
     }
 }
 
-impl<E: Debug + Clone + Reflect> std::ops::Deref for Pointer<E> {
+impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {

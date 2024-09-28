@@ -5,14 +5,12 @@ pub mod allocator;
 pub mod morph;
 pub mod primitives;
 
+use alloc::sync::Arc;
 use allocator::MeshAllocatorPlugin;
 use bevy_utils::HashSet;
+use core::hash::{Hash, Hasher};
 pub use mesh::*;
 pub use primitives::*;
-use std::{
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
 
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};
 use bevy_app::{App, Plugin};

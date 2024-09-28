@@ -246,7 +246,7 @@ pub enum GetComponentReflectError {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     use bevy_reflect::Reflect;
 

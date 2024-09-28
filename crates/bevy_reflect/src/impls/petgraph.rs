@@ -9,7 +9,7 @@ impl_reflect_opaque!(::petgraph::graph::NodeIndex(
     Deserialize
 ));
 impl_reflect_opaque!(::petgraph::graph::DiGraph<
-    N: ::std::clone::Clone,
-    E: ::std::clone::Clone,
+    N: ::core::clone::Clone,
+    E: ::core::clone::Clone,
     Ix: ::petgraph::graph::IndexType
 >());

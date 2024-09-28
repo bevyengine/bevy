@@ -1,5 +1,5 @@
 //! A visual representation of UI node sizes.
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_color::Hsla;

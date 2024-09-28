@@ -2,7 +2,7 @@
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
-use std::cmp::Reverse;
+use core::cmp::Reverse;
 
 use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
 use bevy_app::prelude::*;

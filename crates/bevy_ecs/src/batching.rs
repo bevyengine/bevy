@@ -1,6 +1,6 @@
 //! Types for controlling batching behavior during parallel processing.
 
-use std::ops::Range;
+use core::ops::Range;
 
 /// Dictates how a parallel operation chunks up large quantities
 /// during iteration.

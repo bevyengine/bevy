@@ -1,12 +1,13 @@
 //! The generic input type.
 
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::system::Resource;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
-use std::hash::Hash;
+use core::hash::Hash;
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// A "press-able" input of type `T`.
 ///
@@ -72,15 +73,11 @@ use std::hash::Hash;
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
-/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+/// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
-///         )
 ///         .add_systems(
 ///             Update,
 ///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
@@ -90,10 +87,6 @@ use std::hash::Hash;
 ///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
 ///         )
 ///         .run();
-/// }
-///
-/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
-///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
 /// }
 ///
 /// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
@@ -111,33 +104,6 @@ use std::hash::Hash;
 ///     } else {
 ///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
 ///     }
-/// }
-/// ```
-///
-/// Accepting input from multiple devices:
-/// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
-/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
-///
-/// fn main() {
-///     App::new()
-///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             something_used.run_if(
-///                 input_just_pressed(KeyCode::KeyE)
-///                     .or(input_just_pressed(GamepadButton::new(
-///                         Gamepad::new(0),
-///                         GamepadButtonType::West,
-///                     ))),
-///             ),
-///         )
-///         .run();
-/// }
-///
-/// fn something_used() {
-///     println!("Generic use-ish button pressed.");
 /// }
 /// ```
 ///

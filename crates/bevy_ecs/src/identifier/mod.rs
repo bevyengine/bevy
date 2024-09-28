@@ -7,7 +7,7 @@
 use bevy_reflect::Reflect;
 
 use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
-use std::{hash::Hash, num::NonZero};
+use core::{hash::Hash, num::NonZero};
 
 pub mod error;
 pub(crate) mod kinds;
@@ -150,7 +150,7 @@ impl Eq for Identifier {}
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl PartialOrd for Identifier {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         // Make use of our `Ord` impl to ensure optimal codegen output
         Some(self.cmp(other))
     }
@@ -164,7 +164,7 @@ impl PartialOrd for Identifier {
 // See <https://github.com/rust-lang/rust/issues/106107>
 impl Ord for Identifier {
     #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         // This will result in better codegen for ordering comparisons, plus
         // avoids pitfalls with regards to macro codegen relying on property
         // position when we want to compare against the bit representation.
@@ -174,7 +174,7 @@ impl Ord for Identifier {
 
 impl Hash for Identifier {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.to_bits().hash(state);
     }
 }

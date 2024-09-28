@@ -1,7 +1,6 @@
 use crate::storage::SparseSetIndex;
-use core::fmt;
+use core::{fmt, fmt::Debug, marker::PhantomData};
 use fixedbitset::FixedBitSet;
-use std::{fmt::Debug, marker::PhantomData};
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
 /// to read, when used to store [`SparseSetIndex`].
@@ -1279,8 +1278,8 @@ mod tests {
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
     };
+    use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
-    use std::marker::PhantomData;
 
     fn create_sample_access() -> Access<usize> {
         let mut access = Access::<usize>::default();

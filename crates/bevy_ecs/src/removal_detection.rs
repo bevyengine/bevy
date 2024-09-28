@@ -11,7 +11,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use std::{
+use core::{
     fmt::Debug,
     iter,
     marker::PhantomData,
