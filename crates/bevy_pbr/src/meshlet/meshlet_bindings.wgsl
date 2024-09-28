@@ -109,13 +109,16 @@ fn get_meshlet_vertex_id(index_id: u32) -> u32 {
 }
 
 fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
+    // Get bitstream start for the vertex
+    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
+    let start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
+
     // Setup bitstream decoder
-    let start_bit = (*meshlet).start_vertex_position_bit;
     var word_i = start_bit / 32u;
     var bit_i = start_bit % 32u;
     var word = meshlet_vertex_positions[word_i];
 
-    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
     var vertex_position_packed = vec3(0u);
 
     // Read bits for X
@@ -144,7 +147,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
 
     // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
-    var vertex_position = vec3<f32>(vertex_position_packed) += vec3(
+    var vertex_position = vec3<f32>(vertex_position_packed) + vec3(
         (*meshlet).min_vertex_position_channel_x,
         (*meshlet).min_vertex_position_channel_y,
         (*meshlet).min_vertex_position_channel_z,
@@ -177,13 +180,16 @@ fn get_meshlet_vertex_id(index_id: u32) -> u32 {
 }
 
 fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
+    // Get bitstream start for the vertex
+    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
+    let start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
+
     // Setup bitstream decoder
-    let start_bit = (*meshlet).start_vertex_position_bit;
     var word_i = start_bit / 32u;
     var bit_i = start_bit % 32u;
     var word = meshlet_vertex_positions[word_i];
 
-    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
     var vertex_position_packed = vec3(0u);
 
     // Read bits for X
@@ -212,7 +218,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
 
     // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
-    var vertex_position = vec3<f32>(vertex_position_packed) += vec3(
+    var vertex_position = vec3<f32>(vertex_position_packed) + vec3(
         (*meshlet).min_vertex_position_channel_x,
         (*meshlet).min_vertex_position_channel_y,
         (*meshlet).min_vertex_position_channel_z,
