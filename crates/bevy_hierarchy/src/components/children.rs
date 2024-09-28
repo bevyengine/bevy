@@ -156,17 +156,6 @@ impl Deref for Children {
     }
 }
 
-impl<'a> IntoIterator for &'a mut Children {
-    type Item = <Self::IntoIter as Iterator>::Item;
-
-    type IntoIter = slice::IterMut<'a, Entity>;
-
-    #[inline(always)]
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
-    }
-}
-
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;
 
