@@ -4,14 +4,18 @@
 
 pub mod cores;
 pub mod interval;
+pub mod sample_curves;
 
+// bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use interval::{interval, Interval};
-use itertools::Itertools;
+pub use sample_curves::*;
+
+use cores::{EvenCore, UnevenCore};
 
 use crate::StableInterpolate;
 use core::{marker::PhantomData, ops::Deref};
-use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
+use itertools::Itertools;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -801,199 +805,6 @@ where
             )
         } else {
             self.first.sample_unchecked(t)
-        }
-    }
-}
-
-/// A curve that is defined by explicit neighbor interpolation over a set of samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct SampleCurve<T, I> {
-    core: EvenCore<T>,
-    interpolation: I,
-}
-
-impl<T, I> Curve<T> for SampleCurve<T, I>
-where
-    T: Clone,
-    I: Fn(&T, &T, f32) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core.sample_with(t, &self.interpolation)
-    }
-}
-
-impl<T, I> SampleCurve<T, I> {
-    /// Create a new [`SampleCurve`] using the specified `interpolation` to interpolate between
-    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
-    /// given `domain` is unbounded.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(
-        domain: Interval,
-        samples: impl IntoIterator<Item = T>,
-        interpolation: I,
-    ) -> Result<Self, EvenCoreError>
-    where
-        I: Fn(&T, &T, f32) -> T,
-    {
-        Ok(Self {
-            core: EvenCore::new(domain, samples)?,
-            interpolation,
-        })
-    }
-}
-
-/// A curve that is defined by neighbor interpolation over a set of samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct SampleAutoCurve<T> {
-    core: EvenCore<T>,
-}
-
-impl<T> Curve<T> for SampleAutoCurve<T>
-where
-    T: StableInterpolate,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
-    }
-}
-
-impl<T> SampleAutoCurve<T> {
-    /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
-    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
-    /// given `domain` is unbounded.
-    pub fn new(
-        domain: Interval,
-        samples: impl IntoIterator<Item = T>,
-    ) -> Result<Self, EvenCoreError> {
-        Ok(Self {
-            core: EvenCore::new(domain, samples)?,
-        })
-    }
-}
-
-/// A curve that is defined by interpolation over unevenly spaced samples with explicit
-/// interpolation.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct UnevenSampleCurve<T, I> {
-    core: UnevenCore<T>,
-    interpolation: I,
-}
-
-impl<T, I> Curve<T> for UnevenSampleCurve<T, I>
-where
-    T: Clone,
-    I: Fn(&T, &T, f32) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core.sample_with(t, &self.interpolation)
-    }
-}
-
-impl<T, I> UnevenSampleCurve<T, I> {
-    /// Create a new [`UnevenSampleCurve`] using the provided `interpolation` to interpolate
-    /// between adjacent `timed_samples`. The given samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(
-        timed_samples: impl IntoIterator<Item = (f32, T)>,
-        interpolation: I,
-    ) -> Result<Self, UnevenCoreError> {
-        Ok(Self {
-            core: UnevenCore::new(timed_samples)?,
-            interpolation,
-        })
-    }
-
-    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
-    /// but the function inputs to each are inverses of one another.
-    ///
-    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
-    /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
-        Self {
-            core: self.core.map_sample_times(f),
-            interpolation: self.interpolation,
-        }
-    }
-}
-
-/// A curve that is defined by interpolation over unevenly spaced samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct UnevenSampleAutoCurve<T> {
-    core: UnevenCore<T>,
-}
-
-impl<T> Curve<T> for UnevenSampleAutoCurve<T>
-where
-    T: StableInterpolate,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
-    }
-}
-
-impl<T> UnevenSampleAutoCurve<T> {
-    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples, interpolated
-    /// using the  The samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
-    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
-        Ok(Self {
-            core: UnevenCore::new(timed_samples)?,
-        })
-    }
-
-    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
-    /// but the function inputs to each are inverses of one another.
-    ///
-    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
-    /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
-        Self {
-            core: self.core.map_sample_times(f),
         }
     }
 }
