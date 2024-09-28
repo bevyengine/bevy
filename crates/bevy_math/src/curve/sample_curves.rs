@@ -10,8 +10,11 @@ use core::fmt::{self, Debug};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
 
-const THIS_MODULE: &str = "bevy_math::curve::sample_curves";
-const THIS_CRATE: &str = "bevy_math";
+#[cfg(feature = "bevy_reflect")]
+mod paths {
+    pub(super) const THIS_MODULE: &str = "bevy_math::curve::sample_curves";
+    pub(super) const THIS_CRATE: &str = "bevy_math";
+}
 
 /// A curve that is defined by explicit neighbor interpolation over a set of evenly-spaced samples.
 #[derive(Clone)]
@@ -52,7 +55,7 @@ where
         CELL.get_or_insert::<Self, _>(|| {
             format!(
                 "{}::SampleCurve<{},{}>",
-                THIS_MODULE,
+                paths::THIS_MODULE,
                 T::type_path(),
                 type_name::<I>()
             )
@@ -71,11 +74,11 @@ where
     }
 
     fn crate_name() -> Option<&'static str> {
-        Some(THIS_CRATE)
+        Some(paths::THIS_CRATE)
     }
 
     fn module_path() -> Option<&'static str> {
-        Some(THIS_MODULE)
+        Some(paths::THIS_MODULE)
     }
 }
 
@@ -199,7 +202,7 @@ where
         CELL.get_or_insert::<Self, _>(|| {
             format!(
                 "{}::UnevenSampleCurve<{},{}>",
-                THIS_MODULE,
+                paths::THIS_MODULE,
                 T::type_path(),
                 type_name::<I>()
             )
@@ -218,11 +221,11 @@ where
     }
 
     fn crate_name() -> Option<&'static str> {
-        Some(THIS_CRATE)
+        Some(paths::THIS_CRATE)
     }
 
     fn module_path() -> Option<&'static str> {
-        Some(THIS_MODULE)
+        Some(paths::THIS_MODULE)
     }
 }
 
