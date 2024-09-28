@@ -1302,10 +1302,10 @@ impl World {
 
     /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
     ///
-    /// This enables the dynamic registration of new resource definitions at runtime for advanced
-    /// use cases.
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
     ///
-    /// # Notes
+    /// # Note
     ///
     /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
     /// [`World::insert_resource_by_id`].

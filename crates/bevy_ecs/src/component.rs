@@ -836,7 +836,7 @@ pub struct Components {
 }
 
 impl Components {
-    /// Registers a component of type `T` with this instance.
+    /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
     ///
@@ -1045,7 +1045,7 @@ impl Components {
         }
     }
 
-    /// Registers a resource described by `descriptor`.
+    /// Registers a [`Resource`] described by `descriptor`.
     ///
     /// # Note
     ///
