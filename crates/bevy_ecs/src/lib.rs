@@ -81,7 +81,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::RequiredComponentsError;
+    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -92,7 +92,7 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::sync::Arc;
+    use alloc::{sync::Arc, vec};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
     use core::{
@@ -2195,6 +2195,89 @@ mod tests {
             world.try_register_required_components::<X, Y>(),
             Err(RequiredComponentsError::DuplicateRegistration(_, _))
         ));
+    }
+
+    #[test]
+    fn required_components_inheritance_depth() {
+        // Test that inheritance depths are computed correctly for requirements.
+        //
+        // Requirements with `require` attribute:
+        //
+        // A -> B -> C
+        //   0    1
+        //
+        // Runtime requirements:
+        //
+        // X -> A -> B -> C
+        //   0    1    2
+        //
+        // X -> Y -> Z -> B -> C
+        //   0    1    2    3
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+
+        let a = world.register_component::<A>();
+        let b = world.register_component::<B>();
+        let c = world.register_component::<C>();
+        let y = world.register_component::<Y>();
+        let z = world.register_component::<Z>();
+
+        world.register_required_components::<X, A>();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+        world.register_required_components::<Z, B>();
+
+        world.spawn(X);
+
+        let required_a = world.get_required_components::<A>().unwrap();
+        let required_b = world.get_required_components::<B>().unwrap();
+        let required_c = world.get_required_components::<C>().unwrap();
+        let required_x = world.get_required_components::<X>().unwrap();
+        let required_y = world.get_required_components::<Y>().unwrap();
+        let required_z = world.get_required_components::<Z>().unwrap();
+
+        /// Returns the component IDs and inheritance depths of the required components
+        /// in ascending order based on the component ID.
+        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+            let mut vec = required
+                .0
+                .iter()
+                .map(|(id, component)| (*id, component.inheritance_depth))
+                .collect::<Vec<_>>();
+            vec.sort_by_key(|(id, _)| *id);
+            vec
+        }
+
+        // Check that the inheritance depths are correct for each component.
+        assert_eq!(to_vec(required_a), vec![(b, 0), (c, 1)]);
+        assert_eq!(to_vec(required_b), vec![(c, 0)]);
+        assert_eq!(to_vec(required_c), vec![]);
+        assert_eq!(
+            to_vec(required_x),
+            vec![(a, 0), (b, 1), (c, 2), (y, 0), (z, 1)]
+        );
+        assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
+        assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are

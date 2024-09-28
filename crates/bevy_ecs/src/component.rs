@@ -1122,7 +1122,11 @@ impl Components {
         // Get directly required components at this level of the inheritance tree.
         // SAFETY: The caller ensures that the `id` is valid.
         let component_info = unsafe { self.get_info(id).debug_checked_unwrap() };
-        let required_components = component_info.required_components().0.iter();
+        let required_components = component_info
+            .required_components()
+            .0
+            .iter()
+            .filter(|(_, component)| component.inheritance_depth == 0);
 
         for (&component_id, component) in required_components {
             recursive_requires.push((
