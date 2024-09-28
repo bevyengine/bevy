@@ -272,7 +272,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     /// actual asset.
     ///
     /// [`load`]: Self::load
-    pub fn deferred<'c>(self) -> NestedLoader<'ctx, 'builder, T, Deferred> {
+    pub fn deferred(self) -> NestedLoader<'ctx, 'builder, T, Deferred> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
