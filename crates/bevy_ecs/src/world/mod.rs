@@ -508,11 +508,8 @@ impl World {
 
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
-            self.components.register_required_components_recursive::<R>(
-                required,
-                requiree,
-                constructor,
-            )
+            self.components
+                .register_required_components::<R>(required, requiree, constructor)
         }
     }
 

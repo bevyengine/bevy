@@ -1010,7 +1010,7 @@ impl Components {
             .map(|info| &mut info.required_components)
     }
 
-    /// Recursively registers the given component `R` and its [required components] as required by `T`.
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`.
     ///
     /// When `T` is added to an entity, `R` will also be added if it was not already provided.
     /// The given `constructor` will be used for the creation of `R`.
@@ -1027,7 +1027,7 @@ impl Components {
     ///
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
-    pub(crate) unsafe fn register_required_components_recursive<R: Component>(
+    pub(crate) unsafe fn register_required_components<R: Component>(
         &mut self,
         required: ComponentId,
         requiree: ComponentId,
@@ -1059,20 +1059,31 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-        let mut recursive_requires: Vec<(ComponentId, RequiredComponent)> = Vec::new();
-
-        // Recursively find all new required components for the requiree.
-        // The inheritance depth starts from `1` since these are components required by the original required component.
+        // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
-        unsafe {
-            self.get_recursive_required_components(required, &mut recursive_requires, 1);
-        };
+        let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
+        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
+            .required_components()
+            .0
+            .iter()
+            .map(|(component_id, required_component)| {
+                (
+                    *component_id,
+                    RequiredComponent {
+                        constructor: required_component.constructor.clone(),
+                        // Add `1` to the inheritance depth since this will be registered
+                        // for the component that requires `required`.
+                        inheritance_depth: required_component.inheritance_depth + 1,
+                    },
+                )
+            })
+            .collect();
 
-        // Register the new required components for the requiree.
+        // Register the new required components.
         // SAFETY: The caller ensures that the `requiree` is valid.
-        //         The recursive required components are valid, since they were just found.
+        //         The inherited required components are valid, since they were just found.
         unsafe {
-            self.register_required_components_internal(requiree, &recursive_requires);
+            self.register_required_components_internal(requiree, &inherited_requirements);
         }
 
         // Propagate the new required components up the chain to all components that require the requiree.
@@ -1088,7 +1099,7 @@ impl Components {
                 // The inheritance depth is `1` since this is a component required by the original requiree.
                 required_components.register_by_id(required, constructor, 1);
 
-                for (component_id, component) in recursive_requires.iter() {
+                for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
                     // The inheritance depth is increased by `1` since this is a component required by the original required component.
                     // SAFETY: Component ID and constructor match the ones on the original requiree.
@@ -1105,41 +1116,6 @@ impl Components {
         }
 
         Ok(())
-    }
-
-    /// Recursively finds all required components for a given component,
-    /// adding them to the given `recursive_requires` list.
-    ///
-    /// # Safety
-    ///
-    /// The given `id` must be valid.
-    unsafe fn get_recursive_required_components(
-        &self,
-        id: ComponentId,
-        recursive_requires: &mut Vec<(ComponentId, RequiredComponent)>,
-        depth: u16,
-    ) {
-        // Get directly required components at this level of the inheritance tree.
-        // SAFETY: The caller ensures that the `id` is valid.
-        let component_info = unsafe { self.get_info(id).debug_checked_unwrap() };
-        let required_components = component_info
-            .required_components()
-            .0
-            .iter()
-            .filter(|(_, component)| component.inheritance_depth == 0);
-
-        for (&component_id, component) in required_components {
-            recursive_requires.push((
-                component_id,
-                RequiredComponent {
-                    constructor: component.constructor.clone(),
-                    inheritance_depth: depth,
-                },
-            ));
-
-            // Find all required components for the current required component recursively.
-            self.get_recursive_required_components(component_id, recursive_requires, depth + 1);
-        }
     }
 
     /// Registers the given components as required components for the given `requiree`.
