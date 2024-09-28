@@ -1046,7 +1046,7 @@ impl Components {
             .is_some_and(|c| c.inheritance_depth == 0)
         {
             return Err(RequiredComponentsError::DuplicateRegistration(
-                required, requiree,
+                requiree, required,
             ));
         }
 
@@ -1604,10 +1604,10 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[error("Component {0:?} is already a directly required component for {1:?}")]
+    #[error("Component {0:?} already directly requires component {1:?}")]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[error("An archetype with the component that requires other components already exists")]
+    #[error("An archetype with the component {0:?} that requires other components already exists")]
     ArchetypeExists(ComponentId),
 }
 
