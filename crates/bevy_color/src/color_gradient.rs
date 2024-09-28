@@ -66,8 +66,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palettes::basic;
-    use crate::Srgba;
+    use crate::{palettes::basic, Srgba};
 
     #[test]
     fn test_color_curve() {

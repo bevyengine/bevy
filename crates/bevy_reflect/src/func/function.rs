@@ -1,5 +1,7 @@
-use crate::func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult};
-use crate::PartialReflect;
+use crate::{
+    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    PartialReflect,
+};
 use alloc::borrow::Cow;
 use core::fmt::Debug;
 

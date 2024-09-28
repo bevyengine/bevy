@@ -1,9 +1,11 @@
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::entity::EntityHashSet;
-use bevy_ecs::prelude::*;
-use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    system::lifetimeless::Read,
+};
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -19,11 +21,13 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::prelude::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::tracing::{error, warn};
-use std::{hash::Hash, ops::Range};
+use bevy_utils::{
+    default,
+    tracing::{error, warn},
+};
+use core::{hash::Hash, ops::Range};
 
 use crate::*;
 
@@ -118,7 +122,7 @@ pub struct GpuLights {
     spot_light_shadowmap_offset: i32,
 }
 
-//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
 // when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
@@ -257,7 +261,7 @@ pub fn extract_lights(
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
-            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+            intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
@@ -267,7 +271,7 @@ pub fn extract_lights(
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
                 * point_light_texel_size
-                * std::f32::consts::SQRT_2,
+                * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
         };
@@ -308,7 +312,7 @@ pub fn extract_lights(
                         // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
                         // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
                         // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
                         range: spot_light.range,
                         radius: spot_light.radius,
                         transform: *transform,
@@ -318,7 +322,7 @@ pub fn extract_lights(
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
                             * texel_size
-                            * std::f32::consts::SQRT_2,
+                            * core::f32::consts::SQRT_2,
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                     },
@@ -360,7 +364,8 @@ pub fn extract_lights(
                 shadows_enabled: directional_light.shadows_enabled,
                 shadow_depth_bias: directional_light.shadow_depth_bias,
                 // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
+                shadow_normal_bias: directional_light.shadow_normal_bias
+                    * core::f32::consts::SQRT_2,
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
@@ -697,7 +702,7 @@ pub fn prepare_lights(
         }
 
         let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-            std::f32::consts::FRAC_PI_2,
+            core::f32::consts::FRAC_PI_2,
             1.0,
             light.shadow_map_near_z,
         );
@@ -905,7 +910,7 @@ pub fn prepare_lights(
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-                std::f32::consts::FRAC_PI_2,
+                core::f32::consts::FRAC_PI_2,
                 1.0,
                 light.shadow_map_near_z,
             );

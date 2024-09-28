@@ -181,6 +181,7 @@ impl From<String> for TextSection {
 }
 
 /// Describes the horizontal alignment of multiple lines of text relative to each other.
+///
 /// This only affects the internal positioning of the lines of text within a text entity and
 /// does not affect the text entity's position.
 ///

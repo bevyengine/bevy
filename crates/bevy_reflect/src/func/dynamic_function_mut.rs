@@ -1,9 +1,10 @@
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 
-use crate::func::args::ArgList;
-use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunction, FunctionError, FunctionResult, IntoFunctionMut};
+use crate::func::{
+    args::ArgList, info::FunctionInfo, DynamicFunction, FunctionError, FunctionResult,
+    IntoFunctionMut,
+};
 
 /// A dynamic representation of a function.
 ///

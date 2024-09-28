@@ -1,23 +1,23 @@
 use core::fmt;
 use proc_macro2::Span;
 
-use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
-use crate::field_attributes::FieldAttributes;
-use crate::result_sifter::ResultSifter;
-use crate::string_expr::StringExpr;
-use crate::type_path::parse_path_no_leading_colon;
-use crate::where_clause_options::WhereClauseOptions;
+use crate::{
+    container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
+    field_attributes::FieldAttributes,
+    remote::RemoteType,
+    result_sifter::ResultSifter,
+    serialization::SerializationDataDef,
+    string_expr::StringExpr,
+    type_path::parse_path_no_leading_colon,
+    where_clause_options::WhereClauseOptions,
+    REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
+};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
-use crate::remote::RemoteType;
-use crate::serialization::SerializationDataDef;
-use crate::{REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME};
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
+    GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -477,7 +477,7 @@ impl<'a> ReflectMeta<'a> {
             self,
             where_clause_options,
             None,
-            Option::<std::iter::Empty<&Type>>::None,
+            Option::<core::iter::Empty<&Type>>::None,
         )
     }
 
@@ -855,18 +855,17 @@ impl<'a> EnumVariant<'a> {
 /// ```ignore  (bevy_reflect is not accessible from this crate)
 /// # use syn::parse_quote;
 /// # use bevy_reflect_derive::ReflectTypePath;
-/// let path: syn::Path = parse_quote!(::core::marker::PhantomData)?;
+/// let path: syn::Path = parse_quote!(::std::marker::PhantomData)?;
 ///
 /// let type_path = ReflectTypePath::External {
 ///     path,
 ///     custom_path: None,
 /// };
 ///
-/// // Equivalent to "core::marker".
+/// // Equivalent to "std::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
-///
 pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),
@@ -1059,7 +1058,7 @@ impl<'a> ReflectTypePath<'a> {
 
     /// Returns a [`StringExpr`] representing the "type path" of the type.
     ///
-    /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
+    /// For `Option<PhantomData>`, this is `"std::option::Option<std::marker::PhantomData>"`.
     pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
             Self::Primitive(ident) => StringExpr::from(ident),
@@ -1135,7 +1134,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// For non-customised [internal] paths this is created from [`module_path`].
     ///
-    /// For `Option<PhantomData>`, this is `"core::option"`.
+    /// For `Option<PhantomData>`, this is `"std::option"`.
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous

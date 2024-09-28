@@ -184,7 +184,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     if enabled(in.flags, BORDER) {
-        return draw(in, texture_color);    
+        return draw(in, texture_color);
     } else {
         return draw_background(in, texture_color);
     }

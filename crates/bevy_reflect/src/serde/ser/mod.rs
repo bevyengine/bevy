@@ -15,15 +15,14 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::ReflectSerializer;
-    use crate::{self as bevy_reflect, PartialReflect, Struct};
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{
+        self as bevy_reflect, serde::ReflectSerializer, PartialReflect, Reflect, ReflectSerialize,
+        Struct, TypeRegistry,
+    };
     use bevy_utils::{HashMap, HashSet};
-    use ron::extensions::Extensions;
-    use ron::ser::PrettyConfig;
+    use core::{f32::consts::PI, ops::RangeInclusive};
+    use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::Serialize;
-    use std::f32::consts::PI;
-    use std::ops::RangeInclusive;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -410,7 +409,7 @@ mod tests {
 
         serializer.serialize(&mut ser).unwrap();
 
-        let output = std::str::from_utf8(&buf).unwrap();
+        let output = core::str::from_utf8(&buf).unwrap();
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::OtherStruct": {
         "some": {

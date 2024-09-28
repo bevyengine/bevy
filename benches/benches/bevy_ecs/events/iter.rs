@@ -19,7 +19,7 @@ impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn run(&mut self) {
         let mut reader = self.0.get_cursor();
         for evt in reader.read(&self.0) {
-            std::hint::black_box(evt);
+            core::hint::black_box(evt);
         }
     }
 }

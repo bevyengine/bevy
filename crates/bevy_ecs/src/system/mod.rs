@@ -117,7 +117,7 @@ mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::{any::TypeId, borrow::Cow};
+use core::any::TypeId;
 
 pub use adapter_system::*;
 pub use builder::*;
@@ -168,16 +168,13 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    fn pipe<B, BIn, BOut, MarkerB>(self, system: B) -> IntoPipeSystem<Self, B>
     where
         Out: 'static,
         B: IntoSystem<BIn, BOut, MarkerB>,
         for<'a> BIn: SystemInput<Inner<'a> = Out>,
     {
-        let system_a = IntoSystem::into_system(self);
-        let system_b = IntoSystem::into_system(system);
-        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
-        PipeSystem::new(system_a, system_b, Cow::Owned(name))
+        IntoPipeSystem::new(self, system)
     }
 
     /// Pass the output of this system into the passed function `f`, creating a new system that
@@ -199,13 +196,11 @@ pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
     ///     # Err(())
     /// }
     /// ```
-    fn map<T, F>(self, f: F) -> AdapterSystem<F, Self::System>
+    fn map<T, F>(self, f: F) -> IntoAdapterSystem<F, Self>
     where
         F: Send + Sync + 'static + FnMut(Out) -> T,
     {
-        let system = Self::into_system(self);
-        let name = system.name();
-        AdapterSystem::new(f, system, name)
+        IntoAdapterSystem::new(f, self)
     }
 
     /// Get the [`TypeId`] of the [`System`] produced after calling [`into_system`](`IntoSystem::into_system`).
@@ -305,10 +300,8 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 #[cfg(test)]
 mod tests {
     use bevy_utils::default;
-    use std::any::TypeId;
+    use core::any::TypeId;
 
-    use crate::prelude::EntityRef;
-    use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -316,7 +309,7 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
@@ -327,7 +320,7 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
-        world::{FromWorld, World},
+        world::{EntityMut, FromWorld, World},
     };
 
     #[derive(Resource, PartialEq, Debug)]
@@ -887,10 +880,10 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
+        struct NotSend2(alloc::rc::Rc<i32>);
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -912,12 +905,12 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
+        struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1452,7 +1445,7 @@ mod tests {
         let mut world = World::default();
         let mut system = IntoSystem::into_system(a_not_b_system);
         let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         // set up system and verify its access is empty
         system.initialize(&mut world);
@@ -1600,7 +1593,7 @@ mod tests {
 
     #[test]
     fn assert_systems() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         use crate::{prelude::*, system::assert_is_system};
 
@@ -1682,7 +1675,7 @@ mod tests {
 
         let mut world = World::new();
         world.init_resource::<Flag>();
-        let mut sys = first.pipe(second);
+        let mut sys = IntoSystem::into_system(first.pipe(second));
         sys.initialize(&mut world);
 
         sys.run(default(), &mut world);

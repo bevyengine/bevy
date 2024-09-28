@@ -1,8 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
@@ -286,7 +285,7 @@ impl SceneSpawner {
 
     /// Immediately despawns all scenes scheduled for despawn by despawning their instances.
     pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_despawn = std::mem::take(&mut self.scenes_to_despawn);
+        let scenes_to_despawn = core::mem::take(&mut self.scenes_to_despawn);
 
         for scene_handle in scenes_to_despawn {
             self.despawn_sync(world, scene_handle)?;
@@ -296,7 +295,7 @@ impl SceneSpawner {
 
     /// Immediately despawns all scene instances scheduled for despawn.
     pub fn despawn_queued_instances(&mut self, world: &mut World) {
-        let instances_to_despawn = std::mem::take(&mut self.instances_to_despawn);
+        let instances_to_despawn = core::mem::take(&mut self.instances_to_despawn);
 
         for instance_id in instances_to_despawn {
             self.despawn_instance_sync(world, &instance_id);
@@ -305,7 +304,7 @@ impl SceneSpawner {
 
     /// Immediately spawns all scenes scheduled for spawn.
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
+        let scenes_to_spawn = core::mem::take(&mut self.dynamic_scenes_to_spawn);
 
         for (handle, instance_id, parent) in scenes_to_spawn {
             let mut entity_map = EntityHashMap::default();
@@ -335,7 +334,7 @@ impl SceneSpawner {
             }
         }
 
-        let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
+        let scenes_to_spawn = core::mem::take(&mut self.scenes_to_spawn);
 
         for (scene_handle, instance_id, parent) in scenes_to_spawn {
             let mut entity_map = EntityHashMap::default();
@@ -364,7 +363,7 @@ impl SceneSpawner {
     }
 
     pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
-        let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
+        let scenes_with_parent = core::mem::take(&mut self.scenes_with_parent);
 
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
@@ -473,13 +472,14 @@ pub fn scene_spawner_system(world: &mut World) {
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
-    use bevy_asset::Handle;
-    use bevy_asset::{AssetPlugin, AssetServer};
-    use bevy_ecs::observer::Trigger;
-    use bevy_ecs::prelude::ReflectComponent;
-    use bevy_ecs::query::With;
-    use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
-    use bevy_ecs::{component::Component, system::Query};
+    use bevy_asset::{AssetPlugin, AssetServer, Handle};
+    use bevy_ecs::{
+        component::Component,
+        observer::Trigger,
+        prelude::ReflectComponent,
+        query::With,
+        system::{Commands, Query, Res, ResMut, RunSystemOnce},
+    };
     use bevy_reflect::Reflect;
 
     use crate::{DynamicSceneBuilder, ScenePlugin};

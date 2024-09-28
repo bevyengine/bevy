@@ -1,6 +1,8 @@
-use crate::derive_data::{ReflectMeta, ReflectTypePath};
-use crate::string_expr::StringExpr;
-use crate::where_clause_options::WhereClauseOptions;
+use crate::{
+    derive_data::{ReflectMeta, ReflectTypePath},
+    string_expr::StringExpr,
+    where_clause_options::WhereClauseOptions,
+};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};

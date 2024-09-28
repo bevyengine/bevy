@@ -1,6 +1,7 @@
 use super::*;
 
 /// A light that emits light in a given direction from a central point.
+///
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
@@ -116,7 +117,7 @@ impl Default for SpotLight {
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             shadow_map_near_z: Self::DEFAULT_SHADOW_MAP_NEAR_Z,
             inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
+            outer_angle: core::f32::consts::FRAC_PI_4,
         }
     }
 }

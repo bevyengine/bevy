@@ -1,10 +1,10 @@
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, ApplyError, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 use bevy_reflect_derive::impl_type_path;
-use std::{
+use core::{
     any::Any,
     fmt::{Debug, Formatter},
     hash::{Hash, Hasher},
@@ -92,7 +92,6 @@ impl ArrayInfo {
     /// # Arguments
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
-    ///
     pub fn new<TArray: Array + TypePath, TItem: Reflect + MaybeTyped + TypePath>(
         capacity: usize,
     ) -> Self {
@@ -265,7 +264,7 @@ impl PartialReflect for DynamicArray {
         array_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicArray(")?;
         array_debug(self, f)?;
         write!(f, ")")
@@ -336,7 +335,7 @@ impl<T: PartialReflect> FromIterator<T> for DynamicArray {
 
 impl IntoIterator for DynamicArray {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_vec().into_iter()
@@ -405,7 +404,6 @@ pub fn array_hash<A: Array + ?Sized>(array: &A) -> Option<u64> {
 ///
 /// * Panics if the two arrays have differing lengths.
 /// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
-///
 #[inline]
 pub fn array_apply<A: Array + ?Sized>(array: &mut A, reflect: &dyn PartialReflect) {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
@@ -430,7 +428,6 @@ pub fn array_apply<A: Array + ?Sized>(array: &mut A, reflect: &dyn PartialReflec
 /// * Returns an [`ApplyError::MismatchedKinds`] if the reflected value is not a
 ///   [valid array](ReflectRef::Array).
 /// * Returns any error that is generated while applying elements to each other.
-///
 #[inline]
 pub fn array_try_apply<A: Array>(
     array: &mut A,
@@ -495,7 +492,7 @@ pub fn array_partial_eq<A: Array + ?Sized>(
 /// // ]
 /// ```
 #[inline]
-pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_array.iter() {
         debug.entry(&item as &dyn Debug);

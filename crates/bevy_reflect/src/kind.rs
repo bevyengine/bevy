@@ -1,9 +1,10 @@
+use thiserror::Error;
+
 #[cfg(feature = "functions")]
 use crate::func::Function;
 use crate::{Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct};
-use thiserror::Error;
 
-/// A zero-sized enumeration of the "kinds" of a reflected type.
+/// An enumeration of the "kinds" of a reflected type.
 ///
 /// Each kind corresponds to a specific reflection trait,
 /// such as [`Struct`] or [`List`],
@@ -67,8 +68,8 @@ pub enum ReflectKind {
     Opaque,
 }
 
-impl std::fmt::Display for ReflectKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for ReflectKind {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ReflectKind::Struct => f.pad("struct"),
             ReflectKind::TupleStruct => f.pad("tuple struct"),
@@ -272,8 +273,9 @@ impl ReflectOwned {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashSet;
+
+    use super::*;
 
     #[test]
     fn should_cast_ref() {

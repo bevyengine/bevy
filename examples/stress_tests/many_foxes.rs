@@ -1,8 +1,7 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;
 use bevy::{

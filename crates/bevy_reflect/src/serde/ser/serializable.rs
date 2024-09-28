@@ -1,7 +1,8 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
+use crate::{
+    serde::ser::error_utils::make_custom_error, PartialReflect, ReflectSerialize, TypeRegistry,
+};
+use core::ops::Deref;
 use serde::ser::Error;
-use std::ops::Deref;
 
 /// A type-erased serializable value.
 pub enum Serializable<'a> {

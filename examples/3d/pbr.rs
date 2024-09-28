@@ -1,7 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::render::camera::ScalingMode;
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()

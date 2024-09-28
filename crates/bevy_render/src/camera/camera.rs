@@ -28,13 +28,12 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, warn_once};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -1079,7 +1078,7 @@ pub fn sort_cameras(
     sorted_cameras
         .0
         .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            std::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
             ord => ord,
         });
     let mut previous_order_target = None;

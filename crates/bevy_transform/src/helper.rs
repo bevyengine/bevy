@@ -51,7 +51,7 @@ impl<'w, 's> TransformHelper<'w, 's> {
 fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformError {
     use ComputeGlobalTransformError::*;
     match err {
-        QueryEntityError::QueryDoesNotMatch(entity) => MissingTransform(entity),
+        QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
         QueryEntityError::NoSuchEntity(entity) => {
             if ancestor {
                 MalformedHierarchy(entity)
@@ -80,7 +80,7 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::TAU;
+    use core::f32::consts::TAU;
 
     use bevy_app::App;
     use bevy_ecs::system::SystemState;
@@ -88,7 +88,6 @@ mod tests {
     use bevy_math::{Quat, Vec3};
 
     use crate::{
-        bundles::TransformBundle,
         components::{GlobalTransform, Transform},
         helper::TransformHelper,
         plugins::TransformPlugin,
@@ -122,7 +121,7 @@ mod tests {
         let mut entity = None;
 
         for transform in transforms {
-            let mut e = app.world_mut().spawn(TransformBundle::from(transform));
+            let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
                 e.set_parent(entity);

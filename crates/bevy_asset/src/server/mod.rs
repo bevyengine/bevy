@@ -17,19 +17,25 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
+use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::tracing::{error, info};
-use bevy_utils::HashSet;
+use bevy_utils::{
+    tracing::{error, info},
+    HashSet,
+};
+use core::{
+    any::{Any, TypeId},
+    future::Future,
+    panic::AssertUnwindSafe,
+};
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::{any::Any, path::PathBuf};
-use std::{any::TypeId, path::Path, sync::Arc};
-use std::{future::Future, panic::AssertUnwindSafe};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
@@ -429,12 +435,11 @@ impl AssetServer {
             return handle;
         }
         let id = handle.id().untyped();
-        let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
-            match server.load_internal(owned_handle, path, false, None).await {
+            match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     id,
                     loaded_asset: LoadedAsset::new_with_dependencies(
@@ -728,13 +733,13 @@ impl AssetServer {
     ///
     /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn add_async<A: Asset, E: std::error::Error + Send + Sync + 'static>(
+    pub fn add_async<A: Asset, E: core::error::Error + Send + Sync + 'static>(
         &self,
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
         let mut infos = self.data.infos.write();
         let handle =
-            infos.create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
+            infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
@@ -1518,7 +1523,7 @@ pub enum AssetLoadError {
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
-    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
 impl PartialEq for AssetLoaderError {
@@ -1542,7 +1547,7 @@ impl AssetLoaderError {
 #[derive(Error, Debug, Clone)]
 #[error("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
-    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+    error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
 impl PartialEq for AddAsyncError {
@@ -1588,8 +1593,8 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
     }
 }
 
-impl std::fmt::Debug for AssetServer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for AssetServer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("AssetServer")
             .field("info", &self.data.infos.read())
             .finish()

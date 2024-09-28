@@ -1,14 +1,15 @@
-use std::any::Any;
-use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use core::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::type_info::impl_type_methods;
-use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
+    FromReflect, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -319,7 +320,7 @@ impl PartialReflect for DynamicList {
         list_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicList(")?;
         list_debug(self, f)?;
         write!(f, ")")
@@ -334,7 +335,7 @@ impl PartialReflect for DynamicList {
 impl_type_path!((in bevy_reflect) DynamicList);
 
 impl Debug for DynamicList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -359,7 +360,7 @@ impl<T: PartialReflect> FromIterator<T> for DynamicList {
 
 impl IntoIterator for DynamicList {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -508,7 +509,7 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
 /// // ]
 /// ```
 #[inline]
-pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_list.iter() {
         debug.entry(&item as &dyn Debug);
@@ -520,7 +521,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 mod tests {
     use super::DynamicList;
     use crate::Reflect;
-    use std::assert_eq;
+    use core::assert_eq;
 
     #[test]
     fn test_into_iter() {
