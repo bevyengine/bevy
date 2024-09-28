@@ -15,6 +15,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
 
 /// This vertex attribute supplies barycentric coordinates for each triangle.
+///
 /// Each component of the vector corresponds to one corner of a triangle. It's
 /// equal to 1.0 in that corner and 0.0 in the other two. Hence, its value in
 /// the fragment shader indicates proximity to a corner or the opposite edge.

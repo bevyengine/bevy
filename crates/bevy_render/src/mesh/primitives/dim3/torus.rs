@@ -1,5 +1,5 @@
-use bevy_math::{primitives::Torus, Vec3};
-use std::ops::RangeInclusive;
+use bevy_math::{ops, primitives::Torus, Vec3};
+use core::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 
 use crate::{
@@ -34,7 +34,7 @@ impl Default for TorusMeshBuilder {
             torus: Torus::default(),
             minor_resolution: 24,
             major_resolution: 32,
-            angle_range: (0.0..=2.0 * std::f32::consts::PI),
+            angle_range: (0.0..=2.0 * core::f32::consts::PI),
         }
     }
 }
@@ -91,24 +91,27 @@ impl MeshBuilder for TorusMeshBuilder {
         let end_angle = self.angle_range.end();
 
         let segment_stride = (end_angle - start_angle) / self.major_resolution as f32;
-        let side_stride = 2.0 * std::f32::consts::PI / self.minor_resolution as f32;
+        let side_stride = 2.0 * core::f32::consts::PI / self.minor_resolution as f32;
 
         for segment in 0..=self.major_resolution {
             let theta = start_angle + segment_stride * segment as f32;
 
             for side in 0..=self.minor_resolution {
                 let phi = side_stride * side as f32;
+                let (sin_theta, cos_theta) = ops::sin_cos(theta);
+                let (sin_phi, cos_phi) = ops::sin_cos(phi);
+                let radius = self.torus.major_radius + self.torus.minor_radius * cos_phi;
 
                 let position = Vec3::new(
-                    theta.cos() * (self.torus.major_radius + self.torus.minor_radius * phi.cos()),
-                    self.torus.minor_radius * phi.sin(),
-                    theta.sin() * (self.torus.major_radius + self.torus.minor_radius * phi.cos()),
+                    cos_theta * radius,
+                    self.torus.minor_radius * sin_phi,
+                    sin_theta * radius,
                 );
 
                 let center = Vec3::new(
-                    self.torus.major_radius * theta.cos(),
+                    self.torus.major_radius * cos_theta,
                     0.,
-                    self.torus.major_radius * theta.sin(),
+                    self.torus.major_radius * sin_theta,
                 );
                 let normal = (position - center).normalize();
 

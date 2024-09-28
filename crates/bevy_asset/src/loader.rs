@@ -9,24 +9,26 @@ use crate::{
 use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
+use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::{
-    any::{Any, TypeId},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
+///
+/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
+///
+/// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
-    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
@@ -52,7 +54,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<
         'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
     >;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
@@ -83,7 +85,7 @@ where
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<
         'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
     > {
         Box::pin(async move {
             let settings = meta
@@ -115,7 +117,7 @@ where
     }
 
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<L>()
+        core::any::type_name::<L>()
     }
 
     fn type_id(&self) -> TypeId {
@@ -123,7 +125,7 @@ where
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<L::Asset>()
+        core::any::type_name::<L::Asset>()
     }
 
     fn asset_type_id(&self) -> TypeId {
@@ -252,7 +254,7 @@ impl ErasedLoadedAsset {
 
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
-    #[allow(clippy::result_large_err)]
+    #[expect(clippy::result_large_err, reason = "Function returns `Self` on error.")]
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {
             Ok(value) => Ok(LoadedAsset {
@@ -284,7 +286,7 @@ impl<A: Asset> AssetContainer for A {
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<A>()
+        core::any::type_name::<A>()
     }
 }
 
@@ -306,6 +308,7 @@ pub enum DeserializeMetaError {
 }
 
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
+///
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,

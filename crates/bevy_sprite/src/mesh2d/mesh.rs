@@ -16,32 +16,30 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase;
-use bevy_render::batching::no_gpu_preprocessing::{
-    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
-    BatchedInstanceBuffer,
-};
-use bevy_render::batching::GetFullBatchData;
-use bevy_render::mesh::allocator::MeshAllocator;
-use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
-use bevy_render::texture::FallbackImage;
 use bevy_render::{
-    batching::gpu_preprocessing::IndirectParameters,
-    view::{InheritedVisibility, Visibility},
-};
-use bevy_render::{
-    batching::{GetBatchData, NoAutomaticBatching},
+    batching::{
+        gpu_preprocessing::IndirectParameters,
+        no_gpu_preprocessing::{
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
+        },
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{Mesh, RenderMeshBufferInfo},
+    mesh::{
+        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+    },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
+        Visibility,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -57,13 +55,7 @@ use crate::Material2dBindGroupId;
 /// [`ColorMaterial`]: crate::material::ColorMaterial
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
-#[require(
-    Transform,
-    GlobalTransform,
-    Visibility,
-    InheritedVisibility,
-    ViewVisibility
-)]
+#[require(Transform, Visibility)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh2d {
@@ -882,7 +874,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                 );
             }
             RenderMeshBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
             }
         }
         RenderCommandResult::Success

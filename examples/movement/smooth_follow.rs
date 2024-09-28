@@ -1,7 +1,9 @@
 //! This example demonstrates how to use interpolation to make one entity smoothly follow another.
 
-use bevy::math::{prelude::*, vec3, NormedVectorSpace};
-use bevy::prelude::*;
+use bevy::{
+    math::{prelude::*, vec3, NormedVectorSpace},
+    prelude::*,
+};
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 

@@ -1,13 +1,11 @@
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
-use bevy_utils::hashbrown::HashTable;
+use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -312,7 +310,7 @@ impl PartialReflect for DynamicSet {
         set_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicSet(")?;
         set_debug(self, f)?;
         write!(f, ")")
@@ -327,7 +325,7 @@ impl PartialReflect for DynamicSet {
 impl_type_path!((in bevy_reflect) DynamicSet);
 
 impl Debug for DynamicSet {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -373,7 +371,7 @@ impl IntoIterator for DynamicSet {
 
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
-    type IntoIter = std::iter::Map<
+    type IntoIter = core::iter::Map<
         bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
@@ -434,7 +432,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_set();
     for value in dyn_set.iter() {
         debug.entry(&value as &dyn Debug);
@@ -473,18 +471,14 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Set(set_value) = b.reflect_ref() {
-        for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.clone_value());
-            }
+    let set_value = b.reflect_ref().as_set()?;
+
+    for b_value in set_value.iter() {
+        if a.get(b_value).is_none() {
+            a.insert_boxed(b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Set,
-        });
     }
+
     Ok(())
 }
 

@@ -3,7 +3,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
-use bevy_app::{App, Last, Plugin};
+use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
@@ -11,11 +11,11 @@ use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
-use bevy_winit::CustomCursorCache;
-use std::{
+use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
+use cursor::CursorPlugin;
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
@@ -23,16 +23,13 @@ use wgpu::{
 pub mod cursor;
 pub mod screenshot;
 
-use self::cursor::update_cursors;
 use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
 
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ScreenshotPlugin)
-            .init_resource::<CustomCursorCache>()
-            .add_systems(Last, update_cursors);
+        app.add_plugins((ScreenshotPlugin, CursorPlugin));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

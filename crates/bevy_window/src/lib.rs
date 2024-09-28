@@ -11,7 +11,10 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-use std::sync::{Arc, Mutex};
+extern crate alloc;
+
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use bevy_a11y::Focus;
 
@@ -30,14 +33,14 @@ pub use system::*;
 pub use system_cursor::*;
 pub use window::*;
 
-#[allow(missing_docs)]
+/// The windowing prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
-        ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
-        WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
+        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
     };
 }
 
@@ -90,8 +93,8 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
-        #[allow(deprecated)]
-        app.add_event::<WindowResized>()
+        app.add_event::<WindowEvent>()
+            .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
@@ -101,7 +104,6 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
-            .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
             .add_event::<WindowOccluded>()
@@ -142,8 +144,8 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
-        #[allow(deprecated)]
-        app.register_type::<WindowResized>()
+        app.register_type::<WindowEvent>()
+            .register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
@@ -152,7 +154,6 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()
             .register_type::<CursorLeft>()
-            .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
             .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()

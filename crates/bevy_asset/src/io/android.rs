@@ -1,8 +1,9 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
+use alloc::ffi::CString;
 use bevy_utils::tracing::error;
-use std::{ffi::CString, path::Path};
+use std::path::Path;
 
 /// [`AssetReader`] implementation for Android devices, built on top of Android's [`AssetManager`].
 ///
@@ -52,10 +53,7 @@ impl AssetReader for AndroidAssetReader {
         Ok(stream)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the AndroidAssetReader");
         Ok(false)
     }

@@ -1,4 +1,4 @@
-use std::{hash::Hash, ops::Range};
+use core::{hash::Hash, ops::Range};
 
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -53,7 +53,7 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_texture_slices.after(extract_uinode_images),
+                    extract_ui_texture_slices.in_set(RenderUiSystem::ExtractTextureSlice),
                 )
                 .add_systems(
                     Render,
@@ -232,6 +232,8 @@ pub struct ExtractedUiTextureSlice {
     pub camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: ImageScaleMode,
+    pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 #[derive(Resource, Default)]
@@ -273,11 +275,20 @@ pub fn extract_ui_texture_slices(
             continue;
         }
 
-        let atlas_rect = atlas.and_then(|atlas| {
-            texture_atlases
-                .get(&atlas.layout)
-                .map(|layout| layout.textures[atlas.index].as_rect())
-        });
+        let atlas_rect = atlas
+            .and_then(|s| s.texture_rect(&texture_atlases))
+            .map(|r| r.as_rect());
+
+        let atlas_rect = match (atlas_rect, image.rect) {
+            (None, None) => None,
+            (None, Some(image_rect)) => Some(image_rect),
+            (Some(atlas_rect), None) => Some(atlas_rect),
+            (Some(atlas_rect), Some(mut image_rect)) => {
+                image_rect.min += atlas_rect.min;
+                image_rect.max += atlas_rect.min;
+                Some(image_rect)
+            }
+        };
 
         extracted_ui_slicers.slices.insert(
             commands.spawn_empty().id(),
@@ -294,6 +305,8 @@ pub fn extract_ui_texture_slices(
                 camera_entity,
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
+                flip_x: image.flip_x,
+                flip_y: image.flip_y,
             },
         );
     }
@@ -546,7 +559,7 @@ pub fn prepare_ui_slices(
 
                     let color = texture_slices.color.to_f32_array();
 
-                    let (image_size, atlas) = if let Some(atlas) = texture_slices.atlas_rect {
+                    let (image_size, mut atlas) = if let Some(atlas) = texture_slices.atlas_rect {
                         (
                             atlas.size(),
                             [
@@ -559,6 +572,14 @@ pub fn prepare_ui_slices(
                     } else {
                         (batch_image_size, [0., 0., 1., 1.])
                     };
+
+                    if texture_slices.flip_x {
+                        atlas.swap(0, 2);
+                    }
+
+                    if texture_slices.flip_y {
+                        atlas.swap(1, 3);
+                    }
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
@@ -692,7 +713,7 @@ fn compute_texture_slices(
 ) -> [[f32; 4]; 3] {
     match image_scale_mode {
         ImageScaleMode::Sliced(TextureSlicer {
-            border,
+            border: border_rect,
             center_scale_mode,
             sides_scale_mode,
             max_corner_scale,
@@ -701,31 +722,48 @@ fn compute_texture_slices(
                 .min_element()
                 .min(*max_corner_scale);
 
+            // calculate the normalized extents of the nine-patched image slices
             let slices = [
-                border.left / image_size.x,
-                border.top / image_size.y,
-                1. - border.right / image_size.x,
-                1. - border.bottom / image_size.y,
+                border_rect.left / image_size.x,
+                border_rect.top / image_size.y,
+                1. - border_rect.right / image_size.x,
+                1. - border_rect.bottom / image_size.y,
             ];
 
+            // calculate the normalized extents of the target slices
             let border = [
-                (border.left / target_size.x) * min_coeff,
-                (border.top / target_size.y) * min_coeff,
-                1. - (border.right / target_size.x) * min_coeff,
-                1. - (border.bottom / target_size.y) * min_coeff,
+                (border_rect.left / target_size.x) * min_coeff,
+                (border_rect.top / target_size.y) * min_coeff,
+                1. - (border_rect.right / target_size.x) * min_coeff,
+                1. - (border_rect.bottom / target_size.y) * min_coeff,
             ];
 
-            let isx = image_size.x * (1. - slices[0] - slices[2]);
-            let isy = image_size.y * (1. - slices[1] - slices[3]);
-            let tsx = target_size.x * (1. - border[0] - border[2]);
-            let tsy = target_size.y * (1. - border[1] - border[3]);
+            let image_side_width = image_size.x * (slices[2] - slices[0]);
+            let image_side_height = image_size.y * (slices[2] - slices[1]);
+            let target_side_height = target_size.x * (border[2] - border[0]);
+            let target_side_width = target_size.y * (border[3] - border[1]);
 
-            let rx = compute_tiled_subaxis(isx, tsx, sides_scale_mode);
-            let ry = compute_tiled_subaxis(isy, tsy, sides_scale_mode);
-            let cx = compute_tiled_subaxis(isx, tsx, center_scale_mode);
-            let cy = compute_tiled_subaxis(isy, tsy, center_scale_mode);
+            // compute the number of times to repeat the side and center slices when tiling along each axis
+            // if the returned value is `1.` the slice will be stretched to fill the axis.
+            let repeat_side_x =
+                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+            let repeat_side_y =
+                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+            let repeat_center_x =
+                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+            let repeat_center_y =
+                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
 
-            [slices, border, [rx, ry, cx, cy]]
+            [
+                slices,
+                border,
+                [
+                    repeat_side_x,
+                    repeat_side_y,
+                    repeat_center_x,
+                    repeat_center_y,
+                ],
+            ]
         }
         ImageScaleMode::Tiled {
             tile_x,
@@ -739,21 +777,21 @@ fn compute_texture_slices(
     }
 }
 
-fn compute_tiled_axis(tile: bool, is: f32, ts: f32, stretch: f32) -> f32 {
+fn compute_tiled_axis(tile: bool, image_extent: f32, target_extent: f32, stretch: f32) -> f32 {
     if tile {
-        let s = is * stretch;
-        ts / s
+        let s = image_extent * stretch;
+        target_extent / s
     } else {
         1.
     }
 }
 
-fn compute_tiled_subaxis(is: f32, ts: f32, mode: &SliceScaleMode) -> f32 {
+fn compute_tiled_subaxis(image_extent: f32, target_extent: f32, mode: &SliceScaleMode) -> f32 {
     match mode {
         SliceScaleMode::Stretch => 1.,
         SliceScaleMode::Tile { stretch_value } => {
-            let s = is * *stretch_value;
-            ts / s
+            let s = image_extent * *stretch_value;
+            target_extent / s
         }
     }
 }

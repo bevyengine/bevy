@@ -6,8 +6,12 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    bundle::Bundle,
+    component::Component,
+    entity::{Entity, EntityHashMap},
+    reflect::ReflectComponent,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::Mesh,
@@ -80,17 +84,18 @@ impl<M: Material> From<Handle<M>> for MeshMaterial3d<M> {
 }
 
 /// Collection of mesh entities visible for 3D lighting.
+///
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by [`crate::SimulationLightSystems`].
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub struct VisibleMeshEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub struct CubemapVisibleEntities {
     #[reflect(ignore)]
     data: [VisibleMeshEntities; 6],

@@ -14,6 +14,9 @@ pub struct BorderRect {
 }
 
 impl BorderRect {
+    /// An empty border with zero padding values in each direction
+    pub const ZERO: Self = Self::square(0.);
+
     /// Creates a new border as a square, with identical pixel padding values on every direction
     #[must_use]
     #[inline]

@@ -1,9 +1,13 @@
 //! An example showing how to save screenshots to disk
 
-use bevy::prelude::*;
-use bevy::window::SystemCursorIcon;
-use bevy_render::view::cursor::CursorIcon;
-use bevy_render::view::screenshot::{save_to_disk, Capturing, Screenshot};
+use bevy::{
+    prelude::*,
+    render::view::{
+        cursor::CursorIcon,
+        screenshot::{save_to_disk, Capturing, Screenshot},
+    },
+    window::SystemCursorIcon,
+};
 
 fn main() {
     App::new()
@@ -32,7 +36,9 @@ fn screenshot_saving(
     screenshot_saving: Query<Entity, With<Capturing>>,
     windows: Query<Entity, With<Window>>,
 ) {
-    let window = windows.single();
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
     match screenshot_saving.iter().count() {
         0 => {
             commands.entity(window).remove::<CursorIcon>();

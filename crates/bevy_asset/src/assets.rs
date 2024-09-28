@@ -1,19 +1,17 @@
-use crate::{self as bevy_asset};
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
+    UntypedHandle,
+};
+use alloc::sync::Arc;
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
+use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
-use std::{
-    any::TypeId,
-    iter::Enumerate,
-    marker::PhantomData,
-    sync::{atomic::AtomicU32, Arc},
-};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -81,7 +79,7 @@ impl AssetIndexAllocator {
             AssetIndex {
                 index: self
                     .next_index
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
                 generation: 0,
             }
         }
@@ -236,7 +234,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         let new_len = self
             .allocator
             .next_index
-            .load(std::sync::atomic::Ordering::Relaxed);
+            .load(core::sync::atomic::Ordering::Relaxed);
         self.storage.resize_with(new_len as usize, || Entry::Some {
             value: None,
             generation: 0,
@@ -577,7 +575,7 @@ impl<A: Asset> Assets<A> {
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
-    dense_storage: Enumerate<std::slice::IterMut<'a, Entry<A>>>,
+    dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
     hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
 }
 

@@ -23,8 +23,8 @@ use crate::{
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{any::TypeId, ptr::NonNull};
+use core::panic::Location;
+use core::{any::TypeId, ptr::NonNull};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -205,7 +205,7 @@ unsafe impl<C: Component> Bundle for C {
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
     ) {
-        ids(components.init_component::<C>(storages));
+        ids(components.register_component::<C>(storages));
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
@@ -517,33 +517,30 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
-                    let column =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-                        // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // the target table contains the component.
+                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => {
-                            column.initialize(
-                                table_row,
-                                component_ptr,
-                                change_tick,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            );
-                        }
-                        (ComponentStatus::Existing, InsertMode::Replace) => {
-                            column.replace(
-                                table_row,
-                                component_ptr,
-                                change_tick,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            );
-                        }
+                        (ComponentStatus::Added, _) => column.initialize(
+                            table_row,
+                            component_ptr,
+                            change_tick,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        ),
+                        (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
+                            table_row,
+                            component_ptr,
+                            change_tick,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
-                            column.drop(component_ptr);
+                            if let Some(drop_fn) = table.get_drop_for(component_id) {
+                                drop_fn(component_ptr);
+                            }
                         }
                     }
                 }
@@ -789,7 +786,7 @@ impl<'w> BundleInserter<'w> {
     ) -> Self {
         let bundle_id = world
             .bundles
-            .init_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut world.components, &mut world.storages);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1138,7 +1135,7 @@ impl<'w> BundleSpawner<'w> {
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
         let bundle_id = world
             .bundles
-            .init_info::<T>(&mut world.components, &mut world.storages);
+            .register_info::<T>(&mut world.components, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1282,7 +1279,7 @@ impl<'w> BundleSpawner<'w> {
         unsafe { &mut self.world.world_mut().entities }
     }
 
-    /// # Safety:
+    /// # Safety
     /// - `Self` must be dropped after running this function as it may invalidate internal pointers.
     #[inline]
     pub(crate) unsafe fn flush_commands(&mut self) {
@@ -1321,10 +1318,10 @@ impl Bundles {
         self.bundle_ids.get(&type_id).cloned()
     }
 
-    /// Initializes a new [`BundleInfo`] for a statically known type.
+    /// Registers a new [`BundleInfo`] for a statically known type.
     ///
-    /// Also initializes all the components in the bundle.
-    pub(crate) fn init_info<T: Bundle>(
+    /// Also registers all the components in the bundle.
+    pub(crate) fn register_info<T: Bundle>(
         &mut self,
         components: &mut Components,
         storages: &mut Storages,
@@ -1339,7 +1336,7 @@ impl Bundles {
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(core::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -1347,11 +1344,13 @@ impl Bundles {
     }
 
     /// # Safety
-    /// A `BundleInfo` with the given `BundleId` must have been initialized for this instance of `Bundles`.
+    /// A [`BundleInfo`] with the given [`BundleId`] must have been initialized for this instance of `Bundles`.
     pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
         self.bundle_infos.get_unchecked(id.0)
     }
 
+    /// # Safety
+    /// This [`BundleId`] must have been initialized with a single [`Component`] (via [`init_component_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storage_unchecked(&self, id: BundleId) -> StorageType {
         *self
             .dynamic_component_storages
@@ -1359,6 +1358,8 @@ impl Bundles {
             .debug_checked_unwrap()
     }
 
+    /// # Safety
+    /// This [`BundleId`] must have been initialized with multiple [`Component`]s (via [`init_dynamic_info`](Self::init_dynamic_info))
     pub(crate) unsafe fn get_storages_unchecked(&mut self, id: BundleId) -> &mut Vec<StorageType> {
         self.dynamic_bundle_storages
             .get_mut(&id)
@@ -1445,9 +1446,7 @@ fn initialize_dynamic_bundle(
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::ComponentId;
-    use crate::prelude::*;
-    use crate::world::DeferredWorld;
+    use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 
     #[derive(Component)]
     struct A;

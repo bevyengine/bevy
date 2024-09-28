@@ -1,8 +1,6 @@
 use bevy_math::Vec2;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
-use std::ops::Neg;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -14,7 +12,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// such as logical pixels, percentages, or automatically determined values.
 
 #[derive(Copy, Clone, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -207,7 +205,6 @@ impl Val {
 ///
 /// # Examples
 
-///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -249,7 +246,7 @@ impl Val {
 /// ```
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
+#[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
