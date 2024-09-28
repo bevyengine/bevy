@@ -34,6 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod mesh3d;
 mod parallax;
 mod pbr_material;
 mod prepass;
@@ -53,6 +54,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use mesh3d::*;
 pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
@@ -68,13 +70,13 @@ pub use volumetric_fog::{
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
     pub use crate::{
         bundle::{
-            DirectionalLightBundle, MaterialMesh3dBundle, Mesh3d, MeshMaterial3d, PbrBundle,
-            PointLightBundle, SpotLightBundle,
+            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            SpotLightBundle,
         },
         fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
@@ -83,6 +85,7 @@ pub mod prelude {
             LightProbe,
         },
         material::{Material, MaterialPlugin},
+        mesh3d::{Mesh3d, MeshMaterial3d},
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,

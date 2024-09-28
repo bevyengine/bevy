@@ -1,10 +1,10 @@
 #![expect(deprecated)]
 
 use crate::{
+    mesh3d::{Mesh3d, MeshMaterial3d},
     CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
     StandardMaterial,
 };
-use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
@@ -14,7 +14,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
@@ -23,57 +22,40 @@ use bevy_transform::components::{GlobalTransform, Transform};
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Mesh3d` and `MeshMaterial3d` components directly instead."
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
-pub type PbrBundle = MaterialMesh3dBundle<StandardMaterial>;
+pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
 
 /// A component bundle for entities with a [`Mesh3d`] and a [`MeshMaterial3d`].
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Mesh3d` and `MeshMaterial3d` components directly instead."
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
-pub struct MaterialMesh3dBundle<M: Material> {
+pub struct MaterialMeshBundle<M: Material> {
     pub mesh: Mesh3d,
     pub material: MeshMaterial3d<M>,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
 }
 
-impl<M: Material> Default for MaterialMesh3dBundle<M> {
+impl<M: Material> Default for MaterialMeshBundle<M> {
     fn default() -> Self {
         Self {
             mesh: Default::default(),
             material: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
-    }
-}
-
-/// A component for rendering 3D meshes, typically with a [material] such as [`StandardMaterial`].
-///
-/// [material]: crate::material::Material
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
-#[require(Transform, Visibility)]
-pub struct Mesh3d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh3d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
-
-/// A [material](Material) for a [`Mesh3d`](crate::Mesh3d).
-#[derive(Component, Clone, Debug, Deref, DerefMut, PartialEq, Eq)]
-pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
-
-impl<M: Material> Default for MeshMaterial3d<M> {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
-
-impl<M: Material> From<Handle<M>> for MeshMaterial3d<M> {
-    fn from(handle: Handle<M>) -> Self {
-        Self(handle)
     }
 }
 

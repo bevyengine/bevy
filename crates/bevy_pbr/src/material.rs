@@ -43,7 +43,7 @@ use core::{
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
-/// Materials are used alongside [`MaterialPlugin`] and [`MaterialMesh3dBundle`]
+/// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
 /// way to render [`Mesh`](bevy_render::mesh::Mesh) entities with custom shader logic.
 ///
@@ -52,10 +52,11 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///
 /// # Example
 ///
-/// Here is a simple Material implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// Here is a simple [`Material`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
 /// check out the [`AsBindGroup`] documentation.
+///
 /// ```
-/// # use bevy_pbr::{Material, MaterialMesh3dBundle};
+/// # use bevy_pbr::{Material, Mesh3d, MeshMaterial3d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
@@ -84,17 +85,23 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///     }
 /// }
 ///
-/// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialMesh3dBundle {
-///         material: materials.add(CustomMaterial {
+/// // Spawn an entity with a mesh using `CustomMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         Mesh3d(meshes.add(Capsule::default())),
+///         MeshMaterial3d(materials.add(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
+///         })),
 ///     });
 /// }
 /// ```
+///
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
