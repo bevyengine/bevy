@@ -590,6 +590,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_anim_temp"
+path = "examples/2d/sprite_anim_temp.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_anim_temp]
+name = "Sprite Animation Temp"
+description = "DELETE ME!"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
 doc-scrape-examples = true
