@@ -240,7 +240,7 @@ impl<'ctx: 'reader, 'builder, 'reader> DirectNestedLoader<'ctx, 'builder, 'reade
         let asset = self
             .base
             .load_context
-            .load_direct_internal(path.clone(), meta, &*loader, reader.as_mut())
+            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
             .await?;
         Ok((loader, asset))
     }
