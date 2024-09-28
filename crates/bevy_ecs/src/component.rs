@@ -1059,32 +1059,9 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-        // Get required components inherited from the `required` component.
-        // SAFETY: The caller ensures that the `required` component is valid.
-        let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
-        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
-            .required_components()
-            .0
-            .iter()
-            .map(|(component_id, required_component)| {
-                (
-                    *component_id,
-                    RequiredComponent {
-                        constructor: required_component.constructor.clone(),
-                        // Add `1` to the inheritance depth since this will be registered
-                        // for the component that requires `required`.
-                        inheritance_depth: required_component.inheritance_depth + 1,
-                    },
-                )
-            })
-            .collect();
-
-        // Register the new required components.
-        // SAFETY: The caller ensures that the `requiree` is valid.
-        //         The inherited required components are valid, since they were just found.
-        unsafe {
-            self.register_required_components_internal(requiree, &inherited_requirements);
-        }
+        // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
+        let inherited_requirements =
+            unsafe { self.register_inherited_required_components(requiree, required) };
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
@@ -1118,17 +1095,39 @@ impl Components {
         Ok(())
     }
 
-    /// Registers the given components as required components for the given `requiree`.
+    /// Registers the components inherited from `required` for the given `requiree`,
+    /// returning the requirements in a list.
     ///
     /// # Safety
     ///
-    /// The given `requiree` and the components in the `required` list must be valid component IDs.
-    unsafe fn register_required_components_internal(
+    /// The given component IDs `requiree` and `required` must be valid.
+    unsafe fn register_inherited_required_components(
         &mut self,
         requiree: ComponentId,
-        required: &[(ComponentId, RequiredComponent)],
-    ) {
-        for (component_id, component) in required.iter().cloned() {
+        required: ComponentId,
+    ) -> Vec<(ComponentId, RequiredComponent)> {
+        // Get required components inherited from the `required` component.
+        // SAFETY: The caller ensures that the `required` component is valid.
+        let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
+        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
+            .required_components()
+            .0
+            .iter()
+            .map(|(component_id, required_component)| {
+                (
+                    *component_id,
+                    RequiredComponent {
+                        constructor: required_component.constructor.clone(),
+                        // Add `1` to the inheritance depth since this will be registered
+                        // for the component that requires `required`.
+                        inheritance_depth: required_component.inheritance_depth + 1,
+                    },
+                )
+            })
+            .collect();
+
+        // Register the new required components.
+        for (component_id, component) in inherited_requirements.iter().cloned() {
             // SAFETY: The caller ensures that the `requiree` is valid.
             let required_components = unsafe {
                 self.get_required_components_mut(requiree)
@@ -1153,6 +1152,8 @@ impl Components {
             };
             required_by.insert(requiree);
         }
+
+        inherited_requirements
     }
 
     // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
