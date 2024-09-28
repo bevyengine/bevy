@@ -24,7 +24,6 @@ mod paths {
     derive(Reflect),
     reflect(where T: TypePath),
     reflect(from_reflect = false, type_path = false),
-    reflect(Debug),
 )]
 pub struct SampleCurve<T, I> {
     pub(crate) core: EvenCore<T>,
@@ -127,7 +126,7 @@ impl<T, I> SampleCurve<T, I> {
 /// [a particularly well-behaved interpolation]: StableInterpolate
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct SampleAutoCurve<T> {
     pub(crate) core: EvenCore<T>,
 }
@@ -171,7 +170,6 @@ impl<T> SampleAutoCurve<T> {
     derive(Reflect),
     reflect(where T: TypePath),
     reflect(from_reflect = false, type_path = false),
-    reflect(Debug),
 )]
 pub struct UnevenSampleCurve<T, I> {
     pub(crate) core: UnevenCore<T>,
@@ -284,7 +282,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
 /// [a particularly well-behaved interpolation]: StableInterpolate
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct UnevenSampleAutoCurve<T> {
     pub(crate) core: UnevenCore<T>,
 }
