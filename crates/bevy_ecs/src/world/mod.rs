@@ -3170,6 +3170,9 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        // () is a dummy resource and will be removed for this test.
+        world.remove_resource::<()>();
+
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3196,6 +3199,9 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        // () is a dummy resource and will be removed for this test.
+        world.remove_resource::<()>();
+
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
