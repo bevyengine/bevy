@@ -6,7 +6,6 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
 };
-use bevy_hierarchy::Children;
 use bevy_math::UVec2;
 use bevy_utils::{default, tracing::warn};
 
@@ -728,7 +727,11 @@ mod tests {
 
         ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, root_node_entity, &style, None);
 
-        ui_surface.compute_camera_layout(camera_entity, UVec2::new(800, 600));
+        ui_surface.compute_camera_layout(
+            camera_entity,
+            UVec2::new(800, 600),
+            // TODO: add tests for #[cfg(feature = "bevy_text")] params
+        );
 
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
