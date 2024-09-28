@@ -540,7 +540,7 @@ mod tests {
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
         let mut deserializer_processor = ReflectDeserializerProcessor::new(
-            |registration| registration.type_id() == TypeId::of::<i64>(),
+            |registration| Ok(registration.type_id() == TypeId::of::<i64>()),
             |_, deserializer| {
                 let _ = deserializer.deserialize_ignored_any(IgnoredAny);
                 Ok(Box::new(456_i64))
@@ -563,13 +563,17 @@ mod tests {
     }
 
     #[test]
-    fn should_propagate_processor_error() {
+    fn should_propagate_processor_should_deserialize_error() {
         let registry = get_registry();
 
         let input = r#"{"i32":123}"#;
         let mut deserializer_processor = ReflectDeserializerProcessor::new(
-            |registration| registration.type_id() == TypeId::of::<i32>(),
-            |_, _| Err(serde::de::Error::custom("my custom error")),
+            |_| {
+                Err(serde::de::Error::custom(
+                    "my custom should_deserialize error",
+                ))
+            },
+            |_, _| unreachable!(),
         );
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
@@ -582,10 +586,42 @@ mod tests {
         #[cfg(feature = "debug_stack")]
         assert_eq!(
             error,
-            ron::Error::Message("my custom error (stack: `i32`)".to_string())
+            ron::Error::Message("my custom should_deserialize error (stack: `i32`)".to_string())
         );
         #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(error, ron::Error::Message("my custom error".to_string()));
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom should_deserialize error".to_string())
+        );
+    }
+
+    #[test]
+    fn should_propagate_processor_deserialize_error() {
+        let registry = get_registry();
+
+        let input = r#"{"i32":123}"#;
+        let mut deserializer_processor = ReflectDeserializerProcessor::new(
+            |registration| Ok(registration.type_id() == TypeId::of::<i32>()),
+            |_, _| Err(serde::de::Error::custom("my custom deserialize error")),
+        );
+
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let reflect_deserializer =
+            ReflectDeserializer::new_with_processor(&registry, &mut deserializer_processor);
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error (stack: `i32`)".to_string())
+        );
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error".to_string())
+        );
     }
 
     #[cfg(feature = "functions")]
