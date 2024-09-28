@@ -1021,9 +1021,9 @@ impl Components {
     ///
     /// The given component IDs `required` and `requiree` must be valid.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the `required` component is already a directly required component for the `requiree`.
+    /// Returns a [`RequiredComponentsError`] if the `required` component is already a directly required component for the `requiree`.
     ///
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
