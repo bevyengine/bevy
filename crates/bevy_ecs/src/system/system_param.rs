@@ -230,7 +230,7 @@ pub unsafe trait SystemParam: Sized {
     /// When using system parameters that require `change_tick` you can use
     /// [`UnsafeWorldCell::change_tick()`]. Even if this isn't the exact
     /// same tick used for [`SystemParam::get_param`], the world access
-    /// ensures that thre queried data will be the same in both calls.
+    /// ensures that the queried data will be the same in both calls.
     ///
     /// # Safety
     ///
