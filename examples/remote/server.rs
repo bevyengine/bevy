@@ -1,12 +1,16 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
-use bevy::{prelude::*, remote::RemotePlugin};
+use bevy::{
+    prelude::*,
+    remote::{http::RemoteHttpPlugin, RemotePlugin},
+};
 use serde::{Deserialize, Serialize};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
         .register_type::<Cube>()
         .run();
