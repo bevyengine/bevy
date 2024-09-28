@@ -40,6 +40,7 @@ where
     }
 }
 
+#[cfg(feature = "bevy_reflect")]
 impl<T, I> TypePath for SampleCurve<T, I>
 where
     T: TypePath,
@@ -185,6 +186,7 @@ where
     }
 }
 
+#[cfg(feature = "bevy_reflect")]
 impl<T, I> TypePath for UnevenSampleCurve<T, I>
 where
     T: TypePath,
