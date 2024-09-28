@@ -1300,6 +1300,18 @@ impl World {
             .map(Into::into)
     }
 
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new resource definitions at runtime for advanced
+    /// use cases.
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.components
+            .register_resource_with_descriptor(descriptor)
+    }
+
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
     ///
     /// If the resource already exists, nothing happens.
@@ -3223,6 +3235,39 @@ mod tests {
             world.resource::<TestResource2>().0,
             "Hello, world?".to_string()
         );
+    }
+
+    #[test]
+    fn dynamic_resource() {
+        let mut world = World::new();
+
+        let descriptor = ComponentDescriptor::new_resource::<TestResource>();
+
+        let component_id = world.register_resource_with_descriptor(descriptor);
+
+        let value = 0;
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the layout of `TestResource`
+            unsafe {
+                world.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    panic::Location::caller(),
+                );
+            }
+        });
+
+        // SAFETY: We know that the resource is of type `TestResource`
+        let resource = unsafe {
+            world
+                .get_resource_by_id(component_id)
+                .unwrap()
+                .deref::<TestResource>()
+        };
+        assert_eq!(resource.0, 0);
+
+        assert!(world.remove_resource_by_id(component_id).is_some());
     }
 
     #[test]

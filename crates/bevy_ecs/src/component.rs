@@ -876,9 +876,9 @@ impl Components {
 
     /// Registers a component described by `descriptor`.
     ///
-    /// ## Note
+    /// # Note
     ///
-    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
     /// will be created for each one.
     ///
     /// # See also
@@ -1034,6 +1034,7 @@ impl Components {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
@@ -1042,6 +1043,24 @@ impl Components {
                 ComponentDescriptor::new_resource::<T>()
             })
         }
+    }
+
+    /// Registers a resource described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource()`]
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Components::register_resource_inner(&mut self.components, descriptor)
     }
 
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
@@ -1069,10 +1088,18 @@ impl Components {
         let components = &mut self.components;
         *self.resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            let component_id = ComponentId(components.len());
-            components.push(ComponentInfo::new(component_id, descriptor));
-            component_id
+            Components::register_resource_inner(components, descriptor)
         })
+    }
+
+    #[inline]
+    fn register_resource_inner(
+        components: &mut Vec<ComponentInfo>,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        let component_id = ComponentId(components.len());
+        components.push(ComponentInfo::new(component_id, descriptor));
+        component_id
     }
 
     /// Gets an iterator over all components registered with this instance.
