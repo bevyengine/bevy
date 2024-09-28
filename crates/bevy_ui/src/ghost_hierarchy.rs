@@ -90,7 +90,7 @@ impl<'w, 's> UiChildren<'w, 's> {
                     self.ghost_nodes_query
                         .iter_many(children)
                         .flat_map(|entity| {
-                            std::iter::once(entity).chain(self.iter_ghost_nodes(entity))
+                            core::iter::once(entity).chain(self.iter_ghost_nodes(entity))
                         })
                 }),
         )
