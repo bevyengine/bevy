@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 
-use super::{EntityHashMap, VisitEntities};
+use super::EntityHashMap;
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -43,15 +43,6 @@ pub trait MapEntities {
     /// Implementors should look up any and all [`Entity`] values stored within `self` and
     /// update them to the mapped values via `entity_mapper`.
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
-}
-
-impl<T> MapEntities for T
-where
-    T: VisitEntities,
-{
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.visit_entities_mut(|entity| *entity = entity_mapper.map_entity(*entity));
-    }
 }
 
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].

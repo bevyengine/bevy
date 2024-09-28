@@ -14,8 +14,6 @@ use crate::entity::Entity;
 pub trait VisitEntities {
     /// Apply an operation to all contained entities.
     fn visit_entities<F: FnMut(Entity)>(&self, f: F);
-    /// Apply an operation to mutable references to all entities.
-    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F);
 }
 
 impl<T> VisitEntities for T
@@ -24,9 +22,6 @@ where
 {
     fn visit_entities<F: FnMut(Entity)>(&self, f: F) {
         self.iter_entities().for_each(f);
-    }
-    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, f: F) {
-        self.iter_entities_mut().for_each(f);
     }
 }
 
@@ -58,28 +53,18 @@ where
 pub trait IterEntities {
     /// Get an iterator over contained entities.
     fn iter_entities(&self) -> impl Iterator<Item = Entity>;
-    /// Get an iterator over mutable references to contained entities.
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity>;
 }
 
 impl<T> IterEntities for T
 where
     for<'a> &'a T: IntoIterator<Item = &'a Entity>,
-    for<'a> &'a mut T: IntoIterator<Item = &'a mut Entity>,
 {
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-        self.into_iter()
-    }
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         self.into_iter().copied()
     }
 }
 
 impl IterEntities for Entity {
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-        iter::once(self)
-    }
-
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         iter::once(*self)
     }

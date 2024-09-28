@@ -259,10 +259,6 @@ pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
                 #first.iter_entities()
                     #(.chain(#rest . iter_entities()))*
             }
-            fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-                #first.iter_entities_mut()
-                    #(.chain(#rest . iter_entities_mut()))*
-            }
         }
     })
 }
