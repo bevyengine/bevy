@@ -3,6 +3,7 @@
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
+#import bevy_pbr::utils::octahedral_decode
 
 struct Meshlet {
     start_vertex_position_bit: u32,
@@ -13,6 +14,14 @@ struct Meshlet {
     min_vertex_position_channel_x: f32,
     min_vertex_position_channel_y: f32,
     min_vertex_position_channel_z: f32,
+}
+
+fn get_meshlet_vertex_count(meshlet: ptr<function, Meshlet>) -> u32 {
+    return extractBits((*meshlet).packed_a, 0u, 8u);
+}
+
+fn get_meshlet_triangle_count(meshlet: ptr<function, Meshlet>) -> u32 {
+    return extractBits((*meshlet).packed_a, 8u, 8u);
 }
 
 struct MeshletBoundingSpheres {
@@ -93,10 +102,61 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(9) var<uniform> view: View;
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
-fn get_meshlet_index(index_id: u32) -> u32 {
+fn get_meshlet_vertex_id(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];
     let bit_offset = (index_id % 4u) * 8u;
     return extractBits(packed_index, bit_offset, 8u);
+}
+
+fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
+    // Setup bitstream decoder
+    let start_bit = (*meshlet).start_vertex_position_bit;
+    var word_i = start_bit / 32u;
+    var bit_i = start_bit % 32u;
+    var word = meshlet_vertex_positions[word_i];
+
+    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    var vertex_position_packed = vec3(0u);
+
+    // Read bits for X
+    vertex_position_packed.x = extractBits(word, bit_i, bits_per_channel.x);
+    bit_i += bits_per_channel.x;
+
+    // Refill from the bitstream if needed
+    if bit_i >= 32u {
+        word_i += 1u;
+        bit_i -= 32u;
+        word = meshlet_vertex_positions[word_i];
+    }
+
+    // Read bits for Y
+    vertex_position_packed.y = extractBits(word, bit_i, bits_per_channel.y);
+    bit_i += bits_per_channel.y;
+
+    // Refill from the bitstream if needed
+    if bit_i >= 32u {
+        word_i += 1u;
+        bit_i -= 32u;
+        word = meshlet_vertex_positions[word_i];
+    }
+
+    // Read bits for Z
+    vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
+    bit_i += bits_per_channel.z;
+
+    // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
+    var vertex_position = vec3<f32>(vertex_position_packed);
+    vertex_position += vec3(
+        (*meshlet).min_vertex_position_channel_x,
+        (*meshlet).min_vertex_position_channel_y,
+        (*meshlet).min_vertex_position_channel_z
+    );
+
+    // Reverse vertex quantization
+    let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
+    vertex_position /= f32(1u << meshlet_quantization_factor);
+
+    return vertex_position;
 }
 #endif
 
@@ -112,9 +172,69 @@ fn get_meshlet_index(index_id: u32) -> u32 {
 @group(1) @binding(8) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
-fn get_meshlet_index(index_id: u32) -> u32 {
+fn get_meshlet_vertex_id(index_id: u32) -> u32 {
     let packed_index = meshlet_indices[index_id / 4u];
     let bit_offset = (index_id % 4u) * 8u;
     return extractBits(packed_index, bit_offset, 8u);
+}
+
+fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
+    // Setup bitstream decoder
+    let start_bit = (*meshlet).start_vertex_position_bit;
+    var word_i = start_bit / 32u;
+    var bit_i = start_bit % 32u;
+    var word = meshlet_vertex_positions[word_i];
+
+    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    var vertex_position_packed = vec3(0u);
+
+    // Read bits for X
+    vertex_position_packed.x = extractBits(word, bit_i, bits_per_channel.x);
+    bit_i += bits_per_channel.x;
+
+    // Refill from the bitstream if needed
+    if bit_i >= 32u {
+        word_i += 1u;
+        bit_i -= 32u;
+        word = meshlet_vertex_positions[word_i];
+    }
+
+    // Read bits for Y
+    vertex_position_packed.y = extractBits(word, bit_i, bits_per_channel.y);
+    bit_i += bits_per_channel.y;
+
+    // Refill from the bitstream if needed
+    if bit_i >= 32u {
+        word_i += 1u;
+        bit_i -= 32u;
+        word = meshlet_vertex_positions[word_i];
+    }
+
+    // Read bits for Z
+    vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
+    bit_i += bits_per_channel.z;
+
+    // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
+    var vertex_position = vec3<f32>(vertex_position_packed);
+    vertex_position += vec3(
+        (*meshlet).min_vertex_position_channel_x,
+        (*meshlet).min_vertex_position_channel_y,
+        (*meshlet).min_vertex_position_channel_z
+    );
+
+    // Reverse vertex quantization
+    let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
+    vertex_position /= f32(1u << meshlet_quantization_factor);
+
+    return vertex_position;
+}
+
+fn get_meshlet_vertex_normal(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
+    let packed_normal = meshlet_vertex_normals[(*meshlet).start_vertex_attribute_id + vertex_id];
+    return octahedral_decode(unpack2x16snorm(packed_normal));
+}
+
+fn get_meshlet_vertex_uv(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec2<f32> {
+    return meshlet_vertex_uvs[(*meshlet).start_vertex_attribute_id + vertex_id];
 }
 #endif
