@@ -1,12 +1,10 @@
-pub use bevy_ecs_macros::IterEntities;
-
-use core::iter;
+pub use bevy_ecs_macros::VisitEntities;
 
 use crate::entity::Entity;
 
 /// Apply an operation to all entities in a container.
 ///
-/// This is implemented by default for types that implement [`IterEntities`].
+/// This is implemented by default for types that implement [`IntoIterator`].
 ///
 /// It may be useful to implement directly for types that can't produce an
 /// iterator for lifetime reasons, such as those involving internal mutexes.
@@ -17,52 +15,16 @@ pub trait VisitEntities {
 
 impl<T> VisitEntities for T
 where
-    T: IterEntities,
-{
-    fn visit_entities<F: FnMut(Entity)>(&self, f: F) {
-        self.iter_entities().for_each(f);
-    }
-}
-
-/// Produce an iterator over all contained entities.
-///
-/// This is implemented by default for types  where `&T` implements
-/// [`IntoIterator`].
-///
-/// This trait is derivable for structs via `#[derive(IterEntities)]`. Fields
-/// not containing entities can be ignored with `#[iter_entities(ignore)]`.
-///
-/// # Example
-///
-/// ```rust
-/// # use bevy_ecs::entity::{Entity, IterEntities};
-/// # use bevy_utils::hashbrown::HashSet;
-/// #[derive(IterEntities)]
-/// struct MyEntities {
-///     lots: Vec<Entity>,
-///     one: Entity,
-///     maybe: Option<Entity>,
-///     #[iter_entities(ignore)]
-///     not_an_entity: String,
-/// }
-/// ```
-pub trait IterEntities {
-    /// Get an iterator over contained entities.
-    fn iter_entities(&self) -> impl Iterator<Item = Entity>;
-}
-
-impl<T> IterEntities for T
-where
     for<'a> &'a T: IntoIterator<Item = &'a Entity>,
 {
-    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-        self.into_iter().copied()
+    fn visit_entities<F: FnMut(Entity)>(&self, f: F) {
+        self.into_iter().copied().for_each(f);
     }
 }
 
-impl IterEntities for Entity {
-    fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-        iter::once(*self)
+impl VisitEntities for Entity {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
+        f(*self)
     }
 }
 
@@ -73,13 +35,13 @@ mod tests {
 
     use super::*;
 
-    #[derive(IterEntities)]
+    #[derive(VisitEntities)]
     struct Foo {
         ordered: Vec<Entity>,
         unordered: HashSet<Entity>,
         single: Entity,
         #[allow(dead_code)]
-        #[iter_entities(ignore)]
+        #[visit_entities(ignore)]
         not_an_entity: String,
     }
 

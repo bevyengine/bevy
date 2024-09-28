@@ -92,7 +92,7 @@ mod tests {
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::sync::Arc;
-    use bevy_ecs_macros::IterEntities;
+    use bevy_ecs_macros::VisitEntities;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
     use core::{
@@ -2053,16 +2053,16 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    #[derive(Component, IterEntities)]
+    #[derive(Component, VisitEntities)]
     struct MyEntities {
         entities: Vec<Entity>,
         another_one: Entity,
         maybe_entity: Option<Entity>,
-        #[iter_entities(ignore)]
+        #[visit_entities(ignore)]
         something_else: String,
     }
 
     #[allow(dead_code)]
-    #[derive(Component, IterEntities)]
-    struct MyEntitiesTuple(Vec<Entity>, Entity, #[iter_entities(ignore)] usize);
+    #[derive(Component, VisitEntities)]
+    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

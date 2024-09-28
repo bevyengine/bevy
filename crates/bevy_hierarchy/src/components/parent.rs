@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
 };
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, IterEntities, MapEntities},
+    entity::{Entity, EntityMapper, MapEntities, VisitEntities},
     traversal::Traversal,
     world::{FromWorld, World},
 };
@@ -23,7 +23,7 @@ use core::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq, IterEntities)]
+#[derive(Component, Debug, Eq, PartialEq, VisitEntities)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",

@@ -180,8 +180,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(IterEntities, attributes(iter_entities))]
-pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(VisitEntities, attributes(visit_entities))]
+pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
@@ -196,7 +196,7 @@ pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
             if let Some(attr) = field
                 .attrs
                 .iter()
-                .find(|a| a.path().is_ident("iter_entities"))
+                .find(|a| a.path().is_ident("visit_entities"))
             {
                 let ignore = attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("ignore") {
@@ -223,7 +223,7 @@ pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
     if field.is_empty() {
         return syn::Error::new(
             ast.span(),
-            "Invalid `IterEntities` type: at least one field",
+            "Invalid `VisitEntities` type: at least one field",
         )
         .into_compile_error()
         .into();
@@ -246,18 +246,14 @@ pub fn derive_iter_entities(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<_>>();
 
-    let first = &field_access[0];
-    let rest = &field_access[1..];
-
     let generics = ast.generics;
     let (impl_generics, ty_generics, _) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #ecs_path::entity::IterEntities for #struct_name #ty_generics {
-            fn iter_entities(&self) -> impl Iterator<Item = Entity> {
-                #first.iter_entities()
-                    #(.chain(#rest . iter_entities()))*
+        impl #impl_generics #ecs_path::entity::VisitEntities for #struct_name #ty_generics {
+            fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
+                #(#field_access.visit_entities(&mut f);)*
             }
         }
     })
