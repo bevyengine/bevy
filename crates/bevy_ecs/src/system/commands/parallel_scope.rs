@@ -14,7 +14,11 @@ struct ParallelCommandQueue {
     thread_queues: Parallel<CommandQueue>,
 }
 
-/// An alternative to [`Commands`] that can be used in parallel contexts, such as those in [`Query::par_iter`](crate::system::Query::par_iter)
+/// An alternative to [`Commands`] that can be used in parallel contexts, such as those
+/// in [`Query::par_iter`](crate::system::Query::par_iter).
+/// This increases per-command overhead, and is suited to computation-heavy tasks. By
+/// contrast, [`World::spawn_batch`] collects all the work to be done and dramatically
+/// reduces the amount of computation, allocations and time required.
 ///
 /// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
 ///
