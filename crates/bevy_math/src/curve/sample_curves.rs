@@ -324,8 +324,8 @@ impl<T> UnevenSampleAutoCurve<T> {
 
 #[cfg(test)]
 mod tests {
-    //! These tests should guarantee (by even compiling) that SampleCurve and UnevenSampleCurve
-    //! can be Reflect under reasonable circumstances where their interpolation is defined by:
+    //! These tests should guarantee (by even compiling) that `SampleCurve` and `UnevenSampleCurve`
+    //! can be `Reflect` under reasonable circumstances where their interpolation is defined by:
     //! - function items
     //! - 'static closures
     //! - function pointers
