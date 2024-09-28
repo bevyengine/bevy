@@ -2101,7 +2101,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_required_components_override_override_1() {
+    fn runtime_required_components_override_1() {
         #[derive(Component)]
         struct X;
 
@@ -2130,8 +2130,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_required_components_override_override_2() {
-        // Same as `runtime_required_components_override_override_1` test but with different registration order
+    fn runtime_required_components_override_2() {
+        // Same as `runtime_required_components_override_1` test but with different registration order
 
         #[derive(Component)]
         struct X;
