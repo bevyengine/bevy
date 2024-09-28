@@ -65,3 +65,55 @@ impl IterEntities for Entity {
         iter::once(*self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as bevy_ecs, entity::Entities};
+    use bevy_utils::HashSet;
+
+    use super::*;
+
+    #[derive(IterEntities)]
+    struct Foo {
+        ordered: Vec<Entity>,
+        unordered: HashSet<Entity>,
+        single: Entity,
+        #[allow(dead_code)]
+        #[iter_entities(ignore)]
+        not_an_entity: String,
+    }
+
+    #[test]
+    fn visit_entities() {
+        let entities = Entities::new();
+        let foo = Foo {
+            ordered: vec![entities.reserve_entity(), entities.reserve_entity()],
+            unordered: [
+                entities.reserve_entity(),
+                entities.reserve_entity(),
+                entities.reserve_entity(),
+            ]
+            .into_iter()
+            .collect(),
+            single: entities.reserve_entity(),
+            not_an_entity: "Bar".into(),
+        };
+
+        // Note: this assumes that the IterEntities derive is field-ordered,
+        //       which isn't explicitly stated/guaranteed.
+        //       If that changes, this test will fail, but that might be OK if
+        //       we're intentionally breaking that assumption.
+        let mut i = 0;
+        foo.visit_entities(|entity| {
+            if i < foo.ordered.len() {
+                assert_eq!(entity, foo.ordered[i]);
+            } else if i < foo.ordered.len() + foo.unordered.len() {
+                assert!(foo.unordered.contains(&entity));
+            } else {
+                assert_eq!(entity, foo.single);
+            }
+
+            i += 1;
+        });
+    }
+}
