@@ -724,6 +724,8 @@ impl_param_set!();
 )]
 pub trait Resource: Send + Sync + 'static {}
 
+impl Resource for () {}
+
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 

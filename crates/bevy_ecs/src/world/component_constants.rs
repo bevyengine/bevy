@@ -14,9 +14,6 @@ pub const ON_REPLACE: ComponentId = ComponentId::new(2);
 /// [`ComponentId`] for [`OnRemove`]
 pub const ON_REMOVE: ComponentId = ComponentId::new(3);
 
-/// [`ComponentId`] for [`()`] as a [`Resource`]
-pub const UNIT: ComponentId = ComponentId::new(4);
-
 /// Trigger emitted when a component is added to an entity. See [`crate::component::ComponentHooks::on_add`]
 /// for more information.
 #[derive(Event, Debug)]
@@ -44,5 +41,3 @@ pub struct OnReplace;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnRemove;
-
-impl Resource for () {}

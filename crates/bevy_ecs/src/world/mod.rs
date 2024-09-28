@@ -176,7 +176,6 @@ impl World {
         assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
         assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
-        assert_eq!(UNIT, self.init_resource::<()>());
     }
     /// Creates a new empty [`World`].
     ///
@@ -3170,9 +3169,6 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
-        // () is a dummy resource and will be removed for this test.
-        world.remove_resource::<()>();
-
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3199,9 +3195,6 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
-        // () is a dummy resource and will be removed for this test.
-        world.remove_resource::<()>();
-
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
