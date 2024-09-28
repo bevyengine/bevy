@@ -120,7 +120,7 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
                 return Some(entity);
             }
             if let Some(children) = children {
-                self.stack.extend(children.iter().copied());
+                self.stack.extend(children.iter().rev().copied());
             }
         }
     }
@@ -182,8 +182,18 @@ mod tests {
         let n4 = world.spawn((A(4), NodeBundle::default())).id();
         let n5 = world.spawn((A(5), NodeBundle::default())).id();
 
-        world.entity_mut(n1).add_children(&[n2, n3, n4]);
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n8 = world.spawn((A(8), NodeBundle::default())).id();
+        let n9 = world.spawn((A(9), GhostNode)).id();
+        let n10 = world.spawn((A(10), NodeBundle::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3, n4, n6]);
         world.entity_mut(n2).add_children(&[n5]);
+
+        world.entity_mut(n6).add_children(&[n7, n9]);
+        world.entity_mut(n7).add_children(&[n8]);
+        world.entity_mut(n9).add_children(&[n10]);
 
         let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
         let (ui_children, a_query) = system_state.get(world);
@@ -192,6 +202,6 @@ mod tests {
             .iter_many(ui_children.iter_ui_children(n1))
             .collect();
 
-        assert_eq!([&A(5), &A(4)], result.as_slice());
+        assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
     }
 }
