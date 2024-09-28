@@ -28,7 +28,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
-    entity::{IterEntities, MapEntities},
+    entity::{MapEntities, VisitEntities},
     prelude::*,
     reflect::{ReflectMapEntities, ReflectVisitEntities},
     world::EntityMutExcept,
@@ -530,13 +530,13 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect, IterEntities)]
+#[derive(Clone, Copy, Component, Reflect, VisitEntities)]
 #[reflect(Component, MapEntities, VisitEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
-    #[iter_entities(ignore)]
+    #[visit_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].

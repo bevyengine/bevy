@@ -202,7 +202,7 @@ pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
                     if meta.path.is_ident("ignore") {
                         Ok(())
                     } else {
-                        Err(meta.error("Invalid iter_entities attribute. Use `ignore`"))
+                        Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
                     }
                 });
                 return match ignore {

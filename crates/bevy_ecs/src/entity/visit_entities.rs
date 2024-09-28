@@ -24,7 +24,7 @@ where
 
 impl VisitEntities for Entity {
     fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
-        f(*self)
+        f(*self);
     }
 }
 
@@ -61,7 +61,7 @@ mod tests {
             not_an_entity: "Bar".into(),
         };
 
-        // Note: this assumes that the IterEntities derive is field-ordered,
+        // Note: this assumes that the VisitEntities derive is field-ordered,
         //       which isn't explicitly stated/guaranteed.
         //       If that changes, this test will fail, but that might be OK if
         //       we're intentionally breaking that assumption.

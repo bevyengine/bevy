@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{Entity, EntityHashMap, EntityMapper, IterEntities, MapEntities},
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
@@ -584,7 +584,7 @@ mod tests {
         foo: i32,
     }
 
-    #[derive(Clone, Component, Reflect, PartialEq, IterEntities)]
+    #[derive(Clone, Component, Reflect, PartialEq, VisitEntities)]
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
 
