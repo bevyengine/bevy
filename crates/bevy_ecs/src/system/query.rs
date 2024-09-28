@@ -1667,3 +1667,32 @@ impl<'w, D: QueryData, F: QueryFilter> QuerySingle<'w, D, F> {
         self.item
     }
 }
+
+/// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// See [`Query`] for more details.
+pub struct QueryNonEmpty<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for QueryNonEmpty<'w, 's, D, F> {
+    type Target = Query<'w, 's, D, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> DerefMut for QueryNonEmpty<'_, '_, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> QueryNonEmpty<'w, 's, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> Query<'w, 's, D, F> {
+        self.0
+    }
+}

@@ -5,8 +5,9 @@
 //! - [`Res<R>`], [`ResMut<R>`] - If resource doesn't exist.
 //! - [`QuerySingle<D, F>`] - If there is no or more than one entities matching.
 //! - [`Option<QuerySingle<D, F>>`] - If there are more than one entities matching.
+//! - [`QueryNonEmpty<D, F>`] - If there are no matching entities matching.
 
-use bevy::prelude::*;
+use bevy::{ecs::system::QueryNonEmpty, prelude::*};
 use rand::Rng;
 
 fn main() {
@@ -105,9 +106,9 @@ fn user_input(
 }
 
 // System that moves the enemies in a circle.
-// TODO: Use [`NonEmptyQuery`] when it exists.
-fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
-    for (mut transform, mut target) in &mut enemies {
+// Only runs if there are enemies.
+fn move_targets(mut enemies: QueryNonEmpty<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
+    for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_seconds();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
