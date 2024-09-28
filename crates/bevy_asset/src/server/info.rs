@@ -166,11 +166,11 @@ impl AssetInfos {
         (handle.typed_unchecked(), should_load)
     }
 
-    pub(crate) fn get_or_create_path_handle_untyped(
+    pub(crate) fn get_or_create_path_handle_erased(
         &mut self,
         path: AssetPath<'static>,
         type_id: TypeId,
-        type_name: &'static str,
+        type_name: &str,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
@@ -765,7 +765,7 @@ pub(crate) enum GetOrCreateHandleInternalError {
 
 pub(crate) fn unwrap_with_context<T>(
     result: Result<T, GetOrCreateHandleInternalError>,
-    type_name: &'static str,
+    type_name: &str,
 ) -> Option<T> {
     match result {
         Ok(value) => Some(value),

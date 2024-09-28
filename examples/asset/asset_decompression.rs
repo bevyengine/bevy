@@ -74,8 +74,7 @@ impl AssetLoader for GzAssetLoader {
             .loader()
             .direct()
             .with_reader(&mut reader)
-            .untyped()
-            .load(contained_path)
+            .load_untyped(contained_path)
             .await?;
 
         Ok(GzAsset { uncompressed })

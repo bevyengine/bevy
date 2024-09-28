@@ -49,11 +49,12 @@ pub struct Untyped {
 
 impl sealed::Typing for Untyped {}
 
-pub struct Typed {
+pub struct Typed<'builder> {
     asset_type_id: TypeId,
+    asset_type_name: &'builder str,
 }
 
-impl sealed::Typing for Typed {}
+impl sealed::Typing for Typed<'_> {}
 
 pub struct Indirect {
     _priv: (),
@@ -114,12 +115,13 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
     /// Specify the output asset type.
     #[must_use]
-    pub fn with_asset_type<A: Asset>(self) -> NestedLoader<'ctx, 'builder, Typed, M> {
+    pub fn with_asset_type<A: Asset>(self) -> NestedLoader<'ctx, 'builder, Typed<'static>, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
             typing: Typed {
                 asset_type_id: TypeId::of::<A>(),
+                asset_type_name: core::any::type_name::<A>(),
             },
             mode: self.mode,
         }
@@ -127,20 +129,24 @@ impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Untyped, M> {
 
     /// Specify the output asset type.
     #[must_use]
-    pub fn with_asset_type_id(
+    pub fn with_asset_type_info(
         self,
         asset_type_id: TypeId,
-    ) -> NestedLoader<'ctx, 'builder, Typed, M> {
+        asset_type_name: &'builder str,
+    ) -> NestedLoader<'ctx, 'builder, Typed<'builder>, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: Typed { asset_type_id },
+            typing: Typed {
+                asset_type_id,
+                asset_type_name,
+            },
             mode: self.mode,
         }
     }
 }
 
-impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Typed, M> {
+impl<'ctx, 'builder, M: sealed::Mode> NestedLoader<'ctx, 'builder, Typed<'_>, M> {
     // todo docs
     #[must_use]
     pub fn untyped(self) -> NestedLoader<'ctx, 'builder, Untyped, M> {
@@ -224,9 +230,31 @@ impl NestedLoader<'_, '_, Untyped, Indirect> {
     }
 }
 
-impl NestedLoader<'_, '_, Typed, Indirect> {
+impl NestedLoader<'_, '_, Typed<'_>, Indirect> {
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
-        todo!()
+        let path = path.into().to_owned();
+        let handle = if self.load_context.should_load_dependencies {
+            self.load_context
+                .asset_server
+                .load_erased_with_meta_transform(
+                    path,
+                    self.typing.asset_type_id,
+                    self.typing.asset_type_name,
+                    self.meta_transform,
+                    (),
+                )
+        } else {
+            self.load_context
+                .asset_server
+                .get_or_create_path_handle_untyped(
+                    path,
+                    self.typing.asset_type_id,
+                    self.typing.asset_type_name,
+                    self.meta_transform,
+                )
+        };
+        self.load_context.dependencies.insert(handle.id());
+        handle
     }
 }
 
@@ -344,7 +372,7 @@ impl NestedLoader<'_, '_, Untyped, Direct<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, Typed, Direct<'_, '_>> {
+impl NestedLoader<'_, '_, Typed<'_>, Direct<'_, '_>> {
     // todo docs
     pub async fn load<'p>(
         self,
