@@ -139,13 +139,7 @@ pub(crate) fn compute_slices_on_asset_event(
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    sprites: Query<(
-        Entity,
-        &ImageScaleMode,
-        &Sprite,
-        &Handle<Image>,
-        Option<&TextureAtlas>,
-    )>,
+    sprites: Query<(Entity, &ImageScaleMode, &Sprite)>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -159,16 +153,16 @@ pub(crate) fn compute_slices_on_asset_event(
         return;
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
-    for (entity, scale_mode, sprite, image_handle, atlas) in &sprites {
-        if !added_handles.contains(&image_handle.id()) {
+    for (entity, scale_mode, sprite) in &sprites {
+        if !added_handles.contains(&sprite.image.id()) {
             continue;
         }
         if let Some(slices) = compute_sprite_slices(
             sprite,
             scale_mode,
-            image_handle,
+            &sprite.image,
             &images,
-            atlas,
+            sprite.atlas.as_ref(),
             &atlas_layouts,
         ) {
             commands.entity(entity).insert(slices);
@@ -183,28 +177,17 @@ pub(crate) fn compute_slices_on_sprite_change(
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     changed_sprites: Query<
-        (
-            Entity,
-            &ImageScaleMode,
-            &Sprite,
-            &Handle<Image>,
-            Option<&TextureAtlas>,
-        ),
-        Or<(
-            Changed<ImageScaleMode>,
-            Changed<Handle<Image>>,
-            Changed<Sprite>,
-            Changed<TextureAtlas>,
-        )>,
+        (Entity, &ImageScaleMode, &Sprite),
+        Or<(Changed<ImageScaleMode>, Changed<Sprite>)>,
     >,
 ) {
-    for (entity, scale_mode, sprite, image_handle, atlas) in &changed_sprites {
+    for (entity, scale_mode, sprite) in &changed_sprites {
         if let Some(slices) = compute_sprite_slices(
             sprite,
             scale_mode,
-            image_handle,
+            &sprite.image,
             &images,
-            atlas,
+            sprite.atlas.as_ref(),
             &atlas_layouts,
         ) {
             commands.entity(entity).insert(slices);

@@ -377,15 +377,12 @@ pub fn extract_sprites(
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
-            &Handle<Image>,
-            Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (original_entity, entity, view_visibility, sprite, transform, handle, sheet, slices) in
-        sprite_query.iter()
+    for (original_entity, entity, view_visibility, sprite, transform, slices) in sprite_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -394,12 +391,14 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, original_entity, sprite, handle)
+                    .extract_sprites(transform, original_entity, sprite, &sprite.image)
                     .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
             );
         } else {
-            let atlas_rect =
-                sheet.and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
+            let atlas_rect = sprite
+                .atlas
+                .as_ref()
+                .and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
@@ -423,7 +422,7 @@ pub fn extract_sprites(
                     custom_size: sprite.custom_size,
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
-                    image_handle_id: handle.id(),
+                    image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
                 },

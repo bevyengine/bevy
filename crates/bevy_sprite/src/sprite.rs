@@ -1,16 +1,22 @@
+use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{texture::Image, view::Visibility};
+use bevy_transform::components::Transform;
 
-use crate::TextureSlicer;
+use crate::{TextureAtlas, TextureSlicer};
 
-/// Specifies the rendering properties of a sprite.
-///
-/// This is commonly used as a component within [`SpriteBundle`](crate::bundle::SpriteBundle).
+/// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
+#[require(Transform, Visibility)]
 #[reflect(Component, Default, Debug)]
 pub struct Sprite {
+    /// The image used to render the sprite
+    pub image: Handle<Image>,
+    /// The (optional) texture atlas used to render the sprite
+    pub atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,
     /// Flip the sprite along the `X` axis
@@ -35,6 +41,32 @@ impl Sprite {
     pub fn sized(custom_size: Vec2) -> Self {
         Sprite {
             custom_size: Some(custom_size),
+            ..Default::default()
+        }
+    }
+
+    /// Create a sprite from an image
+    pub fn from_image(image: Handle<Image>) -> Self {
+        Self {
+            image,
+            ..Default::default()
+        }
+    }
+
+    /// Create a sprite from an image, with an associated texture atlas
+    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
+        Self {
+            image,
+            atlas: Some(atlas),
+            ..Default::default()
+        }
+    }
+
+    /// Create a sprite from a solid color
+    pub fn from_color(color: impl Into<Color>, size: Vec2) -> Self {
+        Self {
+            color: color.into(),
+            custom_size: Some(size),
             ..Default::default()
         }
     }
