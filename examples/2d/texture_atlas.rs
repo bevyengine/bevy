@@ -99,26 +99,24 @@ fn setup(
     // padded textures are to the right, unpadded to the left
 
     // draw unpadded texture atlas
-    commands.spawn(SpriteBundle {
-        texture: linear_texture.clone(),
-        transform: Transform {
+    commands.spawn((
+        Sprite::from_image(linear_texture.clone()),
+        Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     // draw padded texture atlas
-    commands.spawn(SpriteBundle {
-        texture: linear_padded_texture.clone(),
-        transform: Transform {
+    commands.spawn((
+        Sprite::from_image(linear_padded_texture.clone()),
+        Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -260,16 +258,15 @@ fn create_sprite_from_atlas(
     vendor_handle: &Handle<Image>,
 ) {
     commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(translation.0, translation.1, translation.2),
-                scale: Vec3::splat(3.0),
-                ..default()
-            },
-            texture: atlas_texture,
+        Transform {
+            translation: Vec3::new(translation.0, translation.1, translation.2),
+            scale: Vec3::splat(3.0),
             ..default()
         },
-        atlas_sources.handle(atlas_handle, vendor_handle).unwrap(),
+        Sprite::from_atlas_image(
+            atlas_texture,
+            atlas_sources.handle(atlas_handle, vendor_handle).unwrap(),
+        ),
     ));
 }
 

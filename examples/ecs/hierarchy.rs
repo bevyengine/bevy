@@ -18,23 +18,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Spawn a root entity with no parent
     let parent = commands
-        .spawn(SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(0.75)),
-            texture: texture.clone(),
-            ..default()
-        })
+        .spawn((
+            Sprite::from_image(texture.clone()),
+            Transform::from_scale(Vec3::splat(0.75)),
+        ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
-            parent.spawn(SpriteBundle {
-                transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
-                texture: texture.clone(),
-                sprite: Sprite {
+            parent.spawn((
+                Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
+                Sprite {
+                    image: texture.clone(),
                     color: BLUE.into(),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         })
         // Store parent entity for next sections
         .id();
@@ -42,15 +40,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Another way is to use the add_child function to add children after the parent
     // entity has already been spawned.
     let child = commands
-        .spawn(SpriteBundle {
-            transform: Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
-            texture,
-            sprite: Sprite {
+        .spawn((
+            Sprite {
+                image: texture,
                 color: LIME.into(),
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
+        ))
         .id();
 
     // Add child to the parent.

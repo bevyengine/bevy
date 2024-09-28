@@ -283,34 +283,20 @@ fn setup_sticks(
             })
             .with_children(|parent| {
                 // full extent
-                parent.spawn(SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
-                        color: DEAD_COLOR,
-                        ..default()
-                    },
-                    ..default()
-                });
+                parent.spawn(Sprite::from_color(
+                    DEAD_COLOR,
+                    Vec2::splat(STICK_BOUNDS_SIZE * 2.),
+                ));
                 // live zone
-                parent.spawn(SpriteBundle {
-                    transform: Transform::from_xyz(live_mid, live_mid, 2.),
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(live_size, live_size)),
-                        color: LIVE_COLOR,
-                        ..default()
-                    },
-                    ..default()
-                });
+                parent.spawn((
+                    Sprite::from_color(LIVE_COLOR, Vec2::splat(live_size)),
+                    Transform::from_xyz(live_mid, live_mid, 2.),
+                ));
                 // dead zone
-                parent.spawn(SpriteBundle {
-                    transform: Transform::from_xyz(dead_mid, dead_mid, 3.),
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(dead_size, dead_size)),
-                        color: DEAD_COLOR,
-                        ..default()
-                    },
-                    ..default()
-                });
+                parent.spawn((
+                    Sprite::from_color(DEAD_COLOR, Vec2::splat(dead_size)),
+                    Transform::from_xyz(dead_mid, dead_mid, 3.),
+                ));
                 // text
                 let style = TextStyle {
                     font_size: 13.,
