@@ -28,7 +28,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
-    entity::IterEntities,
+    entity::{IterEntities, MapEntities},
     prelude::*,
     reflect::{ReflectMapEntities, ReflectVisitEntities},
     world::EntityMutExcept,
@@ -1299,6 +1299,12 @@ impl AnimationTargetId {
 impl From<&Name> for AnimationTargetId {
     fn from(name: &Name) -> Self {
         AnimationTargetId::from_name(name)
+    }
+}
+
+impl MapEntities for AnimationTarget {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.player = entity_mapper.map_entity(self.player);
     }
 }
 

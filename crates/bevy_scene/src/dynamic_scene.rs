@@ -210,7 +210,7 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{Entity, EntityHashMap, IterEntities},
+        entity::{Entity, EntityHashMap, EntityMapper, IterEntities, MapEntities},
         reflect::{
             AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectMapEntitiesResource,
             ReflectResource,
@@ -229,6 +229,13 @@ mod tests {
     struct TestResource {
         entity_a: Entity,
         entity_b: Entity,
+    }
+
+    impl MapEntities for TestResource {
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.entity_a = entity_mapper.map_entity(self.entity_a);
+            self.entity_b = entity_mapper.map_entity(self.entity_b);
+        }
     }
 
     #[test]
@@ -358,6 +365,12 @@ mod tests {
         #[derive(Component, Reflect, IterEntities)]
         #[reflect(Component, MapEntities)]
         struct B(pub Entity);
+
+        impl MapEntities for B {
+            fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+                self.0 = entity_mapper.map_entity(self.0);
+            }
+        }
 
         let reg = AppTypeRegistry::default();
         {

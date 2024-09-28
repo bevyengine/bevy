@@ -1,7 +1,7 @@
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, IterEntities},
+    entity::{Entity, EntityMapper, IterEntities, MapEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
@@ -58,18 +58,22 @@ impl WindowRef {
     }
 }
 
+impl MapEntities for WindowRef {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        match self {
+            Self::Entity(entity) => {
+                *entity = entity_mapper.map_entity(*entity);
+            }
+            Self::Primary => {}
+        };
+    }
+}
+
 impl IterEntities for WindowRef {
     fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         match self {
             Self::Primary => None,
             Self::Entity(entity) => Some(*entity),
-        }
-        .into_iter()
-    }
-    fn iter_entities_mut(&mut self) -> impl Iterator<Item = &mut Entity> {
-        match self {
-            Self::Primary => None,
-            Self::Entity(entity) => Some(entity),
         }
         .into_iter()
     }

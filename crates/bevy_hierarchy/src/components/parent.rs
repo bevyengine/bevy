@@ -4,7 +4,7 @@ use bevy_ecs::reflect::{
 };
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, IterEntities},
+    entity::{Entity, EntityMapper, IterEntities, MapEntities},
     traversal::Traversal,
     world::{FromWorld, World},
 };
@@ -58,6 +58,12 @@ impl FromWorld for Parent {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
         Parent(Entity::PLACEHOLDER)
+    }
+}
+
+impl MapEntities for Parent {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.0 = entity_mapper.map_entity(self.0);
     }
 }
 

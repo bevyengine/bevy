@@ -1,7 +1,7 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, IterEntities},
+    entity::{Entity, EntityMapper, IterEntities, MapEntities},
     prelude::ReflectComponent,
     reflect::{ReflectMapEntities, ReflectVisitEntities},
 };
@@ -15,6 +15,14 @@ pub struct SkinnedMesh {
     #[iter_entities(ignore)]
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub joints: Vec<Entity>,
+}
+
+impl MapEntities for SkinnedMesh {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        for joint in &mut self.joints {
+            *joint = entity_mapper.map_entity(*joint);
+        }
+    }
 }
 
 #[derive(Asset, TypePath, Debug)]

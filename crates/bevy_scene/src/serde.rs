@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{Entity, EntityHashMap, IterEntities},
+        entity::{Entity, EntityHashMap, EntityMapper, IterEntities, MapEntities},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
@@ -587,6 +587,12 @@ mod tests {
     #[derive(Clone, Component, Reflect, PartialEq, IterEntities)]
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
+
+    impl MapEntities for MyEntityRef {
+        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+            self.0 = entity_mapper.map_entity(self.0);
+        }
+    }
 
     impl FromWorld for MyEntityRef {
         fn from_world(_world: &mut World) -> Self {
