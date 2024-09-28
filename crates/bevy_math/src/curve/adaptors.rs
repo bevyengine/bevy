@@ -7,9 +7,8 @@ use core::any::type_name;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
-use bevy_reflect::utility::GenericTypePathCell;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
 
 const THIS_MODULE: &str = "bevy_math::curve::adaptors";
 const THIS_CRATE: &str = "bevy_math";
