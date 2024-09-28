@@ -10,8 +10,11 @@ use core::marker::PhantomData;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
 
-const THIS_MODULE: &str = "bevy_math::curve::adaptors";
-const THIS_CRATE: &str = "bevy_math";
+#[cfg(feature = "bevy_reflect")]
+mod paths {
+    pub(super) const THIS_MODULE: &str = "bevy_math::curve::adaptors";
+    pub(super) const THIS_CRATE: &str = "bevy_math";
+}
 
 // NOTE ON REFLECTION:
 //
@@ -94,17 +97,20 @@ impl<T, F> Debug for FunctionCurve<T, F> {
     }
 }
 
+/// Note: This is not a fully stable implementation of `TypePath` due to usage of `type_name`
+/// for function members.
 #[cfg(feature = "bevy_reflect")]
-impl<T, F: 'static> TypePath for FunctionCurve<T, F>
+impl<T, F> TypePath for FunctionCurve<T, F>
 where
     T: TypePath,
+    F: 'static,
 {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| {
             format!(
                 "{}::FunctionCurve<{},{}>",
-                THIS_MODULE,
+                paths::THIS_MODULE,
                 T::type_path(),
                 type_name::<F>()
             )
@@ -127,11 +133,11 @@ where
     }
 
     fn crate_name() -> Option<&'static str> {
-        Some(THIS_CRATE)
+        Some(paths::THIS_CRATE)
     }
 
     fn module_path() -> Option<&'static str> {
-        Some(THIS_MODULE)
+        Some(paths::THIS_MODULE)
     }
 }
 
@@ -196,19 +202,22 @@ where
     }
 }
 
+/// Note: This is not a fully stable implementation of `TypePath` due to usage of `type_name`
+/// for function members.
 #[cfg(feature = "bevy_reflect")]
-impl<S, T, C, F: 'static> TypePath for MapCurve<S, T, C, F>
+impl<S, T, C, F> TypePath for MapCurve<S, T, C, F>
 where
     S: TypePath,
     T: TypePath,
     C: TypePath,
+    F: 'static,
 {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| {
             format!(
                 "{}::MapCurve<{},{},{},{}>",
-                THIS_MODULE,
+                paths::THIS_MODULE,
                 S::type_path(),
                 T::type_path(),
                 C::type_path(),
@@ -235,11 +244,11 @@ where
     }
 
     fn crate_name() -> Option<&'static str> {
-        Some(THIS_CRATE)
+        Some(paths::THIS_CRATE)
     }
 
     fn module_path() -> Option<&'static str> {
-        Some(THIS_MODULE)
+        Some(paths::THIS_MODULE)
     }
 }
 
@@ -292,18 +301,21 @@ where
     }
 }
 
+/// Note: This is not a fully stable implementation of `TypePath` due to usage of `type_name`
+/// for function members.
 #[cfg(feature = "bevy_reflect")]
-impl<T, C, F: 'static> TypePath for ReparamCurve<T, C, F>
+impl<T, C, F> TypePath for ReparamCurve<T, C, F>
 where
     T: TypePath,
     C: TypePath,
+    F: 'static,
 {
     fn type_path() -> &'static str {
         static CELL: GenericTypePathCell = GenericTypePathCell::new();
         CELL.get_or_insert::<Self, _>(|| {
             format!(
                 "{}::ReparamCurve<{},{},{}>",
-                THIS_MODULE,
+                paths::THIS_MODULE,
                 T::type_path(),
                 C::type_path(),
                 type_name::<F>()
@@ -328,11 +340,11 @@ where
     }
 
     fn crate_name() -> Option<&'static str> {
-        Some(THIS_CRATE)
+        Some(paths::THIS_CRATE)
     }
 
     fn module_path() -> Option<&'static str> {
-        Some(THIS_MODULE)
+        Some(paths::THIS_MODULE)
     }
 }
 
