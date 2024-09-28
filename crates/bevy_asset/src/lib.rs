@@ -187,9 +187,7 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
-pub use loader_builders::{
-    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
-};
+pub use loader_builders::{Direct, Indirect, NestedLoader, Typed, Untyped};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
