@@ -1177,6 +1177,7 @@ impl Components {
     /// or the equivalent method in `bevy_app::App`.
     ///
     /// [required component]: Component#required-components
+    #[doc(hidden)]
     pub fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
         storages: &mut Storages,
