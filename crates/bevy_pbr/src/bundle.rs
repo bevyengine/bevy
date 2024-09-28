@@ -52,13 +52,7 @@ impl<M: Material> Default for MaterialMesh3dBundle<M> {
 /// [material]: crate::material::Material
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
-#[require(
-    Transform,
-    GlobalTransform,
-    Visibility,
-    InheritedVisibility,
-    ViewVisibility
-)]
+#[require(Transform, Visibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Handle<Mesh>> for Mesh3d {
