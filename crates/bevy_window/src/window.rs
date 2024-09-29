@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use core::num::NonZero;
 
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
@@ -20,7 +20,7 @@ use bevy_utils::tracing::warn;
 /// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
 /// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default, PartialEq)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
@@ -124,7 +124,7 @@ impl NormalizedWindowRef {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Window {
     /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
     /// window entity.
@@ -962,7 +962,6 @@ pub enum MonitorSelection {
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
-///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(

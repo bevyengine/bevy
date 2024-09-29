@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
@@ -16,12 +16,17 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
-    TextBounds, TextSection, YAxisOrientation,
+    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText,
+    PositionedGlyph, TextBounds, TextSection, YAxisOrientation,
 };
 
-/// A wrapper around a [`cosmic_text::FontSystem`]
-struct CosmicFontSystem(cosmic_text::FontSystem);
+/// A wrapper resource around a [`cosmic_text::FontSystem`]
+///
+/// The font system is used to retrieve fonts and their information, including glyph outlines.
+///
+/// This resource is updated by the [`TextPipeline`] resource.
+#[derive(Resource)]
+pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
     fn default() -> Self {
@@ -32,8 +37,13 @@ impl Default for CosmicFontSystem {
     }
 }
 
-/// A wrapper around a [`cosmic_text::SwashCache`]
-struct SwashCache(cosmic_text::SwashCache);
+/// A wrapper resource around a [`cosmic_text::SwashCache`]
+///
+/// The swash cache rasterizer is used to rasterize glyphs
+///
+/// This resource is updated by the [`TextPipeline`] resource.
+#[derive(Resource)]
+pub struct SwashCache(pub cosmic_text::SwashCache);
 
 impl Default for SwashCache {
     fn default() -> Self {
@@ -48,14 +58,6 @@ impl Default for SwashCache {
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
     map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
-    /// The font system is used to retrieve fonts and their information, including glyph outlines.
-    ///
-    /// See [`cosmic_text::FontSystem`] for more information.
-    font_system: CosmicFontSystem,
-    /// The swash cache rasterizer is used to rasterize glyphs
-    ///
-    /// See [`cosmic_text::SwashCache`] for more information.
-    swash_cache: SwashCache,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
@@ -76,8 +78,9 @@ impl TextPipeline {
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
         alignment: JustifyText,
+        font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
-        let font_system = &mut self.font_system.0;
+        let font_system = &mut font_system.0;
 
         // return early if the fonts are not loaded yet
         let mut font_size = 0.;
@@ -90,7 +93,12 @@ impl TextPipeline {
                 .ok_or(TextError::NoSuchFont)?;
         }
         let line_height = font_size * 1.2;
-        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
+        // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
+        // deallocating the buffer.
+        metrics.font_size = metrics.font_size.max(0.000001);
+        metrics.line_height = metrics.line_height.max(0.000001);
 
         // Load Bevy fonts into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
@@ -104,28 +112,31 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let mut spans: Vec<(&str, Attrs)> = std::mem::take(&mut self.spans_buffer)
+        let mut spans: Vec<(&str, Attrs)> = core::mem::take(&mut self.spans_buffer)
             .into_iter()
             .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
-        spans.extend(
-            sections
-                .iter()
-                .enumerate()
-                .filter(|(_section_index, section)| section.style.font_size > 0.0)
-                .map(|(section_index, section)| {
-                    (
-                        &section.value[..],
-                        get_attrs(
-                            section,
-                            section_index,
-                            font_system,
-                            &self.map_handle_to_font_id,
-                            scale_factor,
-                        ),
-                    )
-                }),
-        );
+        // `metrics.font_size` hack continued: ignore all spans when scale_factor is zero.
+        if scale_factor > 0.0 {
+            spans.extend(
+                sections
+                    .iter()
+                    .enumerate()
+                    .filter(|(_section_index, section)| section.style.font_size > 0.0)
+                    .map(|(section_index, section)| {
+                        (
+                            &section.value[..],
+                            get_attrs(
+                                section,
+                                section_index,
+                                font_system,
+                                &self.map_handle_to_font_id,
+                                scale_factor,
+                            ),
+                        )
+                    }),
+            );
+        }
         let spans_iter = spans.iter().copied();
 
         buffer.set_metrics(font_system, metrics);
@@ -173,12 +184,15 @@ impl TextPipeline {
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
+        font_smoothing: FontSmoothing,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
         buffer: &mut CosmicBuffer,
+        font_system: &mut CosmicFontSystem,
+        swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.size = Default::default();
@@ -195,11 +209,10 @@ impl TextPipeline {
             scale_factor,
             buffer,
             text_alignment,
+            font_system,
         )?;
 
         let box_size = buffer_dimensions(buffer);
-        let font_system = &mut self.font_system.0;
-        let swash_cache = &mut self.swash_cache.0;
 
         buffer
             .layout_runs()
@@ -209,6 +222,24 @@ impl TextPipeline {
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
             .try_for_each(|(layout_glyph, line_y)| {
+                let mut temp_glyph;
+
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
+                    // If font smoothing is disabled, round the glyph positions and sizes,
+                    // effectively discarding all subpixel layout.
+                    temp_glyph = layout_glyph.clone();
+                    temp_glyph.x = temp_glyph.x.round();
+                    temp_glyph.y = temp_glyph.y.round();
+                    temp_glyph.w = temp_glyph.w.round();
+                    temp_glyph.x_offset = temp_glyph.x_offset.round();
+                    temp_glyph.y_offset = temp_glyph.y_offset.round();
+                    temp_glyph.line_height_opt = temp_glyph.line_height_opt.map(f32::round);
+
+                    &temp_glyph
+                } else {
+                    layout_glyph
+                };
+
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -217,15 +248,16 @@ impl TextPipeline {
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(physical_glyph.cache_key)
+                    .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
                             texture_atlases,
                             textures,
-                            font_system,
-                            swash_cache,
+                            &mut font_system.0,
+                            &mut swash_cache.0,
                             layout_glyph,
+                            font_smoothing,
                         )
                     })?;
 
@@ -272,6 +304,7 @@ impl TextPipeline {
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,
         text_alignment: JustifyText,
+        font_system: &mut CosmicFontSystem,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -283,12 +316,13 @@ impl TextPipeline {
             scale_factor,
             buffer,
             text_alignment,
+            font_system,
         )?;
 
         let min_width_content_size = buffer_dimensions(buffer);
 
         let max_width_content_size = {
-            let font_system = &mut self.font_system.0;
+            let font_system = &mut font_system.0;
             buffer.set_size(font_system, None, None);
             buffer_dimensions(buffer)
         };
@@ -300,11 +334,12 @@ impl TextPipeline {
         })
     }
 
-    /// Get a mutable reference to the [`cosmic_text::FontSystem`].
-    ///
-    /// Used internally.
-    pub fn font_system_mut(&mut self) -> &mut cosmic_text::FontSystem {
-        &mut self.font_system.0
+    /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
+    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<cosmic_text::fontdb::ID> {
+        self.map_handle_to_font_id
+            .get(&asset_id)
+            .cloned()
+            .map(|(id, _)| id)
     }
 }
 
@@ -312,7 +347,7 @@ impl TextPipeline {
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
@@ -414,11 +449,11 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 }
 
 /// Discards stale data cached in `FontSystem`.
-pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
+pub(crate) fn trim_cosmic_cache(mut font_system: ResMut<CosmicFontSystem>) {
     // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
     // See https://github.com/bevyengine/bevy/pull/15037
     //
     // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
     // text that is dynamically measured for UI).
-    pipeline.font_system_mut().shape_run_cache.trim(2);
+    font_system.0.shape_run_cache.trim(2);
 }

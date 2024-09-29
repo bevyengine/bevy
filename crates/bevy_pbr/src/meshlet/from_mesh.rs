@@ -1,11 +1,12 @@
 use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
+use alloc::borrow::Cow;
 use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::{PrimitiveTopology, COPY_BUFFER_ALIGNMENT},
 };
 use bevy_utils::HashMap;
-use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
+use core::{iter, ops::Range};
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
@@ -14,7 +15,6 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
-use std::{borrow::Cow, iter, ops::Range};
 
 const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 14;
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
@@ -301,7 +301,7 @@ fn simplify_meshlet_group(
         vertices,
         group_indices.len() / 2,
         f32::MAX,
-        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, // TODO: Specify manual vertex locks instead of meshopt's overly-strict locks
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, /* TODO: Specify manual vertex locks instead of meshopt's overly-strict locks */
         Some(&mut error),
     );
 

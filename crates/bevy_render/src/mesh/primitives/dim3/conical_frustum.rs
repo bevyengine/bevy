@@ -2,7 +2,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{primitives::ConicalFrustum, Vec3};
+use bevy_math::{ops, primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`ConicalFrustum`] shape.
@@ -83,7 +83,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
         let mut uvs = Vec::with_capacity(num_vertices);
         let mut indices = Vec::with_capacity(num_indices);
 
-        let step_theta = std::f32::consts::TAU / self.resolution as f32;
+        let step_theta = core::f32::consts::TAU / self.resolution as f32;
         let step_y = height / self.segments as f32;
         let step_radius = (radius_top - radius_bottom) / self.segments as f32;
 
@@ -94,7 +94,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
 
             for segment in 0..=self.resolution {
                 let theta = segment as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
+                let (sin, cos) = ops::sin_cos(theta);
 
                 positions.push([radius * cos, y, radius * sin]);
                 normals.push(
@@ -137,7 +137,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
 
             for i in 0..self.resolution {
                 let theta = i as f32 * step_theta;
-                let (sin, cos) = theta.sin_cos();
+                let (sin, cos) = ops::sin_cos(theta);
 
                 positions.push([cos * radius, y, sin * radius]);
                 normals.push([0.0, normal_y, 0.0]);

@@ -1,4 +1,4 @@
-use std::any::Any;
+use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
@@ -65,12 +65,12 @@ impl Component for ObserverState {
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
-            world.commands().add(move |world: &mut World| {
+            world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
         });
         hooks.on_remove(|mut world, entity, _| {
-            let descriptor = std::mem::take(
+            let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
                     .get_mut::<ObserverState>()
@@ -78,7 +78,7 @@ impl Component for ObserverState {
                     .as_mut()
                     .descriptor,
             );
-            world.commands().add(move |world: &mut World| {
+            world.commands().queue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
         });
@@ -86,6 +86,7 @@ impl Component for ObserverState {
 }
 
 /// Type for function that is run when an observer is triggered.
+///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behaviour.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
@@ -357,13 +358,6 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
         propagate,
         observer_trigger,
     );
-    // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
-    // Additionally, IntoObserverSystem is only implemented for functions starting
-    // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
-    // allowing the Trigger<'static> to be moved outside of the context of the system.
-    // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
-    // static constraint from ObserverSystem, but so far we have not found a way.
-    let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
     // SAFETY:
     // - observer was triggered so must have an `Observer` component.
     // - observer cannot be dropped or mutated until after the system pointer is already dropped.
@@ -398,8 +392,8 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     entity: Entity,
     _: ComponentId,
 ) {
-    world.commands().add(move |world: &mut World| {
-        let event_type = world.init_component::<E>();
+    world.commands().queue(move |world: &mut World| {
+        let event_type = world.register_component::<E>();
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
             components.push(id);

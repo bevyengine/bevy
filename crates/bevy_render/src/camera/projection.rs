@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use core::{
+    marker::PhantomData,
+    ops::{Div, DivAssign, Mul, MulAssign},
+};
 
-use crate::primitives::Frustum;
-use crate::view::VisibilitySystems;
+use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{AspectRatio, Mat4, Rect, Vec2, Vec3A};
+use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
-use bevy_transform::components::GlobalTransform;
-use bevy_transform::TransformSystem;
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -98,7 +98,7 @@ pub trait CameraProjection {
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -154,7 +154,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -200,7 +200,7 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
-        let tan_half_fov = (self.fov / 2.).tan();
+        let tan_half_fov = ops::tan(self.fov / 2.);
         let a = z_near.abs() * tan_half_fov;
         let b = z_far.abs() * tan_half_fov;
         let aspect_ratio = self.aspect_ratio;
@@ -221,7 +221,7 @@ impl CameraProjection for PerspectiveProjection {
 impl Default for PerspectiveProjection {
     fn default() -> Self {
         PerspectiveProjection {
-            fov: std::f32::consts::PI / 4.0,
+            fov: core::f32::consts::PI / 4.0,
             near: 0.1,
             far: 1000.0,
             aspect_ratio: 1.0,
@@ -340,7 +340,7 @@ impl DivAssign<f32> for ScalingMode {
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, FromWorld)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///

@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
@@ -36,7 +36,7 @@ use bevy_utils::{
     prelude::default,
     tracing::{error, warn},
 };
-use std::mem;
+use core::mem;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const GTAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -154,7 +154,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default, Debug)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default, Hash, PartialEq)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,

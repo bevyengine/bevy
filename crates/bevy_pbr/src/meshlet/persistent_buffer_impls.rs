@@ -2,8 +2,10 @@ use super::{
     asset::{Meshlet, MeshletBoundingSpheres},
     persistent_buffer::PersistentGpuBufferable,
 };
+use alloc::sync::Arc;
 use bevy_math::Vec2;
-use std::sync::Arc;
+
+const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 32;
 
 impl PersistentGpuBufferable for Arc<[u8]> {
     type Metadata = ();

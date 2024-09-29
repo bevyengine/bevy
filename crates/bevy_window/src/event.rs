@@ -155,7 +155,6 @@ pub struct CursorMoved {
     pub position: Vec2,
     /// The change in the position of the cursor since the last event was sent.
     /// This value is `None` if the cursor was outside the window area during the last frame.
-    //
     // Because the range of this data is limited by the display area and it may have been
     //  transformed by the OS to implement effects such as cursor acceleration, it should
     // not be used to implement non-cursor-like interactions such as 3D camera control.
@@ -413,7 +412,8 @@ impl AppLifecycle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+#[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
 pub enum WindowEvent {
     AppLifecycle(AppLifecycle),
     CursorEntered(CursorEntered),

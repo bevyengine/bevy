@@ -1,18 +1,18 @@
-use crate::serde::ser::arrays::ArraySerializer;
-use crate::serde::ser::enums::EnumSerializer;
-use crate::serde::ser::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
-use crate::serde::ser::lists::ListSerializer;
-use crate::serde::ser::maps::MapSerializer;
-use crate::serde::ser::sets::SetSerializer;
-use crate::serde::ser::structs::StructSerializer;
-use crate::serde::ser::tuple_structs::TupleStructSerializer;
-use crate::serde::ser::tuples::TupleSerializer;
-use crate::serde::Serializable;
-use crate::{PartialReflect, ReflectRef, TypeRegistry};
-use serde::ser::SerializeMap;
-use serde::Serialize;
+use crate::{
+    serde::{
+        ser::{
+            arrays::ArraySerializer, enums::EnumSerializer, error_utils::make_custom_error,
+            lists::ListSerializer, maps::MapSerializer, sets::SetSerializer,
+            structs::StructSerializer, tuple_structs::TupleStructSerializer,
+            tuples::TupleSerializer,
+        },
+        Serializable,
+    },
+    PartialReflect, ReflectRef, TypeRegistry,
+};
+use serde::{ser::SerializeMap, Serialize};
 
 /// A general purpose serializer for reflected types.
 ///
@@ -154,14 +154,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     {
         #[cfg(feature = "debug_stack")]
         {
-            let info = self.value.get_represented_type_info().ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "type `{}` does not represent any type",
-                    self.value.reflect_type_path(),
-                ))
-            })?;
-
-            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+            if let Some(info) = self.value.get_represented_type_info() {
+                TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+            }
         }
 
         // Handle both Value case and types that have a custom `Serialize`
@@ -199,7 +194,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             ReflectRef::Enum(value) => {
                 EnumSerializer::new(value, self.registry).serialize(serializer)
             }
-            ReflectRef::Value(_) => Err(serializable.err().unwrap()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
+            ReflectRef::Opaque(_) => Err(serializable.err().unwrap()),
         };
 
         #[cfg(feature = "debug_stack")]
