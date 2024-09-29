@@ -68,6 +68,10 @@ use bevy_reflect_derive::impl_type_path;
 ///
 /// [`dyn PartialReflect`]: PartialReflect
 /// [derives `Reflect`]: derive@crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `CastPartialReflect` so cannot be cast to `dyn PartialReflect`",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait CastPartialReflect: Send + Sync + 'static {
     /// Casts this type to a [`dyn PartialReflect`] reference.
     ///
@@ -112,6 +116,10 @@ impl<T: ?Sized + CastPartialReflect> CastPartialReflect for Box<T> {
 ///
 /// [`dyn Reflect`]: Reflect
 /// [derives `Reflect`]: derive@crate::Reflect
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `CastReflect` so cannot be cast to `dyn Reflect`",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait CastReflect: CastPartialReflect {
     /// Casts this type to a [`dyn Reflect`] reference.
     ///
