@@ -1639,15 +1639,15 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
 /// This will cause systems that use this parameter to be skipped.
 ///
-/// Use [`Option<QuerySingle<D, F>>`] instead if zero or one matching entities can exist.
+/// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
-pub struct QuerySingle<'w, D: QueryData, F: QueryFilter = ()> {
+pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
 }
 
-impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
     type Target = D::Item<'w>;
 
     fn deref(&self) -> &Self::Target {
@@ -1655,13 +1655,13 @@ impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for QuerySingle<'w, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> QuerySingle<'w, D, F> {
+impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> D::Item<'w> {
         self.item

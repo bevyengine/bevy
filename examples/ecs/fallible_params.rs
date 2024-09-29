@@ -3,8 +3,8 @@
 //!
 //! Fallible parameters include:
 //! - [`Res<R>`], [`ResMut<R>`] - If resource doesn't exist.
-//! - [`QuerySingle<D, F>`] - If there is no or more than one entities matching.
-//! - [`Option<QuerySingle<D, F>>`] - If there are more than one entities matching.
+//! - [`Single<D, F>`] - If there is no or more than one entities matching.
+//! - [`Option<Single<D, F>>`] - If there are more than one entities matching.
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -121,9 +121,9 @@ fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
     // `QuerySingle` ensures the system runs ONLY when exactly one matching entity exists.
-    mut player: QuerySingle<(&mut Transform, &Player)>,
+    mut player: Single<(&mut Transform, &Player)>,
     // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one matching entity exists.
-    enemy: Option<QuerySingle<&Transform, (With<Enemy>, Without<Player>)>>,
+    enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
     let (player_transform, player) = &mut *player;
