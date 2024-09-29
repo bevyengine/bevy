@@ -26,7 +26,7 @@ pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::{ReflectMapEntities, ReflectMapEntitiesResource};
 pub use resource::{ReflectResource, ReflectResourceFns};
-pub use visit_entities::ReflectVisitEntities;
+pub use visit_entities::{ReflectVisitEntities, ReflectVisitEntitiesMut};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

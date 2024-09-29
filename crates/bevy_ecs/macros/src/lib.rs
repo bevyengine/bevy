@@ -180,6 +180,85 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     })
 }
 
+#[proc_macro_derive(VisitEntitiesMut, attributes(visit_entities))]
+pub fn derive_visit_entities_mut(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let ecs_path = bevy_ecs_path();
+
+    let named_fields = match get_struct_fields(&ast.data) {
+        Ok(fields) => fields,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    let field = named_fields
+        .iter()
+        .filter_map(|field| {
+            if let Some(attr) = field
+                .attrs
+                .iter()
+                .find(|a| a.path().is_ident("visit_entities"))
+            {
+                let ignore = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("ignore") {
+                        Ok(())
+                    } else {
+                        Err(meta.error("Invalid visit_entities attribute. Use `ignore`"))
+                    }
+                });
+                return match ignore {
+                    Ok(()) => None,
+                    Err(e) => Some(Err(e)),
+                };
+            }
+            Some(Ok(field))
+        })
+        .map(|res| res.map(|field| field.ident.as_ref()))
+        .collect::<Result<Vec<_>, _>>();
+
+    let field = match field {
+        Ok(field) => field,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    if field.is_empty() {
+        return syn::Error::new(
+            ast.span(),
+            "Invalid `VisitEntitiesMut` type: at least one field",
+        )
+        .into_compile_error()
+        .into();
+    }
+
+    let field_access = field
+        .iter()
+        .enumerate()
+        .map(|(n, f)| {
+            if let Some(ident) = f {
+                quote! {
+                    self.#ident
+                }
+            } else {
+                let idx = Index::from(n);
+                quote! {
+                    self.#idx
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #ecs_path::entity::VisitEntitiesMut for #struct_name #ty_generics {
+            fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
+                #(#field_access.visit_entities_mut(&mut f);)*
+            }
+        }
+    })
+}
+
 #[proc_macro_derive(VisitEntities, attributes(visit_entities))]
 pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
