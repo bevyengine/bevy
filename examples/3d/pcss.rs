@@ -294,8 +294,8 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         for light in lights.iter_mut() {
-            let light_commands = commands
-                .entity(light)
+            let mut light_commands = commands.entity(light);
+            light_commands
                 .remove::<DirectionalLight>()
                 .remove::<PointLight>()
                 .remove::<SpotLight>();

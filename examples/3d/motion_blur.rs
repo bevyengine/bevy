@@ -145,7 +145,7 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands
+        commands
             .spawn((
                 PbrBundle {
                     mesh: box_mesh.clone(),
@@ -155,33 +155,33 @@ fn spawn_cars(
                 },
                 Moves(i as f32 * 2.0),
             ))
-            .insert_if(CameraTracked, || i == 0);
-        entity.with_children(|parent| {
-            parent.spawn(PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color,
-                transform: Transform::from_xyz(0.0, 0.08, 0.03)
-                    .with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ..default()
+            .insert_if(CameraTracked, || i == 0)
+            .with_children(|parent| {
+                parent.spawn(PbrBundle {
+                    mesh: box_mesh.clone(),
+                    material: color,
+                    transform: Transform::from_xyz(0.0, 0.08, 0.03)
+                        .with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                    ..default()
+                });
+                let mut spawn_wheel = |x: f32, z: f32| {
+                    parent.spawn((
+                        PbrBundle {
+                            mesh: cylinder.clone(),
+                            material: wheel_matl.clone(),
+                            transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                                .with_scale(Vec3::new(0.15, 0.04, 0.15))
+                                .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+                            ..default()
+                        },
+                        Rotates,
+                    ));
+                };
+                spawn_wheel(1.0, 1.0);
+                spawn_wheel(1.0, -1.0);
+                spawn_wheel(-1.0, 1.0);
+                spawn_wheel(-1.0, -1.0);
             });
-            let mut spawn_wheel = |x: f32, z: f32| {
-                parent.spawn((
-                    PbrBundle {
-                        mesh: cylinder.clone(),
-                        material: wheel_matl.clone(),
-                        transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
-                            .with_scale(Vec3::new(0.15, 0.04, 0.15))
-                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        ..default()
-                    },
-                    Rotates,
-                ));
-            };
-            spawn_wheel(1.0, 1.0);
-            spawn_wheel(1.0, -1.0);
-            spawn_wheel(-1.0, 1.0);
-            spawn_wheel(-1.0, -1.0);
-        });
     }
 }
 

@@ -124,8 +124,8 @@ fn update(
 
     let (camera_entity, ssao, temporal_jitter) = camera.single();
 
-    let mut commands = commands
-        .entity(camera_entity)
+    let mut commands = commands.entity(camera_entity);
+    commands
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
@@ -151,7 +151,7 @@ fn update(
             || keycode.just_pressed(KeyCode::Digit5),
         );
     if keycode.just_pressed(KeyCode::Digit1) {
-        commands = commands.remove::<ScreenSpaceAmbientOcclusion>();
+        commands.remove::<ScreenSpaceAmbientOcclusion>();
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
