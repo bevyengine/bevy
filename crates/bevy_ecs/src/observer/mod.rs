@@ -574,7 +574,7 @@ mod tests {
     struct Parent(Entity);
 
     impl Traversal for &'_ Parent {
-        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+        fn traverse(item: Self::Item<'_, '_>) -> Option<Entity> {
             Some(item.0)
         }
     }

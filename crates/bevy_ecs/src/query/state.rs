@@ -738,13 +738,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     ///
+    /// If you need to get multiple items at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::get_manual`] calls,
+    /// or making a single call with [`Self::get_many`]  or [`Self::iter_many`].
+    ///
     /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
         &mut self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError<'w>> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -794,7 +798,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w World,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
+    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError<'w>> {
         self.update_archetypes(world);
 
         // SAFETY:
@@ -818,7 +822,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError<'w>> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -876,7 +880,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: &'w mut World,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError<'w>> {
         self.update_archetypes(world);
 
         let change_tick = world.change_tick();
@@ -911,7 +915,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: &'w World,
         entity: Entity,
-    ) -> Result<ROQueryItem<'w, D>, QueryEntityError<'w>> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QueryEntityError<'w>> {
         self.validate_world(world.id());
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -937,7 +941,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &mut self,
         world: UnsafeWorldCell<'w>,
         entity: Entity,
-    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError<'w>> {
         self.update_archetypes_unsafe_world_cell(world);
         self.get_unchecked_manual(world, entity, world.last_change_tick(), world.change_tick())
     }
@@ -960,7 +964,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    ) -> Result<D::Item<'w, '_>, QueryEntityError<'w>> {
         let location = world
             .entities()
             .get(entity)
@@ -1008,7 +1012,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
+    ) -> Result<[ROQueryItem<'w, '_, D>; N], QueryEntityError<'w>> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
@@ -1042,7 +1046,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         entities: [Entity; N],
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w, '_>; N], QueryEntityError<'w>> {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -1066,6 +1070,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_manual`] calls.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
         self.update_archetypes(world);
@@ -1193,6 +1200,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_many_manual`] calls.
     ///
     /// # See also
     ///
@@ -1483,8 +1493,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, T, FN, INIT>(
-        &self,
+    pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, 's, T, FN, INIT>(
+        &'s self,
         init_accum: INIT,
         world: UnsafeWorldCell<'w>,
         batch_size: usize,
@@ -1492,7 +1502,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) where
-        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        FN: Fn(T, D::Item<'w, 's>) -> T + Send + Sync + Clone,
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
@@ -1588,7 +1598,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
     #[inline]
-    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
+    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, '_, D> {
         match self.get_single(world) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get single query result: {error}"),
@@ -1607,7 +1617,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_single<'w>(
         &mut self,
         world: &'w World,
-    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+    ) -> Result<ROQueryItem<'w, '_, D>, QuerySingleError> {
         self.update_archetypes(world);
 
         // SAFETY: query is read only
@@ -1629,7 +1639,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
     #[inline]
-    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w> {
+    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w, '_> {
         // SAFETY: query has unique world access
         match self.get_single_mut(world) {
             Ok(items) => items,
@@ -1646,7 +1656,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn get_single_mut<'w>(
         &mut self,
         world: &'w mut World,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         self.update_archetypes(world);
 
         let change_tick = world.change_tick();
@@ -1674,7 +1684,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn get_single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         self.update_archetypes_unsafe_world_cell(world);
         self.get_single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
     }
@@ -1695,7 +1705,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<D::Item<'w>, QuerySingleError> {
+    ) -> Result<D::Item<'w, '_>, QuerySingleError> {
         let mut query = self.iter_unchecked_manual(world, last_run, this_run);
         let first = query.next();
         let extra = query.next().is_some();

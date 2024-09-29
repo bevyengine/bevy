@@ -231,7 +231,7 @@ impl ExtractComponent for SpriteSource {
 
     type Out = SpriteSource;
 
-    fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(_: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(SpriteSource)
     }
 }

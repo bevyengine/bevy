@@ -2190,7 +2190,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_ssr,
             view_environment_map,
             mesh_view_bind_group,
-        ): ROQueryItem<'w, Self::ViewQuery>,
+        ): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
