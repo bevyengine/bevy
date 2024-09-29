@@ -272,6 +272,25 @@ mod tests {
     }
 
     #[test]
+    fn should_allow_boxed_type_parameter() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct<T> {
+            value: T,
+        }
+
+        let my_struct: Box<dyn Struct> = Box::new(MyStruct {
+            value: Box::new(123_i32),
+        });
+
+        let field = my_struct.field("value").unwrap();
+        assert_eq!(field.try_downcast_ref::<i32>(), Some(&123));
+
+        let field_info = field.get_represented_type_info().unwrap();
+        assert!(field_info.ty().is::<i32>());
+    }
+
+    #[test]
     fn should_allow_custom_trait_objects() {
         trait Equippable: CastPartialReflect {}
 
