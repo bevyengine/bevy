@@ -7,7 +7,7 @@ use crate::{
     structs::{DynamicStruct, StructInfo},
     tuple::{DynamicTuple, TupleInfo},
     tuple_struct::{DynamicTupleStruct, TupleStructInfo},
-    Generics, Reflect, ReflectKind, TypePath, TypePathTable,
+    Generics, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -592,7 +592,7 @@ pub struct OpaqueInfo {
 
 impl OpaqueInfo {
     /// Creates a new [`OpaqueInfo`].
-    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
+    pub fn new<T: TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
