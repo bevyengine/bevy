@@ -291,7 +291,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     let mut response = BrpGetResponse::default();
 
     for component_path in components {
-        match process_remote_get_component(component_path, entity, entity_ref, &type_registry) {
+        match handle_get_component(component_path, entity, entity_ref, &type_registry) {
             Ok(serialized_object) => response.extend(serialized_object.into_iter()),
             Err(err) if strict => return Err(err),
             Err(_) => {},
@@ -301,7 +301,8 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-fn process_remote_get_component(
+/// Handle a single component for [`process_remote_get_request`].
+fn handle_get_component(
     component_path: String,
     entity: Entity,
     entity_ref: EntityRef,
