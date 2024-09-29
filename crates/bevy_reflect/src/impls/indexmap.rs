@@ -1,4 +1,5 @@
 use crate::{
+    reflect::impl_full_reflect,
     set::{Set, SetInfo},
     utility::GenericTypeInfoCell,
     FromReflect, FromType, Generics, GetTypeRegistration, PartialReflect, Reflect,
@@ -11,7 +12,7 @@ use bevy_reflect::{
     MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
 };
 use bevy_reflect_derive::impl_type_path;
-use core::{any::Any, hash::BuildHasher, hash::Hash};
+use core::{hash::BuildHasher, hash::Hash};
 use indexmap::{IndexMap, IndexSet};
 
 impl<K, V, S> Map for IndexMap<K, V, S>
@@ -182,42 +183,6 @@ where
     }
 }
 
-impl<K, V, S> Reflect for IndexMap<K, V, S>
-where
-    K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-    V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
-    S: TypePath + BuildHasher + Default + Send + Sync,
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl<K, V, S> Typed for IndexMap<K, V, S>
 where
     K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
@@ -277,6 +242,13 @@ where
     }
 }
 
+impl_full_reflect!(
+    <K, V, S> for IndexMap<K, V, S>
+    where
+        K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync,
+);
 impl_type_path!(::indexmap::IndexMap<K, V, S>);
 
 impl<T, S> Set for IndexSet<T, S>
@@ -415,41 +387,6 @@ where
     }
 }
 
-impl<T, S> Reflect for IndexSet<T, S>
-where
-    T: FromReflect + Reflect + TypePath + GetTypeRegistration + Eq + Hash,
-    S: TypePath + BuildHasher + Default + Send + Sync,
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl<T, S> Typed for IndexSet<T, S>
 where
     T: FromReflect + Reflect + TypePath + GetTypeRegistration + Eq + Hash,
@@ -496,4 +433,10 @@ where
     }
 }
 
+impl_full_reflect!(
+    <T, S> for IndexSet<T, S>
+    where
+        T: FromReflect + Reflect + TypePath + GetTypeRegistration + Eq + Hash,
+        S: TypePath + BuildHasher + Default + Send + Sync,
+);
 impl_type_path!(::indexmap::IndexSet<T, S>);

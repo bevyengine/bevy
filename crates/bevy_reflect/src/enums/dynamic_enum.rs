@@ -1,6 +1,7 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
+    cast::impl_cast_partial_reflect,
     enums::{
         enum_debug, enum_hash, enum_partial_cmp, enum_partial_eq, Enum, VariantFieldIter,
         VariantType,
@@ -420,3 +421,4 @@ impl PartialReflect for DynamicEnum {
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);
+impl_cast_partial_reflect!(for DynamicEnum);

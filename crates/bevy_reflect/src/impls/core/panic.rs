@@ -2,6 +2,7 @@ use crate::{
     error::ReflectCloneError,
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
+    reflect::impl_full_reflect,
     reflect::ApplyError,
     type_info::{OpaqueInfo, TypeInfo, Typed},
     type_path::DynamicTypePath,
@@ -109,37 +110,6 @@ impl PartialReflect for &'static Location<'static> {
     }
 }
 
-impl Reflect for &'static Location<'static> {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl Typed for &'static Location<'static> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -161,3 +131,5 @@ impl FromReflect for &'static Location<'static> {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
+
+impl_full_reflect!(for &'static Location<'static>);

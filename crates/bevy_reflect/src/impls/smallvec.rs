@@ -1,4 +1,5 @@
 use crate::{
+    impl_full_reflect,
     list::{List, ListInfo, ListIter},
     utility::GenericTypeInfoCell,
     ApplyError, FromReflect, FromType, Generics, GetTypeRegistration, MaybeTyped, PartialReflect,
@@ -8,7 +9,6 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
 use bevy_reflect_derive::impl_type_path;
-use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
@@ -156,39 +156,12 @@ where
     }
 }
 
-impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>
-where
-    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
+impl_full_reflect!(
+    <T> for SmallVec<T>
+    where
+        T: SmallArray + TypePath + Send + Sync,
+        T::Item: FromReflect + Reflect + MaybeTyped + TypePath
+);
 
 impl<T: SmallArray + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where

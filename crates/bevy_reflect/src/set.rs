@@ -7,6 +7,7 @@ use core::fmt::{Debug, Formatter};
 use bevy_platform::collections::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 use bevy_reflect_derive::impl_type_path;
 
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
     Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
@@ -333,6 +334,7 @@ impl PartialReflect for DynamicSet {
 }
 
 impl_type_path!((in bevy_reflect) DynamicSet);
+impl_cast_partial_reflect!(for DynamicSet);
 
 impl Debug for DynamicSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

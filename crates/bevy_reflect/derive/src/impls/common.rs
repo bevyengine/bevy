@@ -2,6 +2,7 @@ use bevy_macro_utils::fq_std::{FQAny, FQOption, FQResult};
 
 use quote::quote;
 
+use crate::impls::casting::impl_casting_traits;
 use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
 
 pub fn impl_full_reflect(where_clause_options: &WhereClauseOptions) -> proc_macro2::TokenStream {
@@ -48,6 +49,8 @@ pub fn impl_full_reflect(where_clause_options: &WhereClauseOptions) -> proc_macr
         }
     };
 
+    let casting_impls = impl_casting_traits(meta, where_clause_options);
+
     quote! {
         impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause {
             #any_impls
@@ -76,6 +79,8 @@ pub fn impl_full_reflect(where_clause_options: &WhereClauseOptions) -> proc_macr
                 #FQResult::Ok(())
             }
         }
+
+        #casting_impls
     }
 }
 

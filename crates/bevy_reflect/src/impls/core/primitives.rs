@@ -1,9 +1,10 @@
 use crate::{
     array::{Array, ArrayInfo, ArrayIter},
+    cast::{CastPartialReflect, CastReflect},
     error::ReflectCloneError,
     kind::{ReflectKind, ReflectMut, ReflectOwned, ReflectRef},
     prelude::*,
-    reflect::ApplyError,
+    reflect::{impl_full_reflect, ApplyError},
     type_info::{MaybeTyped, OpaqueInfo, TypeInfo, Typed},
     type_registry::{
         FromType, GetTypeRegistration, ReflectDeserialize, ReflectFromPtr, ReflectSerialize,
@@ -403,37 +404,6 @@ impl PartialReflect for &'static str {
     }
 }
 
-impl Reflect for &'static str {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl Typed for &'static str {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -456,6 +426,8 @@ impl FromReflect for &'static str {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
+
+impl_full_reflect!(for &'static str);
 
 impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
@@ -601,8 +573,8 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 }
 
-impl<T: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
-    for [T; N]
+impl<T: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize>
+    FromReflect for [T; N]
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         let ref_array = reflect.reflect_ref().as_array().ok()?;
@@ -645,6 +617,38 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> G
 
     fn register_type_dependencies(registry: &mut TypeRegistry) {
         registry.register::<T>();
+    }
+}
+
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> CastPartialReflect
+    for [T; N]
+{
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+}
+
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> CastReflect
+    for [T; N]
+{
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
     }
 }
 

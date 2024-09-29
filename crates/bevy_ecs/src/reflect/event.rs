@@ -45,7 +45,7 @@ impl ReflectEventFns {
     ///
     /// This is useful if you want to start with the default implementation
     /// before overriding some of the functions to create a custom implementation.
-    pub fn new<'a, T: Event + FromReflect + TypePath>() -> Self
+    pub fn new<'a, T: Event + FromReflect + Reflect + TypePath>() -> Self
     where
         T::Trigger<'a>: Default,
     {
