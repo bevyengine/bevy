@@ -3,8 +3,8 @@
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
-use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_render::view::Visibility;
+use bevy_transform::prelude::Transform;
 use smallvec::SmallVec;
 
 use crate::Node;
@@ -16,13 +16,7 @@ use crate::Node;
 /// Any components necessary for transform and visibility propagation will be added automatically.
 #[derive(Component, Default, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Debug)]
-#[require(
-    Visibility,
-    InheritedVisibility,
-    ViewVisibility,
-    Transform,
-    GlobalTransform
-)]
+#[require(Visibility, Transform)]
 pub struct GhostNode;
 
 /// System param that allows iteration of all UI root nodes.
