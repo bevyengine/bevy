@@ -1683,7 +1683,7 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause systems that use this parameter to be skipped.
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
-/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`] or [`Changed`]
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
 /// which must individually check each query result for a match.
 ///
 /// See [`Query`] for more details.
