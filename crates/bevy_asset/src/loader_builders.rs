@@ -32,35 +32,34 @@ impl ReaderRef<'_> {
 /// The type parameters `T` and `M` determine how this loader will load assets:
 /// - `T`: the typing of this loader. How do we know what type of asset to load?
 ///
-///   See [`Typed`] (the default), [`Erased`], and [`UnknownType`].
+///   See [`StaticTyped`] (the default), [`DynamicTyped`], and [`UnknownTyped`].
 ///
 /// - `M`: the load mode. Do we want to load this asset right now (in which case
 ///   you will have to `await` the operation), or do we just want a [`Handle`],
 ///   and leave the actual asset loading to later?
 ///
-///   See [`Indirect`] (the default) and [`Direct`].
+///   See [`Deferred`] (the default) and [`Immediate`].
 ///
 /// When configuring this builder, you can freely switch between these modes
-/// via functions like [`direct`]/[`indirect`].
+/// via functions like [`deferred`] and [`immediate`].
 ///
 /// ## Typing
 ///
 /// To inform the loader of what type of asset to load:
-/// - in [`Typed`]: statically providing a type parameter `A: Asset` to
+/// - in [`StaticTyped`]: statically providing a type parameter `A: Asset` to
 ///   [`load`].
 ///
 ///   This is the simplest way to get a [`Handle<A>`] to the loaded asset, as
 ///   long as you know the type of `A` at compile time.
 ///
-/// - in [`Erased`]: providing the [`TypeId`] and [type name] of the asset at
-///   runtime.
+/// - in [`DynamicTyped`]: providing the [`TypeId`] of the asset at runtime.
 ///
-///   If you know the type info of the asset at runtime, but not at compile
-///   time, use [`erased`] followed by [`load`] to start loading an asset of
-///   that type. This lets you get an [`UntypedHandle`] (via [`Indirect`]), or a
-///   [`LoadedUntypedAsset`] (via [`Direct`]).
+///   If you know the type ID of the asset at runtime, but not at compile time,
+///   use [`with_dynamic_type`] followed by [`load`] to start loading an asset
+///   of that type. This lets you get an [`UntypedHandle`] (via [`Deferred`]),
+///   or a [`LoadedUntypedAsset`] (via [`Immediate`]).
 ///
-/// - in [`UnknownType`]: loading a [`LoadedUntypedAsset`], which is a
+/// - in [`UnknownTyped`]: loading a [`LoadedUntypedAsset`], which is a
 ///   version of the loaded asset.
 ///
 ///   If you have no idea what type of asset you will be loading (not even at
@@ -106,11 +105,10 @@ impl ReaderRef<'_> {
 /// - `ctx`: the lifetime of the associated [`AssetServer`](crate::AssetServer) reference
 /// - `builder`: the lifetime of the temporary builder structs
 ///
-/// [`direct`]: Self::direct
-/// [`indirect`]: Self::indirect
-/// [type name]: core::any::type_name
+/// [`deferred`]: Self::deferred
+/// [`immediate`]: Self::immediate
 /// [`load`]: Self::load
-/// [`erased`]: Self::erased
+/// [`with_dynamic_type`]: Self::with_dynamic_type
 /// [`AssetServer::load`]: crate::AssetServer::load
 /// [`AssetProcessor`]: crate::processor::AssetProcessor
 /// [`Process`]: crate::processor::Process
@@ -132,27 +130,26 @@ mod sealed {
 /// [`load`].
 ///
 /// [`load`]: NestedLoader::load
-pub struct Typed {
+pub struct StaticTyped {
     _priv: (),
 }
 
-impl sealed::Typing for Typed {}
+impl sealed::Typing for StaticTyped {}
 
 /// [`NestedLoader`] has been configured with info on what type of asset to load
 /// at runtime.
-pub struct Erased<'builder> {
+pub struct DynamicTyped {
     asset_type_id: TypeId,
-    asset_type_name: &'builder str,
 }
 
-impl sealed::Typing for Erased<'_> {}
+impl sealed::Typing for DynamicTyped {}
 
 /// [`NestedLoader`] does not know what type of asset it will be loading.
-pub struct UnknownType {
+pub struct UnknownTyped {
     _priv: (),
 }
 
-impl sealed::Typing for UnknownType {}
+impl sealed::Typing for UnknownTyped {}
 
 /// [`NestedLoader`] will create and return asset handles immediately, but only
 /// actually load the asset later.
@@ -171,12 +168,12 @@ impl sealed::Mode for Immediate<'_, '_> {}
 
 // common to all states
 
-impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, Typed, Deferred> {
+impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, StaticTyped, Deferred> {
     pub(crate) fn new(load_context: &'builder mut LoadContext<'ctx>) -> Self {
         NestedLoader {
             load_context,
             meta_transform: None,
-            typing: Typed { _priv: () },
+            typing: StaticTyped { _priv: () },
             mode: Deferred { _priv: () },
         }
     }
@@ -212,42 +209,38 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 
     // convert between `T`s
 
-    /// When [`load`]ing, the loader will attempt to load an asset with the
-    /// given [`TypeId`] and [type name].
-    ///
-    /// [type name]: core::any::type_name
-    #[must_use]
-    pub fn erased(
-        self,
-        asset_type_id: TypeId,
-        asset_type_name: &'builder str,
-    ) -> NestedLoader<'ctx, 'builder, Erased, M> {
-        NestedLoader {
-            load_context: self.load_context,
-            meta_transform: self.meta_transform,
-            typing: Erased {
-                asset_type_id,
-                asset_type_name,
-            },
-            mode: self.mode,
-        }
-    }
-
     /// When [`load`]ing, you must pass in the asset type as a type parameter
     /// statically.
     ///
     /// If you don't know the type statically (at compile time), consider
-    /// [`erased`] or [`unknown_type`].
+    /// [`with_dynamic_type`] or [`with_unknown_type`].
     ///
     /// [`load`]: Self::load
-    /// [`erased`]: Self::erased
-    /// [`unknown_type`]: Self::unknown_type
+    /// [`with_dynamic_type`]: Self::with_dynamic_type
+    /// [`with_unknown_type`]: Self::with_unknown_type
     #[must_use]
-    pub fn typed(self) -> NestedLoader<'ctx, 'builder, Typed, M> {
+    pub fn with_static_type(self) -> NestedLoader<'ctx, 'builder, StaticTyped, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: Typed { _priv: () },
+            typing: StaticTyped { _priv: () },
+            mode: self.mode,
+        }
+    }
+
+    /// When [`load`]ing, the loader will attempt to load an asset with the
+    /// given [`TypeId`].
+    ///
+    /// [`load`]: Self::load
+    #[must_use]
+    pub fn with_dynamic_type(
+        self,
+        asset_type_id: TypeId,
+    ) -> NestedLoader<'ctx, 'builder, DynamicTyped, M> {
+        NestedLoader {
+            load_context: self.load_context,
+            meta_transform: self.meta_transform,
+            typing: DynamicTyped { asset_type_id },
             mode: self.mode,
         }
     }
@@ -257,11 +250,11 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     ///
     /// [`load`]: Self::load
     #[must_use]
-    pub fn unknown_type(self) -> NestedLoader<'ctx, 'builder, UnknownType, M> {
+    pub fn with_unknown_type(self) -> NestedLoader<'ctx, 'builder, UnknownTyped, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: UnknownType { _priv: () },
+            typing: UnknownTyped { _priv: () },
             mode: self.mode,
         }
     }
@@ -280,6 +273,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
             mode: Deferred { _priv: () },
         }
     }
+
     /// The [`load`] call itself will load an asset, rather than scheduling the
     /// loading to happen later.
     ///
@@ -300,18 +294,18 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
 
 // deferred loading logic
 
-impl NestedLoader<'_, '_, Typed, Deferred> {
+impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
     /// This requires you to know the type of asset statically.
     /// - If you have runtime info for what type of asset you're loading (e.g. a
-    ///   [`TypeId`]), use [`erased`].
+    ///   [`TypeId`]), use [`with_dynamic_type`].
     /// - If you do not know at all what type of asset you're loading, use
-    ///   [`unknown_type`].
+    ///   [`with_unknown_type`].
     ///
-    /// [`erased`]: Self::erased
-    /// [`unknown_type`]: Self::unknown_type
+    /// [`with_dynamic_type`]: Self::with_dynamic_type
+    /// [`with_unknown_type`]: Self::with_unknown_type
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -328,13 +322,14 @@ impl NestedLoader<'_, '_, Typed, Deferred> {
     }
 }
 
-impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
+impl NestedLoader<'_, '_, DynamicTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
-    /// This requires you to pass in the asset type ID and name into [`erased`].
+    /// This requires you to pass in the asset type ID into
+    /// [`with_dynamic_type`].
     ///
-    /// [`erased`]: Self::erased
+    /// [`with_dynamic_type`]: Self::with_dynamic_type
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> UntypedHandle {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -343,7 +338,6 @@ impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
                 .load_erased_with_meta_transform(
                     path,
                     self.typing.asset_type_id,
-                    self.typing.asset_type_name,
                     self.meta_transform,
                     (),
                 )
@@ -353,7 +347,6 @@ impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
                 .get_or_create_path_handle_erased(
                     path,
                     self.typing.asset_type_id,
-                    self.typing.asset_type_name,
                     self.meta_transform,
                 )
         };
@@ -362,7 +355,7 @@ impl NestedLoader<'_, '_, Erased<'_>, Deferred> {
     }
 }
 
-impl NestedLoader<'_, '_, UnknownType, Deferred> {
+impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     /// Retrieves a handle for the asset at the given path and adds that path as
     /// a dependency of this asset.
     ///
@@ -445,17 +438,17 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
     }
 }
 
-impl NestedLoader<'_, '_, Typed, Immediate<'_, '_>> {
+impl NestedLoader<'_, '_, StaticTyped, Immediate<'_, '_>> {
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This requires you to know the type of asset statically.
     /// - If you have runtime info for what type of asset you're loading (e.g. a
-    ///   [`TypeId`]), use [`erased`].
+    ///   [`TypeId`]), use [`with_dynamic_type`].
     /// - If you do not know at all what type of asset you're loading, use
-    ///   [`unknown_type`].
+    ///   [`with_unknown_type`].
     ///
-    /// [`erased`]: Self::erased
-    /// [`unknown_type`]: Self::unknown_type
+    /// [`with_dynamic_type`]: Self::with_dynamic_type
+    /// [`with_unknown_type`]: Self::with_unknown_type
     pub async fn load<'p, A: Asset>(
         self,
         path: impl Into<AssetPath<'p>>,
@@ -477,12 +470,13 @@ impl NestedLoader<'_, '_, Typed, Immediate<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, Erased<'_>, Immediate<'_, '_>> {
+impl NestedLoader<'_, '_, DynamicTyped, Immediate<'_, '_>> {
     /// Attempts to load the asset at the given `path` immediately.
     ///
-    /// This requires you to pass in the asset type ID and name into [`erased`].
+    /// This requires you to pass in the asset type ID into
+    /// [`with_dynamic_type`].
     ///
-    /// [`erased`]: Self::erased
+    /// [`with_dynamic_type`]: Self::with_dynamic_type
     pub async fn load<'p>(
         self,
         path: impl Into<AssetPath<'p>>,
@@ -495,7 +489,7 @@ impl NestedLoader<'_, '_, Erased<'_>, Immediate<'_, '_>> {
     }
 }
 
-impl NestedLoader<'_, '_, UnknownType, Immediate<'_, '_>> {
+impl NestedLoader<'_, '_, UnknownTyped, Immediate<'_, '_>> {
     /// Attempts to load the asset at the given `path` immediately.
     ///
     /// This will infer the asset type from metadata.

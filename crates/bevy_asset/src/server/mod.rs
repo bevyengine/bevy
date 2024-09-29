@@ -31,6 +31,7 @@ use core::{
     panic::AssertUnwindSafe,
 };
 use crossbeam_channel::{Receiver, Sender};
+use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
@@ -398,7 +399,6 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        type_name: &str,
         meta_transform: Option<MetaTransform>,
         guard: G,
     ) -> UntypedHandle {
@@ -407,7 +407,7 @@ impl AssetServer {
         let (handle, should_load) = infos.get_or_create_path_handle_erased(
             path.clone(),
             type_id,
-            type_name,
+            None,
             HandleLoadingMode::Request,
             meta_transform,
         );
@@ -597,7 +597,7 @@ impl AssetServer {
                     HandleLoadingMode::Request,
                     meta_transform,
                 );
-                unwrap_with_context(result, loader.asset_type_name())
+                unwrap_with_context(result, Either::Left(loader.asset_type_name()))
             }
         };
 
@@ -630,7 +630,7 @@ impl AssetServer {
             let (base_handle, _) = infos.get_or_create_path_handle_erased(
                 base_path.clone(),
                 loader.asset_type_id(),
-                loader.asset_type_name(),
+                Some(loader.asset_type_name()),
                 HandleLoadingMode::Force,
                 None,
             );
@@ -749,7 +749,7 @@ impl AssetServer {
             let (handle, _) = self.data.infos.write().get_or_create_path_handle_erased(
                 path,
                 loaded_asset.asset_type_id(),
-                loaded_asset.asset_type_name(),
+                Some(loaded_asset.asset_type_name()),
                 HandleLoadingMode::NotLoading,
                 None,
             );
@@ -1178,7 +1178,6 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
         type_id: TypeId,
-        type_name: &str,
         meta_transform: Option<MetaTransform>,
     ) -> UntypedHandle {
         let mut infos = self.data.infos.write();
@@ -1186,7 +1185,7 @@ impl AssetServer {
             .get_or_create_path_handle_erased(
                 path.into().into_owned(),
                 type_id,
-                type_name,
+                None,
                 HandleLoadingMode::NotLoading,
                 meta_transform,
             )
