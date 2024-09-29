@@ -23,8 +23,8 @@ impl FieldAccessors {
             .active_fields()
             .map(|field| {
                 (
-                    reflect_struct.access_for_field(field, false),
-                    reflect_struct.access_for_field(field, true),
+                    reflect_struct.access_for_field(field, false, true),
+                    reflect_struct.access_for_field(field, true, true),
                 )
             })
             .unzip();

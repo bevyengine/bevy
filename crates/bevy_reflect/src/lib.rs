@@ -595,6 +595,7 @@ extern crate alloc;
 extern crate self as bevy_reflect;
 
 pub mod array;
+pub mod cast;
 mod error;
 mod fields;
 mod from_reflect;
