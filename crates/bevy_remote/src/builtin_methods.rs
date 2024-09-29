@@ -294,7 +294,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
         match handle_get_component(component_path, entity, entity_ref, &type_registry) {
             Ok(serialized_object) => response.extend(serialized_object.into_iter()),
             Err(err) if strict => return Err(err),
-            Err(_) => {},
+            Err(_) => {}
         }
     }
 
