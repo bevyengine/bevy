@@ -75,7 +75,7 @@ use crate::Material2dBindGroupId;
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
 ///         MeshMaterial2d(materials.add(Color::from(RED.into()))),
-///     });
+///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]

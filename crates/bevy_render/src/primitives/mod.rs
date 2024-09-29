@@ -27,7 +27,6 @@ use bevy_reflect::prelude::*;
 /// [`Camera`]: crate::camera::Camera
 /// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh`]: crate::mesh::Mesh
 /// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]

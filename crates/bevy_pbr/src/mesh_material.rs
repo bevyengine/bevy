@@ -31,7 +31,7 @@ use bevy_reflect::Reflect;
 ///             base_color: RED.into(),
 ///             ..Default::default()
 ///         })),
-///     });
+///     ));
 /// }
 /// ```
 ///

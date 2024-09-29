@@ -7,7 +7,7 @@ use bevy_transform::components::Transform;
 
 /// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
 ///
-/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+/// Meshes without a [`MeshMaterial3d`] will be rendered with a [default material].
 ///
 /// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/trait.MeshMaterial3d.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
@@ -34,7 +34,7 @@ use bevy_transform::components::Transform;
 ///             base_color: RED.into(),
 ///             ..Default::default()
 ///         })),
-///     });
+///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]

@@ -19,7 +19,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
+/// A component bundle for PBR entities with a [`Mesh3d`] and a [`MeshMaterial3d<StandardMaterial>`].
 #[deprecated(
     since = "0.15.0",
     note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."

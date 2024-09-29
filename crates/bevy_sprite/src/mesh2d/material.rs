@@ -91,7 +91,7 @@ use crate::{
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
-///     });
+///     ));
 /// }
 /// ```
 ///
@@ -163,7 +163,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
 ///         MeshMaterial2d(materials.add(Color::from(RED.into()))),
-///     });
+///     ));
 /// }
 /// ```
 ///
