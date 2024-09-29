@@ -120,55 +120,56 @@ pub struct ReflectDeserializerProcessor<'p> {
     /// way as if you had returned [`Err`] from [`deserialize`].
     ///
     /// [`deserialize`]: Self::deserialize
-    pub should_deserialize:
-        Box<dyn FnMut(&TypeRegistration) -> Result<bool, erased_serde::Error> + 'p>,
-    /// Deserializes a value for which [`should_deserialize`] returned [`true`].
-    ///
-    /// If you potentially return [`Ok`], you must consume the deserializer by
-    /// attempting some sort of deserialization, even if you don't use its
-    /// output. Otherwise, the deserializer will be in an invalid state, and
-    /// future deserialization calls will cause errors.
-    ///
-    /// For example, the proper way to return a constant value and consume the
-    /// deserializer, ignoring its output, is:
-    ///
-    /// ```
-    /// # use serde::Deserializer;
-    /// # use bevy_reflect::{PartialReflect, TypeRegistration};
-    /// use serde::de::IgnoredAny;
-    ///
-    /// fn deserialize(
-    ///     _registration: &TypeRegistration,
-    ///     deserializer: &mut dyn erased_serde::Deserializer
-    /// ) -> Result<Box<dyn PartialReflect>, erased_serde::Error> {
-    ///     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-    ///     Ok(Box::new(42_i32))
-    /// }
-    /// ```
-    ///
-    /// [`should_deserialize`]: Self::should_deserialize
-    pub deserialize: Box<
-        dyn FnMut(
-                &TypeRegistration,
-                &mut dyn erased_serde::Deserializer,
-            ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
-            + 'p,
-    >,
+    pub should_deserialize: Box<dyn FnMut(&TypeRegistration) -> Option<DeserializeOp> + 'p>,
+    // todo
+    // /// Deserializes a value for which [`should_deserialize`] returned [`true`].
+    // ///
+    // /// If you potentially return [`Ok`], you must consume the deserializer by
+    // /// attempting some sort of deserialization, even if you don't use its
+    // /// output. Otherwise, the deserializer will be in an invalid state, and
+    // /// future deserialization calls will cause errors.
+    // ///
+    // /// For example, the proper way to return a constant value and consume the
+    // /// deserializer, ignoring its output, is:
+    // ///
+    // /// ```
+    // /// # use serde::Deserializer;
+    // /// # use bevy_reflect::{PartialReflect, TypeRegistration};
+    // /// use serde::de::IgnoredAny;
+    // ///
+    // /// fn deserialize(
+    // ///     _registration: &TypeRegistration,
+    // ///     deserializer: &mut dyn erased_serde::Deserializer
+    // /// ) -> Result<Box<dyn PartialReflect>, erased_serde::Error> {
+    // ///     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+    // ///     Ok(Box::new(42_i32))
+    // /// }
+    // /// ```
+    // ///
+    // /// [`should_deserialize`]: Self::should_deserialize
+    // pub deserialize: Box<
+    //     dyn FnMut(
+    //             &TypeRegistration,
+    //             &mut dyn erased_serde::Deserializer,
+    //         ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
+    //         + 'p,
+    // >,
 }
+
+type DeserializeOp<'p> = Box<
+    dyn FnOnce(
+            &mut dyn erased_serde::Deserializer,
+        ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
+        + 'p,
+>;
 
 impl<'p> ReflectDeserializerProcessor<'p> {
     /// Creates a new processor from [`FnMut`]s.
     pub fn new(
-        should_deserialize: impl FnMut(&TypeRegistration) -> Result<bool, erased_serde::Error> + 'p,
-        deserialize: impl FnMut(
-                &TypeRegistration,
-                &mut dyn erased_serde::Deserializer,
-            ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
-            + 'p,
+        should_deserialize: impl FnMut(&TypeRegistration) -> Option<DeserializeOp> + 'p,
     ) -> Self {
         Self {
             should_deserialize: Box::new(should_deserialize),
-            deserialize: Box::new(deserialize),
         }
     }
 }
@@ -510,10 +511,10 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
             // First, check if our processor wants to deserialize this type
             // This takes priority over any other deserialization operations
             if let Some(processor) = self.processor.as_deref_mut() {
-                if (processor.should_deserialize)(self.registration).map_err(make_custom_error)? {
+                let deserialize_op = (processor.should_deserialize)(self.registration);
+                if let Some(deserialize_op) = deserialize_op {
                     let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-                    return (processor.deserialize)(self.registration, &mut deserializer)
-                        .map_err(make_custom_error);
+                    return (deserialize_op)(&mut deserializer).map_err(make_custom_error);
                 }
             }
 
