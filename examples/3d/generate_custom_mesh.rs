@@ -36,7 +36,7 @@ fn setup(
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
         Mesh3d(cube_mesh_handle),
         MeshMaterial3d(materials.add(StandardMaterial {
