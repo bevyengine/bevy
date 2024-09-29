@@ -85,10 +85,6 @@ pub enum SpriteSystem {
 #[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
-/// A convenient alias for `With<Mesh2d>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2d>;
-
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
 pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
@@ -119,6 +115,7 @@ impl Plugin for SpritePlugin {
             .add_plugins((
                 Mesh2dRenderPlugin,
                 ColorMaterialPlugin,
+                PlaceholderMaterial2dPlugin,
                 ExtractComponentPlugin::<SpriteSource>::default(),
             ))
             .add_systems(
@@ -131,7 +128,7 @@ impl Plugin for SpritePlugin {
                     )
                         .in_set(SpriteSystem::ComputeSlices),
                     (
-                        check_visibility::<WithMesh2d>,
+                        check_visibility::<With<Mesh2d>>,
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility),

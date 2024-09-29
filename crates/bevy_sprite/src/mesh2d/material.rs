@@ -39,7 +39,7 @@ use core::{hash::Hash, marker::PhantomData};
 
 use crate::{
     DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -141,6 +141,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 
 /// A [2D material](Material2d) for a [`Mesh2d`](crate::Mesh2d).
 #[derive(Component, Clone, Debug, Deref, DerefMut, PartialEq, Eq)]
+#[require(HasMaterial2d)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
 impl<M: Material2d> Default for MeshMaterial2d<M> {
@@ -166,6 +167,13 @@ impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
         material.id()
     }
 }
+
+/// A component that marks an entity as having a 2D material.
+/// [`Mesh2d`] entities without this component are rendered with the [`PlaceholderMaterial2d`].
+///
+/// [`PlaceholderMaterial2d`]: crate::PlaceholderMaterial2d
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct HasMaterial2d;
 
 /// Sets how a 2d material's base color alpha channel is used for transparency.
 /// Currently, this only works with [`Mesh2d`](crate::mesh2d::Mesh2d). Sprites are always transparent.
@@ -370,7 +378,7 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     }
 }
 
-type DrawMaterial2d<M> = (
+pub(super) type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMesh2dBindGroup<1>,
@@ -490,7 +498,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for visible_entity in visible_entities.iter::<WithMesh2d>() {
+        for visible_entity in visible_entities.iter::<With<Mesh2d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
