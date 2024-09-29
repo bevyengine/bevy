@@ -10,7 +10,7 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     storage::{ResourceData, SparseSetIndex},
-    system::{Query, QuerySingle, SystemMeta},
+    system::{Query, Single, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -369,11 +369,9 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QuerySingle<'a, D, F>
-{
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = QuerySingle<'w, D, F>;
+    type Item<'w, 's> = Single<'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Query::init_state(world, system_meta)
@@ -401,7 +399,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         let single =
             result.expect("The query was expected to contain exactly one matching entity.");
-        QuerySingle {
+        Single {
             item: single,
             _filter: PhantomData,
         }
@@ -430,13 +428,13 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for Option<QuerySingle<'a, D, F>>
+    for Option<Single<'a, D, F>>
 {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Option<QuerySingle<'w, D, F>>;
+    type Item<'w, 's> = Option<Single<'w, D, F>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        QuerySingle::init_state(world, system_meta)
+        Single::init_state(world, system_meta)
     }
 
     unsafe fn new_archetype(
@@ -445,7 +443,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &mut SystemMeta,
     ) {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        unsafe { QuerySingle::new_archetype(state, archetype, system_meta) };
+        unsafe { Single::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -460,7 +458,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         let result =
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         match result {
-            Ok(single) => Some(QuerySingle {
+            Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
             }),
@@ -491,13 +489,13 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for QuerySingle<'a, D, F>
+    for Single<'a, D, F>
 {
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Option<QuerySingle<'a, D, F>>
+    for Option<Single<'a, D, F>>
 {
 }
 
