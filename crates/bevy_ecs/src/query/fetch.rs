@@ -2165,7 +2165,14 @@ macro_rules! impl_anytuple_fetch {
     };
 }
 
-all_tuples!(impl_tuple_query_data, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_query_data,
+    0,
+    15,
+    F,
+    S
+);
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
