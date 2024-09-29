@@ -15,15 +15,37 @@ mod gilrs_system;
 mod rumble;
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
-use bevy_utils::{synccell::SyncCell, tracing::error};
+use bevy_utils::{synccell::SyncCell, tracing::error, HashMap};
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Resource))]
 pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
+
+/// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
+#[derive(Debug, Default, Resource)]
+pub(crate) struct GilrsGamepads {
+    /// Mapping of [`Entity`] to [`gilrs::GamepadId`].
+    pub(crate) entity_to_id: EntityHashMap<gilrs::GamepadId>,
+    /// Mapping of [`gilrs::GamepadId`] to [`Entity`].
+    pub(crate) id_to_entity: HashMap<gilrs::GamepadId, Entity>,
+}
+
+impl GilrsGamepads {
+    /// Returns the [`Entity`] assigned to a connected [`gilrs::GamepadId`].
+    pub fn get_entity(&self, gamepad_id: gilrs::GamepadId) -> Option<Entity> {
+        self.id_to_entity.get(&gamepad_id).copied()
+    }
+
+    /// Returns the [`gilrs::GamepadId`] assigned to a gamepad [`Entity`].
+    pub fn get_gamepad_id(&self, entity: Entity) -> Option<gilrs::GamepadId> {
+        self.entity_to_id.get(&entity).copied()
+    }
+}
 
 /// Plugin that provides gamepad handling to an [`App`].
 #[derive(Default)]
@@ -45,7 +67,7 @@ impl Plugin for GilrsPlugin {
                 app.insert_non_send_resource(Gilrs(SyncCell::new(gilrs)));
                 #[cfg(not(target_arch = "wasm32"))]
                 app.insert_resource(Gilrs(SyncCell::new(gilrs)));
-
+                app.init_resource::<GilrsGamepads>();
                 app.init_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
                     .add_systems(PreUpdate, gilrs_event_system.before(InputSystem))

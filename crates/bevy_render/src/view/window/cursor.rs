@@ -166,9 +166,10 @@ pub fn update_cursors(
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
 pub fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+    // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(trigger.entity())
-        .insert(PendingCursor(Some(CursorSource::System(
+        .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));
 }
