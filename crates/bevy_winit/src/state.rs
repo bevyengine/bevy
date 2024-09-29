@@ -561,15 +561,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
-            // Look for closing windows.
-            let is_closing = {
+            // Looks for closing windows.
+            let is_window_closing = {
                 let mut closing = self.world_mut().query_filtered::<(), With<ClosingWindow>>();
-                !closing.iter(self.world()).collect::<Vec<_>>().is_empty()
+                closing.iter(self.world()).next().is_some()
             };
 
-            // If there are closing windows, we force the app to update immediately so the app does
-            // not take too long to close.
-            if is_closing {
+            // If there are closing windows, ignore `UpdateMode::Reactive` to make the window close immediately.
+            if is_window_closing {
                 update_mode = UpdateMode::Continuous;
             } else {
                 // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
