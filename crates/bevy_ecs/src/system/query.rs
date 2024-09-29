@@ -1674,9 +1674,9 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// This will cause systems that use this parameter to be skipped.
 ///
 /// See [`Query`] for more details.
-pub struct QueryNonEmpty<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Deref for QueryNonEmpty<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {
     type Target = Query<'w, 's, D, F>;
 
     fn deref(&self) -> &Self::Target {
@@ -1684,13 +1684,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Deref for QueryNonEmpty<'w, 's, D, F>
     }
 }
 
-impl<D: QueryData, F: QueryFilter> DerefMut for QueryNonEmpty<'_, '_, D, F> {
+impl<D: QueryData, F: QueryFilter> DerefMut for Populated<'_, '_, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryNonEmpty<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> Query<'w, 's, D, F> {
         self.0

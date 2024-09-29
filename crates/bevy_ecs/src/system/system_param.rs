@@ -26,7 +26,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use super::QueryNonEmpty;
+use super::Populated;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -502,10 +502,10 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'world, 'state, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QueryNonEmpty<'world, 'state, D, F>
+    for Populated<'world, 'state, D, F>
 {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = QueryNonEmpty<'w, 's, D, F>;
+    type Item<'w, 's> = Populated<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Query::<'world, 'state, D, F>::init_state(world, system_meta)
@@ -531,7 +531,7 @@ unsafe impl<'world, 'state, D: QueryData + 'static, F: QueryFilter + 'static> Sy
         let query = unsafe {
             Query::<'world, 'state, D, F>::get_param(state, system_meta, world, change_tick)
         };
-        QueryNonEmpty(query)
+        Populated(query)
     }
 
     #[inline]
@@ -552,7 +552,7 @@ unsafe impl<'world, 'state, D: QueryData + 'static, F: QueryFilter + 'static> Sy
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for QueryNonEmpty<'w, 's, D, F>
+    for Populated<'w, 's, D, F>
 {
 }
 
