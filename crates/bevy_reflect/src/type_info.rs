@@ -7,7 +7,7 @@ use crate::{
     structs::{DynamicStruct, StructInfo},
     tuple::{DynamicTuple, TupleInfo},
     tuple_struct::{DynamicTupleStruct, TupleStructInfo},
-    Generics, PartialReflect, Reflect, ReflectKind, TypePath, TypePathTable,
+    Generics, Reflect, ReflectKind, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
@@ -117,7 +117,7 @@ pub trait Typed: Reflect + TypePath {
     message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait MaybeTyped: PartialReflect {
+pub trait MaybeTyped {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
     /// [info]: TypeInfo
