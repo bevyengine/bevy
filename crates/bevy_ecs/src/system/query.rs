@@ -39,7 +39,7 @@ use core::{
 /// - [`Single`] - Exactly one matching query item.
 /// - [`Option<Single>`] - Zero or one matching query item.
 /// - [`Populated`] - At least one matching query item.
-/// 
+///
 /// Those parameters will prevent systems from running if their requirements aren't met.
 ///
 /// # System parameter declaration
