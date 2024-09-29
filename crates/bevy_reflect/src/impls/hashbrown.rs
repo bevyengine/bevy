@@ -1,7 +1,7 @@
 use crate::impls::macros::{impl_reflect_for_hashmap, impl_reflect_for_hashset};
 #[cfg(feature = "functions")]
 use crate::{
-    from_reflect::FromReflect, type_info::MaybeTyped, type_path::TypePath,
+    from_reflect::FromReflect, reflect::Reflect, type_info::MaybeTyped, type_path::TypePath,
     type_registry::GetTypeRegistration,
 };
 use bevy_reflect_derive::impl_type_path;
@@ -13,8 +13,8 @@ impl_type_path!(::hashbrown::hash_map::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::hashbrown::hash_map::HashMap<K, V, S>;
     <
-        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        K: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
     >
 );
@@ -24,7 +24,7 @@ impl_type_path!(::hashbrown::hash_set::HashSet<V, S>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::hashbrown::hash_set::HashSet<V, S>;
     <
-        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        V: Hash + Eq + FromReflect + Reflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
     >
 );

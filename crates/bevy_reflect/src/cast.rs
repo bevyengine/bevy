@@ -1,4 +1,3 @@
-use crate as bevy_reflect;
 use crate::__macro_exports::RegisterForReflection;
 use crate::{MaybeTyped, PartialReflect, Reflect};
 use alloc::boxed::Box;

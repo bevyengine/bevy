@@ -13,7 +13,7 @@ use smallvec::{Array as SmallArray, SmallVec};
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         if index < SmallVec::len(self) {
@@ -81,7 +81,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -158,7 +158,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -192,7 +192,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -209,7 +209,7 @@ impl_type_path!(::smallvec::SmallVec<T: SmallArray>);
 
 impl<T: SmallArray + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         let ref_list = reflect.reflect_ref().as_list().ok()?;
@@ -226,7 +226,7 @@ where
 
 impl<T: SmallArray + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
-    T::Item: FromReflect + MaybeTyped + TypePath,
+    T::Item: FromReflect + Reflect + MaybeTyped + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
@@ -236,4 +236,4 @@ where
 }
 
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + MaybeTyped + TypePath);
+crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + Reflect + MaybeTyped + TypePath);

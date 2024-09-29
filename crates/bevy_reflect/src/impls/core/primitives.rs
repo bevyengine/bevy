@@ -601,7 +601,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 }
 
-impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
+impl<T: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
     for [T; N]
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {

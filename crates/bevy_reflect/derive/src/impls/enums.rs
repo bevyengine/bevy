@@ -341,18 +341,25 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
             is_mutable: bool,
             bevy_reflect_path: &Path,
         ) -> proc_macro2::TokenStream {
-            let method = if is_mutable {
+            let remote_method = if is_mutable {
                 quote!(as_wrapper_mut)
             } else {
                 quote!(as_wrapper)
+            };
+            let cast_method = if is_mutable {
+                quote!(#bevy_reflect_path::cast::CastPartialReflect::as_partial_reflect_mut)
+            } else {
+                quote!(#bevy_reflect_path::cast::CastPartialReflect::as_partial_reflect)
             };
 
             field
                 .attrs
                 .remote
                 .as_ref()
-                .map(|ty| quote!(<#ty as #bevy_reflect_path::ReflectRemote>::#method(#ident)))
-                .unwrap_or_else(|| quote!(#ident))
+                .map(
+                    |ty| quote!(<#ty as #bevy_reflect_path::ReflectRemote>::#remote_method(#ident)),
+                )
+                .unwrap_or_else(|| quote!(#cast_method(#ident)))
         }
 
         match &variant.fields {
