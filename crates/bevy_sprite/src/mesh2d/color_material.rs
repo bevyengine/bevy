@@ -30,12 +30,13 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
+        // Initialize the default material.
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(
                 &Handle::<ColorMaterial>::default(),
                 ColorMaterial {
-                    color: Color::srgb(1.0, 0.0, 1.0),
+                    color: Color::WHITE,
                     ..Default::default()
                 },
             );

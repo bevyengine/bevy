@@ -5,10 +5,38 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
-/// A component for rendering 3D meshes, typically with a [material] such as [`StandardMaterial`].
+/// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
 ///
-/// [material]: <https://docs.rs/bevy/latest/bevy/pbr/trait.Material.html>
+/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+///
+/// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/trait.MeshMaterial3d.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
+/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html#default-material>
+///
+/// # Example
+///
+/// ```ignore
+/// # use bevy_pbr::{Material3d, Mesh3d, MeshMaterial3d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::mesh::Mesh;
+/// # use bevy_asset::{AssetServer, Assets};
+/// #
+/// // Spawn an entity with a mesh using `StandardMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<StandardMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         Mesh3d(meshes.add(Capsule::default())),
+///         MeshMaterial3d(materials.add(StandardMaterial {
+///             base_color: RED.into(),
+///             ..Default::default()
+///         })),
+///     });
+/// }
+/// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]

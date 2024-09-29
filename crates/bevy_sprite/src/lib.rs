@@ -115,7 +115,6 @@ impl Plugin for SpritePlugin {
             .add_plugins((
                 Mesh2dRenderPlugin,
                 ColorMaterialPlugin,
-                PlaceholderMaterial2dPlugin,
                 ExtractComponentPlugin::<SpriteSource>::default(),
             ))
             .add_systems(

@@ -24,7 +24,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::TemporalJitter,
-    extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
+    extract_instances::ExtractedInstances,
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -260,21 +260,29 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_asset::<M>().add_plugins((
-            ExtractInstancesPlugin::<AssetId<M>>::extract_visible(),
-            RenderAssetPlugin::<PreparedMaterial<M>>::default(),
-        ));
+        app.init_asset::<M>()
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
+                .init_resource::<ExtractedInstances<AssetId<M>>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_material_meshes::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    // Non-mesh materials and mesh materials must currently be extracted separately,
+                    // because some materials like `WireframeMaterial` use `Handle<M>` while others use `MeshMaterial3d<M>`.
+                    (
+                        clear_material_instances::<M>,
+                        (extract_material::<M>, extract_material_meshes::<M>),
+                    )
+                        .chain(),
+                )
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -530,18 +538,46 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
+pub(super) fn clear_material_instances<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+) {
+    material_instances.clear();
+}
+
+fn extract_material<M: Material>(
+    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
+) {
+    for (entity, view_visibility, material) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, material.id());
+        }
+    }
+}
+
 fn extract_material_meshes<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>), With<Mesh3d>>>,
 ) {
-    if query.is_empty() {
-        return;
-    }
-
-    material_instances.clear();
-    for (entity, view_visibility, handle) in &query {
+    for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, handle.id());
+            material_instances.insert(entity, material.id());
+        }
+    }
+}
+
+/// Extracts placeholder materials for 3D meshes with no [`MeshMaterial3d`].
+pub(super) fn extract_placeholder_materials(
+    mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
+    query: Extract<
+        Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<MeshMaterial3d<StandardMaterial>>)>,
+    >,
+) {
+    let default_material: AssetId<StandardMaterial> = Handle::<StandardMaterial>::default().id();
+
+    for (entity, view_visibility) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, default_material);
         }
     }
 }

@@ -49,10 +49,35 @@ use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
 
-/// A component for rendering 2D meshes, typically with a [2D material] such as [`ColorMaterial`].
+/// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
 ///
-/// [2D material]: crate::material::Material2d
-/// [`ColorMaterial`]: crate::material::ColorMaterial
+/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+///
+/// [`MeshMaterial2d`]: crate::MeshMaterial2d
+/// [`ColorMaterial`]: crate::ColorMaterial
+/// [default material]: crate::MeshMaterial2d#default-material
+///
+/// # Example
+///
+/// ```
+/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::mesh::Mesh;
+/// # use bevy_asset::{AssetServer, Assets};
+/// #
+/// // Spawn an entity with a mesh using `ColorMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(Color::from(RED.into()))),
+///     });
+/// }
+/// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
