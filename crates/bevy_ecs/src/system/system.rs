@@ -270,7 +270,7 @@ where
 /// let mut world = World::default();
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
-/// });
+/// }).unwrap();
 /// # assert!(world.get_entity(entity).is_some());
 /// ```
 ///
@@ -290,7 +290,7 @@ where
 /// world.spawn(T(1));
 /// let count = world.run_system_once(|query: Query<&T>| {
 ///     query.iter().filter(|t| t.0 == 1).count()
-/// });
+/// }).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
@@ -312,7 +312,7 @@ where
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system_once(count);
+/// let count = world.run_system_once(count).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
