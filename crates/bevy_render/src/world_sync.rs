@@ -21,7 +21,7 @@ use bevy_reflect::Reflect;
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
-/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainWorld`] contains
+/// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
 /// the corresponding main world entity of a render world entity.
 /// The entities can be accessed by calling `.id()` on either component.
 ///
