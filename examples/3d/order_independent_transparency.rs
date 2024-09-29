@@ -1,4 +1,7 @@
-//! A simple 3D scene with light shining over a cube sitting on a plane.
+//! A simple 3D scene showing how alpha blending can break and how OIT can fix it.
+//!
+//! If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
+//! You also need to make sure that your fragment shader doesn't output any colors.
 
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED},
@@ -29,12 +32,12 @@ fn setup(
                 transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
                 ..default()
             },
-            // Add this component so this camera to render transparent meshes using OIT
+            // Add this component to this camera to render transparent meshes using OIT
             OrderIndependentTransparencySettings::default(),
             RenderLayers::layer(1),
         ))
         .insert(
-            // Msaa currently doesn't work well with OIT
+            // Msaa currently doesn't work with OIT
             Msaa::Off,
         );
 

@@ -361,11 +361,11 @@ fn layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
         entries = entries.extend_with_indices((
             // oit_layers
-            (29, storage_buffer_sized(false, None)),
+            (31, storage_buffer_sized(false, None)),
             // oit_layer_ids,
-            (30, storage_buffer_sized(false, None)),
+            (32, storage_buffer_sized(false, None)),
             // oit_layer_count
-            (31, uniform_buffer::<i32>(true)),
+            (33, uniform_buffer::<i32>(true)),
         ));
     }
 
@@ -682,9 +682,9 @@ pub fn prepare_mesh_view_bind_groups(
                     oit_buffers.layers_count_uniforms.binding(),
                 ) {
                     entries = entries.extend_with_indices((
-                        (29, oit_layers_binding.clone()),
-                        (30, oit_layer_ids_binding.clone()),
-                        (31, oit_layers_count_uniforms_binding.clone()),
+                        (31, oit_layers_binding.clone()),
+                        (32, oit_layer_ids_binding.clone()),
+                        (33, oit_layers_count_uniforms_binding.clone()),
                     ));
                 }
             }

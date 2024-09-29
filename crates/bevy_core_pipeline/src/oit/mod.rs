@@ -1,9 +1,23 @@
+//! # Order Independent Transparency (OIT)
+//!
+//! This implementation uses 2 passes.
+//!
+//! The first pass writes the depth and color of all the fragments to a big buffer.
+//! The buffer contains N layers for each pixel.
+//! This pass is essentially a forward pass.
+//!
+//! The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
+//! and outputs the result to the screen.
+//!
+//! If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
+//! You also need to make sure that your fragment shader doesn't output any colors.
+
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
 use bevy_math::UVec2;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{Camera, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, Shader, TextureUsages},
@@ -11,7 +25,8 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{tracing::trace, warn_once, Instant};
+use bevy_utils::{tracing::trace, HashSet, Instant};
+use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
@@ -29,7 +44,7 @@ pub mod resolve;
 pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4042527984320512);
 
 /// Used to identify which camera will use OIT to render transparent meshes
-/// Alos used to configure OIT
+/// and to configure OIT
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component
@@ -90,17 +105,32 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
 // WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`]
 // but when multiple cameras are present on the same window
-// bevy reuses the same depth texture so we need to set this on all cameras.
+// bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
-    mut new_cameras: Query<
-        &mut Camera3d,
-        (Added<Camera3d>, With<OrderIndependentTransparencySettings>),
-    >,
+    p: Query<Entity, With<PrimaryWindow>>,
+    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
+    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
 ) {
-    for mut camera in &mut new_cameras {
-        let mut usages = TextureUsages::from(camera.depth_texture_usages);
-        usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
-        camera.depth_texture_usages = usages.into();
+    if new_cameras.is_empty() {
+        return;
+    }
+
+    // Find all the render target that potentially uses OIT
+    let primary_window = p.get_single().expect("No primary window found");
+    let mut render_target_has_oit = HashSet::new();
+    for (camera, has_oit) in &cameras {
+        if has_oit {
+            render_target_has_oit.insert(camera.target.normalize(Some(primary_window)));
+        }
+    }
+
+    // Update the depth texture usage for cameras with a render target that has OIT
+    for (mut camera_3d, camera) in &mut new_cameras {
+        if render_target_has_oit.contains(&camera.target.normalize(Some(primary_window))) {
+            let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
+            usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+            camera_3d.depth_texture_usages = usages.into();
+        }
     }
 }
 
@@ -203,7 +233,7 @@ pub fn prepare_oit_buffers(
         trace!(
             "OIT layers buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.layers.capacity() * std::mem::size_of::<UVec2>() / 1024 / 1024,
+            buffers.layers.capacity() * size_of::<UVec2>() / 1024 / 1024,
         );
     }
 
@@ -223,7 +253,7 @@ pub fn prepare_oit_buffers(
         trace!(
             "OIT layer ids buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.layer_ids.capacity() * std::mem::size_of::<UVec2>() / 1024 / 1024,
+            buffers.layer_ids.capacity() * size_of::<UVec2>() / 1024 / 1024,
         );
     }
 

@@ -18,7 +18,6 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashMap;
 
 use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,

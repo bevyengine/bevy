@@ -103,7 +103,7 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(30) var view_transmission_sampler: sampler;
 
 #ifdef OIT_ENABLED
-@group(0) @binding(29) var<storage, read_write> oit_layers: array<vec2<u32>>;
-@group(0) @binding(30) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
-@group(0) @binding(31) var<uniform> oit_layers_count: i32;
+@group(0) @binding(31) var<storage, read_write> oit_layers: array<vec2<u32>>;
+@group(0) @binding(32) var<storage, read_write> oit_layer_ids: array<atomic<i32>>;
+@group(0) @binding(33) var<uniform> oit_layers_count: i32;
 #endif OIT_ENABLED
