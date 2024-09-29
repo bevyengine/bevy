@@ -31,6 +31,7 @@ use bevy_ecs::{
     entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
 };
 use bevy_math::FloatExt;
+use bevy_reflect::cast::{CastPartialReflect, CastReflect};
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,
     FromReflect, FromType, GetTypeRegistration, NamedField, PartialReflect, Reflect,
@@ -341,6 +342,34 @@ impl Reflect for VariableCurve {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+}
+
+impl CastPartialReflect for VariableCurve {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+}
+
+impl CastReflect for VariableCurve {
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
     }
 }
 

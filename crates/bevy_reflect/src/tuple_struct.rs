@@ -1,5 +1,6 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
@@ -370,6 +371,7 @@ impl PartialReflect for DynamicTupleStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
+impl_cast_partial_reflect!(for DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

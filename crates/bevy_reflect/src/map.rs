@@ -7,6 +7,7 @@ use crate::{
     self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
     Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
+use crate::cast::impl_cast_partial_reflect;
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -389,6 +390,7 @@ impl PartialReflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+impl_cast_partial_reflect!(for DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

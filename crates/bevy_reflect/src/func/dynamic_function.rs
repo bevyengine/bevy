@@ -1,3 +1,4 @@
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
@@ -249,6 +250,7 @@ impl MaybeTyped for DynamicFunction<'static> {}
 impl RegisterForReflection for DynamicFunction<'static> {}
 
 impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
+impl_cast_partial_reflect!(for DynamicFunction<'static>);
 
 /// Outputs the function's signature.
 ///

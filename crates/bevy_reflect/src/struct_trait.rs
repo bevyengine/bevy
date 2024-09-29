@@ -1,3 +1,4 @@
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
@@ -462,6 +463,7 @@ impl PartialReflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+impl_cast_partial_reflect!(for DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

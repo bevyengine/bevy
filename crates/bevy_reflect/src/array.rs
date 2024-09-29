@@ -1,3 +1,4 @@
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
     MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
@@ -352,6 +353,7 @@ impl<'a> IntoIterator for &'a DynamicArray {
 }
 
 impl_type_path!((in bevy_reflect) DynamicArray);
+impl_cast_partial_reflect!(for DynamicArray);
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {

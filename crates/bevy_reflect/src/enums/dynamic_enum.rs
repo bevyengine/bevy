@@ -6,6 +6,7 @@ use crate::{
     Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 
+use crate::cast::impl_cast_partial_reflect;
 use core::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
@@ -416,3 +417,4 @@ impl PartialReflect for DynamicEnum {
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);
+impl_cast_partial_reflect!(for DynamicEnum);
