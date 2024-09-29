@@ -3,6 +3,7 @@
     reason = "Temporary workaround for impl_reflect!(Option/Result false-positive"
 )]
 
+use crate::cast::{CastPartialReflect, CastReflect};
 use crate::{
     impl_type_path, map_apply, map_partial_eq, map_try_apply,
     prelude::ReflectDefault,
@@ -1476,6 +1477,38 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> R
     }
 }
 
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> CastPartialReflect
+    for [T; N]
+{
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+}
+
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> CastReflect
+    for [T; N]
+{
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+}
+
 impl<T: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize>
     FromReflect for [T; N]
 {
@@ -1945,37 +1978,6 @@ impl PartialReflect for &'static str {
     }
 }
 
-impl Reflect for &'static str {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl Typed for &'static str {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -1997,6 +1999,8 @@ impl FromReflect for &'static str {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
+
+impl_full_reflect!(for &'static str);
 
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(&'static str);
@@ -2081,38 +2085,6 @@ impl PartialReflect for &'static Path {
 }
 
 #[cfg(feature = "std")]
-impl Reflect for &'static Path {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
-#[cfg(feature = "std")]
 impl Typed for &'static Path {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -2136,6 +2108,9 @@ impl FromReflect for &'static Path {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
+
+#[cfg(feature = "std")]
+impl_full_reflect!(for &'static Path);
 
 #[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(&'static Path);
@@ -2224,38 +2199,6 @@ impl PartialReflect for Cow<'static, Path> {
 }
 
 #[cfg(feature = "std")]
-impl Reflect for Cow<'static, Path> {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
-#[cfg(feature = "std")]
 impl Typed for Cow<'static, Path> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -2285,6 +2228,9 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration
     }
 }
+
+#[cfg(feature = "std")]
+impl_full_reflect!(for Cow<'static, Path>);
 
 #[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(Cow<'static, Path>);
@@ -2377,37 +2323,6 @@ impl PartialReflect for &'static Location<'static> {
     }
 }
 
-impl Reflect for &'static Location<'static> {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
 impl Typed for &'static Location<'static> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -2429,6 +2344,8 @@ impl FromReflect for &'static Location<'static> {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
+
+impl_full_reflect!(for &'static Location<'static>);
 
 #[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(&'static Location<'static>);

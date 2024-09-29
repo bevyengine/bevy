@@ -1,4 +1,5 @@
 mod assertions;
+mod casting;
 mod common;
 mod enums;
 #[cfg(feature = "functions")]

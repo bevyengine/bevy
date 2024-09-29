@@ -507,6 +507,9 @@ impl TypePath for dyn Reflect {
 
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
+
+        $crate::cast::impl_casting_traits!($(<$($id),*>)? for $ty $(where $($tt)*)?);
+
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
             fn into_any(self: Box<Self>) -> Box<dyn ::core::any::Any> {
                 self

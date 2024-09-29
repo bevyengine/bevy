@@ -1,8 +1,8 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    cast::impl_cast_partial_reflect, type_info::impl_type_methods, utility::reflect_hasher,
+    ApplyError, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
@@ -358,6 +358,7 @@ impl<'a> IntoIterator for &'a DynamicArray {
 }
 
 impl_type_path!((in bevy_reflect) DynamicArray);
+impl_cast_partial_reflect!(for DynamicArray);
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {

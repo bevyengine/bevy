@@ -13,6 +13,7 @@ use crate::{
     MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
     TypeInfo, TypePath,
 };
+use crate::cast::impl_cast_partial_reflect;
 
 /// A trait used to power [list-like] operations via [reflection].
 ///
@@ -347,6 +348,7 @@ impl PartialReflect for DynamicList {
 }
 
 impl_type_path!((in bevy_reflect) DynamicList);
+impl_cast_partial_reflect!(for DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

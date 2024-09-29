@@ -1,6 +1,7 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
+    cast::impl_cast_partial_reflect,
     type_info::impl_type_methods,
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
@@ -471,6 +472,7 @@ impl PartialReflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+impl_cast_partial_reflect!(for DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

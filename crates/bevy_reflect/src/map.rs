@@ -4,9 +4,9 @@ use bevy_platform_support::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    cast::impl_cast_partial_reflect, generics::impl_generic_info_methods,
+    type_info::impl_type_methods, ApplyError, Generics, MaybeTyped, PartialReflect, Reflect,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{boxed::Box, format, vec::Vec};
 
@@ -452,6 +452,7 @@ impl PartialReflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+impl_cast_partial_reflect!(for DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
