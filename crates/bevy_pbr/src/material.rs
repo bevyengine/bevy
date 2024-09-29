@@ -264,6 +264,8 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
+            .register_type::<MeshMaterial3d<M>>()
+            .register_type::<HasMaterial3d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

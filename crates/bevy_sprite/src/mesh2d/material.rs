@@ -199,7 +199,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 ///     commands.spawn(Mesh2d(meshes.add(Circle::new(50.0))));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Deref, DerefMut, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
 #[require(HasMaterial2d)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
@@ -232,6 +233,7 @@ impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
 ///
 /// [default material]: crate::MeshMaterial2d#default-material
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct HasMaterial2d;
 
 /// Sets how a 2d material's base color alpha channel is used for transparency.
@@ -279,6 +281,8 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
+            .register_type::<MeshMaterial2d<M>>()
+            .register_type::<HasMaterial2d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
