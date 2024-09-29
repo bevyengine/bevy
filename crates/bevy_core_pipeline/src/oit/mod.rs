@@ -91,7 +91,14 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 
         render_app
             .add_render_graph_node::<ViewNodeRunner<OitResolveNode>>(Core3d, OitResolvePass)
-            .add_render_graph_edges(Core3d, (Node3d::MainTransparentPass, OitResolvePass));
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::MainTransparentPass,
+                    OitResolvePass,
+                    Node3d::EndMainPass,
+                ),
+            );
     }
 
     fn finish(&self, app: &mut App) {
