@@ -26,7 +26,6 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.15.0-dev" }
 
-petgraph = "0.6"
 bitflags = "2.3"
 concurrent-queue = "2.4.0"
 disqualified = "1.0"
@@ -36,6 +35,7 @@ thiserror = "1.0"
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
 smallvec = "1"
+indexmap = { version = "2.5.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 rand = "0.8"
