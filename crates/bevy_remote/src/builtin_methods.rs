@@ -317,7 +317,7 @@ fn handle_get_component(
     };
 
     // Each component value serializes to a map with a single entry.
-    let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
+    let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
     let Value::Object(serialized_object) =
         serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
             code: error_codes::COMPONENT_ERROR,
