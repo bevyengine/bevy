@@ -338,6 +338,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
     /// and returns its corresponding [`EntityCommands`].
     ///
+    /// In case multiple bundles of the same [`Bundle`] type need to be spawned,
+    /// [`spawn_batch`](Self::spawn_batch) should be used for better performance.
+    ///
     /// # Example
     ///
     /// ```

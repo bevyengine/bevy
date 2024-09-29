@@ -88,7 +88,6 @@ mod tests {
     use bevy_math::{Quat, Vec3};
 
     use crate::{
-        bundles::TransformBundle,
         components::{GlobalTransform, Transform},
         helper::TransformHelper,
         plugins::TransformPlugin,
@@ -122,7 +121,7 @@ mod tests {
         let mut entity = None;
 
         for transform in transforms {
-            let mut e = app.world_mut().spawn(TransformBundle::from(transform));
+            let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
                 e.set_parent(entity);

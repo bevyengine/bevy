@@ -62,7 +62,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
-    bevy_animation::{AnimationTarget, AnimationTargetId},
+    bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
     smallvec::SmallVec,
 };
 
@@ -276,7 +276,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = bevy_animation::AnimationClip::default();
+            let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
                 let node = channel.target().node();
                 let interpolation = channel.sampler().interpolation();
@@ -861,7 +861,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(AnimationPlayer::default());
                 }
             }
         }
@@ -2591,7 +2591,7 @@ mod test {
         {
             "inverseBindMatrices": 0,
             "joints": [1, 2]
-        }  
+        }
     ],
     "buffers": [
         {
@@ -2603,7 +2603,7 @@ mod test {
         {
             "buffer": 0,
             "byteLength": 128
-        }  
+        }
     ],
     "accessors": [
         {
@@ -2611,7 +2611,7 @@ mod test {
             "componentType" : 5126,
             "count" : 2,
             "type" : "MAT4"
-        }  
+        }
     ],
     "scene": 0,
     "scenes": [{ "nodes": [0] }]
