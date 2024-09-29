@@ -116,17 +116,17 @@ fn configure_depth_texture_usages(
     }
 
     // Find all the render target that potentially uses OIT
-    let primary_window = p.get_single().expect("No primary window found");
+    let primary_window = p.get_single().ok();
     let mut render_target_has_oit = HashSet::new();
     for (camera, has_oit) in &cameras {
         if has_oit {
-            render_target_has_oit.insert(camera.target.normalize(Some(primary_window)));
+            render_target_has_oit.insert(camera.target.normalize(primary_window));
         }
     }
 
     // Update the depth texture usage for cameras with a render target that has OIT
     for (mut camera_3d, camera) in &mut new_cameras {
-        if render_target_has_oit.contains(&camera.target.normalize(Some(primary_window))) {
+        if render_target_has_oit.contains(&camera.target.normalize(primary_window)) {
             let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
             usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
             camera_3d.depth_texture_usages = usages.into();
