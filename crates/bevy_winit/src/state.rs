@@ -632,6 +632,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         if let Some(app_exit) = self.app.should_exit() {
             self.app_exit = Some(app_exit);
 
+            bevy_utils::tracing::info!("Exit event loop");
             event_loop.exit();
         }
     }
