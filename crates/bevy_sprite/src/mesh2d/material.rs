@@ -150,7 +150,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 }
 
-/// A [material](Material2d) for a [`Mesh2d`](crate::Mesh2d).
+/// A [material](Material2d) for a [`Mesh2d`].
 ///
 /// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
 ///
@@ -248,7 +248,7 @@ impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
 pub struct HasMaterial2d;
 
 /// Sets how a 2d material's base color alpha channel is used for transparency.
-/// Currently, this only works with [`Mesh2d`](crate::mesh2d::Mesh2d). Sprites are always transparent.
+/// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
 ///
 /// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
