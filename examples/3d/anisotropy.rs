@@ -117,7 +117,7 @@ fn create_material_variants(
         };
 
         commands.entity(entity).insert(MaterialVariants {
-            anisotropic: anisotropic_material_handle.clone(),
+            anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
                 anisotropy_texture: None,
                 anisotropy_strength: 0.0,
@@ -216,7 +216,7 @@ fn handle_input(
 
         // Go through each mesh and alter its material.
         for (mut material_handle, material_variants) in meshes.iter_mut() {
-            *material_handle = if app_status.anisotropy_enabled {
+            material_handle.0 = if app_status.anisotropy_enabled {
                 material_variants.anisotropic.clone()
             } else {
                 material_variants.isotropic.clone()
