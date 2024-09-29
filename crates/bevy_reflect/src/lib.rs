@@ -545,6 +545,7 @@
 extern crate alloc;
 
 mod array;
+pub mod cast;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
