@@ -738,6 +738,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::get_mut`] for write-queries.
     ///
+    /// If you need to get multiple items at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::get_manual`] calls,
+    /// or making a single call with [`Self::get_many`]  or [`Self::iter_many`].
+    ///
     /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn get<'w>(
@@ -1066,6 +1070,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_manual`] calls.
     #[inline]
     pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
         self.update_archetypes(world);
@@ -1193,6 +1200,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
+    ///
+    /// If you need to iterate multiple times at once but get borrowing errors,
+    /// consider using [`Self::update_archetypes`] followed by multiple [`Self::iter_many_manual`] calls.
     ///
     /// # See also
     ///
