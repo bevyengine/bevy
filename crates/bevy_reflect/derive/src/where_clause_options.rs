@@ -170,14 +170,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    /// The `CastPartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_reflect().should_auto_derive() {
             quote!(#bevy_reflect_path::FromReflect)
         } else {
-            quote!(#bevy_reflect_path::PartialReflect)
+            quote!(#bevy_reflect_path::cast::CastPartialReflect)
         }
     }
 

@@ -568,6 +568,7 @@ extern crate alloc;
 extern crate self as bevy_reflect;
 
 mod array;
+pub mod cast;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
