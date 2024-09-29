@@ -2,7 +2,6 @@ use crate::{ClosingWindow, PrimaryWindow, Window, WindowCloseRequested};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
-use bevy_utils::tracing::info;
 
 /// Exit the application when there are no open windows.
 ///
@@ -13,7 +12,7 @@ use bevy_utils::tracing::info;
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
     if windows.is_empty() {
-        info!("No windows are open, exiting");
+        bevy_utils::tracing::info!("No windows are open, exiting");
         app_exit_events.send(AppExit::Success);
     }
 }
@@ -55,6 +54,6 @@ pub fn close_when_requested(
         // we may receive a `WindowCloseRequested` for a window we've just despawned in the above
         // loop.
         commands.entity(event.window).try_insert(ClosingWindow);
-        info!("Marked window for closing!");
+        bevy_utils::tracing::info!("Marked window for closing!");
     }
 }

@@ -28,12 +28,7 @@ use winit::{
     window::WindowId,
 };
 
-use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
-    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
-    WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
-};
+use bevy_window::{AppLifecycle, ClosingWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed, WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged, WindowThemeChanged};
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
@@ -564,7 +559,15 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
-            update_mode = config.update_mode(focused);
+
+            let mut closing: SystemState<Query<(), With<ClosingWindow>>> =
+                SystemState::new(self.world_mut());
+
+            if !closing.get(self.world()).is_empty() {
+                update_mode = UpdateMode::Continuous;
+            } else {
+                update_mode = config.update_mode(focused);
+            }
         }
 
         // The update mode could have been changed, so we need to redraw and force an update
