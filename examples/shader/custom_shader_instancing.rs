@@ -3,9 +3,9 @@
 //! Bevy will automatically batch and instance your meshes assuming you use the same
 //! `Handle<Material>` and `Handle<Mesh>` for all of your instances.
 //!
-//! This example is intended for advanced users and shows how to make custom instancing
+//! This example is intended for advanced users and shows how to make a custom instancing
 //! implementation using bevy's low level rendering api.
-//! It's generally recommended to rely on the built-in instancing before trying this approach.
+//! It's generally recommended to try the built-in instancing before going with this approach.
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
