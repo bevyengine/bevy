@@ -20,7 +20,7 @@ use crate::{
 use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::{IoTaskPool, Task};
 use bevy_utils::{
     tracing::{error, info},
     HashSet,
@@ -382,14 +382,7 @@ impl AssetServer {
         );
 
         if should_load {
-            let owned_handle = Some(handle.clone().untyped());
-            let server = self.clone();
-            let task = IoTaskPool::get().spawn(async move {
-                if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
-                    error!("{}", err);
-                }
-                drop(guard);
-            });
+            let task = self.spawn_load_task(handle.clone().untyped(), path, guard);
 
             #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
             infos.pending_tasks.insert(handle.id().untyped(), task);
@@ -420,14 +413,7 @@ impl AssetServer {
         );
 
         if should_load {
-            let owned_handle = Some(handle.clone());
-            let server = self.clone();
-            let task = IoTaskPool::get().spawn(async move {
-                if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
-                    error!("{}", err);
-                }
-                drop(guard);
-            });
+            let task = self.spawn_load_task(handle.clone(), path, guard);
 
             #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
             infos.pending_tasks.insert(handle.id(), task);
@@ -437,6 +423,21 @@ impl AssetServer {
         }
 
         handle
+    }
+
+    pub(crate) fn spawn_load_task<G: Send + Sync + 'static>(
+        &self,
+        handle: UntypedHandle,
+        path: AssetPath<'static>,
+        guard: G,
+    ) -> Task<()> {
+        let server = self.clone();
+        IoTaskPool::get().spawn(async move {
+            if let Err(err) = server.load_internal(Some(handle), path, false, None).await {
+                error!("{}", err);
+            }
+            drop(guard);
+        })
     }
 
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,

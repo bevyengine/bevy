@@ -131,7 +131,7 @@ mod sealed {
 /// [`NestedLoader`] will be provided the type of asset as a type parameter on
 /// [`load`].
 ///
-/// [`load`]: Self::load
+/// [`load`]: NestedLoader::load
 pub struct Typed {
     _priv: (),
 }
@@ -257,7 +257,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
     ///
     /// [`load`]: Self::load
     #[must_use]
-    pub fn of_unknown_type(self) -> NestedLoader<'ctx, 'builder, UnknownType, M> {
+    pub fn unknown_type(self) -> NestedLoader<'ctx, 'builder, UnknownType, M> {
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
