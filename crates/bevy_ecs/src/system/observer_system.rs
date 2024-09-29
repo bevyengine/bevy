@@ -51,43 +51,6 @@ where
     }
 }
 
-macro_rules! impl_system_function {
-    ($($param: ident),*) => {
-        #[allow(non_snake_case)]
-        impl<E: 'static, B: Bundle, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<fn(Trigger<E, B>, $($param,)*)> for Func
-        where
-        for <'a> &'a mut Func:
-                FnMut(Trigger<E, B>, $($param),*) -> Out +
-                FnMut(Trigger<E, B>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
-        {
-            type In = Trigger<'static, E, B>;
-            type Out = Out;
-            type Param = ($($param,)*);
-            #[inline]
-            fn run(&mut self, input: Trigger<'static, E, B>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
-                #[allow(clippy::too_many_arguments)]
-                fn call_inner<E: 'static, B: Bundle, Out, $($param,)*>(
-                    mut f: impl FnMut(Trigger<'static, E, B>, $($param,)*) -> Out,
-                    input: Trigger<'static, E, B>,
-                    $($param: $param,)*
-                ) -> Out{
-                    f(input, $($param,)*)
-                }
-                let ($($param,)*) = param_value;
-                call_inner(self, input, $($param),*)
-            }
-        }
-    }
-}
-
-all_tuples!(
-    #[doc(fake_variadic)]
-    impl_system_function,
-    0,
-    16,
-    F
-);
-
 #[cfg(test)]
 mod tests {
     use crate::{
