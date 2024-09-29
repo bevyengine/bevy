@@ -1190,4 +1190,24 @@ mod tests {
         // after the observer's spawn_empty.
         world.despawn(ent);
     }
+
+    #[test]
+    fn observer_invalid_params() {
+        #[derive(Event)]
+        struct EventA;
+
+        #[derive(Resource)]
+        struct ResA;
+
+        #[derive(Resource)]
+        struct ResB;
+
+        let mut world = World::new();
+        world.observe(|_: Trigger<EventA>, _: Res<ResA>, mut commands: Commands| {
+            commands.insert_resource(ResB);
+        });
+        world.trigger(EventA);
+
+        assert!(world.get_resource::<ResB>().is_none());
+    }
 }

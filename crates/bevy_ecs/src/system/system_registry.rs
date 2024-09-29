@@ -340,7 +340,7 @@ impl World {
         let result = if system.validate_param(self) {
             Ok(system.run(input, self))
         } else {
-            Err(RegisteredSystemError::InvalidParameters(id))
+            Err(RegisteredSystemError::InvalidParams(id))
         };
 
         // return ownership of system trait object (if entity still exists)
@@ -601,7 +601,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     SelfRemove(SystemId<I, O>),
     /// System could not run due to invalid parameters.
     #[error("System {0:?} has invalid parameters")]
-    InvalidParameters(SystemId<I, O>),
+    InvalidParams(SystemId<I, O>),
 }
 
 impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
@@ -613,16 +613,14 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
-            Self::InvalidParameters(arg0) => {
-                f.debug_tuple("InvalidParameters").field(arg0).finish()
-            }
+            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
         }
     }
 }
 
 mod tests {
-    use crate as bevy_ecs;
     use crate::prelude::*;
+    use crate::{self as bevy_ecs};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -922,5 +920,23 @@ mod tests {
             .run_system_with_input(post_system, &mut event)
             .unwrap();
         assert!(event.cancelled);
+    }
+
+    #[test]
+    fn fail_run_system() {
+        use crate::system::RegisteredSystemError;
+
+        struct T;
+        impl Resource for T {}
+        fn system(_: Res<T>) {}
+
+        let mut world = World::new();
+        let id = world.register_system_cached(system);
+        let result = world.run_system(id);
+
+        assert!(matches!(
+            result,
+            Err(RegisteredSystemError::InvalidParams(_))
+        ));
     }
 }

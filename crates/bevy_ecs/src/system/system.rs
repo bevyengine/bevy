@@ -359,7 +359,7 @@ impl RunSystemOnce for &mut World {
         if system.validate_param(self) {
             Ok(system.run(input, self))
         } else {
-            Err(RunSystemError::InvalidParameters(system.name()))
+            Err(RunSystemError::InvalidParams(system.name()))
         }
     }
 }
@@ -369,15 +369,13 @@ impl RunSystemOnce for &mut World {
 pub enum RunSystemError {
     /// System could not run due to invalid parameters.
     #[error("System {0:?} has invalid parameters")]
-    InvalidParameters(Cow<'static, str>),
+    InvalidParams(Cow<'static, str>),
 }
 
 impl Debug for RunSystemError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::InvalidParameters(arg0) => {
-                f.debug_tuple("InvalidParameters").field(arg0).finish()
-            }
+            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
         }
     }
 }
@@ -448,5 +446,17 @@ mod tests {
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
         world.run_system_once(non_send_count_down).unwrap();
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+    }
+
+    #[test]
+    fn fail_run_system_once() {
+        struct T;
+        impl Resource for T {}
+        fn system(_: Res<T>) {}
+
+        let mut world = World::default();
+        let result = world.run_system_once(system);
+
+        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }
 }
