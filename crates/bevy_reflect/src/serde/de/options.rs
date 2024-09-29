@@ -11,13 +11,13 @@ use serde::de::{DeserializeSeed, Error, Visitor};
 use super::ReflectDeserializerProcessor;
 
 /// A [`Visitor`] for deserializing [`Option`] values.
-pub(super) struct OptionVisitor<'a, 'p> {
+pub(super) struct OptionVisitor<'a, P> {
     pub enum_info: &'static EnumInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for OptionVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for OptionVisitor<'_, P> {
     type Value = DynamicEnum;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -34,7 +34,7 @@ impl<'de> Visitor<'de> for OptionVisitor<'_, '_> {
         Ok(option)
     }
 
-    fn visit_some<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -46,7 +46,7 @@ impl<'de> Visitor<'de> for OptionVisitor<'_, '_> {
                 let de = TypedReflectDeserializer::new_internal(
                     registration,
                     self.registry,
-                    self.processor.as_deref_mut(),
+                    self.processor,
                 );
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);

@@ -27,8 +27,12 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///
 /// Whenever the deserializer attempts to deserialize a value, it will first
 /// check using [`should_deserialize`] whether this processor should take
-/// control of the deserialization, and if so, pass control to your own
-/// [`deserialize`] function, which returns back a [`Box<dyn PartialReflect>`].
+/// control of the deserialization. If so, the processor returns a
+/// [`Box<dyn FnOnce>`] which then uses the [`erased_serde::Deserializer`] to
+/// give back either a [`Box<dyn PartialReflect>`] or an error.
+///
+/// Because the processor returns a [`Box<dyn FnOnce>`], you can change the
+/// behaviour of the deserializer based on the [`TypeRegistration`].
 ///
 /// # Examples
 ///
@@ -78,10 +82,12 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// #     AssetPathVisitor: AssetPathVisitor,
 /// # ) -> Result<MyAsset, AssetError> {
 /// let mut ron_deserializer = ron::Deserializer::from_bytes(asset_bytes)?;
-/// let mut processor = ReflectDeserializerProcessor::new(
-///     |registration: &TypeRegistration| Ok(registration.data::<ReflectHandle>().is_some()),
-///     |registration, deserializer| {
-///         let reflect_handle = registration.data::<ReflectHandle>().unwrap();
+/// let mut processor = ReflectDeserializerProcessor::new(|registration: &TypeRegistration| {
+///     let Some(reflect_handle) = registration.data::<ReflectHandle>() else {
+///         return None;
+///     };
+///
+///     Some(Box::new(|deserializer| {
 ///         let asset_type_id = reflect_handle.asset_type_id();
 ///
 ///         let asset_path = deserializer.deserialize_str(AssetPathVisitor)?;
@@ -96,8 +102,8 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///         Ok(Box::new(handle))
 /// #       };
 /// #       unimplemented!()
-///     },
-/// );
+///     }))
+/// });
 /// let reflect_deserializer =
 ///     ReflectDeserializer::new_with_processor(type_registry, &mut processor);
 /// let asset = reflect_deserializer.deserialize(&mut ron_deserializer)?;
@@ -107,70 +113,50 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///
 /// [`should_deserialize`]: Self::should_deserialize
 /// [`deserialize`]: Self::deserialize
-pub struct ReflectDeserializerProcessor<'p> {
-    /// When deserializing a value of which we know the type (via
-    /// [`TypeRegistration`]), do we want this processor to override the default
-    /// deserialization?
-    ///
-    /// If this returns [`Ok(true)`], [`deserialize`] is used to create the
-    /// reflected value. If [`Ok(false)`], then the default deserialization
-    /// method is used.
-    ///
-    /// If this returns [`Err`], this will fail the deserialization in the same
-    /// way as if you had returned [`Err`] from [`deserialize`].
-    ///
-    /// [`deserialize`]: Self::deserialize
-    pub should_deserialize: Box<dyn FnMut(&TypeRegistration) -> Option<DeserializeOp> + 'p>,
-    // todo
-    // /// Deserializes a value for which [`should_deserialize`] returned [`true`].
-    // ///
-    // /// If you potentially return [`Ok`], you must consume the deserializer by
-    // /// attempting some sort of deserialization, even if you don't use its
-    // /// output. Otherwise, the deserializer will be in an invalid state, and
-    // /// future deserialization calls will cause errors.
-    // ///
-    // /// For example, the proper way to return a constant value and consume the
-    // /// deserializer, ignoring its output, is:
-    // ///
-    // /// ```
-    // /// # use serde::Deserializer;
-    // /// # use bevy_reflect::{PartialReflect, TypeRegistration};
-    // /// use serde::de::IgnoredAny;
-    // ///
-    // /// fn deserialize(
-    // ///     _registration: &TypeRegistration,
-    // ///     deserializer: &mut dyn erased_serde::Deserializer
-    // /// ) -> Result<Box<dyn PartialReflect>, erased_serde::Error> {
-    // ///     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-    // ///     Ok(Box::new(42_i32))
-    // /// }
-    // /// ```
-    // ///
-    // /// [`should_deserialize`]: Self::should_deserialize
-    // pub deserialize: Box<
-    //     dyn FnMut(
-    //             &TypeRegistration,
-    //             &mut dyn erased_serde::Deserializer,
-    //         ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
-    //         + 'p,
-    // >,
+pub trait ReflectDeserializerProcessor {
+    fn try_deserialize<'de, D>(
+        &mut self,
+        registration: &TypeRegistration,
+        deserializer: D,
+    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    where
+        D: serde::Deserializer<'de>;
 }
 
-type DeserializeOp<'p> = Box<
-    dyn FnOnce(
-            &mut dyn erased_serde::Deserializer,
-        ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>
-        + 'p,
->;
+pub enum DeserializerProcessorError<D, E> {
+    NotApplicable(D),
+    Error(E),
+}
 
-impl<'p> ReflectDeserializerProcessor<'p> {
-    /// Creates a new processor from [`FnMut`]s.
-    pub fn new(
-        should_deserialize: impl FnMut(&TypeRegistration) -> Option<DeserializeOp> + 'p,
-    ) -> Self {
-        Self {
-            should_deserialize: Box::new(should_deserialize),
-        }
+impl<D, E> From<E> for DeserializerProcessorError<D, E> {
+    fn from(value: E) -> Self {
+        Self::Error(value)
+    }
+}
+
+impl ReflectDeserializerProcessor for () {
+    fn try_deserialize<'de, D>(
+        &mut self,
+        _registration: &TypeRegistration,
+        deserializer: D,
+    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Err(DeserializerProcessorError::NotApplicable(deserializer))
+    }
+}
+
+impl<T: ReflectDeserializerProcessor + ?Sized> ReflectDeserializerProcessor for &mut T {
+    fn try_deserialize<'de, D>(
+        &mut self,
+        registration: &TypeRegistration,
+        deserializer: D,
+    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        (*self).try_deserialize(registration, deserializer)
     }
 }
 
@@ -258,12 +244,12 @@ impl<'p> ReflectDeserializerProcessor<'p> {
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`new_with_processor`]: Self::new_with_processor
-pub struct ReflectDeserializer<'a, 'p> {
+pub struct ReflectDeserializer<'a, P> {
     registry: &'a TypeRegistry,
-    processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    processor: P,
 }
 
-impl<'a, 'p> ReflectDeserializer<'a, 'p> {
+impl<'a> ReflectDeserializer<'a, ()> {
     /// Creates a deserializer with no processor.
     ///
     /// If you want to add custom logic for deserializing certain types, use
@@ -273,40 +259,41 @@ impl<'a, 'p> ReflectDeserializer<'a, 'p> {
     pub fn new(registry: &'a TypeRegistry) -> Self {
         Self {
             registry,
-            processor: None,
+            processor: (),
         }
     }
+}
 
+impl<'a, P: ReflectDeserializerProcessor> ReflectDeserializer<'a, P> {
     /// Creates a deserializer with a processor.
     ///
     /// If you do not need any custom logic for handling certain types, use
     /// [`new`].
     ///
     /// [`new`]: Self::new
-    pub fn new_with_processor(
-        registry: &'a TypeRegistry,
-        processor: &'a mut ReflectDeserializerProcessor<'p>,
-    ) -> Self {
+    pub fn new_with_processor(registry: &'a TypeRegistry, processor: P) -> Self {
         Self {
             registry,
-            processor: Some(processor),
+            processor,
         }
     }
 }
 
-impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeserializer<'_, P> {
     type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct UntypedReflectDeserializerVisitor<'a, 'p> {
+        struct UntypedReflectDeserializerVisitor<'a, P> {
             registry: &'a TypeRegistry,
-            processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+            processor: P,
         }
 
-        impl<'a, 'p, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a, 'p> {
+        impl<'a, 'de, P: ReflectDeserializerProcessor> Visitor<'de>
+            for UntypedReflectDeserializerVisitor<'a, P>
+        {
             type Value = Box<dyn PartialReflect>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -424,13 +411,13 @@ impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_, '_> {
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`new_with_processor`]: Self::new_with_processor
-pub struct TypedReflectDeserializer<'a, 'p> {
+pub struct TypedReflectDeserializer<'a, P> {
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    processor: P,
 }
 
-impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
+impl<'a> TypedReflectDeserializer<'a, ()> {
     /// Creates a typed deserializer with no processor.
     ///
     /// If you want to add custom logic for deserializing certain types, use
@@ -444,10 +431,12 @@ impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
         Self {
             registration,
             registry,
-            processor: None,
+            processor: (),
         }
     }
+}
 
+impl<'a, P: ReflectDeserializerProcessor> TypedReflectDeserializer<'a, P> {
     /// Creates a typed deserializer with a processor.
     ///
     /// If you do not need any custom logic for handling certain types, use
@@ -457,7 +446,7 @@ impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
     pub fn new_with_processor(
         registration: &'a TypeRegistration,
         registry: &'a TypeRegistry,
-        processor: &'a mut ReflectDeserializerProcessor<'p>,
+        processor: P,
     ) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
@@ -465,7 +454,7 @@ impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
         Self {
             registration,
             registry,
-            processor: Some(processor),
+            processor,
         }
     }
 
@@ -490,7 +479,7 @@ impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
     pub(super) fn new_internal(
         registration: &'a TypeRegistration,
         registry: &'a TypeRegistry,
-        processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+        processor: P,
     ) -> Self {
         Self {
             registration,
@@ -500,7 +489,9 @@ impl<'a, 'p> TypedReflectDeserializer<'a, 'p> {
     }
 }
 
-impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
+    for TypedReflectDeserializer<'_, P>
+{
     type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -510,13 +501,18 @@ impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_, '_> {
         let deserialize_internal = || -> Result<Self::Value, D::Error> {
             // First, check if our processor wants to deserialize this type
             // This takes priority over any other deserialization operations
-            if let Some(processor) = self.processor.as_deref_mut() {
-                let deserialize_op = (processor.should_deserialize)(self.registration);
-                if let Some(deserialize_op) = deserialize_op {
-                    let mut deserializer = <dyn erased_serde::Deserializer>::erase(deserializer);
-                    return (deserialize_op)(&mut deserializer).map_err(make_custom_error);
+            let deserializer = match self
+                .processor
+                .try_deserialize(self.registration, deserializer)
+            {
+                Ok(value) => {
+                    return Ok(value);
                 }
-            }
+                Err(DeserializerProcessorError::Error(err)) => {
+                    return Err(make_custom_error(err));
+                }
+                Err(DeserializerProcessorError::NotApplicable(deserializer)) => deserializer,
+            };
 
             let type_path = self.registration.type_info().type_path();
 

@@ -10,13 +10,13 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Set`] values.
 ///
 /// [`Set`]: crate::Set
-pub(super) struct SetVisitor<'a, 'p> {
+pub(super) struct SetVisitor<'a, P> {
     pub set_info: &'static SetInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for SetVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
     type Value = DynamicSet;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -32,7 +32,7 @@ impl<'de> Visitor<'de> for SetVisitor<'_, '_> {
         while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new_internal(
             value_registration,
             self.registry,
-            self.processor.as_deref_mut(),
+            &mut self.processor,
         ))? {
             dynamic_set.insert_boxed(value);
         }
