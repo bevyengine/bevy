@@ -104,6 +104,10 @@ pub trait System: Send + Sync + 'static {
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
+    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
+    ///
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
