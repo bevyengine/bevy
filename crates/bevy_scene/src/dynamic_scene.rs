@@ -52,7 +52,7 @@ impl DynamicScene {
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
         DynamicSceneBuilder::from_world(world)
-            .extract_entities(world.visit_entities().map(|entity| entity.id()))
+            .extract_entities(world.iter_entities().map(|entity| entity.id()))
             .extract_resources()
             .build()
     }
