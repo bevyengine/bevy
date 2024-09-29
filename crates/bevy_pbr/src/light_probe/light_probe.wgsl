@@ -21,7 +21,8 @@ fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
         matrix[0],
         matrix[1],
         matrix[2],
-        vec4<f32>(0.0, 0.0, 0.0, 1.0));
+        vec4<f32>(0.0, 0.0, 0.0, 1.0)
+    );
     return transpose(matrix4x4);
 }
 
@@ -42,9 +43,7 @@ fn query_light_probe(
         light_probe_count = light_probes.reflection_probe_count;
     }
 
-    for (var light_probe_index: i32 = 0;
-            light_probe_index < light_probe_count && result.texture_index < 0;
-            light_probe_index += 1) {
+    for (var light_probe_index: i32 = 0; light_probe_index < light_probe_count && result.texture_index < 0; light_probe_index += 1) {
         var light_probe: LightProbe;
         if is_irradiance_volume {
             light_probe = light_probes.irradiance_volumes[light_probe_index];
@@ -53,13 +52,12 @@ fn query_light_probe(
         }
 
         // Unpack the inverse transform.
-        let light_from_world =
-            transpose_affine_matrix(light_probe.light_from_world_transposed);
+        let light_from_world = transpose_affine_matrix(light_probe.light_from_world_transposed);
 
         // Check to see if the transformed point is inside the unit cube
         // centered at the origin.
         let probe_space_pos = (light_from_world * vec4<f32>(world_position, 1.0f)).xyz;
-        if (all(abs(probe_space_pos) <= vec3(0.5f))) {
+        if all(abs(probe_space_pos) <= vec3(0.5f)) {
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
             result.light_from_world = light_from_world;

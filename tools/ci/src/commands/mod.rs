@@ -11,6 +11,7 @@ pub use format::*;
 pub use lints::*;
 pub use test::*;
 pub use test_check::*;
+pub use wgsl::*;
 
 mod bench_check;
 mod clippy;
@@ -25,3 +26,4 @@ mod format;
 mod lints;
 mod test;
 mod test_check;
+mod wgsl;

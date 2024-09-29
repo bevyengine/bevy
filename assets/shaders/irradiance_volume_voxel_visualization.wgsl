@@ -18,8 +18,7 @@ var<uniform> irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo;
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // Snap the world position we provide to `irradiance_volume_light()` to the
     // middle of the nearest texel.
-    var unit_pos = (irradiance_volume_info.voxel_from_world *
-        vec4(mesh.world_position.xyz, 1.0f)).xyz;
+    var unit_pos = (irradiance_volume_info.voxel_from_world * vec4(mesh.world_position.xyz, 1.0f)).xyz;
     let resolution = vec3<f32>(irradiance_volume_info.resolution);
     let stp = clamp((unit_pos + 0.5) * resolution, vec3(0.5f), resolution - vec3(0.5f));
     let stp_rounded = round(stp - 0.5f) + 0.5f;
@@ -29,7 +28,8 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // If we take intensity into account, the cubes will be way too bright.
     let rgb = irradiance_volume::irradiance_volume_light(
         mesh.world_position.xyz,
-        mesh.world_normal) / irradiance_volume_info.intensity;
+        mesh.world_normal
+    ) / irradiance_volume_info.intensity;
 
     return vec4<f32>(rgb, 1.0f);
 }

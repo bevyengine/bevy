@@ -34,19 +34,21 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         in.material.reflectance,
         in.material.metallic,
         diffuse_occlusion,
-        in.frag_coord.z));
+        in.frag_coord.z
+    ));
 #else
     var props = deferred_types::pack_unorm4x8_(vec4(
         in.material.reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
-        0.0)); // spare
+        0.0
+    )); // spare
 #endif // WEBGL2
     let flags = deferred_types::deferred_flags_from_mesh_material_flags(in.flags, in.material.flags);
     let octahedral_normal = octahedral_encode(normalize(in.N));
     var base_color_srgb = vec3(0.0);
     var emissive = in.material.emissive.rgb;
-    if ((in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+    if (in.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u {
         // Material is unlit, use emissive component of gbuffer for color data.
         // Unlit materials are effectively emissive.
         emissive = in.material.base_color.rgb;
@@ -54,10 +56,10 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
     let deferred = vec4(
-        deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
-        rgb9e5::vec3_to_rgb9e5_(emissive),
+        deferred_types,:: pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
+        rgb9e5,:: vec3_to_rgb9e5_(emissive),
         props,
-        deferred_types::pack_24bit_normal_and_flags(octahedral_normal, flags),
+        deferred_types,:: pack_24bit_normal_and_flags(octahedral_normal, flags),
     );
     return deferred;
 }
@@ -74,7 +76,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let base_rough = deferred_types::unpack_unorm4x8_(gbuffer.r);
     pbr.material.perceptual_roughness = base_rough.a;
     let emissive = rgb9e5::rgb9e5_to_vec3_(gbuffer.g);
-    if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
+    if (pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u {
         pbr.material.base_color = vec4(emissive, 1.0);
         pbr.material.emissive = vec4(vec3(0.0), 0.0);
     } else {

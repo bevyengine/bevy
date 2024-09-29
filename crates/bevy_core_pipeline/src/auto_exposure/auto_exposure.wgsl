@@ -131,7 +131,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // Each bin in the cumulative histogram contains the sum of all bins up to that point.
     // This way we can quickly exclude the portion of lowest and highest samples as required by
     // the low_percent and high_percent settings.
-    for (var i=0u; i<64u; i+=1u) {
+    for (var i = 0u; i < 64u; i += 1u) {
         histogram_sum += histogram[i];
         histogram_shared[i] = histogram_sum;
 
@@ -144,12 +144,10 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
 
     var count = 0u;
     var sum = 0.0;
-    for (var i=1u; i<64u; i+=1u) {
+    for (var i = 1u; i < 64u; i += 1u) {
         // The number of pixels in the bin. The histogram values are clamped to
         // first_index and last_index to exclude the lowest and highest samples.
-        let bin_count =
-            clamp(histogram_shared[i], first_index, last_index) -
-            clamp(histogram_shared[i - 1u], first_index, last_index);
+        let bin_count = clamp(histogram_shared[i], first_index, last_index) - clamp(histogram_shared[i - 1u], first_index, last_index);
 
         sum += f32(bin_count) * f32(i);
         count += bin_count;
@@ -159,9 +157,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
 
     if count > 0u {
         // The average luminance of the included histogram samples.
-        avg_lum = sum / (f32(count) * 63.0)
-            * settings.log_lum_range
-            + settings.min_log_lum;
+        avg_lum = sum / (f32(count) * 63.0) * settings.log_lum_range + settings.min_log_lum;
     }
 
     // The position in the compensation curve texture to sample for avg_lum.
@@ -170,10 +166,7 @@ fn compute_average(@builtin(local_invocation_index) local_index: u32) {
     // The target exposure is the negative of the average log luminance.
     // The compensation value is added to the target exposure to adjust the exposure for
     // artistic purposes.
-    let target_exposure = textureLoad(tex_compensation, i32(saturate(u) * 255.0), 0).r
-        * compensation_curve.compensation_range
-        + compensation_curve.min_compensation
-        - avg_lum;
+    let target_exposure = textureLoad(tex_compensation, i32(saturate(u) * 255.0), 0).r * compensation_curve.compensation_range + compensation_curve.min_compensation - avg_lum;
 
     // Smoothly adjust the `exposure` towards the `target_exposure`
     let delta = target_exposure - exposure;

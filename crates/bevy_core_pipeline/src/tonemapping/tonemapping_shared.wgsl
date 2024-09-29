@@ -180,7 +180,7 @@ fn convertOpenDomainToNormalizedLog2_(color: vec3<f32>, minimum_ev: f32, maximum
     // remove negative before log transform
     var normalized_color = max(vec3(0.0), color);
     // avoid infinite issue with log -- ref[1]
-    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color  < vec3<f32>(0.00003051757));
+    normalized_color = select(normalized_color, 0.00001525878 + normalized_color, normalized_color < vec3<f32>(0.00003051757));
     normalized_color = clamp(
         log2(normalized_color / in_midgray),
         vec3(minimum_ev),
@@ -296,14 +296,14 @@ fn sectional_color_grading(
     // discontinuities.
     var levels = vec3(0.0);
     let midtone_range = (*color_grading).midtone_range;
-    if (level < midtone_range.x - LEVEL_MARGIN) {
+    if level < midtone_range.x - LEVEL_MARGIN {
         levels.x = 1.0;
-    } else if (level < midtone_range.x + LEVEL_MARGIN) {
+    } else if level < midtone_range.x + LEVEL_MARGIN {
         levels.y = ((level - midtone_range.x) * LEVEL_MARGIN_DIV) + 0.5;
         levels.z = 1.0 - levels.y;
-    } else if (level < midtone_range.y - LEVEL_MARGIN) {
+    } else if level < midtone_range.y - LEVEL_MARGIN {
         levels.y = 1.0;
-    } else if (level < midtone_range.y + LEVEL_MARGIN) {
+    } else if level < midtone_range.y + LEVEL_MARGIN {
         levels.z = ((level - midtone_range.y) * LEVEL_MARGIN_DIV) + 0.5;
         levels.y = 1.0 - levels.z;
     } else {

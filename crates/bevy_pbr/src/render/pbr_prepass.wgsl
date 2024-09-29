@@ -106,7 +106,7 @@ fn fragment(
 }
 #else
 @fragment
-fn fragment(in: prepass_io::VertexOutput) {
+fn fragment(in: prepass_io, ::VertexOutput) {
     pbr_prepass_functions::prepass_alpha_discard(in);
 }
 #endif // PREPASS_FRAGMENT

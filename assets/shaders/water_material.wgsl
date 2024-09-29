@@ -31,7 +31,7 @@ struct WaterSettings {
 fn sample_noise_octave(uv: vec2<f32>, strength: f32) -> vec3<f32> {
     let N = textureSample(water_normals_texture, water_normals_sampler, uv).rbg * 2.0 - 1.0;
     // This isn't slerp, but it's good enough.
-    return normalize(mix(vec3(0.0, 1.0, 0.0), N, strength)); 
+    return normalize(mix(vec3(0.0, 1.0, 0.0), N, strength));
 }
 
 // Samples all four octaves of noise and returns the resulting normal.
@@ -41,10 +41,7 @@ fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
     let uv2 = uv * water_settings.octave_scales[2] + water_settings.octave_vectors[1].xy * time;
     let uv3 = uv * water_settings.octave_scales[3] + water_settings.octave_vectors[1].zw * time;
     return normalize(
-        sample_noise_octave(uv0, water_settings.octave_strengths[0]) +
-        sample_noise_octave(uv1, water_settings.octave_strengths[1]) +
-        sample_noise_octave(uv2, water_settings.octave_strengths[2]) +
-        sample_noise_octave(uv3, water_settings.octave_strengths[3])
+        sample_noise_octave(uv0, water_settings.octave_strengths[0]) + sample_noise_octave(uv1, water_settings.octave_strengths[1]) + sample_noise_octave(uv2, water_settings.octave_strengths[2]) + sample_noise_octave(uv3, water_settings.octave_strengths[3])
     );
 }
 

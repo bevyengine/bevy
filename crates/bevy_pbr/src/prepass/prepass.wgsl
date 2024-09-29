@@ -25,12 +25,12 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex_index, morph,:: position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex_index, morph,:: normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph,:: morph(vertex_index, morph,:: tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -48,7 +48,7 @@ fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex.index, morph,:: position_offset, i);
         // Don't bother morphing normals and tangents; we don't need them for
         // motion vector calculation.
     }
@@ -196,7 +196,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     // emissive magenta out to the deferred gbuffer to be rendered by the first deferred lighting pass layer.
     // This is here so if the default prepass fragment is used for deferred magenta will be rendered, and also
     // as an example to show that a user could write to the deferred gbuffer if they were to start from this shader.
-    out.deferred = vec4(0u, bevy_pbr::rgb9e5::vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
+    out.deferred = vec4(0u, bevy_pbr,:: rgb9e5,:: vec3_to_rgb9e5_(vec3(1.0, 0.0, 1.0)), 0u, 0u);
     out.deferred_lighting_pass_id = 1u;
 #endif
 

@@ -34,13 +34,13 @@ fn vec3_to_rgb9e5_(rgb_in: vec3<f32>) -> u32 {
     var denom = exp2(f32(exp_shared - RGB9E5_EXP_BIAS - RGB9E5_MANTISSA_BITS));
 
     let maxm = i32(floor(maxrgb / denom + 0.5));
-    if (maxm == RGB9E5_MANTISSA_VALUES) {
+    if maxm == RGB9E5_MANTISSA_VALUES {
         denom *= 2.0;
         exp_shared += 1;
     }
 
     let n = vec3<u32>(floor(rgb / denom + 0.5));
-    
+
     return (u32(exp_shared) << 27u) | (n.b << 18u) | (n.g << 9u) | (n.r << 0u);
 }
 

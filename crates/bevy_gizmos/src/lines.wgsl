@@ -89,10 +89,9 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // This differentiates between orthographic and perspective cameras.
     // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
     var depth_adaptment: f32;
-    if (clip_b.w == 1.0) {
+    if clip_b.w == 1.0 {
         depth_adaptment = 1.0;
-    }
-    else {
+    } else {
         depth_adaptment = -camera_b.z;
     }
     uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
@@ -162,6 +161,6 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
 #else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
 #endif
-    
+
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

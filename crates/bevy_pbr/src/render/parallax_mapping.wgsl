@@ -86,7 +86,7 @@ fn parallaxed_uv(
         delta_depth *= 0.5;
 
         // Step based on whether the current depth is above or below the depth map
-        if (texture_depth > current_layer_depth) {
+        if texture_depth > current_layer_depth {
             uv += delta_uv;
             current_layer_depth += delta_depth;
         } else {

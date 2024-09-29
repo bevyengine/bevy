@@ -80,6 +80,7 @@ impl CI {
                 cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::WgslFormatCheckCommand::default().prepare(sh, flags));
                 cmds
             }
         }
@@ -105,6 +106,8 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    WgslFormat(commands::WgslFormatCommand),
+    WgslFormatCheck(commands::WgslFormatCheckCommand),
 }
 
 impl Prepare for Commands {
@@ -124,6 +127,8 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::WgslFormat(subcommand) => subcommand.prepare(sh, flags),
+            Commands::WgslFormatCheck(subcommand) => subcommand.prepare(sh, flags),
         }
     }
 }
