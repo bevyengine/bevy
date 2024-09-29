@@ -233,7 +233,10 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-pub struct MaterialPlugin<M: Material> {
+///
+/// If `MESH_MATERIAL` is set to `true`, material handles will be retrieved from [`MeshMaterial3d`] components.
+/// Otherwise, they will be retrieved by querying for [`Handle<M>`] directly.
+pub struct MaterialPlugin<M: Material, const MESH_MATERIAL: bool = true> {
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     ///
@@ -245,7 +248,7 @@ pub struct MaterialPlugin<M: Material> {
     pub _marker: PhantomData<M>,
 }
 
-impl<M: Material> Default for MaterialPlugin<M> {
+impl<M: Material, const MESH_MATERIAL: bool> Default for MaterialPlugin<M, MESH_MATERIAL> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
@@ -255,7 +258,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     }
 }
 
-impl<M: Material> Plugin for MaterialPlugin<M>
+impl<M: Material, const MESH_MATERIAL: bool> Plugin for MaterialPlugin<M, MESH_MATERIAL>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -264,6 +267,20 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, clear_material_instances::<M>);
+
+            if MESH_MATERIAL {
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_mesh_materials::<M>.after(clear_material_instances::<M>),
+                );
+            } else {
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_materials::<M>.after(clear_material_instances::<M>),
+                );
+            }
+
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<ExtractedInstances<AssetId<M>>>()
@@ -273,16 +290,6 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    // Non-mesh materials and mesh materials must currently be extracted separately,
-                    // because some materials like `WireframeMaterial` use `Handle<M>` while others use `MeshMaterial3d<M>`.
-                    (
-                        clear_material_instances::<M>,
-                        (extract_material::<M>, extract_material_meshes::<M>),
-                    )
-                        .chain(),
-                )
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -544,7 +551,7 @@ pub(super) fn clear_material_instances<M: Material>(
     material_instances.clear();
 }
 
-fn extract_material<M: Material>(
+fn extract_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
 ) {
@@ -555,7 +562,7 @@ fn extract_material<M: Material>(
     }
 }
 
-fn extract_material_meshes<M: Material>(
+fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>), With<Mesh3d>>>,
 ) {
@@ -566,12 +573,10 @@ fn extract_material_meshes<M: Material>(
     }
 }
 
-/// Extracts placeholder materials for 3D meshes with no [`MeshMaterial3d`].
-pub(super) fn extract_placeholder_materials(
+/// Extracts default materials for 3D meshes with no [`MeshMaterial3d`].
+pub(super) fn extract_default_materials(
     mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
-    query: Extract<
-        Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<MeshMaterial3d<StandardMaterial>>)>,
-    >,
+    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
 ) {
     let default_material: AssetId<StandardMaterial> = Handle::<StandardMaterial>::default().id();
 

@@ -38,7 +38,7 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeConfig>()
             .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
-            .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .add_plugins(MaterialPlugin::<WireframeMaterial, false>::default())
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,

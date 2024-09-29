@@ -42,6 +42,8 @@ use crate::{
     SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
+use super::ColorMaterial;
+
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
 /// way to render [`Mesh2d`] entities with custom shader logic.
@@ -260,15 +262,18 @@ pub enum AlphaMode2d {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).
-pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
+///
+/// If `MESH_MATERIAL` is set to `true`, material handles will be retrieved from [`MeshMaterial2d`] components.
+/// Otherwise, they will be retrieved by querying for [`Handle<M>`] directly.
+pub struct Material2dPlugin<M: Material2d, const MESH_MATERIAL: bool = true>(PhantomData<M>);
 
-impl<M: Material2d> Default for Material2dPlugin<M> {
+impl<M: Material2d, const MESH_MATERIAL: bool> Default for Material2dPlugin<M, MESH_MATERIAL> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material2d> Plugin for Material2dPlugin<M>
+impl<M: Material2d, const MESH_MATERIAL: bool> Plugin for Material2dPlugin<M, MESH_MATERIAL>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -277,23 +282,26 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, clear_material_2d_instances::<M>);
+
+            if MESH_MATERIAL {
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_mesh_materials_2d::<M>.after(clear_material_2d_instances::<M>),
+                );
+            } else {
+                render_app.add_systems(
+                    ExtractSchedule,
+                    extract_materials_2d::<M>.after(clear_material_2d_instances::<M>),
+                );
+            }
+
             render_app
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    // Non-mesh materials and mesh materials must currently be extracted separately,
-                    // because some materials like `Wireframe2dMaterial` use `Handle<M>` while others use `MeshMaterial2d<M>`.
-                    (
-                        clear_material_2d_instances::<M>,
-                        extract_material_2d::<M>,
-                        extract_material_meshes_2d::<M>,
-                    )
-                        .chain(),
-                )
                 .add_systems(
                     Render,
                     queue_material2d_meshes::<M>
@@ -319,13 +327,13 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     }
 }
 
-fn clear_material_2d_instances<M: Material2d>(
+pub(crate) fn clear_material_2d_instances<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
 ) {
     material_instances.clear();
 }
 
-fn extract_material_2d<M: Material2d>(
+fn extract_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
 ) {
@@ -336,24 +344,27 @@ fn extract_material_2d<M: Material2d>(
     }
 }
 
-fn extract_material_meshes_2d<M: Material2d>(
+fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<
-        Query<
-            (Entity, &ViewVisibility, Option<&MeshMaterial2d<M>>),
-            (With<Mesh2d>, Without<Handle<M>>),
-        >,
-    >,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
 ) {
-    let default_material = Handle::<M>::default().id();
-
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
-            material_instances.insert(
-                entity,
-                // Use the default material if no material is provided.
-                material.map_or(default_material, |material| material.id()),
-            );
+            material_instances.insert(entity, material.id());
+        }
+    }
+}
+
+/// Extracts default materials for 2D meshes with no [`MeshMaterial2d`].
+pub(crate) fn extract_default_materials_2d(
+    mut material_instances: ResMut<RenderMaterial2dInstances<ColorMaterial>>,
+    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh2d>, Without<HasMaterial2d>)>>,
+) {
+    let default_material: AssetId<ColorMaterial> = Handle::<ColorMaterial>::default().id();
+
+    for (entity, view_visibility) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity, default_material);
         }
     }
 }

@@ -436,8 +436,7 @@ impl Plugin for PbrPlugin {
                 (
                     extract_clusters,
                     extract_lights,
-                    extract_placeholder_materials
-                        .after(clear_material_instances::<StandardMaterial>),
+                    extract_default_materials.after(clear_material_instances::<StandardMaterial>),
                 ),
             )
             .add_systems(

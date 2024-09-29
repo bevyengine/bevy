@@ -36,7 +36,7 @@ impl Plugin for Wireframe2dPlugin {
             .register_type::<Wireframe2dConfig>()
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
-            .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
+            .add_plugins(Material2dPlugin::<Wireframe2dMaterial, false>::default())
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,

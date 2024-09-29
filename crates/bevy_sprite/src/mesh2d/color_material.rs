@@ -1,15 +1,20 @@
 #![expect(deprecated)]
 
-use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
+use crate::{
+    clear_material_2d_instances, extract_default_materials_2d, AlphaMode2d, Material2d,
+    Material2dPlugin, MaterialMesh2dBundle,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::*,
     texture::{GpuImage, Image},
+    ExtractSchedule, RenderApp,
 };
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -40,6 +45,16 @@ impl Plugin for ColorMaterialPlugin {
                     ..Default::default()
                 },
             );
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        // Extract default materials for entities with no material.
+        render_app.add_systems(
+            ExtractSchedule,
+            extract_default_materials_2d.after(clear_material_2d_instances::<ColorMaterial>),
+        );
     }
 }
 
