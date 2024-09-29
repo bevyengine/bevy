@@ -65,8 +65,9 @@ pub struct BrpGetParams {
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
 
-    /// An option to fail when encountering an invalid component rather
-    /// than skipping it.
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
     pub strict: bool,
 }
 
