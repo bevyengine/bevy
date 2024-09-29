@@ -51,7 +51,7 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{enums::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
+/// # use bevy_reflect::{cast::CastPartialReflect, enums::{DynamicEnum, DynamicVariant}, Reflect, PartialReflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
