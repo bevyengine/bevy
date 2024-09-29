@@ -21,6 +21,7 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
+        cast::CastPartialReflect,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };

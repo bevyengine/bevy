@@ -201,21 +201,6 @@ impl PartialReflect for DynamicArray {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -520,7 +505,7 @@ mod tests {
             usize::MAX
         };
 
-        let b = Box::new([(); SIZE]).into_reflect();
+        let b = (Box::new([(); SIZE]) as Box<dyn Reflect>).into_reflect();
 
         let array = b.reflect_ref().as_array().unwrap();
 

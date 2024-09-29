@@ -9,11 +9,10 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    cast::impl_cast_partial_reflect, type_info::impl_type_methods, utility::reflect_hasher,
+    ApplyError, FromReflect, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
-use crate::cast::impl_cast_partial_reflect;
 
 /// A trait used to power [list-like] operations via [reflection].
 ///
@@ -264,21 +263,6 @@ impl PartialReflect for DynamicList {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
     }
 
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
@@ -563,7 +547,7 @@ mod tests {
             // If compiled in release mode, verify we dont overflow
             usize::MAX
         };
-        let b = Box::new(vec![(); SIZE]).into_reflect();
+        let b = (Box::new(vec![(); SIZE]) as Box<dyn Reflect>).into_reflect();
 
         let list = b.reflect_ref().as_list().unwrap();
 

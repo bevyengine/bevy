@@ -79,7 +79,7 @@ impl From<ReflectKindMismatchError> for ApplyError {
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait PartialReflect: DynamicTypePath + Send + Sync
+pub trait PartialReflect: CastPartialReflect + DynamicTypePath + Send + Sync
 where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
     Self: 'static,
@@ -100,21 +100,6 @@ where
     /// [`DynamicList`]: crate::DynamicList
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
-
-    /// Casts this type to a boxed, reflected value.
-    ///
-    /// This is useful for coercing trait objects.
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
-
-    /// Casts this type to a reflected value.
-    ///
-    /// This is useful for coercing trait objects.
-    fn as_partial_reflect(&self) -> &dyn PartialReflect;
-
-    /// Casts this type to a mutable, reflected value.
-    ///
-    /// This is useful for coercing trait objects.
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
 
     /// Attempts to cast this type to a boxed, [fully-reflected] value.
     ///
@@ -312,7 +297,7 @@ where
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + DynamicTyped + Any {
+pub trait Reflect: PartialReflect + CastReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
@@ -327,15 +312,6 @@ pub trait Reflect: PartialReflect + DynamicTyped + Any {
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    /// Casts this type to a boxed, fully-reflected value.
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
-
-    /// Casts this type to a fully-reflected value.
-    fn as_reflect(&self) -> &dyn Reflect;
-
-    /// Casts this type to a mutable, fully-reflected value.
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
@@ -366,7 +342,7 @@ impl dyn PartialReflect {
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
         self.try_into_reflect()?
             .downcast()
-            .map_err(PartialReflect::into_partial_reflect)
+            .map_err(CastPartialReflect::into_partial_reflect)
     }
 
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
@@ -523,18 +499,6 @@ macro_rules! impl_full_reflect {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
-                self
-            }
-
-            fn as_reflect(&self) -> &dyn $crate::Reflect {
-                self
-            }
-
-            fn as_reflect_mut(&mut self) -> &mut dyn $crate::Reflect {
-                self
-            }
-
             fn set(
                 &mut self,
                 value: Box<dyn $crate::Reflect>,
@@ -546,4 +510,5 @@ macro_rules! impl_full_reflect {
     };
 }
 
+use crate::cast::{CastPartialReflect, CastReflect};
 pub(crate) use impl_full_reflect;

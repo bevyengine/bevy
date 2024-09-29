@@ -10,6 +10,7 @@ use bevy_ecs::{
     resource::Resource,
     world::World,
 };
+use bevy_reflect::cast::CastPartialReflect;
 use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::default;
 
@@ -309,7 +310,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     let component = type_registration
                         .data::<ReflectFromReflect>()
                         .and_then(|fr| fr.from_reflect(component.as_partial_reflect()))
-                        .map(PartialReflect::into_partial_reflect)
+                        .map(CastPartialReflect::into_partial_reflect)
                         .unwrap_or_else(|| component.clone_value());
 
                     entry.components.push(component);
