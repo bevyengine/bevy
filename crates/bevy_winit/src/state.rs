@@ -556,14 +556,16 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
+            let is_closing = {
+                let mut closing = self.world_mut().query_filtered::<(), With<ClosingWindow>>();
+                !closing.iter(self.world()).collect::<Vec<_>>().is_empty()
+            };
+
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
 
-            let mut closing: SystemState<Query<(), With<ClosingWindow>>> =
-                SystemState::new(self.world_mut());
-
-            if !closing.get(self.world()).is_empty() {
+            if is_closing {
                 update_mode = UpdateMode::Continuous;
             } else {
                 update_mode = config.update_mode(focused);
