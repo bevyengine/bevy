@@ -10,14 +10,14 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Struct`] values.
 ///
 /// [`Struct`]: crate::Struct
-pub(super) struct StructVisitor<'a, 'p> {
+pub(super) struct StructVisitor<'a, P> {
     pub struct_info: &'static StructInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for StructVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVisitor<'_, P> {
     type Value = DynamicStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

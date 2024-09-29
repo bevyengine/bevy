@@ -9,14 +9,14 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Tuple`] values.
 ///
 /// [`Tuple`]: crate::Tuple
-pub(super) struct TupleVisitor<'a, 'p> {
+pub(super) struct TupleVisitor<'a, P> {
     pub tuple_info: &'static TupleInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for TupleVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleVisitor<'_, P> {
     type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

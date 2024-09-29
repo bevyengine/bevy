@@ -10,13 +10,13 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`List`] values.
 ///
 /// [`List`]: crate::List
-pub(super) struct ListVisitor<'a, 'p> {
+pub(super) struct ListVisitor<'a, P> {
     pub list_info: &'static ListInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for ListVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
     type Value = DynamicList;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -32,7 +32,7 @@ impl<'de> Visitor<'de> for ListVisitor<'_, '_> {
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
             self.registry,
-            self.processor.as_deref_mut(),
+            &mut self.processor,
         ))? {
             list.push_box(value);
         }

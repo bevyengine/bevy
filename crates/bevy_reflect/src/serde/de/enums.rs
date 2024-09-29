@@ -20,14 +20,14 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Enum`] values.
 ///
 /// [`Enum`]: crate::Enum
-pub(super) struct EnumVisitor<'a, 'p> {
+pub(super) struct EnumVisitor<'a, P> {
     pub enum_info: &'static EnumInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for EnumVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for EnumVisitor<'_, P> {
     type Value = DynamicEnum;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -145,14 +145,14 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
     }
 }
 
-struct StructVariantVisitor<'a, 'p> {
+struct StructVariantVisitor<'a, P> {
     struct_info: &'static StructVariantInfo,
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    processor: P,
 }
 
-impl<'de> Visitor<'de> for StructVariantVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVariantVisitor<'_, P> {
     type Value = DynamicStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -186,14 +186,14 @@ impl<'de> Visitor<'de> for StructVariantVisitor<'_, '_> {
     }
 }
 
-struct TupleVariantVisitor<'a, 'p> {
+struct TupleVariantVisitor<'a, P> {
     tuple_info: &'static TupleVariantInfo,
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    processor: P,
 }
 
-impl<'de> Visitor<'de> for TupleVariantVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleVariantVisitor<'_, P> {
     type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

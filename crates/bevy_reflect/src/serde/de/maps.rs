@@ -10,13 +10,13 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Map`] values.
 ///
 /// [`Map`]: crate::Map
-pub(super) struct MapVisitor<'a, 'p> {
+pub(super) struct MapVisitor<'a, P> {
     pub map_info: &'static MapInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for MapVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for MapVisitor<'_, P> {
     type Value = DynamicMap;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -33,12 +33,12 @@ impl<'de> Visitor<'de> for MapVisitor<'_, '_> {
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
             key_registration,
             self.registry,
-            self.processor.as_deref_mut(),
+            &mut self.processor,
         ))? {
             let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
                 value_registration,
                 self.registry,
-                self.processor.as_deref_mut(),
+                &mut self.processor,
             ))?;
             dynamic_map.insert_boxed(key, value);
         }

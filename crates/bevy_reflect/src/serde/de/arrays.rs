@@ -10,13 +10,13 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`Array`] values.
 ///
 /// [`Array`]: crate::Array
-pub(super) struct ArrayVisitor<'a, 'p> {
+pub(super) struct ArrayVisitor<'a, P> {
     pub array_info: &'static ArrayInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for ArrayVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ArrayVisitor<'_, P> {
     type Value = DynamicArray;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -32,7 +32,7 @@ impl<'de> Visitor<'de> for ArrayVisitor<'_, '_> {
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
             self.registry,
-            self.processor.as_deref_mut(),
+            &mut self.processor,
         ))? {
             vec.push(value);
         }
