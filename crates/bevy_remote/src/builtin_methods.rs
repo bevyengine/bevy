@@ -18,7 +18,7 @@ use bevy_reflect::{
 };
 use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::{error_codes, BrpError, BrpResult};
 
@@ -64,6 +64,10 @@ pub struct BrpGetParams {
     ///
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
+
+    /// An option to fail when encountering an invalid component rather
+    /// than skipping it.
+    pub strict: bool,
 }
 
 /// `bevy/query`: Performs a query over components in the ECS, returning entities
@@ -273,7 +277,11 @@ fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, B
 
 /// Handles a `bevy/get` request coming from a client.
 pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpGetParams { entity, components } = parse_some(params)?;
+    let BrpGetParams {
+        entity,
+        components,
+        strict,
+    } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
@@ -282,35 +290,47 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     let mut response = BrpGetResponse::default();
 
     for component_path in components {
-        let reflect_component = get_reflect_component(&type_registry, &component_path)
-            .map_err(BrpError::component_error)?;
-
-        // Retrieve the reflected value for the given specified component on the given entity.
-        let Some(reflected) = reflect_component.reflect(entity_ref) else {
-            return Err(BrpError::component_not_present(&component_path, entity));
-        };
-
-        // Each component value serializes to a map with a single entry.
-        let reflect_serializer =
-            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
-        let Value::Object(serialized_object) =
-            serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
-                code: error_codes::COMPONENT_ERROR,
-                message: err.to_string(),
-                data: None,
-            })?
-        else {
-            return Err(BrpError {
-                code: error_codes::COMPONENT_ERROR,
-                message: format!("Component `{}` could not be serialized", component_path),
-                data: None,
-            });
-        };
-
-        response.extend(serialized_object.into_iter());
+        match process_remote_get_component(component_path, entity, entity_ref, &type_registry) {
+            Ok(serialized_object) => response.extend(serialized_object.into_iter()),
+            Err(err) if strict => return Err(err),
+            Err(_) => {},
+        }
     }
 
     serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+fn process_remote_get_component(
+    component_path: String,
+    entity: Entity,
+    entity_ref: EntityRef,
+    type_registry: &TypeRegistry,
+) -> Result<Map<String, Value>, BrpError> {
+    let reflect_component =
+        get_reflect_component(type_registry, &component_path).map_err(BrpError::component_error)?;
+
+    // Retrieve the reflected value for the given specified component on the given entity.
+    let Some(reflected) = reflect_component.reflect(entity_ref) else {
+        return Err(BrpError::component_not_present(&component_path, entity));
+    };
+
+    // Each component value serializes to a map with a single entry.
+    let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
+    let Value::Object(serialized_object) =
+        serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
+            code: error_codes::COMPONENT_ERROR,
+            message: err.to_string(),
+            data: None,
+        })?
+    else {
+        return Err(BrpError {
+            code: error_codes::COMPONENT_ERROR,
+            message: format!("Component `{}` could not be serialized", component_path),
+            data: None,
+        });
+    };
+
+    Ok(serialized_object)
 }
 
 /// Handles a `bevy/query` request coming from a client.
