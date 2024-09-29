@@ -167,14 +167,17 @@ impl<T: ?Sized + TypePath + Send + Sync> GetTypeRegistration for Box<T> {
 macro_rules! impl_cast_partial_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::cast::CastPartialReflect for $ty $(where $($tt)*)? {
+            #[inline]
             fn as_partial_reflect(&self) -> &dyn $crate::PartialReflect {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect_mut(&mut self) -> &mut dyn $crate::PartialReflect {
                 self
             }
 
+            #[inline]
             fn into_partial_reflect(self: Box<Self>) -> Box<dyn $crate::PartialReflect> {
                 self
             }
@@ -190,14 +193,17 @@ macro_rules! impl_casting_traits {
         $crate::cast::impl_cast_partial_reflect!($(<$($id),*>)? for $ty $(where $($tt)*)?);
 
         impl $(<$($id),*>)? $crate::cast::CastReflect for $ty $(where $($tt)*)? {
+            #[inline]
             fn as_reflect(&self) -> &dyn $crate::Reflect {
                 self
             }
 
+            #[inline]
             fn as_reflect_mut(&mut self) -> &mut dyn $crate::Reflect {
                 self
             }
 
+            #[inline]
             fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
                 self
             }
