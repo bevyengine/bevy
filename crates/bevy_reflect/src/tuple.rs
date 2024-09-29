@@ -289,19 +289,6 @@ impl PartialReflect for DynamicTuple {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -551,19 +538,6 @@ macro_rules! impl_reflect_tuple {
                 Some(<Self as Typed>::type_info())
             }
 
-            #[inline]
-            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-                self
-            }
-
-            fn as_partial_reflect(&self) -> &dyn PartialReflect {
-                self
-            }
-
-            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-                self
-            }
-
             fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
                 Ok(self)
             }
@@ -630,18 +604,6 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn as_any_mut(&mut self) -> &mut dyn Any {
-                self
-            }
-
-            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-                self
-            }
-
-            fn as_reflect(&self) -> &dyn Reflect {
-                self
-            }
-
-            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
                 self
             }
 

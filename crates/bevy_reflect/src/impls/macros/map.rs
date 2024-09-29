@@ -100,19 +100,6 @@ macro_rules! impl_reflect_for_hashmap {
                     Some(<Self as $crate::type_info::Typed>::type_info())
                 }
 
-                #[inline]
-                fn into_partial_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect> {
-                    self
-                }
-
-                fn as_partial_reflect(&self) -> &dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
-                fn as_partial_reflect_mut(&mut self) -> &mut dyn $crate::reflect::PartialReflect {
-                    self
-                }
-
                 fn try_into_reflect(
                     self: bevy_platform::prelude::Box<Self>,
                 ) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, bevy_platform::prelude::Box<dyn $crate::reflect::PartialReflect>> {
