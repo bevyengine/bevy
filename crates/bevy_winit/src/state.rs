@@ -28,7 +28,12 @@ use winit::{
     window::WindowId,
 };
 
-use bevy_window::{AppLifecycle, ClosingWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed, WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged, WindowThemeChanged};
+use bevy_window::{
+    AppLifecycle, ClosingWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
+    WindowScaleFactorChanged, WindowThemeChanged,
+};
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
@@ -556,18 +561,20 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
+            // Look for closing windows.
             let is_closing = {
                 let mut closing = self.world_mut().query_filtered::<(), With<ClosingWindow>>();
                 !closing.iter(self.world()).collect::<Vec<_>>().is_empty()
             };
 
-            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
-            let focused = windows.iter().any(|(_, window)| window.focused);
-
+            // If there are closing windows, we force the app to update immediately so the app does
+            // not take too long to close.
             if is_closing {
                 update_mode = UpdateMode::Continuous;
             } else {
+                // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+                let (config, windows) = focused_windows_state.get(self.world());
+                let focused = windows.iter().any(|(_, window)| window.focused);
                 update_mode = config.update_mode(focused);
             }
         }
@@ -637,7 +644,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         if let Some(app_exit) = self.app.should_exit() {
             self.app_exit = Some(app_exit);
 
-            bevy_utils::tracing::info!("Exit event loop");
             event_loop.exit();
         }
     }

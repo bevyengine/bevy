@@ -54,6 +54,5 @@ pub fn close_when_requested(
         // we may receive a `WindowCloseRequested` for a window we've just despawned in the above
         // loop.
         commands.entity(event.window).try_insert(ClosingWindow);
-        bevy_utils::tracing::info!("Marked window for closing!");
     }
 }
