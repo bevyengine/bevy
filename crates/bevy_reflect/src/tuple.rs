@@ -649,7 +649,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
                 let _ref_tuple = reflect.reflect_ref().as_tuple().ok()?;
@@ -765,7 +765,7 @@ const _: () = {
     macro_rules! impl_from_arg_tuple {
     ($(#[$meta:meta])* $($name: ident),*) => {
         $(#[$meta])*
-        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
@@ -780,7 +780,7 @@ const _: () = {
     macro_rules! impl_into_return_tuple {
     ($(#[$meta:meta])* $($name: ident),+) => {
         $(#[$meta])*
-        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + Reflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 

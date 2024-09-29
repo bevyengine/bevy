@@ -1,7 +1,7 @@
-use crate as bevy_reflect;
 use crate::__macro_exports::RegisterForReflection;
 use crate::{MaybeTyped, PartialReflect, Reflect};
 use bevy_reflect_derive::impl_type_path;
+use alloc::boxed::Box;
 
 pub trait CastPartialReflect {
     fn as_partial_reflect(&self) -> &dyn PartialReflect;
@@ -138,7 +138,6 @@ impl RegisterForReflection for Box<dyn PartialReflect> {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Struct, TupleStruct};
     use static_assertions::assert_not_impl_all;
 
