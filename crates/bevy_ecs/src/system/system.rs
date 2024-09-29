@@ -317,11 +317,7 @@ where
 /// # assert_eq!(count, 2);
 /// ```
 pub trait RunSystemOnce: Sized {
-    /// Runs a system and applies its deferred parameters.
-    ///
-    /// If system parameters were invalid, system isn't executed and
-    /// the return value is [`None`].
-    #[must_use = "The system may have not ran."]
+    /// Tries to run a system and apply its deferred parameters.
     fn run_system_once<T, Out, Marker>(self, system: T) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<(), Out, Marker>,
@@ -329,11 +325,7 @@ pub trait RunSystemOnce: Sized {
         self.run_system_once_with((), system)
     }
 
-    /// Runs a system with given input and applies its deferred parameters.
-    ///
-    /// If system parameters were invalid, system isn't executed and
-    /// the return value is [`None`].
-    #[must_use = "The system may have not ran."]
+    /// Tries to run a system with given input and apply deferred parameters.
     fn run_system_once_with<T, In, Out, Marker>(
         self,
         input: SystemIn<'_, T::System>,
