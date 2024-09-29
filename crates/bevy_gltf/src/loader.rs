@@ -4,9 +4,6 @@ use crate::{
 };
 
 use alloc::collections::VecDeque;
-use bevy_animation::prelude::{
-    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
-};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -65,7 +62,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
-    bevy_animation::{AnimationTarget, AnimationTargetId},
+    bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
     smallvec::SmallVec,
 };
 
@@ -2468,7 +2465,7 @@ mod test {
         {
             "inverseBindMatrices": 0,
             "joints": [1, 2]
-        }  
+        }
     ],
     "buffers": [
         {
@@ -2480,7 +2477,7 @@ mod test {
         {
             "buffer": 0,
             "byteLength": 128
-        }  
+        }
     ],
     "accessors": [
         {
@@ -2488,7 +2485,7 @@ mod test {
             "componentType" : 5126,
             "count" : 2,
             "type" : "MAT4"
-        }  
+        }
     ],
     "scene": 0,
     "scenes": [{ "nodes": [0] }]
