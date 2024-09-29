@@ -2,7 +2,7 @@
 
 use bevy_math::{
     curve::{cores::*, iterable::IterableCurve, *},
-    FloatPow, Quat, Vec4, VectorSpace,
+    vec4, Quat, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
 use thiserror::Error;
@@ -393,10 +393,11 @@ fn cubic_spline_interpolation<T>(
 where
     T: VectorSpace,
 {
-    value_start * (2.0 * lerp.cubed() - 3.0 * lerp.squared() + 1.0)
-        + tangent_out_start * (step_duration) * (lerp.cubed() - 2.0 * lerp.squared() + lerp)
-        + value_end * (-2.0 * lerp.cubed() + 3.0 * lerp.squared())
-        + tangent_in_end * step_duration * (lerp.cubed() - lerp.squared())
+    let coeffs = (vec4(2.0, 1.0, -2.0, 1.0) * lerp + vec4(-3.0, -2.0, 3.0, -1.0)) * lerp;
+    value_start * (coeffs.x + 1.0)
+        + tangent_out_start * step_duration * lerp * coeffs.y
+        + value_end * coeffs.z
+        + tangent_in_end * step_duration * coeffs.w
 }
 
 fn cubic_spline_interpolate_slices<'a, T: VectorSpace>(
