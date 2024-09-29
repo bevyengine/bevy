@@ -1,3 +1,58 @@
+//! Traits for casting types to [`dyn PartialReflect`] and [`dyn Reflect`] trait objects.
+//!
+//! These traits are used internally by the [derive macro] and other [`Reflect`] implementations,
+//! to allow for transparent wrapper types, such as [`Box`], to be used as fields.
+//!
+//! # Custom Trait Objects
+//!
+//! These traits also enable the usage of custom trait objects as reflected fields.
+//!
+//! The only requirements are:
+//! - The trait must have at least [`CastPartialReflect`] as a supertrait.
+//!   This includes using [`CastReflect`], [`PartialReflect`], or [`Reflect`] as supertraits,
+//!   since they are all subtraits of [`CastPartialReflect`].
+//! - The trait must implement [`TypePath`] for its trait object
+//!
+//! ```
+//! # use bevy_reflect::{PartialReflect, Reflect, Struct, TypePath};
+//! #
+//! trait Equippable: PartialReflect {}
+//!
+//! impl TypePath for dyn Equippable {
+//!     fn type_path() -> &'static str {
+//!         "dyn my_crate::Equippable"
+//!     }
+//!
+//!     fn short_type_path() -> &'static str {
+//!         "dyn Equippable"
+//!     }
+//! }
+//!
+//! #[derive(Reflect)]
+//! struct Sword(u32);
+//!
+//! impl Equippable for Sword {}
+//!
+//! #[derive(Reflect)]
+//! #[reflect(from_reflect = false)]
+//! struct Player {
+//!    weapon: Box<dyn Equippable>,
+//! }
+//!
+//! let player: Box<dyn Struct> = Box::new(Player {
+//!     weapon: Box::new(Sword(123)),
+//! });
+//!
+//! let weapon = player.field("weapon").unwrap();
+//! assert!(weapon.reflect_partial_eq(&Sword(123)).unwrap_or_default());
+//! ```
+//!
+//! [`dyn PartialReflect`]: PartialReflect
+//! [`dyn Reflect`]: crate::Reflect
+//! [derive macro]: derive@crate::Reflect
+//! [`Reflect`]: crate::Reflect
+//! [`TypePath`]: crate::TypePath
+
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     GetTypeRegistration, OpaqueInfo, PartialReflect, Reflect, TypeInfo, TypePath, TypeRegistration,
@@ -6,9 +61,33 @@ use crate::{
 use alloc::boxed::Box;
 use bevy_reflect_derive::impl_type_path;
 
+/// A trait used to cast `Self` to a [`dyn PartialReflect`] trait object.
+///
+/// This is automatically implemented for any type that [derives `Reflect`],
+/// as well as [`Box<T>`] where `T` also implements [`CastPartialReflect`].
+///
+/// [`dyn PartialReflect`]: PartialReflect
+/// [derives `Reflect`]: derive@crate::Reflect
 pub trait CastPartialReflect: Send + Sync + 'static {
+    /// Casts this type to a [`dyn PartialReflect`] reference.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn PartialReflect`]: PartialReflect
     fn as_partial_reflect(&self) -> &dyn PartialReflect;
+
+    /// Casts this type to a mutable [`dyn PartialReflect`] reference.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn PartialReflect`]: PartialReflect
     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
+
+    /// Casts this type into a boxed [`dyn PartialReflect`] instance.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn PartialReflect`]: PartialReflect
     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
 }
 
@@ -26,9 +105,33 @@ impl<T: ?Sized + CastPartialReflect> CastPartialReflect for Box<T> {
     }
 }
 
+/// A trait used to cast `Self` to a [`dyn Reflect`] trait object.
+///
+/// This is automatically implemented for any type that [derives `Reflect`],
+/// as well as [`Box<T>`] where `T` also implements [`CastReflect`].
+///
+/// [`dyn Reflect`]: Reflect
+/// [derives `Reflect`]: derive@crate::Reflect
 pub trait CastReflect: CastPartialReflect {
+    /// Casts this type to a [`dyn Reflect`] reference.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn Reflect`]: Reflect
     fn as_reflect(&self) -> &dyn Reflect;
+
+    /// Casts this type to a mutable [`dyn Reflect`] reference.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn Reflect`]: Reflect
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
+
+    /// Casts this type into a boxed [`dyn Reflect`] instance.
+    ///
+    /// This is useful for coercing trait objects.
+    ///
+    /// [`dyn Reflect`]: Reflect
     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
 }
 
@@ -164,7 +267,7 @@ mod tests {
 
     #[test]
     fn should_allow_custom_trait_objects() {
-        trait Equippable: Reflect {}
+        trait Equippable: CastPartialReflect {}
 
         impl TypePath for dyn Equippable {
             fn type_path() -> &'static str {
