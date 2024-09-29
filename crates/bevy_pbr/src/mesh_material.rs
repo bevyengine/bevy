@@ -13,10 +13,12 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// # Example
 ///
 /// ```
-/// # use bevy_pbr::{Material3d, Mesh3d, MeshMaterial3d};
+/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(
@@ -26,7 +28,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
-///         Mesh3d(meshes.add(Capsule::default())),
+///         Mesh3d(meshes.add(Capsule3d::default())),
 ///         MeshMaterial3d(materials.add(StandardMaterial {
 ///             base_color: RED.into(),
 ///             ..Default::default()
@@ -41,10 +43,12 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// This material can be overridden by inserting a custom material for the default asset handle.
 ///
 /// ```
-/// # use bevy_pbr::{Material3d, Mesh3d, MeshMaterial3d};
+/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_color::Color;
+/// # use bevy_asset::{AssetServer, Assets, Handle};
+/// # use bevy_math::primitives::Capsule3d;
 /// #
 /// fn setup(
 ///     mut commands: Commands,
@@ -53,13 +57,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// ) {
 ///     // Optional: Insert a custom default material.
 ///     materials.insert(
-///         Handle::<StandardMaterial>::default(),
-///         StandardMaterial::from(Color::from_srgb(1.0, 0.0, 1.0)),
+///         &Handle::<StandardMaterial>::default(),
+///         StandardMaterial::from(Color::srgb(1.0, 0.0, 1.0)),
 ///     );
 ///
 ///     // Spawn a circle with no material.
 ///     // The mesh will be rendered with the default material.
-///     commands.spawn(Mesh3d(meshes.add(Capsule::default())));
+///     commands.spawn(Mesh3d(meshes.add(Capsule3d::default())));
 /// }
 /// ```
 ///

@@ -57,13 +57,15 @@ use super::ColorMaterial;
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::Material2d;
+/// # use bevy_sprite::{Material2d, Mesh2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{mesh::Mesh, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
 /// # use bevy_color::LinearRgba;
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-///
+/// # use bevy_math::primitives::Circle;
+/// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
@@ -86,10 +88,15 @@ use super::ColorMaterial;
 /// }
 ///
 /// // Spawn an entity with a mesh using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
 ///     commands.spawn((
-///         Mesh3d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial3d(materials.add(CustomMaterial {
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
@@ -153,7 +160,9 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -164,7 +173,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(Color::from(RED.into()))),
+///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
 ///     ));
 /// }
 /// ```
@@ -181,7 +190,9 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_sprite::{ColorMaterial, Mesh2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_color::Color;
+/// # use bevy_asset::{AssetServer, Assets, Handle};
+/// # use bevy_math::primitives::Circle;
 /// #
 /// fn setup(
 ///     mut commands: Commands,
@@ -190,8 +201,8 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ) {
 ///     // Optional: Insert a custom default material.
 ///     materials.insert(
-///         Handle::<ColorMaterial>::default(),
-///         ColorMaterial::from(Color::from_srgb(1.0, 0.0, 1.0)),
+///         &Handle::<ColorMaterial>::default(),
+///         ColorMaterial::from(Color::srgb(1.0, 0.0, 1.0)),
 ///     );
 ///
 ///     // Spawn a circle with no material.

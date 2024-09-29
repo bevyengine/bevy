@@ -57,14 +57,15 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_pbr::{Material, Mesh3d, MeshMaterial3d};
+/// # use bevy_pbr::{Material, MeshMaterial3d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-///
+/// # use bevy_math::primitives::Capsule3d;
+/// #
 /// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
@@ -94,7 +95,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 ///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
-///         Mesh3d(meshes.add(Capsule::default())),
+///         Mesh3d(meshes.add(Capsule3d::default())),
 ///         MeshMaterial3d(materials.add(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),

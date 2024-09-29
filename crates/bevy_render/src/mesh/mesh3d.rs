@@ -16,10 +16,12 @@ use bevy_transform::components::Transform;
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_pbr::{Material3d, Mesh3d, MeshMaterial3d};
+/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(
@@ -29,7 +31,7 @@ use bevy_transform::components::Transform;
 ///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
-///         Mesh3d(meshes.add(Capsule::default())),
+///         Mesh3d(meshes.add(Capsule3d::default())),
 ///         MeshMaterial3d(materials.add(StandardMaterial {
 ///             base_color: RED.into(),
 ///             ..Default::default()

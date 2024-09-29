@@ -63,7 +63,9 @@ use crate::Material2dBindGroupId;
 /// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
+/// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
@@ -74,7 +76,7 @@ use crate::Material2dBindGroupId;
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(Color::from(RED.into()))),
+///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
 ///     ));
 /// }
 /// ```
