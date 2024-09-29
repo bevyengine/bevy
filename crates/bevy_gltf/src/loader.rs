@@ -4,9 +4,6 @@ use crate::{
 };
 
 use alloc::collections::VecDeque;
-use bevy_animation::prelude::{
-    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
-};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -65,7 +62,7 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
-    bevy_animation::{AnimationTarget, AnimationTargetId},
+    bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
     smallvec::SmallVec,
 };
 
@@ -277,7 +274,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = bevy_animation::AnimationClip::default();
+            let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
                 let interpolation = match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => Interpolation::Linear,
@@ -330,7 +327,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     animation_roots.insert(*root_index);
                     animation_clip.add_curve_to_target(
                         AnimationTargetId::from_names(path.iter()),
-                        bevy_animation::VariableCurve {
+                        VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                             interpolation,
@@ -738,7 +735,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(AnimationPlayer::default());
                 }
             }
         }
@@ -2468,7 +2465,7 @@ mod test {
         {
             "inverseBindMatrices": 0,
             "joints": [1, 2]
-        }  
+        }
     ],
     "buffers": [
         {
@@ -2480,7 +2477,7 @@ mod test {
         {
             "buffer": 0,
             "byteLength": 128
-        }  
+        }
     ],
     "accessors": [
         {
@@ -2488,7 +2485,7 @@ mod test {
             "componentType" : 5126,
             "count" : 2,
             "type" : "MAT4"
-        }  
+        }
     ],
     "scene": 0,
     "scenes": [{ "nodes": [0] }]
