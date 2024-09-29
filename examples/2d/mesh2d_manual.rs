@@ -32,7 +32,7 @@ use bevy::{
     sprite::{
         extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2d, Mesh2dPipeline,
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup, WithMesh2d,
+        SetMesh2dViewBindGroup,
     },
 };
 use std::f32::consts::PI;
@@ -387,7 +387,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in visible_entities.iter::<WithMesh2d>() {
+        for visible_entity in visible_entities.iter::<With<Mesh2d>>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
