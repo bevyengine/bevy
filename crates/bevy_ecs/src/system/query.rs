@@ -33,6 +33,15 @@ use core::{
 ///
 /// [`World`]: crate::world::World
 ///
+/// # Similar parameters
+///
+/// [`Query`] has few sibling parameters, which perform additional validation:
+/// - [`Single`] - Exactly one matching query item.
+/// - [`Option<Single>`] - Zero or one matching query item.
+/// - [`Populated`] - At least one matching query item.
+/// 
+/// Those parameters will prevent systems from running if their requirements aren't met.
+///
 /// # System parameter declaration
 ///
 /// A query should always be declared as a system parameter.
@@ -1672,6 +1681,10 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
 /// This will cause systems that use this parameter to be skipped.
+///
+/// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`] or [`Changed`]
+/// which must individually check each query result for a match.
 ///
 /// See [`Query`] for more details.
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
