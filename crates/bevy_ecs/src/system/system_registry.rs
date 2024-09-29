@@ -276,11 +276,11 @@ impl World {
     ///   println!("{label} has score {}", world.run_system(scoring_system).expect("system succeeded"));
     /// }
     /// ```
-    pub fn try_run_system<O: 'static>(
+    pub fn run_system<O: 'static>(
         &mut self,
         id: SystemId<(), O>,
     ) -> Result<O, RegisteredSystemError<(), O>> {
-        self.try_run_system_with_input(id, ())
+        self.run_system_with_input(id, ())
     }
 
     /// Run a stored chained system by its [`SystemId`], providing an input value.
@@ -309,7 +309,7 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn try_run_system_with_input<I, O>(
+    pub fn run_system_with_input<I, O>(
         &mut self,
         id: SystemId<I, O>,
         input: I::Inner<'_>,
@@ -445,7 +445,7 @@ impl World {
         S: IntoSystem<I, O, M> + 'static,
     {
         let id = self.register_system_cached(system);
-        self.try_run_system_with_input(id, input)
+        self.run_system_with_input(id, input)
     }
 }
 
@@ -500,7 +500,7 @@ where
 {
     #[inline]
     fn apply(self, world: &mut World) {
-        _ = world.try_run_system_with_input(self.system_id, self.input);
+        _ = world.run_system_with_input(self.system_id, self.input);
     }
 }
 
@@ -647,14 +647,14 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(0));
         // Resources are changed when they are first added.
         let id = world.register_system(count_up_iff_changed);
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Nothing changed
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         // Making a change
         world.resource_mut::<ChangeDetector>().set_changed();
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -670,13 +670,13 @@ mod tests {
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
         let id = world.register_system(doubling);
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(4));
-        world.try_run_system(id).expect("system runs successfully");
+        world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(8));
     }
 
@@ -698,22 +698,22 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(1));
 
         world
-            .try_run_system_with_input(id, NonCopy(1))
+            .run_system_with_input(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
 
         world
-            .try_run_system_with_input(id, NonCopy(1))
+            .run_system_with_input(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
 
         world
-            .try_run_system_with_input(id, NonCopy(20))
+            .run_system_with_input(id, NonCopy(20))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(23));
 
         world
-            .try_run_system_with_input(id, NonCopy(1))
+            .run_system_with_input(id, NonCopy(1))
             .expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(24));
     }
@@ -737,11 +737,11 @@ mod tests {
         world.insert_resource(Counter(1));
         assert_eq!(*world.resource::<Counter>(), Counter(1));
 
-        let output = world.try_run_system(id).expect("system runs successfully");
+        let output = world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(2));
         assert_eq!(output, NonCopy(2));
 
-        let output = world.try_run_system(id).expect("system runs successfully");
+        let output = world.run_system(id).expect("system runs successfully");
         assert_eq!(*world.resource::<Counter>(), Counter(3));
         assert_eq!(output, NonCopy(3));
     }
@@ -753,7 +753,7 @@ mod tests {
             world.spawn_empty();
         });
         let entity_count = world.entities.len();
-        let _ = world.try_run_system(exclusive_system_id);
+        let _ = world.run_system(exclusive_system_id);
         assert_eq!(world.entities.len(), entity_count + 1);
     }
 
@@ -783,7 +783,7 @@ mod tests {
 
         world.spawn(Callback(increment_two));
         world.spawn(Callback(increment_three));
-        let _ = world.try_run_system(nested_id);
+        let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 
@@ -811,7 +811,7 @@ mod tests {
 
         world.spawn(Callback(increment_by, 2));
         world.spawn(Callback(increment_by, 3));
-        let _ = world.try_run_system(nested_id);
+        let _ = world.run_system(nested_id);
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 
@@ -833,12 +833,12 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_ne!(old, new);
 
-        let output = world.try_run_system(old);
+        let output = world.run_system(old);
         assert!(matches!(
             output,
             Err(RegisteredSystemError::SystemIdNotRegistered(x)) if x == old,
         ));
-        let output = world.try_run_system(new);
+        let output = world.run_system(new);
         assert!(matches!(output, Ok(x) if x == four()));
         let output = world.run_system_cached(four);
         assert!(matches!(output, Ok(x) if x == four()));
@@ -890,7 +890,7 @@ mod tests {
         world.insert_resource(Counter(0));
 
         let id = world.register_system(with_ref);
-        world.try_run_system_with_input(id, &2).unwrap();
+        world.run_system_with_input(id, &2).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -913,13 +913,13 @@ mod tests {
 
         let mut event = MyEvent { cancelled: false };
         world
-            .try_run_system_with_input(post_system, &mut event)
+            .run_system_with_input(post_system, &mut event)
             .unwrap();
         assert!(!event.cancelled);
 
         world.resource_mut::<Counter>().0 = 1;
         world
-            .try_run_system_with_input(post_system, &mut event)
+            .run_system_with_input(post_system, &mut event)
             .unwrap();
         assert!(event.cancelled);
     }

@@ -120,7 +120,7 @@ mod tests {
 
         let mut world = World::default();
         let id = world.register_system(testing);
-        let name = world.try_run_system(id).unwrap();
+        let name = world.run_system(id).unwrap();
         assert!(name.ends_with("testing"));
     }
 
@@ -132,7 +132,7 @@ mod tests {
 
         let mut world = World::default();
         let id = world.register_system(testing);
-        let name = world.try_run_system(id).unwrap();
+        let name = world.run_system(id).unwrap();
         assert!(name.ends_with("testing"));
     }
 
