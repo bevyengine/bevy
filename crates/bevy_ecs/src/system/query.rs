@@ -35,7 +35,7 @@ use core::{
 ///
 /// # Similar parameters
 ///
-/// [`Query`] has few sibling parameters, which perform additional validation:
+/// [`Query`] has few sibling [`SystemParam`], which perform additional validation:
 /// - [`Single`] - Exactly one matching query item.
 /// - [`Option<Single>`] - Zero or one matching query item.
 /// - [`Populated`] - At least one matching query item.
