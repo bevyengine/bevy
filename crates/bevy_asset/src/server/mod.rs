@@ -381,6 +381,10 @@ impl AssetServer {
             meta_transform,
         );
 
+        // make sure we drop the lock on `AssetInfos` in the single-threaded case
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         if should_load {
             let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
@@ -431,6 +435,11 @@ impl AssetServer {
             HandleLoadingMode::Request,
             meta_transform,
         );
+
+        // make sure we drop the lock on `AssetInfos` in the single-threaded case
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         if !should_load {
             return handle;
         }
@@ -740,6 +749,11 @@ impl AssetServer {
         let mut infos = self.data.infos.write();
         let handle =
             infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
+
+        // make sure we drop the lock on `AssetInfos` in the single-threaded case
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
