@@ -6,6 +6,7 @@ use bevy_render::{
     render_resource::{PrimitiveTopology, COPY_BUFFER_ALIGNMENT},
 };
 use bevy_utils::HashMap;
+use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{iter, ops::Range};
 use itertools::Itertools;
 use meshopt::{
@@ -349,7 +350,7 @@ fn build_and_compress_meshlet_vertex_data(
     meshlet_vertex_ids: &[u32],
     vertex_buffer: &[u8],
     quantized_positions: &mut Vec<IVec3>,
-    vertex_positions: &mut BitVec<u8>,
+    vertex_positions: &mut BitVec<u8, Lsb0>,
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
     meshlets: &mut Vec<Meshlet>,
