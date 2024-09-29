@@ -31,7 +31,7 @@ mod tests {
 
     use bevy_utils::{HashMap, HashSet};
 
-    use crate::serde::{DeserializerProcessorError, ReflectDeserializerProcessor};
+    use crate::serde::ReflectDeserializerProcessor;
     use crate::{self as bevy_reflect, TypeRegistration};
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
@@ -536,15 +536,15 @@ mod tests {
                 &mut self,
                 registration: &TypeRegistration,
                 deserializer: D,
-            ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Box::new(456_i64))
+                    Ok(Ok(Box::new(456_i64)))
                 } else {
-                    Err(DeserializerProcessorError::NotApplicable(deserializer))
+                    Ok(Err(deserializer))
                 }
             }
         }
@@ -587,18 +587,18 @@ mod tests {
                 &mut self,
                 registration: &TypeRegistration,
                 deserializer: D,
-            ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Box::new(123_i32))
+                    Ok(Ok(Box::new(123_i32)))
                 } else if registration.type_id() == TypeId::of::<i64>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    Ok(Box::new(456_i64))
+                    Ok(Ok(Box::new(456_i64)))
                 } else {
-                    Err(DeserializerProcessorError::NotApplicable(deserializer))
+                    Ok(Err(deserializer))
                 }
             }
         }
@@ -635,16 +635,14 @@ mod tests {
                 &mut self,
                 registration: &TypeRegistration,
                 deserializer: D,
-            ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 if registration.type_id() == TypeId::of::<i32>() {
-                    Err(DeserializerProcessorError::Error(
-                        serde::de::Error::custom("my custom deserialize error").into(),
-                    ))
+                    Err(serde::de::Error::custom("my custom deserialize error"))
                 } else {
-                    Err(DeserializerProcessorError::NotApplicable(deserializer))
+                    Ok(Err(deserializer))
                 }
             }
         }
@@ -682,13 +680,13 @@ mod tests {
                 &mut self,
                 _: &TypeRegistration,
                 deserializer: D,
-            ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
                 D: Deserializer<'de>,
             {
                 let _ = deserializer.deserialize_ignored_any(IgnoredAny)?;
                 *self.values_found += 1;
-                Ok(Box::new(123_i32))
+                Ok(Ok(Box::new(123_i32)))
             }
         }
 
