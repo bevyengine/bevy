@@ -92,7 +92,6 @@ impl<T, F> Debug for FunctionCurve<T, F> {
         f.debug_struct("FunctionCurve")
             .field("domain", &self.domain)
             .field("f", &type_name::<F>())
-            .field("_phantom", &self._phantom)
             .finish()
     }
 }
@@ -197,7 +196,6 @@ where
         f.debug_struct("MapCurve")
             .field("preimage", &self.preimage)
             .field("f", &type_name::<F>())
-            .field("_phantom", &self._phantom)
             .finish()
     }
 }
@@ -296,7 +294,6 @@ where
             .field("domain", &self.domain)
             .field("base", &self.base)
             .field("f", &type_name::<F>())
-            .field("_phantom", &self._phantom)
             .finish()
     }
 }

@@ -269,7 +269,6 @@ where
         self.core.domain()
     }
 
-    #[inline]
     fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp_timed(t) {
             InterpolationDatum::Exact((_, v))

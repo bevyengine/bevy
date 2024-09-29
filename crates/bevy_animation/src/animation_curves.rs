@@ -83,11 +83,7 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_asset::Handle;
-use bevy_ecs::{
-    component::Component,
-    world::{EntityMutExcept, Mut},
-};
+use bevy_ecs::{component::Component, world::Mut};
 use bevy_math::{
     curve::{
         cores::{UnevenCore, UnevenCoreError},
@@ -100,9 +96,7 @@ use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
-use crate::{
-    graph::AnimationGraph, prelude::Animatable, AnimationEvaluationError, AnimationPlayer,
-};
+use crate::{prelude::Animatable, AnimationEntityMut, AnimationEvaluationError};
 
 /// A value on a component that Bevy can animate.
 ///
@@ -178,9 +172,9 @@ pub trait AnimatableProperty: Reflect + TypePath {
 
 /// This trait collects the additional requirements on top of [`Curve<T>`] needed for a
 /// curve to be used as an [`AnimationCurve`].
-pub trait InnerAnimationCurve<T>: Curve<T> + Debug + Clone + Reflectable {}
+pub trait AnimationCompatibleCurve<T>: Curve<T> + Debug + Clone + Reflectable {}
 
-impl<T, C> InnerAnimationCurve<T> for C where C: Curve<T> + Debug + Clone + Reflectable {}
+impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone + Reflectable {}
 
 /// This type allows the conversion of a [curve] valued in the [property type] of an
 /// [`AnimatableProperty`] into an [`AnimationCurve`] which animates that property.
@@ -198,7 +192,7 @@ pub struct AnimatableCurve<P, C> {
 impl<P, C> AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
-    C: InnerAnimationCurve<P::Property>,
+    C: AnimationCompatibleCurve<P::Property>,
 {
     /// Create an [`AnimatableCurve`] (and thus an [`AnimationCurve`]) from a curve
     /// valued in an [animatable property].
@@ -238,7 +232,7 @@ where
 impl<P, C> AnimationCurve for AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
-    C: InnerAnimationCurve<P::Property>,
+    C: AnimationCompatibleCurve<P::Property>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -252,7 +246,7 @@ where
         &self,
         t: f32,
         _transform: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
@@ -276,7 +270,7 @@ pub struct TranslationCurve<C>(pub C);
 
 impl<C> AnimationCurve for TranslationCurve<C>
 where
-    C: InnerAnimationCurve<Vec3>,
+    C: AnimationCompatibleCurve<Vec3>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -290,7 +284,7 @@ where
         &self,
         t: f32,
         transform: Option<Mut<'a, Transform>>,
-        _entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -313,7 +307,7 @@ pub struct RotationCurve<C>(pub C);
 
 impl<C> AnimationCurve for RotationCurve<C>
 where
-    C: InnerAnimationCurve<Quat>,
+    C: AnimationCompatibleCurve<Quat>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -327,7 +321,7 @@ where
         &self,
         t: f32,
         transform: Option<Mut<'a, Transform>>,
-        _entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -350,7 +344,7 @@ pub struct ScaleCurve<C>(pub C);
 
 impl<C> AnimationCurve for ScaleCurve<C>
 where
-    C: InnerAnimationCurve<Vec3>,
+    C: AnimationCompatibleCurve<Vec3>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -364,7 +358,7 @@ where
         &self,
         t: f32,
         transform: Option<Mut<'a, Transform>>,
-        _entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -389,7 +383,7 @@ pub struct TransformCurve<C>(pub C);
 
 impl<C> AnimationCurve for TransformCurve<C>
 where
-    C: InnerAnimationCurve<Transform>,
+    C: AnimationCompatibleCurve<Transform>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -403,7 +397,7 @@ where
         &self,
         t: f32,
         transform: Option<Mut<'a, Transform>>,
-        _entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        _entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
@@ -439,7 +433,7 @@ where
         &self,
         t: f32,
         _transform: Option<Mut<'a, Transform>>,
-        mut entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        mut entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError> {
         let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
@@ -490,7 +484,7 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
         &self,
         t: f32,
         transform: Option<Mut<'a, Transform>>,
-        entity: EntityMutExcept<'a, (Transform, AnimationPlayer, Handle<AnimationGraph>)>,
+        entity: AnimationEntityMut<'a>,
         weight: f32,
     ) -> Result<(), AnimationEvaluationError>;
 }
