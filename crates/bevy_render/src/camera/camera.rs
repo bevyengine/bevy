@@ -917,7 +917,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
-                    &windows,
+                    windows,
                     &images,
                     &manual_texture_views,
                 );
