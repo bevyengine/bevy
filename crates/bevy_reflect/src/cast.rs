@@ -1,8 +1,7 @@
-use crate::__macro_exports::RegisterForReflection;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    GetTypeRegistration, MaybeTyped, OpaqueInfo, PartialReflect, Reflect, TypeInfo, TypePath,
-    TypeRegistration, Typed,
+    GetTypeRegistration, OpaqueInfo, PartialReflect, Reflect, TypeInfo, TypePath, TypeRegistration,
+    Typed,
 };
 use alloc::boxed::Box;
 use bevy_reflect_derive::impl_type_path;
@@ -13,7 +12,7 @@ pub trait CastPartialReflect: Send + Sync + 'static {
     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
 }
 
-impl<T: CastPartialReflect> CastPartialReflect for Box<T> {
+impl<T: ?Sized + CastPartialReflect> CastPartialReflect for Box<T> {
     fn as_partial_reflect(&self) -> &dyn PartialReflect {
         T::as_partial_reflect(self)
     }
@@ -27,41 +26,13 @@ impl<T: CastPartialReflect> CastPartialReflect for Box<T> {
     }
 }
 
-impl CastPartialReflect for Box<dyn PartialReflect> {
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self.as_ref()
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self.as_mut()
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        *self
-    }
-}
-
-impl CastPartialReflect for Box<dyn Reflect> {
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self.as_ref().as_partial_reflect()
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self.as_mut().as_partial_reflect_mut()
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self.into_reflect().into_partial_reflect()
-    }
-}
-
 pub trait CastReflect: CastPartialReflect {
     fn as_reflect(&self) -> &dyn Reflect;
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
 }
 
-impl<T: CastReflect> CastReflect for Box<T> {
+impl<T: ?Sized + CastReflect> CastReflect for Box<T> {
     fn as_reflect(&self) -> &dyn Reflect {
         T::as_reflect(self)
     }
@@ -75,36 +46,16 @@ impl<T: CastReflect> CastReflect for Box<T> {
     }
 }
 
-impl CastReflect for Box<dyn Reflect> {
-    fn as_reflect(&self) -> &dyn Reflect {
-        self.as_ref()
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self.as_mut()
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        *self
-    }
-}
-
 impl_type_path!(::alloc::boxed::Box<T: ?Sized>);
 
-impl MaybeTyped for Box<dyn Reflect> {}
-impl MaybeTyped for Box<dyn PartialReflect> {}
-
-impl<T: TypePath + Send + Sync> Typed for Box<T> {
+impl<T: ?Sized + TypePath + Send + Sync> Typed for Box<T> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
-impl RegisterForReflection for Box<dyn Reflect> {}
-impl RegisterForReflection for Box<dyn PartialReflect> {}
-
-impl<T: TypePath + Send + Sync> GetTypeRegistration for Box<T> {
+impl<T: ?Sized + TypePath + Send + Sync> GetTypeRegistration for Box<T> {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Self>()
     }
@@ -209,5 +160,38 @@ mod tests {
 
         let field_info = field.get_represented_type_info().unwrap();
         assert!(field_info.ty().is::<i32>());
+    }
+
+    #[test]
+    fn should_allow_custom_trait_objects() {
+        trait Equippable: Reflect {}
+
+        impl TypePath for dyn Equippable {
+            fn type_path() -> &'static str {
+                "dyn my_crate::Equippable"
+            }
+
+            fn short_type_path() -> &'static str {
+                "dyn Equippable"
+            }
+        }
+
+        #[derive(Reflect)]
+        struct Sword(u32);
+
+        impl Equippable for Sword {}
+
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct Player {
+            weapon: Box<dyn Equippable>,
+        }
+
+        let player: Box<dyn Struct> = Box::new(Player {
+            weapon: Box::new(Sword(123)),
+        });
+
+        let weapon = player.field("weapon").unwrap();
+        assert!(weapon.reflect_partial_eq(&Sword(123)).unwrap_or_default());
     }
 }
