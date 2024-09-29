@@ -12,14 +12,14 @@ use super::ReflectDeserializerProcessor;
 /// A [`Visitor`] for deserializing [`TupleStruct`] values.
 ///
 /// [`TupleStruct`]: crate::TupleStruct
-pub(super) struct TupleStructVisitor<'a, 'p> {
+pub(super) struct TupleStructVisitor<'a, P> {
     pub tuple_struct_info: &'static TupleStructInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: Option<&'a mut ReflectDeserializerProcessor<'p>>,
+    pub processor: P,
 }
 
-impl<'de> Visitor<'de> for TupleStructVisitor<'_, '_> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleStructVisitor<'_, P> {
     type Value = DynamicTupleStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

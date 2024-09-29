@@ -66,16 +66,17 @@ impl TupleLikeInfo for TupleVariantInfo {
 /// Deserializes a [tuple-like] type from a sequence of elements, returning a [`DynamicTuple`].
 ///
 /// [tuple-like]: TupleLikeInfo
-pub(super) fn visit_tuple<'de, T, V>(
+pub(super) fn visit_tuple<'de, T, V, P>(
     seq: &mut V,
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
-    mut processor: Option<&mut ReflectDeserializerProcessor>,
+    mut processor: P,
 ) -> Result<DynamicTuple, V::Error>
 where
     T: TupleLikeInfo,
     V: SeqAccess<'de>,
+    P: ReflectDeserializerProcessor,
 {
     let mut tuple = DynamicTuple::default();
 
@@ -98,7 +99,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
-                processor.as_deref_mut(),
+                &mut processor,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);
