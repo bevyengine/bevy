@@ -386,7 +386,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(local_system);
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 10);
     }
 
@@ -403,7 +403,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(query_system);
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 1);
     }
 
@@ -418,7 +418,7 @@ mod tests {
 
         let system = (state,).build_state(&mut world).build_system(query_system);
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 1);
     }
 
@@ -433,7 +433,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(multi_param_system);
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 1);
     }
 
@@ -464,7 +464,7 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 3);
     }
 
@@ -479,7 +479,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(|a, b| *a + *b + 1);
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 1);
     }
 
@@ -506,7 +506,7 @@ mod tests {
                 params.p0().iter().count() + params.p1().iter().count()
             });
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 5);
     }
 
@@ -535,7 +535,7 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 5);
     }
 
@@ -564,7 +564,7 @@ mod tests {
                 },
             );
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 4);
     }
 
@@ -591,7 +591,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(|param: CustomParam| *param.local + param.query.iter().count());
 
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system).unwrap();
         assert_eq!(result, 101);
     }
 }

@@ -648,7 +648,7 @@ fn process_remote_requests(world: &mut World) {
         };
 
         // Execute the handler, and send the result back to the client.
-        let result = match world.run_system_with_input(*handler, message.params) {
+        let result = match world.try_run_system_with_input(*handler, message.params) {
             Ok(result) => result,
             Err(error) => {
                 let _ = message.sender.force_send(Err(BrpError {

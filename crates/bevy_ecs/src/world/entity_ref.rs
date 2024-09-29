@@ -3225,7 +3225,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>) {}
     }
@@ -3241,7 +3241,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>) {}
     }
@@ -3253,7 +3253,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
             for entity_ref in query.iter() {
@@ -3301,7 +3301,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>) {}
     }
@@ -3317,7 +3317,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
             for mut entity_mut in query.iter_mut() {
@@ -3335,7 +3335,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
             for mut entity_mut in query.iter_mut() {

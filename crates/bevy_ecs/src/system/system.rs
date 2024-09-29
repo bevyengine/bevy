@@ -1,5 +1,6 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
+use thiserror::Error;
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -317,7 +318,11 @@ where
 /// ```
 pub trait RunSystemOnce: Sized {
     /// Runs a system and applies its deferred parameters.
-    fn run_system_once<T, Out, Marker>(self, system: T) -> Out
+    ///
+    /// If system parameters were invalid, system isn't executed and
+    /// the return value is [`None`].
+    #[must_use = "The system may have not ran."]
+    fn run_system_once<T, Out, Marker>(self, system: T) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<(), Out, Marker>,
     {
@@ -325,11 +330,15 @@ pub trait RunSystemOnce: Sized {
     }
 
     /// Runs a system with given input and applies its deferred parameters.
+    ///
+    /// If system parameters were invalid, system isn't executed and
+    /// the return value is [`None`].
+    #[must_use = "The system may have not ran."]
     fn run_system_once_with<T, In, Out, Marker>(
         self,
         input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out
+    ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
         In: SystemInput;
@@ -340,14 +349,36 @@ impl RunSystemOnce for &mut World {
         self,
         input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out
+    ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
         In: SystemInput,
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system.run(input, self)
+        if system.validate_param(self) {
+            Ok(system.run(input, self))
+        } else {
+            Err(RunSystemError::InvalidParameters(system.name()))
+        }
+    }
+}
+
+/// Running system failed.
+#[derive(Error)]
+pub enum RunSystemError {
+    /// System could not run due to invalid parameters.
+    #[error("System {0:?} has invalid parameters")]
+    InvalidParameters(Cow<'static, str>),
+}
+
+impl Debug for RunSystemError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidParameters(arg0) => {
+                f.debug_tuple("InvalidParameters").field(arg0).finish()
+            }
+        }
     }
 }
 
@@ -369,7 +400,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with(1, system);
+        let n = world.run_system_once_with(1, system).unwrap();
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
@@ -387,9 +418,9 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -402,7 +433,7 @@ mod tests {
     fn command_processing() {
         let mut world = World::new();
         assert_eq!(world.entities.len(), 0);
-        world.run_system_once(spawn_entity);
+        world.run_system_once(spawn_entity).unwrap();
         assert_eq!(world.entities.len(), 1);
     }
 
@@ -415,7 +446,7 @@ mod tests {
         let mut world = World::new();
         world.insert_non_send_resource(Counter(10));
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system_once(non_send_count_down);
+        world.run_system_once(non_send_count_down).unwrap();
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
     }
 }

@@ -117,7 +117,7 @@ mod tests {
 
         let mut world = World::default();
         let system_id = world.register_system(test_system);
-        let world_id = world.run_system(system_id).unwrap();
+        let world_id = world.try_run_system(system_id).unwrap();
         assert_eq!(world.id(), world_id);
     }
 
@@ -129,7 +129,7 @@ mod tests {
 
         let mut world = World::default();
         let system_id = world.register_system(test_system);
-        let world_id = world.run_system(system_id).unwrap();
+        let world_id = world.try_run_system(system_id).unwrap();
         assert_eq!(world.id(), world_id);
     }
 
