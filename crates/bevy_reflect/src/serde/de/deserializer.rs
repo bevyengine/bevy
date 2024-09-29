@@ -118,20 +118,9 @@ pub trait ReflectDeserializerProcessor {
         &mut self,
         registration: &TypeRegistration,
         deserializer: D,
-    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     where
         D: serde::Deserializer<'de>;
-}
-
-pub enum DeserializerProcessorError<D, E> {
-    NotApplicable(D),
-    Error(E),
-}
-
-impl<D, E> From<E> for DeserializerProcessorError<D, E> {
-    fn from(value: E) -> Self {
-        Self::Error(value)
-    }
 }
 
 impl ReflectDeserializerProcessor for () {
@@ -139,11 +128,11 @@ impl ReflectDeserializerProcessor for () {
         &mut self,
         _registration: &TypeRegistration,
         deserializer: D,
-    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        Err(DeserializerProcessorError::NotApplicable(deserializer))
+        Ok(Err(deserializer))
     }
 }
 
@@ -152,7 +141,7 @@ impl<T: ReflectDeserializerProcessor + ?Sized> ReflectDeserializerProcessor for 
         &mut self,
         registration: &TypeRegistration,
         deserializer: D,
-    ) -> Result<Box<dyn PartialReflect>, DeserializerProcessorError<D, D::Error>>
+    ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -505,13 +494,13 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
                 .processor
                 .try_deserialize(self.registration, deserializer)
             {
-                Ok(value) => {
+                Ok(Ok(value)) => {
                     return Ok(value);
                 }
-                Err(DeserializerProcessorError::Error(err)) => {
+                Err(err) => {
                     return Err(make_custom_error(err));
                 }
-                Err(DeserializerProcessorError::NotApplicable(deserializer)) => deserializer,
+                Ok(Err(deserializer)) => deserializer,
             };
 
             let type_path = self.registration.type_info().type_path();
