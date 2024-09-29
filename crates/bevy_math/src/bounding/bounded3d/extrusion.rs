@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use glam::{Vec2, Vec3A, Vec3Swizzles};
 
@@ -243,7 +243,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::FRAC_PI_4;
+    use core::f32::consts::FRAC_PI_4;
 
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 

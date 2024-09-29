@@ -10,7 +10,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use std::{any::TypeId, borrow::Cow};
+use alloc::borrow::Cow;
+use core::any::TypeId;
 
 use super::IntoSystem;
 
@@ -102,6 +103,10 @@ pub trait System: Send + Sync + 'static {
     /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
+    ///
+    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
     ///
     /// # Safety
     ///
@@ -206,7 +211,7 @@ where
     In: SystemInput + 'static,
     Out: 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
             .field("is_exclusive", &self.is_exclusive())

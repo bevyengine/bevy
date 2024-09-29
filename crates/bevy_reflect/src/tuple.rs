@@ -7,7 +7,7 @@ use crate::{
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
     UnnamedField,
 };
-use std::{
+use core::{
     any::Any,
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -341,7 +341,7 @@ impl PartialReflect for DynamicTuple {
         tuple_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTuple(")?;
         tuple_debug(self, f)?;
         write!(f, ")")
@@ -366,7 +366,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
 
 impl IntoIterator for DynamicTuple {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -460,7 +460,7 @@ pub fn tuple_partial_eq<T: Tuple + ?Sized>(a: &T, b: &dyn PartialReflect) -> Opt
 /// // )
 /// ```
 #[inline]
-pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_tuple("");
     for field in dyn_tuple.iter_fields() {
         debug.field(&field as &dyn Debug);

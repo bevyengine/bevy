@@ -83,7 +83,7 @@ impl MeshBuilder for ConicalFrustumMeshBuilder {
         let mut uvs = Vec::with_capacity(num_vertices);
         let mut indices = Vec::with_capacity(num_indices);
 
-        let step_theta = std::f32::consts::TAU / self.resolution as f32;
+        let step_theta = core::f32::consts::TAU / self.resolution as f32;
         let step_y = height / self.segments as f32;
         let step_radius = (radius_top - radius_bottom) / self.segments as f32;
 

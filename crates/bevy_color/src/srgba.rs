@@ -425,7 +425,7 @@ impl From<Srgba> for Xyza {
 pub enum HexColorError {
     /// Parsing error.
     #[error("Invalid hex string")]
-    Parse(#[from] std::num::ParseIntError),
+    Parse(#[from] core::num::ParseIntError),
     /// Invalid length.
     #[error("Unexpected length of hex string")]
     Length,

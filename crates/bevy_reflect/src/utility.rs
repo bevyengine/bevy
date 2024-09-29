@@ -2,11 +2,11 @@
 
 use crate::TypeInfo;
 use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
-use std::{
+use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
-    sync::{OnceLock, PoisonError, RwLock},
 };
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
 ///

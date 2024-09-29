@@ -1,6 +1,6 @@
 //! Built-in verbs for the Bevy Remote Protocol.
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{

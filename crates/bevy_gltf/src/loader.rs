@@ -3,11 +3,7 @@ use crate::{
     GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
-use bevy_animation::prelude::{
-    Keyframes, MorphWeightsKeyframes, RotationKeyframes, ScaleKeyframes, TranslationKeyframes,
-};
-#[cfg(feature = "bevy_animation")]
-use bevy_animation::{AnimationTarget, AnimationTargetId};
+use alloc::collections::VecDeque;
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -59,14 +55,16 @@ use gltf::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{value, Value};
-#[cfg(feature = "bevy_animation")]
-use smallvec::SmallVec;
 use std::{
-    collections::VecDeque,
     io::Error,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+#[cfg(feature = "bevy_animation")]
+use {
+    bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
+    smallvec::SmallVec,
+};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -276,7 +274,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = bevy_animation::AnimationClip::default();
+            let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
                 let interpolation = match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => Interpolation::Linear,
@@ -329,7 +327,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     animation_roots.insert(*root_index);
                     animation_clip.add_curve_to_target(
                         AnimationTargetId::from_names(path.iter()),
-                        bevy_animation::VariableCurve {
+                        VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                             interpolation,
@@ -737,7 +735,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(AnimationPlayer::default());
                 }
             }
         }
@@ -1421,7 +1419,7 @@ fn load_node(
                                 // NOTE: KHR_punctual_lights defines the intensity units for point lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a point light, luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
                                 range: light.range().unwrap_or(20.0),
                                 radius: 0.0,
                                 ..Default::default()
@@ -1447,7 +1445,7 @@ fn load_node(
                                 // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                                 // candela (lm/sr) which is luminous intensity and we need luminous power.
                                 // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
                                 range: light.range().unwrap_or(20.0),
                                 radius: light.range().unwrap_or(0.0),
                                 inner_angle: inner_cone_angle,
@@ -2467,7 +2465,7 @@ mod test {
         {
             "inverseBindMatrices": 0,
             "joints": [1, 2]
-        }  
+        }
     ],
     "buffers": [
         {
@@ -2479,7 +2477,7 @@ mod test {
         {
             "buffer": 0,
             "byteLength": 128
-        }  
+        }
     ],
     "accessors": [
         {
@@ -2487,7 +2485,7 @@ mod test {
             "componentType" : 5126,
             "count" : 2,
             "type" : "MAT4"
-        }  
+        }
     ],
     "scene": 0,
     "scenes": [{ "nodes": [0] }]

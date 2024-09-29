@@ -9,7 +9,7 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
-use std::fmt;
+use core::fmt;
 use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
@@ -491,13 +491,13 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-impl std::ops::Index<usize> for ParsedPath {
+impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
-impl std::ops::IndexMut<usize> for ParsedPath {
+impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }

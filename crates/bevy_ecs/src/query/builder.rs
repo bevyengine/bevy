@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{
     component::{ComponentId, StorageType},
@@ -262,7 +262,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         // SAFETY:
         // - We have included all required accesses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 
     /// Create a [`QueryState`] with the accesses of the builder.
@@ -312,9 +312,9 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn((A(0), B(0))).id();
         let entity_b = world.spawn((A(0), C(0))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
-        let component_id_c = world.init_component::<C>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
+        let component_id_c = world.register_component::<C>();
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
             .with_id(component_id_a)
@@ -401,8 +401,8 @@ mod tests {
     fn builder_dynamic_components() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
 
         let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
             .ref_id(component_id_a)

@@ -7,7 +7,8 @@ use crate::{
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset,
 };
-use std::{any::TypeId, sync::Arc};
+use alloc::sync::Arc;
+use core::any::TypeId;
 
 // Utility type for handling the sources of reader references
 enum ReaderRef<'a> {

@@ -6,8 +6,9 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{cell::UnsafeCell, mem::ManuallyDrop, thread::ThreadId};
+use core::panic::Location;
+use core::{cell::UnsafeCell, mem::ManuallyDrop};
+use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
