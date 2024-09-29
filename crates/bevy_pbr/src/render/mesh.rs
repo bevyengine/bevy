@@ -48,6 +48,7 @@ use bevy_utils::{
 
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
+use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
 
 use crate::{
@@ -2209,7 +2210,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mut offsets = vec![
+        let mut offsets: SmallVec<[u32; 8]> = smallvec![
             view_uniform.offset,
             view_lights.offset,
             view_fog.offset,
