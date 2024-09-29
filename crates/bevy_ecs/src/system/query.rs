@@ -36,7 +36,7 @@ use core::{
 /// # Similar parameters
 ///
 /// [`Query`] has few sibling [`SystemParam`](crate::system::system_param::SystemParam)s, which perform additional validation:
-/// - [`Single`](Single) - Exactly one matching query item.
+/// - [`Single`] - Exactly one matching query item.
 /// - [`Option<Single>`] - Zero or one matching query item.
 /// - [`Populated`] - At least one matching query item.
 ///
