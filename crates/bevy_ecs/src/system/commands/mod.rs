@@ -1505,8 +1505,7 @@ impl EntityCommands<'_> {
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.queue(observe(system));
-        self
+        self.queue(observe(system))
     }
 }
 
