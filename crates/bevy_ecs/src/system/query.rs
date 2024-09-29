@@ -1645,28 +1645,28 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// Use [`Option<QuerySingle<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
-pub struct QuerySingle<'w, D: QueryData, F: QueryFilter = ()> {
-    pub(crate) item: D::Item<'w>,
+pub struct QuerySingle<'w, 's, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w, 's>,
     pub(crate) _filter: PhantomData<F>,
 }
 
-impl<'w, D: QueryData, F: QueryFilter> Deref for QuerySingle<'w, D, F> {
-    type Target = D::Item<'w>;
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for QuerySingle<'w, 's, D, F> {
+    type Target = D::Item<'w, 's>;
 
     fn deref(&self) -> &Self::Target {
         &self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for QuerySingle<'w, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for QuerySingle<'w, 's, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> QuerySingle<'w, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> QuerySingle<'w, 's, D, F> {
     /// Returns the inner item with ownership.
-    pub fn into_inner(self) -> D::Item<'w> {
+    pub fn into_inner(self) -> D::Item<'w, 's> {
         self.item
     }
 }
