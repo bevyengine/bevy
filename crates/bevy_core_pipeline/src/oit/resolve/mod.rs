@@ -1,7 +1,10 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::Deref;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+};
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
@@ -122,11 +125,11 @@ pub fn queue_oit_resolve_pipeline(
     views: Query<(Entity, &ExtractedView), With<OrderIndependentTransparencySettings>>,
     // Store the key with the id to make the clean up logic easier
     // This also means it will always replace the entry if the key changes so nothing to clean up
-    mut cached_pipeline_id: Local<HashMap<Entity, (OitResolvePipelineKey, CachedRenderPipelineId)>>,
+    mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
-    let mut current_view_entities = vec![];
+    let mut current_view_entities = EntityHashSet::default();
     for (e, view) in &views {
-        current_view_entities.push(e);
+        current_view_entities.insert(e);
         let key = OitResolvePipelineKey { hdr: view.hdr };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {

@@ -50,7 +50,7 @@ impl Default for OrderIndependentTransparencySettings {
 /// Plugin needed to enable Order Independent Transparency
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
             OIT_DRAW_SHADER_HANDLE,
@@ -79,7 +79,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             .add_render_graph_edges(Core3d, (Node3d::MainTransparentPass, OitResolvePass));
     }
 
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -91,7 +91,12 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 // WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`]
 // but when multiple cameras are present on the same window
 // bevy reuses the same depth texture so we need to set this on all cameras.
-fn configure_depth_texture_usages(mut new_cameras: Query<&mut Camera3d, Added<Camera3d>>) {
+fn configure_depth_texture_usages(
+    mut new_cameras: Query<
+        &mut Camera3d,
+        (Added<Camera3d>, With<OrderIndependentTransparencySettings>),
+    >,
+) {
     for mut camera in &mut new_cameras {
         let mut usages = TextureUsages::from(camera.depth_texture_usages);
         usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
@@ -102,10 +107,7 @@ fn configure_depth_texture_usages(mut new_cameras: Query<&mut Camera3d, Added<Ca
 fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
     for msaa in &cameras {
         if msaa.samples() > 1 {
-            warn_once!(
-                "MSAA should be disabled when using Order Independent Transparency. \
-                It will cause some rendering issues on some platform. Consider using another AA method."
-            );
+            panic!("MSAA is not supported when using OrderIndependentTransparency");
         }
     }
 }
