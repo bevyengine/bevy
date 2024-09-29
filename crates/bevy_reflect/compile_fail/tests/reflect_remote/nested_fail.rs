@@ -19,15 +19,12 @@ mod missing_attribute {
 }
 
 mod incorrect_inner_type {
-    use bevy_reflect::{FromReflect, GetTypeRegistration, reflect_remote};
+    use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, reflect_remote};
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-    //~^ ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
-    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
-    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
-    //~| ERROR: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
+    //~^ ERROR: `TheirInner<T>` does not implement `CastPartialReflect` so cannot be cast to `dyn PartialReflect`
     //~| ERROR: `?` operator has incompatible types
-    struct MyOuter<T: FromReflect + GetTypeRegistration> {
+    struct MyOuter<T: FromReflect + Reflect + GetTypeRegistration> {
         // Reason: Should not use `MyInner<T>` directly
         pub inner: MyInner<T>,
         //~^ ERROR: mismatched types
