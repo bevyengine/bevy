@@ -267,15 +267,15 @@ pub enum AlphaMode2d {
 ///
 /// If `MESH_MATERIAL` is set to `true`, material handles will be retrieved from [`MeshMaterial2d`] components.
 /// Otherwise, they will be retrieved by querying for [`Handle<M>`] directly.
-pub struct Material2dPlugin<M: Material2d, const MESH_MATERIAL: bool = true>(PhantomData<M>);
+pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
 
-impl<M: Material2d, const MESH_MATERIAL: bool> Default for Material2dPlugin<M, MESH_MATERIAL> {
+impl<M: Material2d> Default for Material2dPlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M: Material2d, const MESH_MATERIAL: bool> Plugin for Material2dPlugin<M, MESH_MATERIAL>
+impl<M: Material2d> Plugin for Material2dPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -286,26 +286,20 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, clear_material_2d_instances::<M>);
-
-            if MESH_MATERIAL {
-                render_app.add_systems(
-                    ExtractSchedule,
-                    extract_mesh_materials_2d::<M>.after(clear_material_2d_instances::<M>),
-                );
-            } else {
-                render_app.add_systems(
-                    ExtractSchedule,
-                    extract_materials_2d::<M>.after(clear_material_2d_instances::<M>),
-                );
-            }
-
             render_app
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+                .add_systems(
+                    ExtractSchedule,
+                    (
+                        clear_material_2d_instances::<M>,
+                        extract_mesh_materials_2d::<M>,
+                    )
+                        .chain(),
+                )
                 .add_systems(
                     Render,
                     queue_material2d_meshes::<M>
@@ -335,17 +329,6 @@ pub(crate) fn clear_material_2d_instances<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
 ) {
     material_instances.clear();
-}
-
-fn extract_materials_2d<M: Material2d>(
-    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &Handle<M>)>>,
-) {
-    for (entity, view_visibility, material) in &query {
-        if view_visibility.get() {
-            material_instances.insert(entity, material.id());
-        }
-    }
 }
 
 fn extract_mesh_materials_2d<M: Material2d>(
