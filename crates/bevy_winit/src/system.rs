@@ -12,27 +12,27 @@ use bevy_window::{
     WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
 };
 
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    event_loop::ActiveEventLoop,
+};
 
 use bevy_app::AppExit;
-use bevy_ecs::prelude::EventReader;
-use bevy_ecs::query::With;
-use bevy_ecs::system::Res;
+use bevy_ecs::{prelude::EventReader, query::With, system::Res};
 use bevy_math::{IVec2, UVec2};
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-use crate::state::react_to_resize;
-use crate::winit_monitors::WinitMonitors;
 use crate::{
     converters::{
         convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor, CreateMonitorParams,
-    CreateWindowParams, WinitWindows,
+    get_best_videomode, get_fitting_videomode, select_monitor,
+    state::react_to_resize,
+    winit_monitors::WinitMonitors,
+    CreateMonitorParams, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -88,8 +88,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            let mut entity = commands.entity(entity);
-            entity.insert(handle_wrapper.clone());
+            commands.entity(entity).insert(handle_wrapper.clone());
             if let Some(handle_holder) = handle_holder {
                 *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
             }

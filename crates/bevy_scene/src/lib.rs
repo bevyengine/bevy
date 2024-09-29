@@ -11,6 +11,8 @@
 //! instantiated or removed from a world to allow composition. Scenes can be serialized/deserialized,
 //! for example to save part of the world state to a file.
 
+extern crate alloc;
+
 mod bundle;
 mod dynamic_scene;
 mod dynamic_scene_builder;
@@ -34,7 +36,9 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
-#[allow(missing_docs)]
+/// The scene prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

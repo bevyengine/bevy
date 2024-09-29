@@ -1,13 +1,15 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
+use core::{
+    any::Any,
+    fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
+};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
+    FromReflect, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -108,11 +110,9 @@ pub trait List: PartialReflect {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     item_info: fn() -> Option<&'static TypeInfo>,
-    item_type_path: TypePathTable,
-    item_type_id: TypeId,
+    item_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -121,11 +121,9 @@ impl ListInfo {
     /// Create a new [`ListInfo`].
     pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
         Self {
-            type_path: TypePathTable::of::<TList>(),
-            type_id: TypeId::of::<TList>(),
+            ty: Type::of::<TList>(),
             item_info: TItem::maybe_type_info,
-            item_type_path: TypePathTable::of::<TItem>(),
-            item_type_id: TypeId::of::<TItem>(),
+            item_ty: Type::of::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -137,32 +135,7 @@ impl ListInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the list.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the list.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the list.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the list type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The [`TypeInfo`] of the list item.
     ///
@@ -172,21 +145,11 @@ impl ListInfo {
         (self.item_info)()
     }
 
-    /// A representation of the type path of the list item.
+    /// The [type] of the list item.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn item_type_path_table(&self) -> &TypePathTable {
-        &self.item_type_path
-    }
-
-    /// The [`TypeId`] of the list item.
-    pub fn item_type_id(&self) -> TypeId {
-        self.item_type_id
-    }
-
-    /// Check if the given type matches the list item type.
-    pub fn item_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.item_type_id
+    /// [type]: Type
+    pub fn item_ty(&self) -> Type {
+        self.item_ty
     }
 
     /// The docstring of this list, if any.
@@ -357,7 +320,7 @@ impl PartialReflect for DynamicList {
         list_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicList(")?;
         list_debug(self, f)?;
         write!(f, ")")
@@ -372,7 +335,7 @@ impl PartialReflect for DynamicList {
 impl_type_path!((in bevy_reflect) DynamicList);
 
 impl Debug for DynamicList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -397,7 +360,7 @@ impl<T: PartialReflect> FromIterator<T> for DynamicList {
 
 impl IntoIterator for DynamicList {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -419,10 +382,10 @@ pub struct ListIter<'a> {
     index: usize,
 }
 
-impl<'a> ListIter<'a> {
+impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &'a dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter {
         ListIter { list, index: 0 }
     }
 }
@@ -444,7 +407,7 @@ impl<'a> Iterator for ListIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ListIter<'a> {}
+impl ExactSizeIterator for ListIter<'_> {}
 
 /// Returns the `u64` hash of the given [list](List).
 #[inline]
@@ -485,22 +448,18 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn list_try_apply<L: List>(a: &mut L, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::List(list_value) = b.reflect_ref() {
-        for (i, value) in list_value.iter().enumerate() {
-            if i < a.len() {
-                if let Some(v) = a.get_mut(i) {
-                    v.try_apply(value)?;
-                }
-            } else {
-                List::push(a, value.clone_value());
+    let list_value = b.reflect_ref().as_list()?;
+
+    for (i, value) in list_value.iter().enumerate() {
+        if i < a.len() {
+            if let Some(v) = a.get_mut(i) {
+                v.try_apply(value)?;
             }
+        } else {
+            List::push(a, value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::List,
-        });
     }
+
     Ok(())
 }
 
@@ -550,7 +509,7 @@ pub fn list_partial_eq<L: List + ?Sized>(a: &L, b: &dyn PartialReflect) -> Optio
 /// // ]
 /// ```
 #[inline]
-pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_list.iter() {
         debug.entry(&item as &dyn Debug);
@@ -561,8 +520,8 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> std::fmt::Resul
 #[cfg(test)]
 mod tests {
     use super::DynamicList;
-    use crate::{Reflect, ReflectRef};
-    use std::assert_eq;
+    use crate::Reflect;
+    use core::assert_eq;
 
     #[test]
     fn test_into_iter() {
@@ -589,9 +548,7 @@ mod tests {
         };
         let b = Box::new(vec![(); SIZE]).into_reflect();
 
-        let ReflectRef::List(list) = b.reflect_ref() else {
-            panic!("Not a list...");
-        };
+        let list = b.reflect_ref().as_list().unwrap();
 
         let mut iter = list.iter();
         iter.index = SIZE - 1;

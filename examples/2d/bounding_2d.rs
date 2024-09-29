@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::*,
-    math::{bounding::*, Isometry2d},
+    math::{bounding::*, ops, Isometry2d},
     prelude::*,
 };
 
@@ -105,24 +105,25 @@ fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
     for (shape, transform) in query.iter() {
         let translation = transform.translation.xy();
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
+        let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
         match shape {
             Shape::Rectangle(r) => {
-                gizmos.primitive_2d(r, translation, rotation, color);
+                gizmos.primitive_2d(r, isometry, color);
             }
             Shape::Circle(c) => {
-                gizmos.primitive_2d(c, translation, rotation, color);
+                gizmos.primitive_2d(c, isometry, color);
             }
             Shape::Triangle(t) => {
-                gizmos.primitive_2d(t, translation, rotation, color);
+                gizmos.primitive_2d(t, isometry, color);
             }
             Shape::Line(l) => {
-                gizmos.primitive_2d(l, translation, rotation, color);
+                gizmos.primitive_2d(l, isometry, color);
             }
             Shape::Capsule(c) => {
-                gizmos.primitive_2d(c, translation, rotation, color);
+                gizmos.primitive_2d(c, isometry, color);
             }
             Shape::Polygon(p) => {
-                gizmos.primitive_2d(p, translation, rotation, color);
+                gizmos.primitive_2d(p, isometry, color);
             }
         }
     }
@@ -185,10 +186,14 @@ fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)
         let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
-                gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color);
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(a.center()),
+                    a.half_size() * 2.,
+                    color,
+                );
             }
             CurrentVolume::Circle(c) => {
-                gizmos.circle_2d(c.center(), c.radius(), color);
+                gizmos.circle_2d(Isometry2d::from_translation(c.center()), c.radius(), color);
             }
         }
     }
@@ -283,7 +288,7 @@ fn setup(mut commands: Commands) {
 
 fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
     for r in [1., 2., 3.] {
-        gizmos.circle_2d(position, r, color);
+        gizmos.circle_2d(Isometry2d::from_translation(position), r, color);
     }
 }
 
@@ -297,8 +302,11 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
 }
 
 fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
-    let ray = Vec2::new(time.elapsed_seconds().cos(), time.elapsed_seconds().sin());
-    let dist = 150. + (0.5 * time.elapsed_seconds()).sin().abs() * 500.;
+    let ray = Vec2::new(
+        ops::cos(time.elapsed_seconds()),
+        ops::sin(time.elapsed_seconds()),
+    );
+    let dist = 150. + ops::sin(0.5 * time.elapsed_seconds()).abs() * 500.;
 
     let aabb_ray = Ray2d {
         origin: ray * 250.,
@@ -353,8 +361,9 @@ fn aabb_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.rect_2d(
-                aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
-                0.,
+                Isometry2d::from_translation(
+                    aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
+                ),
                 aabb_cast.aabb.half_size() * 2.,
                 LIME,
             );
@@ -382,7 +391,9 @@ fn bounding_circle_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.circle_2d(
-                circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
+                Isometry2d::from_translation(
+                    circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
+                ),
                 circle_cast.circle.radius(),
                 LIME,
             );
@@ -391,8 +402,8 @@ fn bounding_circle_cast_system(
 }
 
 fn get_intersection_position(time: &Time) -> Vec2 {
-    let x = (0.8 * time.elapsed_seconds()).cos() * 250.;
-    let y = (0.4 * time.elapsed_seconds()).sin() * 100.;
+    let x = ops::cos(0.8 * time.elapsed_seconds()) * 250.;
+    let y = ops::sin(0.4 * time.elapsed_seconds()) * 100.;
     Vec2::new(x, y)
 }
 
@@ -403,7 +414,11 @@ fn aabb_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
-    gizmos.rect_2d(center, 0., aabb.half_size() * 2., YELLOW);
+    gizmos.rect_2d(
+        Isometry2d::from_translation(center),
+        aabb.half_size() * 2.,
+        YELLOW,
+    );
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
@@ -422,7 +437,11 @@ fn circle_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let circle = BoundingCircle::new(center, 50.);
-    gizmos.circle_2d(center, circle.radius(), YELLOW);
+    gizmos.circle_2d(
+        Isometry2d::from_translation(center),
+        circle.radius(),
+        YELLOW,
+    );
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {

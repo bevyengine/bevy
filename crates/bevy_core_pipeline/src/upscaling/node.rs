@@ -1,8 +1,7 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::camera::{ClearColor, ClearColorConfig};
 use bevy_render::{
-    camera::{CameraOutputMode, ExtractedCamera},
+    camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,

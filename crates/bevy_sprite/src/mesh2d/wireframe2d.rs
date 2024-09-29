@@ -56,16 +56,17 @@ impl Plugin for Wireframe2dPlugin {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Wireframe2d;
 
 /// Sets the color of the [`Wireframe2d`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe2d`] component,
 /// it will still affect the color of the wireframe when [`Wireframe2dConfig::global`] is set to true.
 ///
 /// This overrides the [`Wireframe2dConfig::default_color`].
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Wireframe2dColor {
     pub color: Color,
 }
@@ -75,11 +76,11 @@ pub struct Wireframe2dColor {
 ///
 /// This requires the [`Wireframe2dPlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct NoWireframe2d;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct Wireframe2dConfig {
     /// Whether to show wireframes for all 2D meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
@@ -150,7 +151,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Some(commands) = commands.get_entity(e) {
             commands.remove::<Handle<Wireframe2dMaterial>>();
         }
     }

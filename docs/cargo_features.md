@@ -23,12 +23,15 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
+|bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
+|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
+|bevy_ui_picking_backend|Provides an implementation for picking ui|
 |bevy_winit|winit window and input backend|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
@@ -78,6 +81,7 @@ The default feature set enables most of the expected features of a game engine, 
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
+|spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
 |symphonia-flac|FLAC audio format support (through symphonia)|
@@ -94,5 +98,4 @@ The default feature set enables most of the expected features of a game engine, 
 |wayland|Wayland display server support|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
-|wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|

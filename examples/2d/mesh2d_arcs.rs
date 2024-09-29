@@ -1,6 +1,7 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
+
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
@@ -120,9 +121,17 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
 
         let aabb = shape.0.aabb_2d(isometry);
-        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
+        gizmos.rect_2d(
+            Isometry2d::from_translation(aabb.center()),
+            aabb.half_size() * 2.0,
+            RED,
+        );
 
         let bounding_circle = shape.0.bounding_circle(isometry);
-        gizmos.circle_2d(bounding_circle.center, bounding_circle.radius(), BLUE);
+        gizmos.circle_2d(
+            Isometry2d::from_translation(bounding_circle.center),
+            bounding_circle.radius(),
+            BLUE,
+        );
     }
 }

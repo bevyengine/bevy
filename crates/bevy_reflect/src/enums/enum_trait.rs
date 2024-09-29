@@ -1,9 +1,11 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{DynamicEnum, PartialReflect, TypePath, TypePathTable, VariantInfo, VariantType};
+use crate::{
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+};
+use alloc::sync::Arc;
 use bevy_utils::HashMap;
-use std::any::{Any, TypeId};
-use std::slice::Iter;
-use std::sync::Arc;
+use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///
@@ -135,8 +137,7 @@ pub trait Enum: PartialReflect {
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
@@ -151,7 +152,6 @@ impl EnumInfo {
     /// # Arguments
     ///
     /// * `variants`: The variants of this enum in the order they are defined
-    ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
         let variant_indices = variants
             .iter()
@@ -162,8 +162,7 @@ impl EnumInfo {
         let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
-            type_path: TypePathTable::of::<TEnum>(),
-            type_id: TypeId::of::<TEnum>(),
+            ty: Type::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
@@ -231,32 +230,7 @@ impl EnumInfo {
         self.variants.len()
     }
 
-    /// A representation of the type path of the value.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the value.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the enum.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the enum type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
     #[cfg(feature = "documentation")]

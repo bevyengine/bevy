@@ -1,7 +1,7 @@
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-    MeshletGpuScene,
+    InstanceManager,
 };
 use crate::*;
 use bevy_asset::{Asset, AssetId, AssetServer};
@@ -21,6 +21,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::TemporalJitter,
@@ -31,13 +32,15 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::FallbackImage,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
 };
 use bevy_utils::tracing::error;
-use std::marker::PhantomData;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{hash::Hash, num::NonZeroU32};
+use core::{
+    hash::Hash,
+    marker::PhantomData,
+    num::NonZero,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
@@ -285,7 +288,7 @@ where
                 Render,
                 queue_material_meshlet_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
 
             #[cfg(feature = "meshlet")]
@@ -295,7 +298,7 @@ where
                     .in_set(RenderSet::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
         }
 
@@ -349,7 +352,7 @@ impl<M: Material> Hash for MaterialPipelineKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }
@@ -547,7 +550,7 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &ExtractedView,
         &VisibleEntities,
@@ -555,7 +558,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusionSettings>,
+        Has<ScreenSpaceAmbientOcclusion>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -589,7 +592,7 @@ pub fn queue_material_meshes<M: Material>(
         projection,
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
-    ) in &mut views
+    ) in &views
     {
         let (
             Some(opaque_phase),
@@ -833,6 +836,7 @@ pub fn queue_material_meshes<M: Material>(
 
 /// Default render method used for opaque materials.
 #[derive(Default, Resource, Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource, Default, Debug)]
 pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
@@ -915,22 +919,16 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
+        M::Param,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, default_opaque_render_method, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material_layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&pipeline.material_layout, render_device, material_param) {
             Ok(prepared) => {
                 let method = match material.opaque_render_method() {
                     OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -992,7 +990,7 @@ impl AtomicMaterialBindGroupId {
     /// See also:  [`AtomicU32::store`].
     pub fn set(&self, id: MaterialBindGroupId) {
         let id = if let Some(id) = id.0 {
-            NonZeroU32::from(id).get()
+            NonZero::<u32>::from(id).get()
         } else {
             0
         };
@@ -1004,7 +1002,9 @@ impl AtomicMaterialBindGroupId {
     ///
     /// See also:  [`AtomicU32::load`].
     pub fn get(&self) -> MaterialBindGroupId {
-        MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
+        MaterialBindGroupId(
+            NonZero::<u32>::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from),
+        )
     }
 }
 

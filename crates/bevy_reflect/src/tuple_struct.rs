@@ -1,14 +1,17 @@
 use bevy_reflect_derive::impl_type_path;
 
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect,
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
-use std::sync::Arc;
+use alloc::sync::Arc;
+use core::{
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [tuple struct-like] operations via [reflection].
 ///
@@ -58,8 +61,7 @@ pub trait TupleStruct: PartialReflect {
 /// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
@@ -72,11 +74,9 @@ impl TupleStructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
@@ -113,32 +113,7 @@ impl TupleStructInfo {
         self.fields.len()
     }
 
-    /// A representation of the type path of the struct.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the struct.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the tuple struct.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the tuple struct type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]
@@ -341,18 +316,14 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
-            for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.try_apply(value)?;
-                }
+        let tuple_struct = value.reflect_ref().as_tuple_struct()?;
+
+        for (i, value) in tuple_struct.iter_fields().enumerate() {
+            if let Some(v) = self.field_mut(i) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::TupleStruct,
-            });
         }
+
         Ok(())
     }
 
@@ -386,7 +357,7 @@ impl PartialReflect for DynamicTupleStruct {
         tuple_struct_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
         write!(f, ")")
@@ -401,7 +372,7 @@ impl PartialReflect for DynamicTupleStruct {
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -426,7 +397,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTupleStruct {
 
 impl IntoIterator for DynamicTupleStruct {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -498,7 +469,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
     f: &mut Formatter<'_>,
-) -> std::fmt::Result {
+) -> core::fmt::Result {
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
             .get_represented_type_info()

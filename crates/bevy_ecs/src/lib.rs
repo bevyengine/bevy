@@ -13,6 +13,8 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
+extern crate alloc;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -36,16 +38,10 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The ECS prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[doc(hidden)]
-    #[cfg(feature = "reflect_functions")]
-    pub use crate::reflect::AppFunctionRegistry;
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -61,42 +57,51 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
-            System, SystemParamBuilder, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
+            Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
             OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_reflect")]
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
+
+    #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
 }
 
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::Or;
-    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
+        prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
-        world::{EntityRef, Mut, World},
+        world::{EntityMut, EntityRef, Mut, World},
     };
+    use alloc::sync::Arc;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::num::NonZeroU32;
-    use std::{
+    use core::{
         any::TypeId,
         marker::PhantomData,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc, Mutex,
-        },
+        num::NonZero,
+        sync::atomic::{AtomicUsize, Ordering},
     };
+    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -180,8 +185,8 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
             ]
         );
 
@@ -234,10 +239,10 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<A>(),
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
-                world.init_component::<B>(),
+                world.register_component::<A>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+                world.register_component::<B>(),
             ]
         );
 
@@ -287,7 +292,7 @@ mod tests {
             },
         );
 
-        assert_eq!(ids, &[world.init_component::<C>(),]);
+        assert_eq!(ids, &[world.register_component::<C>(),]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
@@ -621,7 +626,6 @@ mod tests {
                 .collect::<HashSet<_>>(),
             HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
         );
-
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
@@ -1659,7 +1663,7 @@ mod tests {
         );
 
         let e4_mismatched_generation =
-            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
+            Entity::from_raw_and_generation(3, NonZero::<u32>::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1754,7 +1758,8 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
+        let invalid_e2 =
+            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
@@ -1791,6 +1796,235 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component)]
+        #[require(Z(new_z))]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        fn new_z() -> Z {
+            Z(7)
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn generic_required_components() {
+        #[derive(Component)]
+        #[require(Y<usize>)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y<T> {
+            value: T,
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            0,
+            world.entity(id).get::<Y<usize>>().unwrap().value,
+            "Y should have the default value"
+        );
+    }
+
+    #[test]
+    fn required_components_spawn_nonexistent_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_insert_existing_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn_empty().insert(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_take_leaves_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let e = world.spawn(X).id();
+        let _ = world.entity_mut(e).take::<X>().unwrap();
+        assert!(world.entity_mut(e).contains::<Y>());
+    }
+
+    #[test]
+    fn required_components_retain_keeps_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+        let e = world.spawn((X, Z)).id();
+        world.entity_mut(e).retain::<X>();
+        assert!(world.entity_mut(e).contains::<X>());
+        assert!(world.entity_mut(e).contains::<Y>());
+        assert!(!world.entity_mut(e).contains::<Z>());
+    }
+
+    #[test]
+    fn required_components_spawn_then_insert_no_overwrite() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y(usize);
+
+        let mut world = World::new();
+        let id = world.spawn((X, Y(10))).id();
+        world.entity_mut(id).insert(X);
+
+        assert_eq!(
+            10,
+            world.entity(id).get::<Y>().unwrap().0,
+            "Y should still have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn dynamic_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let x_id = world.register_component::<X>();
+
+        let mut e = world.spawn_empty();
+
+        // SAFETY: x_id is a valid component id
+        bevy_ptr::OwningPtr::make(X, |ptr| unsafe {
+            e.insert_by_id(x_id, ptr);
+        });
+
+        assert!(e.contains::<Y>());
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are

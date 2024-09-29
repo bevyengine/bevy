@@ -1,6 +1,7 @@
-use crate::util;
+//! Traits and type for interpolating between values.
+
+use crate::{util, AnimationEvaluationError, Interpolation};
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
-use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
@@ -26,10 +27,6 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
     ///
     /// Implementors should return a default value when no inputs are provided here.
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self;
-
-    /// Post-processes the value using resources in the [`World`].
-    /// Most animatable types do not need to implement this.
-    fn post_process(&mut self, _world: &World) {}
 }
 
 macro_rules! impl_float_animatable {
@@ -189,4 +186,160 @@ impl Animatable for Quat {
         }
         value
     }
+}
+
+/// An abstraction over a list of keyframes.
+///
+/// Using this abstraction instead of `Vec<T>` enables more flexibility in how
+/// keyframes are stored. In particular, morph weights use this trait in order
+/// to flatten the keyframes for all morph weights into a single vector instead
+/// of nesting vectors.
+pub(crate) trait GetKeyframe {
+    /// The type of the property to be animated.
+    type Output;
+    /// Retrieves the value of the keyframe at the given index.
+    fn get_keyframe(&self, index: usize) -> Option<&Self::Output>;
+}
+
+/// Interpolates between keyframes and stores the result in `dest`.
+///
+/// This is factored out so that it can be shared between implementations of
+/// [`crate::keyframes::Keyframes`].
+pub(crate) fn interpolate_keyframes<T>(
+    dest: &mut T,
+    keyframes: &(impl GetKeyframe<Output = T> + ?Sized),
+    interpolation: Interpolation,
+    step_start: usize,
+    time: f32,
+    weight: f32,
+    duration: f32,
+) -> Result<(), AnimationEvaluationError>
+where
+    T: Animatable + Clone,
+{
+    let value = match interpolation {
+        Interpolation::Step => {
+            let Some(start_keyframe) = keyframes.get_keyframe(step_start) else {
+                return Err(AnimationEvaluationError::KeyframeNotPresent(step_start));
+            };
+            (*start_keyframe).clone()
+        }
+
+        Interpolation::Linear => {
+            let (Some(start_keyframe), Some(end_keyframe)) = (
+                keyframes.get_keyframe(step_start),
+                keyframes.get_keyframe(step_start + 1),
+            ) else {
+                return Err(AnimationEvaluationError::KeyframeNotPresent(step_start + 1));
+            };
+
+            T::interpolate(start_keyframe, end_keyframe, time)
+        }
+
+        Interpolation::CubicSpline => {
+            let (
+                Some(start_keyframe),
+                Some(start_tangent_keyframe),
+                Some(end_tangent_keyframe),
+                Some(end_keyframe),
+            ) = (
+                keyframes.get_keyframe(step_start * 3 + 1),
+                keyframes.get_keyframe(step_start * 3 + 2),
+                keyframes.get_keyframe(step_start * 3 + 3),
+                keyframes.get_keyframe(step_start * 3 + 4),
+            )
+            else {
+                return Err(AnimationEvaluationError::KeyframeNotPresent(
+                    step_start * 3 + 4,
+                ));
+            };
+
+            interpolate_with_cubic_bezier(
+                start_keyframe,
+                start_tangent_keyframe,
+                end_tangent_keyframe,
+                end_keyframe,
+                time,
+                duration,
+            )
+        }
+    };
+
+    *dest = T::interpolate(dest, &value, weight);
+
+    Ok(())
+}
+
+/// Evaluates a cubic Bézier curve at a value `t`, given two endpoints and the
+/// derivatives at those endpoints.
+///
+/// The derivatives are linearly scaled by `duration`.
+fn interpolate_with_cubic_bezier<T>(p0: &T, d0: &T, d3: &T, p3: &T, t: f32, duration: f32) -> T
+where
+    T: Animatable + Clone,
+{
+    // We're given two endpoints, along with the derivatives at those endpoints,
+    // and have to evaluate the cubic Bézier curve at time t using only
+    // (additive) blending and linear interpolation.
+    //
+    // Evaluating a Bézier curve via repeated linear interpolation when the
+    // control points are known is straightforward via [de Casteljau
+    // subdivision]. So the only remaining problem is to get the two off-curve
+    // control points. The [derivative of the cubic Bézier curve] is:
+    //
+    //      B′(t) = 3(1 - t)²(P₁ - P₀) + 6(1 - t)t(P₂ - P₁) + 3t²(P₃ - P₂)
+    //
+    // Setting t = 0 and t = 1 and solving gives us:
+    //
+    //      P₁ = P₀ + B′(0) / 3
+    //      P₂ = P₃ - B′(1) / 3
+    //
+    // These P₁ and P₂ formulas can be expressed as additive blends.
+    //
+    // So, to sum up, first we calculate the off-curve control points via
+    // additive blending, and then we use repeated linear interpolation to
+    // evaluate the curve.
+    //
+    // [de Casteljau subdivision]: https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm
+    // [derivative of the cubic Bézier curve]: https://en.wikipedia.org/wiki/B%C3%A9zier_curve#Cubic_B%C3%A9zier_curves
+
+    // Compute control points from derivatives.
+    let p1 = T::blend(
+        [
+            BlendInput {
+                weight: duration / 3.0,
+                value: (*d0).clone(),
+                additive: true,
+            },
+            BlendInput {
+                weight: 1.0,
+                value: (*p0).clone(),
+                additive: true,
+            },
+        ]
+        .into_iter(),
+    );
+    let p2 = T::blend(
+        [
+            BlendInput {
+                weight: duration / -3.0,
+                value: (*d3).clone(),
+                additive: true,
+            },
+            BlendInput {
+                weight: 1.0,
+                value: (*p3).clone(),
+                additive: true,
+            },
+        ]
+        .into_iter(),
+    );
+
+    // Use de Casteljau subdivision to evaluate.
+    let p0p1 = T::interpolate(p0, &p1, t);
+    let p1p2 = T::interpolate(&p1, &p2, t);
+    let p2p3 = T::interpolate(&p2, p3, t);
+    let p0p1p2 = T::interpolate(&p0p1, &p1p2, t);
+    let p1p2p3 = T::interpolate(&p1p2, &p2p3, t);
+    T::interpolate(&p0p1p2, &p1p2p3, t)
 }

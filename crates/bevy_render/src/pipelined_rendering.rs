@@ -66,6 +66,7 @@ impl Drop for RenderAppChannels {
 }
 
 /// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
+///
 /// This moves rendering into a different thread, so that the Nth frame's rendering can
 /// be run at the same time as the N + 1 frame's simulation.
 ///

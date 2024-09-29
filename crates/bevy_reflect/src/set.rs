@@ -1,13 +1,11 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
-use bevy_utils::hashbrown::HashTable;
+use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
 use crate::{
-    self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -82,10 +80,8 @@ pub trait Set: PartialReflect {
 /// A container for compile-time set info.
 #[derive(Clone, Debug)]
 pub struct SetInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
-    value_type_path: TypePathTable,
-    value_type_id: TypeId,
+    ty: Type,
+    value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -94,10 +90,8 @@ impl SetInfo {
     /// Create a new [`SetInfo`].
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
-            type_path: TypePathTable::of::<TSet>(),
-            type_id: TypeId::of::<TSet>(),
-            value_type_path: TypePathTable::of::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            ty: Type::of::<TSet>(),
+            value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -109,48 +103,13 @@ impl SetInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the set.
+    impl_type_methods!(ty);
+
+    /// The [type] of the value.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the set.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the set.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the set type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
-
-    /// A representation of the type path of the value type.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_table(&self) -> &TypePathTable {
-        &self.value_type_path
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// [type]: Type
+    pub fn value_ty(&self) -> Type {
+        self.value_ty
     }
 
     /// The docstring of this set, if any.
@@ -351,7 +310,7 @@ impl PartialReflect for DynamicSet {
         set_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicSet(")?;
         set_debug(self, f)?;
         write!(f, ")")
@@ -366,7 +325,7 @@ impl PartialReflect for DynamicSet {
 impl_type_path!((in bevy_reflect) DynamicSet);
 
 impl Debug for DynamicSet {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -412,7 +371,7 @@ impl IntoIterator for DynamicSet {
 
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
-    type IntoIter = std::iter::Map<
+    type IntoIter = core::iter::Map<
         bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
@@ -473,7 +432,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_set();
     for value in dyn_set.iter() {
         debug.entry(&value as &dyn Debug);
@@ -512,18 +471,14 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Set(set_value) = b.reflect_ref() {
-        for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.clone_value());
-            }
+    let set_value = b.reflect_ref().as_set()?;
+
+    for b_value in set_value.iter() {
+        if a.get(b_value).is_none() {
+            a.insert_boxed(b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Set,
-        });
     }
+
     Ok(())
 }
 

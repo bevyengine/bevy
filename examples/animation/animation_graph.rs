@@ -3,9 +3,6 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, path::Path};
-
 use bevy::{
     animation::animate_targets,
     color::palettes::{
@@ -17,12 +14,13 @@ use bevy::{
 };
 
 use argh::FromArgs;
+
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::asset::io::file::FileAssetReader;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::IoTaskPool;
-#[cfg(not(target_arch = "wasm32"))]
-use ron::ser::PrettyConfig;
+use {
+    bevy::{asset::io::file::FileAssetReader, tasks::IoTaskPool},
+    ron::ser::PrettyConfig,
+    std::{fs::File, path::Path},
+};
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
@@ -310,7 +308,7 @@ fn setup_node_rects(commands: &mut Commands) {
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
-                container.insert((
+                container = container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),

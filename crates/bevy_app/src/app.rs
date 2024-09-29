@@ -8,18 +8,15 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, SystemId},
+    system::{IntoObserverSystem, SystemId, SystemInput},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
+use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use std::{
-    fmt::Debug,
+    panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
-};
-use std::{
-    num::NonZeroU8,
-    panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
 
@@ -40,7 +37,6 @@ pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
 }
 
-#[allow(clippy::needless_doctest_main)]
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
 /// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
 ///
@@ -80,7 +76,7 @@ pub struct App {
 }
 
 impl Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
         f.debug_map()
             .entries(self.sub_apps.sub_apps.iter())
@@ -168,8 +164,8 @@ impl App {
             panic!("App::run() was called while a plugin was building.");
         }
 
-        let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
-        let app = std::mem::replace(self, App::empty());
+        let runner = core::mem::replace(&mut self.runner, Box::new(run_once));
+        let app = core::mem::replace(self, App::empty());
         (runner)(app)
     }
 
@@ -213,7 +209,7 @@ impl App {
         let mut overall_plugins_state = match self.main_mut().plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+                let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
                 for plugin in &plugins {
                     // plugins installed to main need to see all sub-apps
                     if !plugin.ready(self) {
@@ -239,7 +235,7 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
         for plugin in &plugins {
             plugin.finish(self);
         }
@@ -253,7 +249,7 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = std::mem::take(&mut self.main_mut().plugin_registry);
+        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
         for plugin in &plugins {
             plugin.cleanup(self);
         }
@@ -303,10 +299,14 @@ impl App {
     /// This allows for running systems in a push-based fashion.
     /// Using a [`Schedule`] is still preferred for most cases
     /// due to its better performance and ability to run non-conflicting systems simultaneously.
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.main_mut().register_system(system)
     }
 
@@ -743,7 +743,7 @@ impl App {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
         &mut self,
-        name: impl Into<std::borrow::Cow<'static, str>>,
+        name: impl Into<alloc::borrow::Cow<'static, str>>,
         function: F,
     ) -> &mut Self
     where
@@ -990,6 +990,36 @@ impl App {
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Party {
+    /// #   friends_allowed: bool,
+    /// # };
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Invite;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Friend;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if trigger.event().friends_allowed {
+    ///         for friend in friends.iter() {
+    ///             commands.trigger_targets(Invite, friend);
+    ///         }
+    ///     }
+    /// });
+    /// ```
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1031,14 +1061,14 @@ pub enum AppExit {
     Success,
     /// The [`App`] experienced an unhandleable error.
     /// Holds the exit code we expect our app to return.
-    Error(NonZeroU8),
+    Error(NonZero<u8>),
 }
 
 impl AppExit {
     /// Creates a [`AppExit::Error`] with a error code of 1.
     #[must_use]
     pub const fn error() -> Self {
-        Self::Error(NonZeroU8::MIN)
+        Self::Error(NonZero::<u8>::MIN)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
@@ -1059,7 +1089,7 @@ impl AppExit {
     /// [`AppExit::Error`] is constructed.
     #[must_use]
     pub const fn from_code(code: u8) -> Self {
-        match NonZeroU8::new(code) {
+        match NonZero::<u8>::new(code) {
             Some(code) => Self::Error(code),
             None => Self::Success,
         }
@@ -1085,7 +1115,8 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
+    use core::{iter, marker::PhantomData};
+    use std::sync::Mutex;
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},

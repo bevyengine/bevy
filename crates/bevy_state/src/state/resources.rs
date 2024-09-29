@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -52,7 +52,7 @@ use bevy_reflect::prelude::ReflectDefault;
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Debug, PartialEq)
 )]
 pub struct State<S: States>(pub(crate) S);
 
@@ -118,7 +118,7 @@ impl<S: States> Deref for State<S> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource, Default)
+    reflect(Resource, Default, Debug)
 )]
 pub enum NextState<S: FreelyMutableState> {
     /// No state transition is pending
@@ -145,7 +145,7 @@ pub(crate) fn take_next_state<S: FreelyMutableState>(
 ) -> Option<S> {
     let mut next_state = next_state?;
 
-    match std::mem::take(next_state.bypass_change_detection()) {
+    match core::mem::take(next_state.bypass_change_detection()) {
         NextState::Pending(x) => {
             next_state.set_changed();
             Some(x)

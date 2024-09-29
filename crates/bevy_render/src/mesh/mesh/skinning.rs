@@ -7,10 +7,10 @@ use bevy_ecs::{
 };
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, MapEntities, Default)]
+#[reflect(Component, MapEntities, Default, Debug)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub joints: Vec<Entity>,

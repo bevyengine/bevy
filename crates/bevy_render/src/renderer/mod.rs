@@ -15,10 +15,10 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
-use std::sync::Arc;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -57,7 +57,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         Err(e) => {
             error!("Error running render graph:");
             {
-                let mut src: &dyn std::error::Error = &e;
+                let mut src: &dyn core::error::Error = &e;
                 loop {
                     error!("> {}", src);
                     match src.source() {
@@ -119,6 +119,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 }
 
 /// A wrapper to safely make `wgpu` types Send / Sync on web with atomics enabled.
+///
 /// On web with `atomics` enabled the inner value can only be accessed
 /// or dropped on the `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
@@ -194,16 +195,6 @@ pub async fn initialize_renderer(
              This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
         );
     }
-
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
@@ -357,7 +348,7 @@ pub async fn initialize_renderer(
                 required_limits: limits,
                 memory_hints: options.memory_hints.clone(),
             },
-            trace_path,
+            options.trace_path.as_deref(),
         )
         .await
         .unwrap();

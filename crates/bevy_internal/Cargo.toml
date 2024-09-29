@@ -24,7 +24,6 @@ trace = [
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-wgpu_trace = ["bevy_render/wgpu_trace"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
@@ -44,6 +43,9 @@ ktx2 = ["bevy_render/ktx2"]
 # For ktx2 supercompression
 zlib = ["bevy_render/zlib"]
 zstd = ["bevy_render/zstd"]
+
+# Enable SPIR-V passthrough
+spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
 
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
@@ -190,8 +192,15 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 # Provides a collection of developer tools
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
+# Enable support for the Bevy Remote Protocol
+bevy_remote = ["dep:bevy_remote"]
+
 # Provides a picking functionality
-bevy_picking = ["dep:bevy_picking", "bevy_ui?/bevy_picking"]
+bevy_picking = [
+  "dep:bevy_picking",
+  "bevy_ui?/bevy_picking",
+  "bevy_sprite?/bevy_picking",
+]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
@@ -243,6 +252,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev"
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.15.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.15.0-dev" }
+bevy_remote = { path = "../bevy_remote", optional = true, version = "0.15.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.15.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.15.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.15.0-dev" }

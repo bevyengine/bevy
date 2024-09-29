@@ -1,12 +1,11 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
+    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -97,14 +96,11 @@ pub trait Map: PartialReflect {
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     key_info: fn() -> Option<&'static TypeInfo>,
-    key_type_path: TypePathTable,
-    key_type_id: TypeId,
+    key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
-    value_type_path: TypePathTable,
-    value_type_id: TypeId,
+    value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -117,14 +113,11 @@ impl MapInfo {
         TValue: Reflect + MaybeTyped + TypePath,
     >() -> Self {
         Self {
-            type_path: TypePathTable::of::<TMap>(),
-            type_id: TypeId::of::<TMap>(),
+            ty: Type::of::<TMap>(),
             key_info: TKey::maybe_type_info,
-            key_type_path: TypePathTable::of::<TKey>(),
-            key_type_id: TypeId::of::<TKey>(),
+            key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
-            value_type_path: TypePathTable::of::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -136,32 +129,7 @@ impl MapInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the map.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the map.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the map.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the map type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The [`TypeInfo`] of the key type.
     ///
@@ -171,21 +139,11 @@ impl MapInfo {
         (self.key_info)()
     }
 
-    /// A representation of the type path of the key type.
+    /// The [type] of the key type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn key_type_path_table(&self) -> &TypePathTable {
-        &self.key_type_path
-    }
-
-    /// The [`TypeId`] of the key.
-    pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
-    }
-
-    /// Check if the given type matches the key type.
-    pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
+    /// [type]: Type
+    pub fn key_ty(&self) -> Type {
+        self.key_ty
     }
 
     /// The [`TypeInfo`] of the value type.
@@ -196,21 +154,11 @@ impl MapInfo {
         (self.value_info)()
     }
 
-    /// A representation of the type path of the value type.
+    /// The [type] of the value type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_table(&self) -> &TypePathTable {
-        &self.value_type_path
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// [type]: Type
+    pub fn value_ty(&self) -> Type {
+        self.value_ty
     }
 
     /// The docstring of this map, if any.
@@ -343,7 +291,7 @@ impl Map for DynamicMap {
         {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
-                std::mem::swap(old_value, &mut value);
+                core::mem::swap(old_value, &mut value);
                 Some(value)
             }
             Entry::Vacant(entry) => {
@@ -428,7 +376,7 @@ impl PartialReflect for DynamicMap {
         map_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicMap(")?;
         map_debug(self, f)?;
         write!(f, ")")
@@ -443,7 +391,7 @@ impl PartialReflect for DynamicMap {
 impl_type_path!((in bevy_reflect) DynamicMap);
 
 impl Debug for DynamicMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -454,10 +402,10 @@ pub struct MapIter<'a> {
     index: usize,
 }
 
-impl<'a> MapIter<'a> {
+impl MapIter<'_> {
     /// Creates a new [`MapIter`].
     #[inline]
-    pub const fn new(map: &'a dyn Map) -> MapIter {
+    pub const fn new(map: &dyn Map) -> MapIter {
         MapIter { map, index: 0 }
     }
 }
@@ -501,7 +449,7 @@ impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
 
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn PartialReflect>, Box<dyn PartialReflect>);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -570,7 +518,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);
@@ -603,27 +551,22 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) {
 /// applying elements to each other fails.
 #[inline]
 pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), ApplyError> {
-    if let ReflectRef::Map(map_value) = b.reflect_ref() {
-        for (key, b_value) in map_value.iter() {
-            if let Some(a_value) = a.get_mut(key) {
-                a_value.try_apply(b_value)?;
-            } else {
-                a.insert_boxed(key.clone_value(), b_value.clone_value());
-            }
+    let map_value = b.reflect_ref().as_map()?;
+
+    for (key, b_value) in map_value.iter() {
+        if let Some(a_value) = a.get_mut(key) {
+            a_value.try_apply(b_value)?;
+        } else {
+            a.insert_boxed(key.clone_value(), b_value.clone_value());
         }
-    } else {
-        return Err(ApplyError::MismatchedKinds {
-            from_kind: b.reflect_kind(),
-            to_kind: ReflectKind::Map,
-        });
     }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::DynamicMap;
-    use super::Map;
+    use super::{DynamicMap, Map};
 
     #[test]
     fn test_into_iter() {
