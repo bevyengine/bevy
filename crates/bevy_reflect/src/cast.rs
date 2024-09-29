@@ -27,34 +27,6 @@ impl<T: CastPartialReflect> CastPartialReflect for Box<T> {
     }
 }
 
-impl CastPartialReflect for dyn PartialReflect {
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-}
-
-impl CastPartialReflect for dyn Reflect {
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self.as_partial_reflect()
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self.as_partial_reflect_mut()
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self.into_partial_reflect()
-    }
-}
-
 impl CastPartialReflect for Box<dyn PartialReflect> {
     fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self.as_ref()
@@ -100,20 +72,6 @@ impl<T: CastReflect> CastReflect for Box<T> {
 
     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
         T::into_reflect(*self)
-    }
-}
-
-impl CastReflect for dyn Reflect {
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
     }
 }
 

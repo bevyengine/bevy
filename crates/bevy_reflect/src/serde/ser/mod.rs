@@ -15,9 +15,10 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
+    use crate::cast::CastPartialReflect;
     use crate::{
-        self as bevy_reflect, serde::ReflectSerializer, PartialReflect, Reflect, ReflectSerialize,
-        Struct, TypeRegistry,
+        self as bevy_reflect, serde::ReflectSerializer, Reflect, ReflectSerialize, Struct,
+        TypeRegistry,
     };
     use bevy_utils::{HashMap, HashSet};
     use core::{f32::consts::PI, ops::RangeInclusive};

@@ -58,21 +58,6 @@ pub fn impl_full_reflect(
             #any_impls
 
             #[inline]
-            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
-                self
-            }
-
-            #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
             fn set(
                 &mut self,
                 value: #FQBox<dyn #bevy_reflect_path::Reflect>
@@ -137,21 +122,6 @@ pub fn common_partial_reflect_methods(
         #[inline]
         fn try_as_reflect_mut(&mut self) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
             #FQOption::Some(self)
-        }
-
-        #[inline]
-        fn into_partial_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
-            self
-        }
-
-        #[inline]
-        fn as_partial_reflect(&self) -> &dyn #bevy_reflect_path::PartialReflect {
-            self
-        }
-
-        #[inline]
-        fn as_partial_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::PartialReflect {
-            self
         }
 
         #hash_fn

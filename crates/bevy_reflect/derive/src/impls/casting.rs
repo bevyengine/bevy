@@ -15,28 +15,34 @@ pub(crate) fn impl_casting_traits(
 
     quote! {
         impl #impl_generics #bevy_reflect_path::cast::CastPartialReflect for #type_path #ty_generics #where_reflect_clause {
+            #[inline]
             fn as_partial_reflect(&self) -> &dyn #bevy_reflect_path::PartialReflect {
                 self
             }
 
+            #[inline]
             fn as_partial_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::PartialReflect {
                 self
             }
 
+            #[inline]
             fn into_partial_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::PartialReflect> {
                 self
             }
         }
 
         impl #impl_generics #bevy_reflect_path::cast::CastReflect for #type_path #ty_generics #where_reflect_clause {
+            #[inline]
             fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
                 self
             }
 
+            #[inline]
             fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
                 self
             }
 
+            #[inline]
             fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
