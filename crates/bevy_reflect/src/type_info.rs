@@ -1,6 +1,6 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, Reflect, ReflectKind, SetInfo,
+    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, ReflectKind, SetInfo,
     StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
@@ -558,7 +558,7 @@ pub struct OpaqueInfo {
 }
 
 impl OpaqueInfo {
-    pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
+    pub fn new<T: TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
