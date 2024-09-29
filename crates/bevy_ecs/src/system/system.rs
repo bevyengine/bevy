@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_run_system_once() {
+    fn run_system_once_invalid_params() {
         struct T;
         impl Resource for T {}
         fn system(_: Res<T>) {}

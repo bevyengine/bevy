@@ -923,7 +923,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_run_system() {
+    fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
 
         struct T;
