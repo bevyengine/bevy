@@ -514,7 +514,7 @@ pub(crate) struct ClusterableObjectOrderData<'a> {
 pub(crate) fn clusterable_object_order(
     a: ClusterableObjectOrderData,
     b: ClusterableObjectOrderData,
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     a.is_spot_light
         .cmp(b.is_spot_light) // pointlights before spot lights
         .then_with(|| b.shadows_enabled.cmp(a.shadows_enabled)) // shadow casters before non-casters
