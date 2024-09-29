@@ -274,7 +274,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut named_animations = HashMap::default();
         let mut animation_roots = HashSet::default();
         for animation in gltf.animations() {
-            let mut animation_clip = bevy_animation::AnimationClip::default();
+            let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
                 let interpolation = match channel.sampler().interpolation() {
                     gltf::animation::Interpolation::Linear => Interpolation::Linear,
@@ -327,7 +327,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     animation_roots.insert(*root_index);
                     animation_clip.add_curve_to_target(
                         AnimationTargetId::from_names(path.iter()),
-                        bevy_animation::VariableCurve {
+                        VariableCurve {
                             keyframe_timestamps,
                             keyframes,
                             interpolation,
@@ -735,7 +735,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 if animation_roots.contains(&node.index()) {
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(AnimationPlayer::default());
                 }
             }
         }
