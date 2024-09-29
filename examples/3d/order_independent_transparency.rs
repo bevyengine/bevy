@@ -7,8 +7,8 @@ use bevy::{
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
+    render::view::RenderLayers,
 };
-use bevy_render::view::RenderLayers;
 
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
