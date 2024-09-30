@@ -43,7 +43,6 @@ pub struct SystemMeta {
     is_send: bool,
     has_deferred: bool,
     pub(crate) last_run: Tick,
-    #[cfg(feature = "bevy_param_warn")]
     param_warn_policy: ParamWarnPolicy,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -61,7 +60,6 @@ impl SystemMeta {
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
-            #[cfg(feature = "bevy_param_warn")]
             param_warn_policy: ParamWarnPolicy::Once,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -119,7 +117,6 @@ impl SystemMeta {
     }
 }
 
-#[cfg(feature = "bevy_param_warn")]
 impl SystemMeta {
     /// Changes the warn policy.
     #[inline]
@@ -141,17 +138,6 @@ impl SystemMeta {
     {
         self.param_warn_policy.try_warn::<P>(&self.name);
     }
-}
-
-// No-op when warnings are disabled.
-#[cfg(not(feature = "bevy_param_warn"))]
-impl SystemMeta {
-    #[inline]
-    pub fn set_warn_policy(&mut self, _warn_policy: ParamWarnPolicy) {}
-    #[inline]
-    pub fn advance_param_warn_policy(&mut self) {}
-    #[inline]
-    pub fn try_warn_param<P: SystemParam>(&self) {}
 }
 
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
@@ -213,7 +199,7 @@ where
 {
     fn with_param_warn_policy(self, param_warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F> {
         let mut system = IntoSystem::into_system(self);
-        system.system_meta.param_warn_policy = param_warn_policy;
+        system.system_meta.set_param_warn_policy(param_warn_policy);
         system
     }
 }

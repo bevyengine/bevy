@@ -22,13 +22,8 @@ fn main() {
         // Systems that fail parameter validation will emit warnings.
         // The default policy is to emit a warning once per system.
         // This is good for catching unexpected behavior, but can
-        // lead to spam and performance drop due to additional checks.
-        //
-        // There are two ways of disabling warnings:
-        // - During development, it's preferential to disable warnings selectively per system
-        //   using the `.never_param_warn()` method.
-        // - When releasing the game, it's best to disable all warnings by removing the
-        //   `bevy_param_warn` feature flag, which is enabled by default in `bevy_ecs`.
+        // lead to spam. You can disable invalid param warnings
+        // per system using the `.never_param_warn()` method.
         .add_systems(
             Update,
             (
