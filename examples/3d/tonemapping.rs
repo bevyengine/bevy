@@ -66,7 +66,7 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -78,6 +78,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         },
     ));
 
@@ -411,26 +412,32 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    let (method, color_grading) = settings.single();
-    let method = *method;
-
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
-    text.clear();
+
+    let old_text = &text_query.single().sections[0].value;
+
     if *hide_ui {
+        if !old_text.is_empty() {
+            // single_mut() always triggers change detection,
+            // so only access if text actually needs changing
+            text_query.single_mut().sections[0].value.clear();
+        }
         return;
     }
+
+    let (tonemapping, color_grading) = settings.single();
+    let tonemapping = *tonemapping;
+
+    let mut text = String::with_capacity(old_text.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -451,11 +458,15 @@ fn update_ui(
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
         "(1) {} Disabled\n",
-        if method == Tonemapping::None { ">" } else { "" }
+        if tonemapping == Tonemapping::None {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(2) {} Reinhard\n",
-        if method == Tonemapping::Reinhard {
+        if tonemapping == Tonemapping::Reinhard {
             "> "
         } else {
             ""
@@ -463,7 +474,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(3) {} Reinhard Luminance\n",
-        if method == Tonemapping::ReinhardLuminance {
+        if tonemapping == Tonemapping::ReinhardLuminance {
             ">"
         } else {
             ""
@@ -471,7 +482,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(4) {} ACES Fitted\n",
-        if method == Tonemapping::AcesFitted {
+        if tonemapping == Tonemapping::AcesFitted {
             ">"
         } else {
             ""
@@ -479,11 +490,15 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(5) {} AgX\n",
-        if method == Tonemapping::AgX { ">" } else { "" }
+        if tonemapping == Tonemapping::AgX {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(6) {} SomewhatBoringDisplayTransform\n",
-        if method == Tonemapping::SomewhatBoringDisplayTransform {
+        if tonemapping == Tonemapping::SomewhatBoringDisplayTransform {
             ">"
         } else {
             ""
@@ -491,7 +506,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(7) {} TonyMcMapface\n",
-        if method == Tonemapping::TonyMcMapface {
+        if tonemapping == Tonemapping::TonyMcMapface {
             ">"
         } else {
             ""
@@ -499,7 +514,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
-        if method == Tonemapping::BlenderFilmic {
+        if tonemapping == Tonemapping::BlenderFilmic {
             ">"
         } else {
             ""
@@ -534,6 +549,12 @@ fn update_ui(
 
     if current_scene.0 == 1 {
         text.push_str("(Enter) Reset all to scene recommendation\n");
+    }
+
+    if text != old_text.as_str() {
+        // single_mut() always triggers change detection,
+        // so only access if text actually changed
+        text_query.single_mut().sections[0].value = text;
     }
 }
 

@@ -139,7 +139,7 @@ struct LightProbes {
 // Settings for screen space reflections.
 //
 // For more information on these settings, see the documentation for
-// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
+// `bevy_pbr::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
     perceptual_roughness_threshold: f32,
     thickness: f32,
@@ -147,4 +147,9 @@ struct ScreenSpaceReflectionsSettings {
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+};
+
+struct EnvironmentMapUniform {
+    // Transformation matrix for the environment cubemaps in world space.
+    transform: mat4x4<f32>,
 };

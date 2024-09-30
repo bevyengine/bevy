@@ -84,7 +84,7 @@ mod tests {
 
     use bevy_app::App;
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_hierarchy::BuildChildren;
     use bevy_math::{Quat, Vec3};
 
     use crate::{

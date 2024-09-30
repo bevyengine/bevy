@@ -21,6 +21,7 @@ pub mod traits;
 #[cfg(feature = "bevy-support")]
 pub mod plugins;
 
+/// [`GlobalTransform`]: components::GlobalTransform
 /// Helpers related to computing global transforms
 #[cfg(feature = "bevy-support")]
 pub mod helper;
@@ -28,7 +29,9 @@ pub mod helper;
 #[cfg(feature = "bevy-support")]
 pub mod systems;
 
-#[doc(hidden)]
+/// The transform prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::components::*;

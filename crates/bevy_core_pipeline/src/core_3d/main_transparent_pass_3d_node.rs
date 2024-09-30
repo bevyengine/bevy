@@ -9,11 +9,12 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
-/// [`SortedRenderPhase`].
+/// [`ViewSortedRenderPhases`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
@@ -70,7 +71,9 @@ impl ViewNode for MainTransparentPass3dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                error!("Error encountered while rendering the transparent phase {err:?}");
+            }
 
             pass_span.end(&mut render_pass);
         }

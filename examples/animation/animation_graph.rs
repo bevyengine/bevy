@@ -310,7 +310,7 @@ fn setup_node_rects(commands: &mut Commands) {
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
-                container.insert((
+                container = container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),

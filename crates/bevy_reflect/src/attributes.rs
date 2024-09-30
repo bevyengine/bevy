@@ -7,7 +7,7 @@ use std::any::TypeId;
 ///
 /// These attributes can be created with the [`Reflect` derive macro].
 ///
-/// Attributes are stored by their [`TypeId`](std::any::TypeId).
+/// Attributes are stored by their [`TypeId`].
 /// Because of this, there can only be one attribute per type.
 ///
 /// # Example
@@ -150,6 +150,7 @@ macro_rules! impl_custom_attribute_methods {
             $self.custom_attributes().get::<T>()
         }
 
+        #[allow(rustdoc::redundant_explicit_links)]
         /// Gets a custom attribute by its [`TypeId`](std::any::TypeId).
         ///
         /// This is the dynamic equivalent of [`get_attribute`](Self::get_attribute).

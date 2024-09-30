@@ -12,6 +12,10 @@ struct RegisteredSystem<I, O> {
     system: BoxedSystem<I, O>,
 }
 
+/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+#[derive(Component)]
+pub struct SystemIdMarker;
+
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
@@ -94,10 +98,7 @@ impl<I, O> std::hash::Hash for SystemId<I, O> {
 
 impl<I, O> std::fmt::Debug for SystemId<I, O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemId")
-            .field(&self.entity)
-            .field(&self.entity)
-            .finish()
+        f.debug_tuple("SystemId").field(&self.entity).finish()
     }
 }
 
@@ -128,10 +129,13 @@ impl World {
     ) -> SystemId<I, O> {
         SystemId {
             entity: self
-                .spawn(RegisteredSystem {
-                    initialized: false,
-                    system,
-                })
+                .spawn((
+                    RegisteredSystem {
+                        initialized: false,
+                        system,
+                    },
+                    SystemIdMarker,
+                ))
                 .id(),
             marker: std::marker::PhantomData,
         }

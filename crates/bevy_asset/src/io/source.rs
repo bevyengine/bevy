@@ -2,9 +2,10 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
+use atomicow::CowArc;
 use bevy_ecs::system::Resource;
 use bevy_utils::tracing::{error, warn};
-use bevy_utils::{CowArc, Duration, HashMap};
+use bevy_utils::{Duration, HashMap};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 
@@ -70,9 +71,26 @@ impl<'a> AssetSourceId<'a> {
     }
 }
 
-impl From<&'static str> for AssetSourceId<'static> {
-    fn from(value: &'static str) -> Self {
-        AssetSourceId::Name(value.into())
+impl AssetSourceId<'static> {
+    /// Indicates this [`AssetSourceId`] should have a static lifetime.
+    #[inline]
+    pub fn as_static(self) -> Self {
+        match self {
+            Self::Default => Self::Default,
+            Self::Name(value) => Self::Name(value.as_static()),
+        }
+    }
+
+    /// Constructs an [`AssetSourceId`] with a static lifetime.
+    #[inline]
+    pub fn from_static(value: impl Into<Self>) -> Self {
+        value.into().as_static()
+    }
+}
+
+impl<'a> From<&'a str> for AssetSourceId<'a> {
+    fn from(value: &'a str) -> Self {
+        AssetSourceId::Name(CowArc::Borrowed(value))
     }
 }
 
@@ -82,10 +100,10 @@ impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
     }
 }
 
-impl From<Option<&'static str>> for AssetSourceId<'static> {
-    fn from(value: Option<&'static str>) -> Self {
+impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
+    fn from(value: Option<&'a str>) -> Self {
         match value {
-            Some(value) => AssetSourceId::Name(value.into()),
+            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
             None => AssetSourceId::Default,
         }
     }
@@ -302,7 +320,7 @@ pub struct AssetSourceBuilders {
 impl AssetSourceBuilders {
     /// Inserts a new builder with the given `id`
     pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
-        match id.into() {
+        match AssetSourceId::from_static(id) {
             AssetSourceId::Default => {
                 self.default = Some(source);
             }
@@ -471,8 +489,18 @@ impl AssetSource {
         return "Web does not currently support watching assets.";
         #[cfg(target_os = "android")]
         return "Android does not currently support watching assets.";
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(feature = "file_watcher")
+        ))]
         return "Consider enabling the `file_watcher` feature.";
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            feature = "file_watcher"
+        ))]
+        return "Consider adding an \"assets\" directory.";
     }
 
     /// Returns a builder function for this platform's default [`AssetWatcher`]. `path` is the relative path to
@@ -493,16 +521,24 @@ impl AssetSource {
                 not(target_arch = "wasm32"),
                 not(target_os = "android")
             ))]
-            return Some(Box::new(
-                super::file::FileWatcher::new(
-                    std::path::PathBuf::from(path.clone()),
-                    sender,
-                    file_debounce_wait_time,
-                )
-                .unwrap_or_else(|e| {
-                    panic!("Failed to create file watcher from path {path:?}, {e:?}")
-                }),
-            ));
+            {
+                let path = std::path::PathBuf::from(path.clone());
+                if path.exists() {
+                    Some(Box::new(
+                        super::file::FileWatcher::new(
+                            path.clone(),
+                            sender,
+                            file_debounce_wait_time,
+                        )
+                        .unwrap_or_else(|e| {
+                            panic!("Failed to create file watcher from path {path:?}, {e:?}")
+                        }),
+                    ))
+                } else {
+                    warn!("Skip creating file watcher because path {path:?} does not exist.");
+                    None
+                }
+            }
             #[cfg(any(
                 not(feature = "file_watcher"),
                 target_arch = "wasm32",

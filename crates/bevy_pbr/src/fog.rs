@@ -34,7 +34,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// #       ..Default::default()
 ///     },
 ///     // Add fog to the same entity
-///     FogSettings {
+///     DistanceFog {
 ///         color: Color::WHITE,
 ///         falloff: FogFalloff::Exponential { density: 1e-3 },
 ///         ..Default::default()
@@ -50,8 +50,8 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// [`StandardMaterial`](crate::StandardMaterial) instances via the `fog_enabled` flag.
 #[derive(Debug, Clone, Component, Reflect, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, Default)]
-pub struct FogSettings {
+#[reflect(Component, Default, Debug)]
+pub struct DistanceFog {
     /// The color of the fog effect.
     ///
     /// **Tip:** The alpha channel of the color can be used to “modulate” the fog effect without
@@ -72,6 +72,9 @@ pub struct FogSettings {
     /// Determines which falloff mode to use, and its parameters.
     pub falloff: FogFalloff,
 }
+
+#[deprecated(since = "0.15.0", note = "Renamed to `DistanceFog`")]
+pub type FogSettings = DistanceFog;
 
 /// Allows switching between different fog falloff modes, and configuring their parameters.
 ///
@@ -149,7 +152,7 @@ pub enum FogFalloff {
     ///     scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
     ///     in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
     ///     density;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -197,7 +200,7 @@ pub enum FogFalloff {
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
     ///     with the proper density for a desired visibility distance in world units;
-    /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    /// - Combine the `density` parameter with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -244,7 +247,7 @@ pub enum FogFalloff {
     /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
     ///     to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
     ///     extinction and inscattering colors;
-    /// - Combine the atmospheric fog parameters with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
+    /// - Combine the atmospheric fog parameters with the [`DistanceFog`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
     ///
@@ -463,9 +466,9 @@ impl FogFalloff {
     }
 }
 
-impl Default for FogSettings {
+impl Default for DistanceFog {
     fn default() -> Self {
-        FogSettings {
+        DistanceFog {
             color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,

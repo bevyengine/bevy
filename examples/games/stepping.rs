@@ -115,7 +115,7 @@ fn build_ui(
     for label in schedule_order {
         let schedule = schedules.get(*label).unwrap();
         text_sections.push(TextSection::new(
-            format!("{:?}\n", label),
+            format!("{label:?}\n"),
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
                 color: FONT_COLOR,

@@ -1,6 +1,9 @@
 //! The generic input type.
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::system::Resource;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
@@ -123,7 +126,7 @@ use std::hash::Hash;
 ///             Update,
 ///             something_used.run_if(
 ///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(GamepadButton::new(
+///                     .or(input_just_pressed(GamepadButton::new(
 ///                         Gamepad::new(0),
 ///                         GamepadButtonType::West,
 ///                     ))),
@@ -151,8 +154,8 @@ use std::hash::Hash;
 ///
 ///[`ResMut`]: bevy_ecs::system::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
-#[derive(Debug, Clone, Resource, Reflect)]
-#[reflect(Default)]
+#[derive(Debug, Clone, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -297,12 +300,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use bevy_reflect::TypePath;
-
     use crate::ButtonInput;
 
     /// Used for testing the functionality of [`ButtonInput`].
-    #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
         Input2,

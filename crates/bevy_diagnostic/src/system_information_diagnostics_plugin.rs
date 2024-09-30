@@ -11,7 +11,7 @@ use bevy_ecs::system::Resource;
 /// * linux,
 /// * windows,
 /// * android,
-/// * macos
+/// * macOS
 ///
 /// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
 ///
@@ -48,7 +48,7 @@ pub struct SystemInfo {
     pub memory: String,
 }
 
-// NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
+// NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on Wasm
 #[cfg(all(
     any(
         target_os = "linux",
@@ -133,7 +133,7 @@ pub mod internal {
 
                 sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
                 sys.refresh_memory();
-                let current_cpu_usage = sys.global_cpu_info().cpu_usage().into();
+                let current_cpu_usage = sys.global_cpu_usage().into();
                 // `memory()` fns return a value in bytes
                 let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
                 let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;

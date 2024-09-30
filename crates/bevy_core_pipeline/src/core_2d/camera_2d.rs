@@ -1,7 +1,9 @@
 use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
+use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::prelude::Msaa;
 use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
@@ -15,17 +17,13 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct Camera2d;
 
 #[derive(Bundle, Clone)]
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
-    /// Note: default value for `OrthographicProjection.near` is `0.0`
-    /// which makes objects on the screen plane invisible to 2D camera.
-    /// `Camera2dBundle::default()` sets `near` to negative value,
-    /// so be careful when initializing this field manually.
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
@@ -35,15 +33,12 @@ pub struct Camera2dBundle {
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
     pub main_texture_usages: CameraMainTextureUsages,
+    pub msaa: Msaa,
 }
 
 impl Default for Camera2dBundle {
     fn default() -> Self {
-        let projection = OrthographicProjection {
-            far: 1000.,
-            near: -1000.,
-            ..Default::default()
-        };
+        let projection = OrthographicProjection::default_2d();
         let transform = Transform::default();
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
         Self {
@@ -58,6 +53,7 @@ impl Default for Camera2dBundle {
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
             main_texture_usages: Default::default(),
+            msaa: Default::default(),
         }
     }
 }
@@ -74,7 +70,7 @@ impl Camera2dBundle {
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
             far,
-            ..Default::default()
+            ..OrthographicProjection::default_2d()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
         let frustum = projection.compute_frustum(&GlobalTransform::from(transform));
@@ -90,6 +86,7 @@ impl Camera2dBundle {
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
             main_texture_usages: Default::default(),
+            msaa: Default::default(),
         }
     }
 }

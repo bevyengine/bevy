@@ -1,14 +1,13 @@
 use bevy_asset::{Asset, Handle};
+use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
-    render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -121,7 +120,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
-#[derive(Asset, Clone, Reflect)]
+#[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
@@ -147,26 +146,21 @@ impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
+    type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
+        (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(&self.base, layout, render_device, images, fallback_image)?;
-        let extended_bindgroup = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-        )?;
+        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param)?;
+        let extended_bindgroup =
+            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
 
         bindings.extend(extended_bindgroup.bindings);
 

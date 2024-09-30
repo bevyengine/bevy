@@ -1,11 +1,15 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
+//!
+//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
+//! `POLYGON_MODE_LINE` on the gpu.
 
 use std::f32::consts::PI;
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     color::palettes::basic::SILVER,
-    pbr::wireframe::{WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
         render_asset::RenderAssetUsages,
@@ -17,10 +21,18 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
+            #[cfg(not(target_arch = "wasm32"))]
             WireframePlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, toggle_wireframe))
+        .add_systems(
+            Update,
+            (
+                rotate,
+                #[cfg(not(target_arch = "wasm32"))]
+                toggle_wireframe,
+            ),
+        )
         .run();
 }
 
@@ -128,6 +140,7 @@ fn setup(
         ..default()
     });
 
+    #[cfg(not(target_arch = "wasm32"))]
     commands.spawn(
         TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
             .with_style(Style {
@@ -174,6 +187,7 @@ fn uv_debug_texture() -> Image {
     )
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn toggle_wireframe(
     mut wireframe_config: ResMut<WireframeConfig>,
     keyboard: Res<ButtonInput<KeyCode>>,

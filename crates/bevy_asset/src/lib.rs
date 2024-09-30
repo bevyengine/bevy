@@ -12,6 +12,9 @@ pub mod processor;
 pub mod saver;
 pub mod transformer;
 
+/// The asset prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -97,6 +100,12 @@ pub struct AssetPlugin {
     pub meta_check: AssetMetaCheck,
 }
 
+/// Controls whether or not assets are pre-processed before being loaded.
+///
+/// This setting is controlled by setting [`AssetPlugin::mode`].
+///
+/// When building on web, asset preprocessing can cause problems due to the lack of filesystem access.
+/// See [bevy#10157](https://github.com/bevyengine/bevy/issues/10157) for context.
 #[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
@@ -222,7 +231,11 @@ impl Plugin for AssetPlugin {
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
             .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
-            .add_systems(PreUpdate, handle_internal_asset_events)
+            // `handle_internal_asset_events` requires the use of `&mut World`,
+            // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
+            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
+            // needs to be robust to stochastic delays anyways.
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
     }
 }
@@ -341,7 +354,7 @@ impl AssetApp for App {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self {
-        let id = id.into();
+        let id = AssetSourceId::from_static(id);
         if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
@@ -454,13 +467,12 @@ mod tests {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
-        event::ManualEventReader,
+        event::EventCursor,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
-    use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
     use thiserror::Error;
@@ -510,7 +522,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader<'_>,
+            reader: &'a mut dyn Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
@@ -584,13 +596,10 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
+        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -1301,7 +1310,7 @@ mod tests {
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
         run_app_until(&mut app, |world| {
             let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();

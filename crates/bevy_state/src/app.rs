@@ -1,9 +1,5 @@
-use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemConfigs, ScheduleLabel},
-    world::FromWorld,
-};
+use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
+use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
@@ -12,33 +8,40 @@ use crate::state::{
 };
 use crate::state_scoped::clear_state_scoped_entities;
 
-/// State installation methods for [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp).
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromReflect, GetTypeRegistration, Typed};
+
+/// State installation methods for [`App`] and [`SubApp`].
 pub trait AppExtStates {
     /// Initializes a [`State`] with standard starting values.
     ///
     /// This method is idempotent: it has no effect when called again using the same generic type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
+    /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
+    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
+    ///
+    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in `DefaultPlugins`).
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self;
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
     /// added of the same type.
     ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`](crate::state::OnEnter),
+    /// [`OnTransition`](crate::state::OnTransition) and [`OnExit`](crate::state::OnExit) schedules.
+    /// These schedules are triggered before [`Update`](bevy_app::Update) and at startup.
     ///
     /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
+    /// emulate this behavior using the [`in_state`](crate::condition::in_state) [`Condition`](bevy_ecs::prelude::Condition).
     ///
     /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
+    /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self;
 
     /// Sets up a type implementing [`ComputedStates`].
@@ -55,6 +58,25 @@ pub trait AppExtStates {
     ///
     /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
+
+    #[cfg(feature = "bevy_reflect")]
+    /// Registers the state type `T` using [`App::register_type`],
+    /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
+    ///
+    /// This enables reflection code to access the state. For detailed information, see the docs on [`crate::reflect::ReflectState`] .
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed;
+
+    #[cfg(feature = "bevy_reflect")]
+    /// Registers the state type `T` using [`App::register_type`],
+    /// and adds [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`] type data to `T` in the type registry.
+    ///
+    /// This enables reflection code to access and modify the state.
+    /// For detailed information, see the docs on [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`].
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed;
 }
 
 /// Separate function to only warn once for all state installation methods.
@@ -68,11 +90,12 @@ impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
             self.world_mut().send_event(StateTransitionEvent {
@@ -90,11 +113,12 @@ impl AppExtStates for SubApp {
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
         warn_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
@@ -121,7 +145,6 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
             S::register_computed_state_systems(schedule);
@@ -147,7 +170,6 @@ impl AppExtStates for SubApp {
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
         {
-            setup_state_transitions_in_world(self.world_mut(), Some(Startup.intern()));
             self.init_resource::<NextState<S>>();
             self.add_event::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).unwrap();
@@ -183,6 +205,30 @@ impl AppExtStates for SubApp {
             clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
         )
     }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.register_type::<S>();
+        self.register_type::<State<S>>();
+        self.register_type_data::<S, crate::reflect::ReflectState>();
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.register_type::<S>();
+        self.register_type::<State<S>>();
+        self.register_type::<NextState<S>>();
+        self.register_type_data::<S, crate::reflect::ReflectState>();
+        self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
+        self
+    }
 }
 
 impl AppExtStates for App {
@@ -210,15 +256,36 @@ impl AppExtStates for App {
         self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.main_mut().register_type_state::<S>();
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.main_mut().register_type_mutable_state::<S>();
+        self
+    }
 }
 
 /// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+#[derive(Default)]
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
+        schedule.insert_startup_before(PreStartup, StateTransition);
+        setup_state_transitions_in_world(app.world_mut());
     }
 }
 
@@ -226,6 +293,7 @@ impl Plugin for StatesPlugin {
 mod tests {
     use crate::{
         self as bevy_state,
+        app::StatesPlugin,
         state::{State, StateTransition, StateTransitionEvent},
     };
     use bevy_app::App;
@@ -245,6 +313,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_init_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.init_state::<TestState>();
         app.insert_state(TestState::B);
@@ -255,7 +324,7 @@ mod tests {
         assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
         let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
-        let mut reader = events.get_reader();
+        let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
         assert_eq!(last.exited, None);
         assert_eq!(last.entered, Some(TestState::B));
@@ -264,6 +333,7 @@ mod tests {
     #[test]
     fn insert_state_can_overwrite_insert_state() {
         let mut app = App::new();
+        app.add_plugins(StatesPlugin);
 
         app.insert_state(TestState::B);
         app.insert_state(TestState::C);
@@ -274,7 +344,7 @@ mod tests {
         assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
         let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
-        let mut reader = events.get_reader();
+        let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
         assert_eq!(last.exited, None);
         assert_eq!(last.entered, Some(TestState::C));

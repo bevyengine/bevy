@@ -143,8 +143,8 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()
@@ -267,7 +267,7 @@ fn add_button_for_value(
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::MAX,
-            image: UiImage::default().with_color(Color::BLACK),
+            background_color: Color::BLACK.into(),
             ..default()
         })
         .insert(ColorGradingOptionWidget {
@@ -318,8 +318,8 @@ fn add_help_text(
         .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
+                left: Val::Px(12.0),
+                top: Val::Px(12.0),
                 ..default()
             },
             ..TextBundle::from_section(
@@ -362,7 +362,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
             color_grading,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -374,6 +374,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         },
     ));
 }
@@ -458,9 +459,9 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
+            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
             SelectedColorGradingOption::Section(section, option) => {
-                write!(f, "\"{}\" for \"{}\"", option, section)
+                write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
@@ -567,7 +568,11 @@ fn handle_button_presses(
 
 /// Updates the state of the UI based on the current state.
 fn update_ui_state(
-    mut buttons: Query<(&mut UiImage, &mut BorderColor, &ColorGradingOptionWidget)>,
+    mut buttons: Query<(
+        &mut BackgroundColor,
+        &mut BorderColor,
+        &ColorGradingOptionWidget,
+    )>,
     mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
     mut help_text: Query<&mut Text, With<HelpText>>,
     cameras: Query<Ref<ColorGrading>>,
@@ -579,12 +584,12 @@ fn update_ui_state(
     }
 
     // The currently-selected option is drawn with inverted colors.
-    for (mut image, mut border_color, widget) in buttons.iter_mut() {
+    for (mut background, mut border_color, widget) in buttons.iter_mut() {
         if *currently_selected_option == widget.option {
-            image.color = Color::WHITE;
+            *background = Color::WHITE.into();
             *border_color = Color::BLACK.into();
         } else {
-            image.color = Color::BLACK;
+            *background = Color::BLACK.into();
             *border_color = Color::WHITE.into();
         }
     }
@@ -628,7 +633,7 @@ fn update_ui_state(
 
 /// Creates the help text at the top left of the window.
 fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {}", currently_selected_option)
+    format!("Press Left/Right to adjust {currently_selected_option}")
 }
 
 /// Processes keyboard input to change the value of the currently-selected color

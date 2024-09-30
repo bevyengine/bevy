@@ -31,7 +31,7 @@ use bevy_reflect::prelude::*;
 /// [`Mesh`]: crate::mesh::Mesh
 /// [`Handle<Mesh>`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,
@@ -168,7 +168,7 @@ impl HalfSpace {
     /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal(&self) -> Vec3A {
-        Vec3A::from(self.normal_d)
+        Vec3A::from_vec4(self.normal_d)
     }
 
     /// Returns the signed distance from the bisecting plane to the origin along
@@ -212,7 +212,7 @@ impl HalfSpace {
 /// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Frustum {
     #[reflect(ignore)]
     pub half_spaces: [HalfSpace; 6],
@@ -303,7 +303,7 @@ impl Frustum {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
     pub frusta: [Frustum; 6],
@@ -319,7 +319,7 @@ impl CubemapFrusta {
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
     pub frusta: EntityHashMap<Vec<Frustum>>,

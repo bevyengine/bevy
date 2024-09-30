@@ -19,6 +19,7 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
 pub mod msaa_writeback;
+pub mod post_process;
 pub mod prepass;
 mod skybox;
 pub mod smaa;
@@ -33,13 +34,17 @@ pub use skybox::Skybox;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
     pub mod taa {
+        #[allow(deprecated)]
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            TemporalAntiAliasSettings, TemporalAntiAliasing,
         };
     }
 }
 
+/// The core pipeline prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -51,7 +56,7 @@ pub mod prelude {
 use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
-    contrast_adaptive_sharpening::CASPlugin,
+    contrast_adaptive_sharpening::CasPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
@@ -60,6 +65,7 @@ use crate::{
     fxaa::FxaaPlugin,
     motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
+    post_process::PostProcessingPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     smaa::SmaaPlugin,
     tonemapping::TonemappingPlugin,
@@ -95,10 +101,11 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 BloomPlugin,
                 FxaaPlugin,
-                CASPlugin,
+                CasPlugin,
                 MotionBlurPlugin,
                 DepthOfFieldPlugin,
                 SmaaPlugin,
+                PostProcessingPlugin,
             ));
     }
 }

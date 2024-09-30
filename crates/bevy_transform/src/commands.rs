@@ -2,7 +2,11 @@
 //! while preserving [`GlobalTransform`].
 
 use crate::prelude::{GlobalTransform, Transform};
-use bevy_ecs::{prelude::Entity, system::EntityCommands, world::Command, world::World};
+use bevy_ecs::{
+    prelude::Entity,
+    system::EntityCommands,
+    world::{Command, EntityWorldMut, World},
+};
 use bevy_hierarchy::{PushChild, RemoveParent};
 
 /// Command similar to [`PushChild`], but updating the child transform to keep
@@ -94,6 +98,20 @@ impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
         self.commands().add(RemoveParentInPlace { child });
+        self
+    }
+}
+
+impl BuildChildrenTransformExt for EntityWorldMut<'_> {
+    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
+        let child = self.id();
+        self.world_scope(|world| PushChildInPlace { child, parent }.apply(world));
+        self
+    }
+
+    fn remove_parent_in_place(&mut self) -> &mut Self {
+        let child = self.id();
+        self.world_scope(|world| RemoveParentInPlace { child }.apply(world));
         self
     }
 }

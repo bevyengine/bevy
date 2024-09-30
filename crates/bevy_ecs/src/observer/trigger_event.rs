@@ -14,10 +14,18 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
     pub targets: Targets,
 }
 
-impl<E: Event, Targets: TriggerTargets> Command for TriggerEvent<E, Targets> {
-    fn apply(mut self, world: &mut World) {
+impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
+    pub(super) fn trigger(mut self, world: &mut World) {
         let event_type = world.init_component::<E>();
         trigger_event(world, event_type, &mut self.event, self.targets);
+    }
+}
+
+impl<E: Event, Targets: TriggerTargets + Send + Sync + 'static> Command
+    for TriggerEvent<E, Targets>
+{
+    fn apply(self, world: &mut World) {
+        self.trigger(world);
     }
 }
 
@@ -41,39 +49,43 @@ impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
     }
 }
 
-impl<E: Event, Targets: TriggerTargets> Command for EmitDynamicTrigger<E, Targets> {
+impl<E: Event, Targets: TriggerTargets + Send + Sync + 'static> Command
+    for EmitDynamicTrigger<E, Targets>
+{
     fn apply(mut self, world: &mut World) {
         trigger_event(world, self.event_type, &mut self.event_data, self.targets);
     }
 }
 
 #[inline]
-fn trigger_event<E, Targets: TriggerTargets>(
+fn trigger_event<E: Event, Targets: TriggerTargets>(
     world: &mut World,
     event_type: ComponentId,
     event_data: &mut E,
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
-    if targets.entities().len() == 0 {
+    if targets.entities().is_empty() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
-            world.trigger_observers_with_data(
+            world.trigger_observers_with_data::<_, E::Traversal>(
                 event_type,
                 Entity::PLACEHOLDER,
                 targets.components(),
                 event_data,
+                false,
             );
         };
     } else {
         for target in targets.entities() {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
-                world.trigger_observers_with_data(
+                world.trigger_observers_with_data::<_, E::Traversal>(
                     event_type,
-                    target,
+                    *target,
                     targets.components(),
                     event_data,
+                    E::AUTO_PROPAGATE,
                 );
             };
         }
@@ -86,80 +98,90 @@ fn trigger_event<E, Targets: TriggerTargets>(
 ///
 /// [`Trigger`]: crate::observer::Trigger
 /// [`Observer`]: crate::observer::Observer
-pub trait TriggerTargets: Send + Sync + 'static {
+pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId>;
+    fn components(&self) -> &[ComponentId];
 
     /// The entities the trigger should target.
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity>;
+    fn entities(&self) -> &[Entity];
 }
 
 impl TriggerTargets for () {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        std::iter::once(*self)
+    fn entities(&self) -> &[Entity] {
+        std::slice::from_ref(self)
     }
 }
 
 impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        self.iter().copied()
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }
 
 impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        [].into_iter()
+    fn components(&self) -> &[ComponentId] {
+        &[]
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        self.iter().copied()
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        std::iter::once(*self)
+    fn components(&self) -> &[ComponentId] {
+        std::slice::from_ref(self)
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl TriggerTargets for Vec<ComponentId> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        self.iter().copied()
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
     }
 }
 
 impl<const N: usize> TriggerTargets for [ComponentId; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> {
-        self.iter().copied()
+    fn components(&self) -> &[ComponentId] {
+        self.as_slice()
     }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> {
-        [].into_iter()
+    fn entities(&self) -> &[Entity] {
+        &[]
+    }
+}
+
+impl TriggerTargets for &Vec<Entity> {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }

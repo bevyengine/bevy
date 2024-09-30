@@ -5,7 +5,7 @@
 )]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
-//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
@@ -16,6 +16,7 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
+use std::error::Error;
 #[cfg(feature = "trace")]
 use std::panic;
 
@@ -27,8 +28,10 @@ mod android_tracing;
 static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
     tracy_client::ProfiledAllocator::new(std::alloc::System, 100);
 
+/// The log prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Log Prelude.
     #[doc(hidden)]
     pub use bevy_utils::tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
@@ -52,7 +55,12 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
-use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter, Layer};
+use tracing_subscriber::{
+    filter::{FromEnvError, ParseError},
+    prelude::*,
+    registry::Registry,
+    EnvFilter, Layer,
+};
 #[cfg(feature = "tracing-chrome")]
 use {bevy_ecs::system::Resource, bevy_utils::synccell::SyncCell};
 
@@ -69,7 +77,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///     to the browser console.
 ///
 /// You can configure this plugin.
@@ -95,6 +103,21 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings
 /// will be ignored.
 ///
+/// Also, to disable colour terminal output (ANSI escape codes), you can
+/// set the environment variable `NO_COLOR` to any value. This common
+/// convention is documented at [no-color.org](https://no-color.org/).
+/// For example:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     std::env::set_var("NO_COLOR", "1");
+///     App::new()
+///        .add_plugins(DefaultPlugins)
+///        .run();
+/// }
+/// ```
+///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins`:
 /// ```no_run
@@ -112,6 +135,20 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// This plugin should not be added multiple times in the same process. This plugin
 /// sets up global logging configuration for **all** Apps in a given process, and
 /// rerunning the same initialization multiple times will lead to a panic.
+///
+/// # Performance
+///
+/// Filters applied through this plugin are computed at _runtime_, which will
+/// have a non-zero impact on performance.
+/// To achieve maximum performance, consider using
+/// [_compile time_ filters](https://docs.rs/log/#compile-time-filters)
+/// provided by the [`log`](https://crates.io/crates/log) crate.
+///
+/// ```toml
+/// # cargo.toml
+/// [dependencies]
+/// log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+/// ```
 pub struct LogPlugin {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
@@ -126,8 +163,8 @@ pub struct LogPlugin {
     ///
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
-    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
-    /// and the [`App`].
+    /// Access to [`App`] is also provided to allow for communication between the
+    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
@@ -136,10 +173,13 @@ pub struct LogPlugin {
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
+/// The default [`LogPlugin`] [`EnvFilter`].
+pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error,naga=warn".to_string(),
+            filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
         }
@@ -166,7 +206,17 @@ impl Plugin for LogPlugin {
 
         let default_filter = { format!("{},{}", self.level, self.filter) };
         let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|_| EnvFilter::try_new(&default_filter))
+            .or_else(|from_env_error| {
+                _ = from_env_error
+                    .source()
+                    .and_then(|source| source.downcast_ref::<ParseError>())
+                    .map(|parse_err| {
+                        // we cannot use the `error!` macro here because the logger is not ready yet.
+                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                    });
+
+                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
+            })
             .unwrap();
         let subscriber = subscriber.with(filter_layer);
 
@@ -202,6 +252,9 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
+            // note: the implementation of `Default` reads from the env var NO_COLOR
+            // to decide whether to use ANSI color codes, which is common convention
+            // https://no-color.org/
             let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame

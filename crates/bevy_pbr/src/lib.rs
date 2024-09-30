@@ -16,7 +16,8 @@ pub mod wireframe;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
-    /// Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
+    /// Render high-poly 3d meshes using an efficient GPU-driven method.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
@@ -56,8 +57,15 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::*;
+#[allow(deprecated)]
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
+    VolumetricLight,
+};
 
+/// The PBR prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -65,7 +73,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        fog::{FogFalloff, FogSettings},
+        fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
@@ -287,6 +295,7 @@ impl Plugin for PbrPlugin {
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -296,7 +305,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<FogSettings>()
+            .register_type::<DistanceFog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
@@ -336,11 +345,23 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::UpdateDirectionalLightCascades
+                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+            )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::CheckLightVisibility
+                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+            )
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    crate::assign_objects_to_clusters
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystem),
+                    assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
@@ -368,7 +389,10 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
-                    check_light_mesh_visibility
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)

@@ -6,13 +6,13 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::Image,
+    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use smallvec::SmallVec;
-use std::num::{NonZeroI16, NonZeroU16};
+use std::num::NonZero;
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
@@ -24,7 +24,7 @@ use thiserror::Error;
 ///   to obtain the cursor position relative to this node
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -35,15 +35,24 @@ pub struct Node {
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
+    /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::resolve_outlines_system`].
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
+    /// Outline updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
     /// The unrounded size of the node as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    /// Resolved border radius values in logical pixels.
+    /// Border radius updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) border_radius: ResolvedBorderRadius,
 }
 
 impl Node {
@@ -52,6 +61,13 @@ impl Node {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Check if the node is empty.
+    /// A node is considered empty if it has a zero or negative extent along either of its axes.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.size().cmple(Vec2::ZERO).any()
     }
 
     /// The order of the node in the UI layout.
@@ -104,10 +120,16 @@ impl Node {
     }
 
     #[inline]
-    /// Returns the thickness of the UI node's outline.
+    /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     pub fn outline_width(&self) -> f32 {
         self.outline_width
+    }
+
+    #[inline]
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    pub fn outline_offset(&self) -> f32 {
+        self.outline_offset
     }
 }
 
@@ -118,6 +140,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        border_radius: ResolvedBorderRadius::ZERO,
     };
 }
 
@@ -146,7 +169,7 @@ impl Default for Node {
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -172,13 +195,6 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
-
-    /// Defines the text direction. For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-    ///
-    /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in Bevy.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/direction>
-    pub direction: Direction,
 
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
@@ -435,7 +451,6 @@ impl Style {
         right: Val::Auto,
         top: Val::Auto,
         bottom: Val::Auto,
-        direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
         align_items: AlignItems::DEFAULT,
@@ -730,35 +745,6 @@ impl Default for JustifyContent {
     }
 }
 
-/// Defines the text direction.
-///
-/// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum Direction {
-    /// Inherit from parent node.
-    Inherit,
-    /// Text is written left to right.
-    LeftToRight,
-    /// Text is written right to left.
-    RightToLeft,
-}
-
-impl Direction {
-    pub const DEFAULT: Self = Self::Inherit;
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
@@ -1007,12 +993,12 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
@@ -1024,6 +1010,7 @@ pub enum MinTrackSizingFunction {
     /// Track minimum size should be content sized under a max-content constraint
     MaxContent,
     /// Track minimum size should be automatically sized
+    #[default]
     Auto,
     /// Track minimum size should be a percent of the viewport's smaller dimension.
     VMin(f32),
@@ -1035,12 +1022,12 @@ pub enum MinTrackSizingFunction {
     Vw(f32),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
@@ -1056,6 +1043,7 @@ pub enum MaxTrackSizingFunction {
     /// Track maximum size should be sized according to the fit-content formula with a percentage limit
     FitContentPercent(f32),
     /// Track maximum size should be automatically sized
+    #[default]
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
     /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension.
@@ -1234,7 +1222,7 @@ impl Default for GridTrack {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1255,6 +1243,12 @@ pub enum GridTrackRepetition {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat#auto-fit>
     AutoFit,
+}
+
+impl Default for GridTrackRepetition {
+    fn default() -> Self {
+        Self::Count(1)
+    }
 }
 
 impl From<u16> for GridTrackRepetition {
@@ -1289,7 +1283,7 @@ impl From<usize> for GridTrackRepetition {
 /// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1446,6 +1440,15 @@ impl RepeatedGridTrack {
     }
 }
 
+impl Default for RepeatedGridTrack {
+    fn default() -> Self {
+        Self {
+            repetition: Default::default(),
+            tracks: SmallVec::from_buf([GridTrack::default()]),
+        }
+    }
+}
+
 impl From<GridTrack> for RepeatedGridTrack {
     fn from(track: GridTrack) -> Self {
         Self {
@@ -1457,10 +1460,7 @@ impl From<GridTrack> for RepeatedGridTrack {
 
 impl From<GridTrack> for Vec<GridTrack> {
     fn from(track: GridTrack) -> Self {
-        vec![GridTrack {
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
-        }]
+        vec![track]
     }
 }
 
@@ -1504,15 +1504,15 @@ pub struct GridPlacement {
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) start: Option<NonZeroI16>,
+    pub(crate) start: Option<NonZero<i16>>,
     /// How many grid tracks the item should span.
     /// Defaults to 1.
-    pub(crate) span: Option<NonZeroU16>,
+    pub(crate) span: Option<NonZero<u16>>,
     /// The grid line at which the item should end.
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) end: Option<NonZeroI16>,
+    pub(crate) end: Option<NonZero<i16>>,
 }
 
 impl GridPlacement {
@@ -1520,7 +1520,7 @@ impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
+        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
         end: None,
     };
 
@@ -1637,17 +1637,17 @@ impl GridPlacement {
 
     /// Returns the grid line at which the item should start, or `None` if not set.
     pub fn get_start(self) -> Option<i16> {
-        self.start.map(NonZeroI16::get)
+        self.start.map(NonZero::<i16>::get)
     }
 
     /// Returns the grid line at which the item should end, or `None` if not set.
     pub fn get_end(self) -> Option<i16> {
-        self.end.map(NonZeroI16::get)
+        self.end.map(NonZero::<i16>::get)
     }
 
     /// Returns span for this grid item, or `None` if not set.
     pub fn get_span(self) -> Option<u16> {
-        self.span.map(NonZeroU16::get)
+        self.span.map(NonZero::<u16>::get)
     }
 }
 
@@ -1657,17 +1657,17 @@ impl Default for GridPlacement {
     }
 }
 
-/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
-fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+/// Convert an `i16` to `NonZero<i16>`, fails on `0` and returns the `InvalidZeroIndex` error.
+fn try_into_grid_index(index: i16) -> Result<Option<NonZero<i16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+        NonZero::<i16>::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
     ))
 }
 
-/// Convert a `u16` to `NonZeroU16`, fails on `0` and returns the `InvalidZeroSpan` error.
-fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+/// Convert a `u16` to `NonZero<u16>`, fails on `0` and returns the `InvalidZeroSpan` error.
+fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+        NonZero::<u16>::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
     ))
 }
 
@@ -1684,7 +1684,7 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1693,7 +1693,8 @@ pub enum GridPlacementError {
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    /// Background color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
 }
 
 impl Default for BackgroundColor {
@@ -1710,7 +1711,7 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
 
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1725,7 +1726,8 @@ impl<T: Into<Color>> From<T> for BorderColor {
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    /// Border color is transparent by default.
+    pub const DEFAULT: Self = BorderColor(Color::NONE);
 }
 
 impl Default for BorderColor {
@@ -1734,8 +1736,8 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1819,24 +1821,72 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub struct UiImage {
-    /// The tint color used to draw the image
+    /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
     pub color: Color,
-    /// Handle to the texture
+    /// Handle to the texture.
+    ///
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
+    ///
+    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
+    pub rect: Option<Rect>,
+}
+
+impl Default for UiImage {
+    /// A transparent 1x1 image with a solid white tint.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    fn default() -> Self {
+        UiImage {
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::WHITE,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            texture: TRANSPARENT_IMAGE_HANDLE,
+            flip_x: false,
+            flip_y: false,
+            rect: None,
+        }
+    }
 }
 
 impl UiImage {
+    /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             texture,
+            color: Color::WHITE,
             ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`UiImage`].
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            texture: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
+            rect: None,
         }
     }
 
@@ -1860,6 +1910,12 @@ impl UiImage {
         self.flip_y = true;
         self
     }
+
+    #[must_use]
+    pub const fn with_rect(mut self, rect: Rect) -> Self {
+        self.rect = Some(rect);
+        self
+    }
 }
 
 impl From<Handle<Image>> for UiImage {
@@ -1870,7 +1926,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -1890,7 +1946,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of `ZIndex::Local(0)`.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Eq, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub enum ZIndex {
     /// Indicates the order in which this node should be rendered relative to its siblings.
     Local(i32),
@@ -1946,7 +2002,7 @@ impl Default for ZIndex {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[reflect(Component, PartialEq, Default, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2165,6 +2221,49 @@ impl BorderRadius {
         self.bottom_right = radius;
         self
     }
+
+    /// Compute the logical border radius for a single corner from the given values
+    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
+        match radius {
+            Val::Auto => 0.,
+            Val::Px(px) => px,
+            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        }
+        .clamp(0., 0.5 * node_size.min_element())
+    }
+
+    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
+        ResolvedBorderRadius {
+            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
+            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
+            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
+            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
+        }
+    }
+}
+
+/// Represents the resolved border radius values for a UI node.
+///
+/// The values are in logical pixels.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+pub struct ResolvedBorderRadius {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl ResolvedBorderRadius {
+    pub const ZERO: Self = Self {
+        top_left: 0.,
+        top_right: 0.,
+        bottom_left: 0.,
+        bottom_right: 0.,
+    };
 }
 
 #[cfg(test)]
@@ -2207,6 +2306,7 @@ mod tests {
 ///
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
+#[reflect(Component, Debug, PartialEq)]
 pub struct TargetCamera(pub Entity);
 
 impl TargetCamera {

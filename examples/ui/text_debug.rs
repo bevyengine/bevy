@@ -1,5 +1,7 @@
 //! Shows various text layout options.
 
+use std::{collections::VecDeque, time::Duration};
+
 use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -135,14 +137,46 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
         );
 
+        builder.spawn(
+            TextBundle::from_section(
+                "This text is fully justified and is positioned in the same way.",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 35.0,
+                    color: GREEN_YELLOW.into(),
+                },
+            )
+            .with_text_justify(JustifyText::Justified)
+            .with_style(Style {
+                max_width: Val::Px(300.),
+                ..default()
+            }),
+        );
+
         builder.spawn((
             TextBundle::from_sections([
                 TextSection::new(
-                    "This text changes in the bottom right",
+                    "",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
                         ..default()
+                    },
+                ),
+                TextSection::new(
+                    "\nThis text changes in the bottom right",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 25.0,
+                        ..default()
+                    },
+                ),
+                TextSection::new(
+                    " this text has zero fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 0.0,
+                        color: BLUE.into(),
                     },
                 ),
                 TextSection::new(
@@ -162,7 +196,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " fps, ",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 12.0,
                         color: YELLOW.into(),
                     },
                 ),
@@ -175,7 +209,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     " ms/frame",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 25.0,
+                        font_size: 50.0,
+                        color: BLUE.into(),
+                    },
+                ),
+                TextSection::new(
+                    " this text has negative fontsize",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: -50.0,
                         color: BLUE.into(),
                     },
                 ),
@@ -191,10 +233,23 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_text_system(
+    mut fps_history: Local<VecDeque<f64>>,
+    mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
+    time_history.push_front(time.elapsed());
+    time_history.truncate(120);
+    let avg_fps = (time_history.len() as f64)
+        / (time_history.front().copied().unwrap_or_default()
+            - time_history.back().copied().unwrap_or_default())
+        .as_secs_f64()
+        .max(0.0001);
+    fps_history.push_front(avg_fps);
+    fps_history.truncate(120);
+    let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
+
     for mut text in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -212,12 +267,44 @@ fn change_text_system(
             }
         }
 
-        text.sections[0].value = format!(
-            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
+        text.sections[0].value =
+            format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
+
+        text.sections[1].value = format!(
+            "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[2].value = format!("{fps:.1}");
+        text.sections[4].value = format!("{fps:.1}");
 
-        text.sections[4].value = format!("{frame_time:.3}");
+        text.sections[6].value = format!("{frame_time:.3}");
+    }
+}
+
+fn mean(data: &[f64]) -> Option<f64> {
+    let sum = data.iter().sum::<f64>();
+    let count = data.len();
+
+    match count {
+        positive if positive > 0 => Some(sum / count as f64),
+        _ => None,
+    }
+}
+
+fn std_deviation(data: &[f64]) -> Option<f64> {
+    match (mean(data), data.len()) {
+        (Some(data_mean), count) if count > 0 => {
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - *value;
+
+                    diff * diff
+                })
+                .sum::<f64>()
+                / count as f64;
+
+            Some(variance.sqrt())
+        }
+        _ => None,
     }
 }
