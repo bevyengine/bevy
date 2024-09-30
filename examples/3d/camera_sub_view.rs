@@ -149,7 +149,7 @@ fn setup(
 
     // Orthographic camera right
     commands.spawn(Camera3dBundle {
-        projection: Projection::Orthographic(OrthographicProjection::default),
+        projection: OrthographicProjection::default().into(),
         camera: Camera {
             viewport: Option::from(Viewport {
                 physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
