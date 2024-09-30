@@ -496,6 +496,15 @@ pub enum ChunkedUnevenCoreError {
         /// The actual length of the value buffer.
         actual: usize,
     },
+
+    /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
+    #[error("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
+    NonDivisibleLengths {
+        /// The length of the value buffer.
+        values_len: usize,
+        /// The length of the time buffer.
+        times_len: usize,
+    },
 }
 
 impl<T> ChunkedUnevenCore<T> {
@@ -504,17 +513,17 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// Produces an error in any of the following circumstances:
     /// - `width` is zero.
-    /// - `times` has less than `2` valid unique entries.
+    /// - `times` has less than `2` unique valid entries.
     /// - `values` has the incorrect length relative to `times`.
     ///
     /// [type-level documentation]: ChunkedUnevenCore
     pub fn new(
-        times: impl Into<Vec<f32>>,
-        values: impl Into<Vec<T>>,
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
         width: usize,
     ) -> Result<Self, ChunkedUnevenCoreError> {
-        let times: Vec<f32> = times.into();
-        let values: Vec<T> = values.into();
+        let times = times.into_iter().collect_vec();
+        let values = values.into_iter().collect_vec();
 
         if width == 0 {
             return Err(ChunkedUnevenCoreError::ZeroWidth);
@@ -533,6 +542,52 @@ impl<T> ChunkedUnevenCore<T> {
                 expected: times.len() * width,
                 actual: values.len(),
             });
+        }
+
+        Ok(Self { times, values })
+    }
+
+    /// Create a new [`ChunkedUnevenCore`], inferring the width from the sizes of the inputs.
+    /// The given `times` are sorted, filtered to finite times, and deduplicated. See the
+    /// [type-level documentation] for more information about this type. Prefer using [`new`]
+    /// if possible, since that constructor has richer error checking.
+    ///
+    /// Produces an error in any of the following circumstances:
+    /// - `values` has length zero.
+    /// - `times` has less than `2` unique valid entries.
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
+    ///   and deduplicated).
+    ///
+    /// The [width] is implicitly taken to be the length of `values` divided by that of `times`
+    /// (once sorted, filtered, and deduplicated).
+    ///
+    /// [type-level documentation]: ChunkedUnevenCore
+    /// [`new`]: ChunkedUnevenCore::new
+    /// [width]: ChunkedUnevenCore::width
+    pub fn new_width_inferred(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, ChunkedUnevenCoreError> {
+        let times = times.into_iter().collect_vec();
+        let values = values.into_iter().collect_vec();
+
+        let times = filter_sort_dedup_times(times);
+
+        if times.len() < 2 {
+            return Err(ChunkedUnevenCoreError::NotEnoughSamples {
+                samples: times.len(),
+            });
+        }
+
+        if values.len() % times.len() != 0 {
+            return Err(ChunkedUnevenCoreError::NonDivisibleLengths {
+                values_len: values.len(),
+                times_len: times.len(),
+            });
+        }
+
+        if values.is_empty() {
+            return Err(ChunkedUnevenCoreError::ZeroWidth);
         }
 
         Ok(Self { times, values })
@@ -624,5 +679,136 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
                 InterpolationDatum::Between(index - 1, index, s)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
+    use crate::curve::{cores::InterpolationDatum, interval};
+    use approx::{assert_abs_diff_eq, AbsDiffEq};
+
+    fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool
+    where
+        T: PartialEq,
+    {
+        if let InterpolationDatum::Between(m_start, m_end, m_p) = datum {
+            m_start == start && m_end == end && m_p.abs_diff_eq(&p, 1e-6)
+        } else {
+            false
+        }
+    }
+
+    fn is_left_tail<T>(datum: InterpolationDatum<T>) -> bool {
+        matches!(datum, InterpolationDatum::LeftTail(_))
+    }
+
+    fn is_right_tail<T>(datum: InterpolationDatum<T>) -> bool {
+        matches!(datum, InterpolationDatum::RightTail(_))
+    }
+
+    fn is_exact<T>(datum: InterpolationDatum<T>, target: T) -> bool
+    where
+        T: PartialEq,
+    {
+        if let InterpolationDatum::Exact(v) = datum {
+            v == target
+        } else {
+            false
+        }
+    }
+
+    #[test]
+    fn even_sample_interp() {
+        let even_core = EvenCore::<f32>::new(
+            interval(0.0, 1.0).unwrap(),
+            // 11 entries -> 10 segments
+            vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+        )
+        .expect("Failed to construct test core");
+
+        let datum = even_core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = even_core.sample_interp(0.0);
+        assert!(is_left_tail(datum));
+        let datum = even_core.sample_interp(1.0);
+        assert!(is_right_tail(datum));
+        let datum = even_core.sample_interp(2.0);
+        assert!(is_right_tail(datum));
+
+        let datum = even_core.sample_interp(0.05);
+        let InterpolationDatum::Between(0.0, 1.0, p) = datum else {
+            panic!("Sample did not lie in the correct subinterval")
+        };
+        assert_abs_diff_eq!(p, 0.5);
+
+        let datum = even_core.sample_interp(0.05);
+        assert!(approx_between(datum, &0.0, &1.0, 0.5));
+        let datum = even_core.sample_interp(0.33);
+        assert!(approx_between(datum, &3.0, &4.0, 0.3));
+        let datum = even_core.sample_interp(0.78);
+        assert!(approx_between(datum, &7.0, &8.0, 0.8));
+
+        let datum = even_core.sample_interp(0.5);
+        assert!(approx_between(datum, &4.0, &5.0, 1.0) || approx_between(datum, &5.0, &6.0, 0.0));
+        let datum = even_core.sample_interp(0.7);
+        assert!(approx_between(datum, &6.0, &7.0, 1.0) || approx_between(datum, &7.0, &8.0, 0.0));
+    }
+
+    #[test]
+    fn uneven_sample_interp() {
+        let uneven_core = UnevenCore::<f32>::new(vec![
+            (0.0, 0.0),
+            (1.0, 3.0),
+            (2.0, 9.0),
+            (4.0, 10.0),
+            (8.0, -5.0),
+        ])
+        .expect("Failed to construct test core");
+
+        let datum = uneven_core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = uneven_core.sample_interp(0.0);
+        assert!(is_exact(datum, &0.0));
+        let datum = uneven_core.sample_interp(8.0);
+        assert!(is_exact(datum, &(-5.0)));
+        let datum = uneven_core.sample_interp(9.0);
+        assert!(is_right_tail(datum));
+
+        let datum = uneven_core.sample_interp(0.5);
+        assert!(approx_between(datum, &0.0, &3.0, 0.5));
+        let datum = uneven_core.sample_interp(2.5);
+        assert!(approx_between(datum, &9.0, &10.0, 0.25));
+        let datum = uneven_core.sample_interp(7.0);
+        assert!(approx_between(datum, &10.0, &(-5.0), 0.75));
+
+        let datum = uneven_core.sample_interp(2.0);
+        assert!(is_exact(datum, &9.0));
+        let datum = uneven_core.sample_interp(4.0);
+        assert!(is_exact(datum, &10.0));
+    }
+
+    #[test]
+    fn chunked_uneven_sample_interp() {
+        let core =
+            ChunkedUnevenCore::new(vec![0.0, 2.0, 8.0], vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0], 2)
+                .expect("Failed to construct test core");
+
+        let datum = core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = core.sample_interp(0.0);
+        assert!(is_exact(datum, &[0.0, 1.0]));
+        let datum = core.sample_interp(8.0);
+        assert!(is_exact(datum, &[4.0, 5.0]));
+        let datum = core.sample_interp(10.0);
+        assert!(is_right_tail(datum));
+
+        let datum = core.sample_interp(1.0);
+        assert!(approx_between(datum, &[0.0, 1.0], &[2.0, 3.0], 0.5));
+        let datum = core.sample_interp(3.0);
+        assert!(approx_between(datum, &[2.0, 3.0], &[4.0, 5.0], 1.0 / 6.0));
+
+        let datum = core.sample_interp(2.0);
+        assert!(is_exact(datum, &[2.0, 3.0]));
     }
 }

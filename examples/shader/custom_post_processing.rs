@@ -263,7 +263,7 @@ impl FromWorld for PostProcessPipeline {
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
-            // This will add the pipeline to the cache and queue it's creation
+            // This will add the pipeline to the cache and queue its creation
             .queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("post_process_pipeline".into()),
                 layout: vec![layout.clone()],
@@ -282,7 +282,7 @@ impl FromWorld for PostProcessPipeline {
                     })],
                 }),
                 // All of the following properties are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trait implemented because not all field can have a default value.
+                // This struct doesn't have the Default trait implemented because not all fields can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
@@ -371,7 +371,7 @@ fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time
         intensity *= 0.015;
 
         // Set the intensity.
-        // This will then be extracted to the render world and uploaded to the gpu automatically by the [`UniformComponentPlugin`]
+        // This will then be extracted to the render world and uploaded to the GPU automatically by the [`UniformComponentPlugin`]
         setting.intensity = intensity;
     }
 }
