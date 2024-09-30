@@ -11,9 +11,9 @@ pub use interval::{interval, Interval};
 use itertools::Itertools;
 
 use crate::{StableInterpolate, VectorSpace};
+use core::{marker::PhantomData, ops::Deref};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
-use core::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
