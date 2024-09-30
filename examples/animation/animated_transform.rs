@@ -63,7 +63,7 @@ fn setup(
             Vec3::new(1.0, 0.0, 1.0),
         ]))
         .map(TranslationCurve)
-        .expect("Failed to build translation curve"),
+        .expect("should be able to build translation curve because we pass in valid samples"),
     );
     // Or it can modify the rotation of the transform.
     // To find the entity to modify, the hierarchy will be traversed looking for
@@ -121,7 +121,7 @@ fn setup(
             Quat::IDENTITY,
         ]))
         .map(RotationCurve)
-        .expect("Failed to build rotation curve"),
+        .expect("should be able to build translation curve because we pass in valid samples"),
     );
 
     // Create the animation graph

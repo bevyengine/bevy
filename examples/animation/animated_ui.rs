@@ -87,7 +87,7 @@ impl AnimationInfo {
                     .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
             )
             .map(AnimatableCurve::<FontSizeProperty, _>::from_curve)
-            .expect("Failed to build font size curve"),
+            .expect("should be able to build translation curve because we pass in valid samples"),
         );
 
         // Create a curve that animates font color. Note that this should have
@@ -104,7 +104,7 @@ impl AnimationInfo {
                 Srgba::RED,
             ]))
             .map(AnimatableCurve::<TextColorProperty, _>::from_curve)
-            .expect("Failed to build text color curve"),
+            .expect("should be able to build translation curve because we pass in valid samples"),
         );
 
         // Save our animation clip as an asset.
