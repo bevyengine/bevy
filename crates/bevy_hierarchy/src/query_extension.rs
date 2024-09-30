@@ -1,7 +1,8 @@
 use alloc::collections::VecDeque;
 
 use bevy_ecs::{
-    entity::Entity,
+    component::Component,
+    entity::{Entity, VisitEntities},
     query::{QueryData, QueryFilter, WorldQuery},
     system::Query,
 };
@@ -30,9 +31,12 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
+    fn iter_descendants(&'w self, entity: Entity) -> RelatedIter<'w, 's, Children, D, F>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    {
+        self.iter_related(entity)
+    }
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
@@ -52,104 +56,134 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, D, F>
-    where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
-    fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
-    where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-    {
-        DescendantIter::new(self, entity)
-    }
-
-    fn iter_ancestors(&'w self, entity: Entity) -> AncestorIter<'w, 's, D, F>
+    fn iter_ancestors(&'w self, entity: Entity) -> RelatedIter<'w, 's, Parent, D, F>
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
-        AncestorIter::new(self, entity)
+        self.iter_related(entity)
+    }
+
+    /// Returns an [`Iterator`] of [`Entity`]'s over all of `entity`'s `C` relations.
+    ///
+    /// Can only be called on a [`Query`] of `C` (i.e. `Query<&C>`), where `C`
+    /// is some type implementing [`VisitEntities`].
+    /// # Examples
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_hierarchy::prelude::*;
+    /// # #[derive(Component)]
+    /// # struct Marker;
+    /// fn system(query: Query<Entity, With<Marker>>, parent_query: Query<&Parent>) {
+    ///     let entity = query.single();
+    ///     for ancestor in parent_query.iter_related(entity) {
+    ///         // Do something!
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    fn iter_related<C>(&'w self, entity: Entity) -> RelatedIter<'w, 's, C, D, F>
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+        C: Component + VisitEntities;
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
+    fn iter_related<C>(&'w self, entity: Entity) -> RelatedIter<'w, 's, C, D, F>
+    where
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+        C: Component + VisitEntities,
+    {
+        RelatedIter::new(self, entity)
     }
 }
 
-/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+/// An iterator over entities related via some component `C` that implements
+/// [`VisitEntities`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter>
+pub struct RelatedIter<'w, 's, C, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D: QueryData,
+    F: QueryFilter,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+    C: Component + VisitEntities,
 {
-    children_query: &'w Query<'w, 's, D, F>,
-    vecdeque: VecDeque<Entity>,
+    related_query: &'w Query<'w, 's, D, F>,
+    vecdeque: VecDeque<(usize, Entity)>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> DescendantIter<'w, 's, D, F>
+impl<'w, 's, C, D, F> RelatedIter<'w, 's, C, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D: QueryData,
+    F: QueryFilter,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+    C: Component + VisitEntities,
 {
-    /// Returns a new [`DescendantIter`].
-    pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        DescendantIter {
-            children_query,
-            vecdeque: children_query
-                .get(entity)
-                .into_iter()
-                .flatten()
-                .copied()
-                .collect(),
+    /// Create a new [`RelatedIter`].
+    fn new(related_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
+        let mut vecdeque = VecDeque::new();
+        related_query.get(entity).into_iter().for_each(|t| {
+            t.visit_entities(|entity| {
+                vecdeque.push_back((1, entity));
+            });
+        });
+        RelatedIter {
+            related_query,
+            vecdeque,
         }
+    }
+
+    fn next(&mut self) -> Option<(usize, Entity)> {
+        let (depth, entity) = self.vecdeque.pop_front()?;
+
+        if let Ok(children) = self.related_query.get(entity) {
+            children.visit_entities(|entity| {
+                self.vecdeque.push_back((depth + 1, entity));
+            });
+        }
+
+        Some((depth, entity))
+    }
+
+    /// Include depth information with the entities produced by this iterator.
+    pub fn with_depth(self) -> RelatedDepthIter<'w, 's, C, D, F> {
+        RelatedDepthIter(self)
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for DescendantIter<'w, 's, D, F>
+impl<'w, 's, C, D, F> Iterator for RelatedIter<'w, 's, C, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D: QueryData,
+    F: QueryFilter,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+    C: Component + VisitEntities,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entity = self.vecdeque.pop_front()?;
-
-        if let Ok(children) = self.children_query.get(entity) {
-            self.vecdeque.extend(children);
-        }
-
-        Some(entity)
+        RelatedIter::next(self).map(|(_, e)| e)
     }
 }
 
-/// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
-pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter>
+/// A [`RelatedIter`] that includes depth information.
+pub struct RelatedDepthIter<'w, 's, C, D, F>(RelatedIter<'w, 's, C, D, F>)
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
-{
-    parent_query: &'w Query<'w, 's, D, F>,
-    next: Option<Entity>,
-}
+    D: QueryData,
+    F: QueryFilter,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+    C: Component + VisitEntities;
 
-impl<'w, 's, D: QueryData, F: QueryFilter> AncestorIter<'w, 's, D, F>
+impl<'w, 's, C, D, F> Iterator for RelatedDepthIter<'w, 's, C, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    D: QueryData,
+    F: QueryFilter,
+    D::ReadOnly: WorldQuery<Item<'w> = &'w C>,
+    C: Component + VisitEntities,
 {
-    /// Returns a new [`AncestorIter`].
-    pub fn new(parent_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        AncestorIter {
-            parent_query,
-            next: Some(entity),
-        }
-    }
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for AncestorIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
-{
-    type Item = Entity;
+    type Item = (usize, Entity);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next = self.parent_query.get(self.next?).ok().map(Parent::get);
-        self.next
+        RelatedIter::next(&mut self.0)
     }
 }
 
@@ -200,5 +234,47 @@ mod tests {
         let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
+    }
+
+    #[test]
+    fn related_children_iter() {
+        let world = &mut World::new();
+
+        let [a, b, c, d] = core::array::from_fn(|i| world.spawn(A(i)).id());
+
+        world.entity_mut(a).add_children(&[b, c]);
+        world.entity_mut(c).add_children(&[d]);
+
+        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let (children_query, a_query) = system_state.get(world);
+
+        let result: Vec<_> = children_query
+            .iter_related(a)
+            .with_depth()
+            .filter_map(|(d, e)| Some((d, a_query.get(e).ok()?)))
+            .collect();
+
+        assert_eq!([(1, &A(1)), (1, &A(2)), (2, &A(3))], result.as_slice());
+    }
+
+    #[test]
+    fn related_parent_iter() {
+        let world = &mut World::new();
+
+        let [a, b, c] = core::array::from_fn(|i| world.spawn(A(i)).id());
+
+        world.entity_mut(a).add_children(&[b]);
+        world.entity_mut(b).add_children(&[c]);
+
+        let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
+        let (parent_query, a_query) = system_state.get(world);
+
+        let result: Vec<_> = parent_query
+            .iter_related(c)
+            .with_depth()
+            .filter_map(|(d, e)| Some((d, a_query.get(e).ok()?)))
+            .collect();
+
+        assert_eq!([(1, &A(1)), (2, &A(0))], result.as_slice());
     }
 }

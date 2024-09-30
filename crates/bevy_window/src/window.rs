@@ -1,7 +1,7 @@
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, EntityMapper, MapEntities, VisitEntities},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
@@ -66,6 +66,15 @@ impl MapEntities for WindowRef {
             }
             Self::Primary => {}
         };
+    }
+}
+
+impl VisitEntities for WindowRef {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
+        match self {
+            Self::Entity(entity) => f(*entity),
+            Self::Primary => {}
+        }
     }
 }
 
