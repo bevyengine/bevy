@@ -154,7 +154,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
-            ..default()
+            ..OrthographicProjection::default_3d()
         }
         .into(),
         camera: Camera {
@@ -174,7 +174,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
-            ..default()
+            ..OrthographicProjection::default_3d()
         }
         .into(),
         camera: Camera {
@@ -201,7 +201,7 @@ fn setup(
         Camera3dBundle {
             projection: OrthographicProjection {
                 scaling_mode: ScalingMode::FixedVertical(6.0),
-                ..default()
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             camera: Camera {
@@ -230,7 +230,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
-            ..default()
+            ..OrthographicProjection::default_3d()
         }
         .into(),
         camera: Camera {

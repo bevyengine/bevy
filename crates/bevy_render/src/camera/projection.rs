@@ -207,7 +207,7 @@ impl CameraProjection for PerspectiveProjection {
         let offset_y = full_height - ((sub_view.offset.y as f32) + sub_height);
 
         // Original frustum parameters
-        let top = self.near * f32::tan(0.5 * self.fov);
+        let top = self.near * ops::tan(0.5 * self.fov);
         let bottom = -top;
         let right = top * self.aspect_ratio;
         let left = -right;
