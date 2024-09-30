@@ -54,7 +54,7 @@ pub enum GizmoLineStyle {
 pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
-#[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
+#[derive(Default, Reflect, GizmoConfigGroup)]
 pub struct DefaultGizmoConfigGroup;
 
 /// Used when the gizmo config group needs to be type-erased.
