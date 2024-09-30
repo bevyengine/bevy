@@ -1181,7 +1181,7 @@ impl Plugin for AnimationPlugin {
 }
 
 impl AnimationTargetId {
-    ///Creates a new [`AnimationTargetId`] by hashing a string seperated by `/`.
+    ///Creates a new [`AnimationTargetId`] by hashing a string separated by `/`.
     ///
     /// Typically, this will be the path from the animation root to the
     /// animation target (e.g. bone) that is to be animated.
