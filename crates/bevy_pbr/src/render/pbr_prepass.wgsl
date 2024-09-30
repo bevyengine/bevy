@@ -53,6 +53,7 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
         let uv = (material.uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else

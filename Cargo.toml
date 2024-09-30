@@ -1146,7 +1146,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1889,6 +1889,17 @@ doc-scrape-examples = true
 [package.metadata.example.run_conditions]
 name = "Run Conditions"
 description = "Run systems only when one or multiple conditions are met"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_params"
+path = "examples/ecs/fallible_params.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_params]
+name = "Fallible System Parameters"
+description = "Systems are skipped if their parameters cannot be acquired"
 category = "ECS (Entity Component System)"
 wasm = false
 
