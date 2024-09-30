@@ -1190,6 +1190,7 @@ impl FromWorld for MeshPipeline {
             Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
+
         let (render_device, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
 
