@@ -1,11 +1,12 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
-    FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
-    UnnamedField,
+    FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
+    Typed, UnnamedField,
 };
 use core::{
     any::Any,
@@ -142,6 +143,7 @@ impl GetTupleField for dyn Tuple {
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
     ty: Type,
+    generics: Generics,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -156,6 +158,7 @@ impl TupleInfo {
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -190,6 +193,8 @@ impl TupleInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// A tuple which allows fields to be added at runtime.

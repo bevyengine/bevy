@@ -58,8 +58,8 @@ pub mod prelude {
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
-            Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
+            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction,
         },
         world::{
@@ -93,6 +93,7 @@ mod tests {
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::sync::Arc;
+    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
     use core::{
@@ -2051,4 +2052,18 @@ mod tests {
         field0: Simple,
         field1: ComponentB,
     }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntities {
+        entities: Vec<Entity>,
+        another_one: Entity,
+        maybe_entity: Option<Entity>,
+        #[visit_entities(ignore)]
+        something_else: String,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }
