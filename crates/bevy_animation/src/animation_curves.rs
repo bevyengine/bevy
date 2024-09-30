@@ -20,7 +20,7 @@
 //! is take our curve and turn it into an `AnimationCurve` which will be usable by the
 //! animation system.
 //!
-//! For instance, let's imagine that we want to imagine that we want to use the `Vec3` output
+//! For instance, let's imagine that we want to use the `Vec3` output
 //! from our curve to animate the [translation component of a `Transform`]. For this, there is
 //! the adaptor [`TranslationCurve`], which wraps any `Curve<Vec3>` and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's translation:
@@ -150,8 +150,8 @@ use crate::{prelude::Animatable, AnimationEntityMut, AnimationEvaluationError};
 ///         .expect("Failed to create font size curve")
 ///     );
 ///
-/// Here, the use of `AnimatableKeyframeCurve` creates a curve out of the given keyframe time-value
-/// pairs, using the `Animatable` implementation of `f32` to interpolate between them. The
+/// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
+/// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
 /// invocation of [`AnimatableCurve::from_curve`] with `FontSizeProperty` indicates that the `f32`
 /// output from that curve is to be used to animate the font size of a `Text` component (as
 /// configured above).
