@@ -103,7 +103,7 @@ fn setup(
         ..default()
     });
 
-    // Perpective camera moving
+    // Perspective camera moving
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
