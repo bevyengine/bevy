@@ -64,6 +64,11 @@ pub struct BrpGetParams {
     ///
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
+
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
+    pub strict: bool,
 }
 
 /// `bevy/query`: Performs a query over components in the ECS, returning entities
@@ -228,10 +233,19 @@ pub struct BrpSpawnResponse {
 }
 
 /// The response to a `bevy/get` request.
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct BrpGetResponse {
-    components: HashMap<String, Value>,
-    errors: HashMap<String, Value>,
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BrpGetResponse {
+    /// The non-strict response that reports errors seperatly without failing the entire request.
+    Lenient {
+        /// A map of successful components with their values.
+        components: HashMap<String, Value>,
+        /// A map of unsuccessful components with their errors.
+        errors: HashMap<String, Value>,
+    },
+    /// The strict response that will fail if any components are not present or aren't
+    /// reflect-able.
+    Strict(HashMap<String, Value>),
 }
 
 /// The response to a `bevy/list` request.
@@ -277,21 +291,42 @@ fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, B
 
 /// Handles a `bevy/get` request coming from a client.
 pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpGetParams { entity, components } = parse_some(params)?;
+    let BrpGetParams {
+        entity,
+        components,
+        strict,
+    } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
     let entity_ref = get_entity(world, entity)?;
 
-    let mut response = BrpGetResponse::default();
+    let mut response = if strict {
+        BrpGetResponse::Strict(Default::default())
+    } else {
+        BrpGetResponse::Lenient {
+            components: Default::default(),
+            errors: Default::default(),
+        }
+    };
 
     for component_path in components {
         match handle_get_component(&component_path, entity, entity_ref, &type_registry) {
-            Ok(serialized_object) => response.components.extend(serialized_object.into_iter()),
-            Err(err) => {
-                let err_value = serde_json::to_value(err).map_err(BrpError::internal)?;
-                response.errors.insert(component_path, err_value);
-            }
+            Ok(serialized_object) => match response {
+                BrpGetResponse::Strict(ref mut components)
+                | BrpGetResponse::Lenient {
+                    ref mut components, ..
+                } => {
+                    components.extend(serialized_object.into_iter());
+                }
+            },
+            Err(err) => match response {
+                BrpGetResponse::Strict(_) => return Err(err),
+                BrpGetResponse::Lenient { ref mut errors, .. } => {
+                    let err_value = serde_json::to_value(err).map_err(BrpError::internal)?;
+                    errors.insert(component_path, err_value);
+                }
+            },
         }
     }
 
