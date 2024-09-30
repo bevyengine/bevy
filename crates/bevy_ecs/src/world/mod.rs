@@ -2474,13 +2474,6 @@ impl World {
         }
     }
 
-    /// Flushes queued entities and calls [`World::flush_commands`].
-    #[inline]
-    pub fn flush(&mut self) {
-        self.flush_entities();
-        self.flush_commands();
-    }
-
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
     ///
@@ -2496,6 +2489,13 @@ impl World {
                     .apply_or_drop_queued(Some(self.into()));
             };
         }
+    }
+
+    /// Flushes queued entities and calls [`World::flush_commands`].
+    #[inline]
+    pub fn flush(&mut self) {
+        self.flush_entities();
+        self.flush_commands();
     }
 
     /// Increments the world's current change tick and returns the old value.
