@@ -163,6 +163,8 @@ pub trait ReflectSerializerProcessor {
     ///     }
     /// }
     /// ```
+    ///
+    /// [`Reflect`]: crate::Reflect
     fn try_serialize<S>(
         &self,
         value: &dyn PartialReflect,
