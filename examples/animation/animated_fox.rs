@@ -54,10 +54,48 @@ struct FoxFeetIds {
 impl Default for FoxFeetIds {
     fn default() -> Self {
         Self {
-            forward_right: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_Spine01_02/b_Spine02_03/b_RightUpperArm_06/b_RightForeArm_07/b_RightHand_08"),
-            forward_left: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_Spine01_02/b_Spine02_03/b_LeftUpperArm_09/b_LeftForeArm_010/b_LeftHand_011"),
-            back_right: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_RightLeg01_019/b_RightLeg02_020/b_RightFoot01_021/b_RightFoot02_022"),
-            back_left: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_LeftLeg01_015/b_LeftLeg02_016/b_LeftFoot01_017/b_LeftFoot02_018"),
+            forward_right: AnimationTargetId::from_iter([
+                "root",
+                "_rootJoint",
+                "b_Root_00",
+                "b_Hip_01",
+                "b_Spine01_02",
+                "b_Spine02_03",
+                "b_RightUpperArm_06",
+                "b_RightForeArm_07",
+                "b_RightHand_08",
+            ]),
+            forward_left: AnimationTargetId::from_iter([
+                "root",
+                "_rootJoint",
+                "b_Root_00",
+                "b_Hip_01",
+                "b_Spine01_02",
+                "b_Spine02_03",
+                "b_LeftUpperArm_09",
+                "b_LeftForeArm_010",
+                "b_LeftHand_011",
+            ]),
+            back_right: AnimationTargetId::from_iter([
+                "root",
+                "_rootJoint",
+                "b_Root_00",
+                "b_Hip_01",
+                "b_RightLeg01_019",
+                "b_RightLeg02_020",
+                "b_RightFoot01_021",
+                "b_RightFoot02_022",
+            ]),
+            back_left: AnimationTargetId::from_iter([
+                "root",
+                "_rootJoint",
+                "b_Root_00",
+                "b_Hip_01",
+                "b_LeftLeg01_015",
+                "b_LeftLeg02_016",
+                "b_LeftFoot01_017",
+                "b_LeftFoot02_018",
+            ]),
         }
     }
 }

@@ -1181,20 +1181,6 @@ impl Plugin for AnimationPlugin {
 }
 
 impl AnimationTargetId {
-    ///Creates a new [`AnimationTargetId`] by hashing a string separated by `/`.
-    ///
-    /// Typically, this will be the path from the animation root to the
-    /// animation target (e.g. bone) that is to be animated.
-    pub fn from_str(path: impl AsRef<str>) -> Self {
-        let mut blake3 = blake3::Hasher::new();
-        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        for str in path.as_ref().split('/') {
-            blake3.update(str.as_bytes());
-        }
-        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
-        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
-    }
-
     /// Creates a new [`AnimationTargetId`] by hashing a list of names.
     ///
     /// Typically, this will be the path from the animation root to the
@@ -1212,6 +1198,22 @@ impl AnimationTargetId {
     /// Creates a new [`AnimationTargetId`] by hashing a single name.
     pub fn from_name(name: &Name) -> Self {
         Self::from_names(iter::once(name))
+    }
+}
+
+impl<T: AsRef<str>> FromIterator<T> for AnimationTargetId {
+    /// Creates a new [`AnimationTargetId`] by hashing a list of strings.
+    ///
+    /// Typically, this will be the path from the animation root to the
+    /// animation target (e.g. bone) that is to be animated.
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut blake3 = blake3::Hasher::new();
+        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        for str in iter {
+            blake3.update(str.as_ref().as_bytes());
+        }
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
+        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
     }
 }
 
