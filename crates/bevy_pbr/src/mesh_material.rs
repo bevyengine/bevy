@@ -61,7 +61,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///         StandardMaterial::from(Color::srgb(1.0, 0.0, 1.0)),
 ///     );
 ///
-///     // Spawn a circle with no material.
+///     // Spawn a capsule with no material.
 ///     // The mesh will be rendered with the default material.
 ///     commands.spawn(Mesh3d(meshes.add(Capsule3d::default())));
 /// }

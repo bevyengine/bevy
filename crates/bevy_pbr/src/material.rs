@@ -240,9 +240,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-///
-/// If `MESH_MATERIAL` is set to `true`, material handles will be retrieved from [`MeshMaterial3d`] components.
-/// Otherwise, they will be retrieved by querying for [`Handle<M>`] directly.
 pub struct MaterialPlugin<M: Material> {
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.

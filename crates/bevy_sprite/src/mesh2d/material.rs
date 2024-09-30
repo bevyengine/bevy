@@ -275,9 +275,6 @@ pub enum AlphaMode2d {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
 /// asset type (which includes [`Material2d`] types).
-///
-/// If `MESH_MATERIAL` is set to `true`, material handles will be retrieved from [`MeshMaterial2d`] components.
-/// Otherwise, they will be retrieved by querying for [`Handle<M>`] directly.
 pub struct Material2dPlugin<M: Material2d>(PhantomData<M>);
 
 impl<M: Material2d> Default for Material2dPlugin<M> {
