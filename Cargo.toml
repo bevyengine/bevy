@@ -1170,7 +1170,7 @@ doc-scrape-examples = true
 hidden = true
 
 # Animation
-[[examples]]
+[[example]]
 name = "animation_triggers"
 path = "examples/animation/animation_triggers.rs"
 doc-scrape-examples = true
