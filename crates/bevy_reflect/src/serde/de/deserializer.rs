@@ -152,7 +152,7 @@ pub trait ReflectDeserializerProcessor {
     /// deserializer):
     ///
     /// ```
-    /// # use bevy_reflect::{TypeRegistration, PartialReflect};
+    /// # use bevy_reflect::{TypeRegistration, PartialReflect, TypeRegistry};
     /// # use bevy_reflect::serde::ReflectDeserializerProcessor;
     /// # use core::any::TypeId;
     /// use serde::de::IgnoredAny;
