@@ -239,11 +239,11 @@ where
                 change_tick,
             )
         };
-        // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
-        // Implementing SystemParam manually allows us to do it to here
-        // Having config available allows for early returns when gizmos are disabled
-        let (config, config_ext) = f1.into_inner().config::<Config>();
 
+        // Accessing the GizmoConfigStore in every API call reduces performance significantly.
+        // Implementing SystemParam manually allows us to cache whether the config is currently enabled.
+        // Having this available allows for cheap early returns when gizmos are disabled.
+        let (config, config_ext) = f1.into_inner().config::<Config>();
         f0.enabled = config.enabled;
 
         Gizmos {
