@@ -38,6 +38,7 @@ impl DerefMut for LineGizmoAsset {
         &mut self.buffer
     }
 }
+
 /// A component that draws the lines of a [`LineGizmoAsset`].
 ///
 /// When drawing a greater number of lines that don't need to update as often
@@ -47,7 +48,9 @@ impl DerefMut for LineGizmoAsset {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_gizmos::prelude::*;
+/// # use bevy_asset::prelude::*;
 /// # use bevy_color::palettes::css::*;
+/// # use bevy_utils::default; 
 /// fn system(
 ///     mut commands: Commands,
 ///     mut linegizmos: ResMut<Assets<LineGizmoAsset>>,
