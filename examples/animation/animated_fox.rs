@@ -107,7 +107,7 @@ struct Particle {
     lifetime: Timer,
 }
 
-// The event that will be fired once the fox feets hits the ground in the running animation.
+// The event that will be fired once the fox feet hits the ground in the running animation.
 // It's also a resource to make it easier to re-use the asset handles for the mesh/material.
 #[derive(Resource, Event, Reflect, Clone)]
 #[reflect(AnimationEvent)]
@@ -241,7 +241,7 @@ fn setup_scene_once_loaded(
         let node = graph.get(animations.animations[0]).unwrap();
         let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
 
-        // Fire the `FoxStep` event at certain times in the animation, targeting the different feets.
+        // Fire the `FoxStep` event at certain times in the animation, targeting the different feet.
         clip.add_event_with_id(feet.forward_right, 0.46, step.clone());
         clip.add_event_with_id(feet.forward_left, 0.64, step.clone());
         clip.add_event_with_id(feet.back_right, 0.14, step.clone());
