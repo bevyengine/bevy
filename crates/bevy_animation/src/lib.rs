@@ -446,24 +446,34 @@ impl AnimationClip {
     /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
+    ///
+    /// Use [`add_event`](Self::add_event) if you don't have a specific target.
     pub fn add_event_to_target(
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
         event: impl AnimationEvent,
     ) {
-        self.duration = self.duration.max(time);
-        let triggers = self.triggers.entry(Some(target_id)).or_default();
-        triggers.push((time, AnimationEventData::new(event)));
-        triggers.sort_by_key(|(k, _)| FloatOrd(*k));
+        self.add_event_to_target_inner(Some(target_id), time, event);
     }
 
     /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
     ///
     /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` is reached in the animation.
+    ///
+    /// See also [`add_event_to_target`](Self::add_event_to_target).
     pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
+        self.add_event_to_target_inner(None, time, event);
+    }
+
+    fn add_event_to_target_inner(
+        &mut self,
+        target_id: Option<AnimationTargetId>,
+        time: f32,
+        event: impl AnimationEvent,
+    ) {
         self.duration = self.duration.max(time);
-        let triggers = self.triggers.entry(None).or_default();
+        let triggers = self.triggers.entry(target_id).or_default();
         triggers.push((time, AnimationEventData::new(event)));
         triggers.sort_by_key(|(k, _)| FloatOrd(*k));
     }
