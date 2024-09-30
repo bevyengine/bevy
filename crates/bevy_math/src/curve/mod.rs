@@ -5,13 +5,14 @@
 pub mod adaptors;
 pub mod cores;
 pub mod interval;
+pub mod iterable;
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
+pub use adaptors::*;
 pub use interval::{interval, Interval};
 pub use sample_curves::*;
 
-use adaptors::*;
 use cores::{EvenCore, UnevenCore};
 
 use crate::{StableInterpolate, VectorSpace};
@@ -232,13 +233,13 @@ pub trait Curve<T> {
     /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
     /// intersection of the domains of its constituents. If the domain intersection would be empty,
     /// an error is returned.
-    fn zip<S, C>(self, other: C) -> Result<ProductCurve<T, S, Self, C>, InvalidIntervalError>
+    fn zip<S, C>(self, other: C) -> Result<ZipCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
-        Ok(ProductCurve {
+        Ok(ZipCurve {
             domain,
             first: self,
             second: other,
@@ -689,255 +690,6 @@ pub enum ResamplingError {
     /// This resampling operation failed because of an unbounded interval.
     #[error("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
-}
-
-/// A curve with a constant value over its domain.
-///
-/// This is a curve that holds an inner value and always produces a clone of that value when sampled.
-#[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct ConstantCurve<T> {
-    domain: Interval,
-    value: T,
-}
-
-impl<T> ConstantCurve<T>
-where
-    T: Clone,
-{
-    /// Create a constant curve, which has the given `domain` and always produces the given `value`
-    /// when sampled.
-    pub fn new(domain: Interval, value: T) -> Self {
-        Self { domain, value }
-    }
-}
-
-impl<T> Curve<T> for ConstantCurve<T>
-where
-    T: Clone,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, _t: f32) -> T {
-        self.value.clone()
-    }
-}
-
-/// A curve defined by a function together with a fixed domain.
-///
-/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and produces
-/// output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct FunctionCurve<T, F> {
-    domain: Interval,
-    f: F,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, F> FunctionCurve<T, F>
-where
-    F: Fn(f32) -> T,
-{
-    /// Create a new curve with the given `domain` from the given `function`. When sampled, the
-    /// `function` is evaluated at the sample time to compute the output.
-    pub fn new(domain: Interval, function: F) -> Self {
-        FunctionCurve {
-            domain,
-            f: function,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<T, F> Curve<T> for FunctionCurve<T, F>
-where
-    F: Fn(f32) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        (self.f)(t)
-    }
-}
-
-/// A curve whose samples are defined by mapping samples from another curve through a
-/// given function. Curves of this type are produced by [`Curve::map`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct MapCurve<S, T, C, F> {
-    preimage: C,
-    f: F,
-    _phantom: PhantomData<(S, T)>,
-}
-
-impl<S, T, C, F> Curve<T> for MapCurve<S, T, C, F>
-where
-    C: Curve<S>,
-    F: Fn(S) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.preimage.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        (self.f)(self.preimage.sample_unchecked(t))
-    }
-}
-
-/// A curve whose sample space is mapped onto that of some base curve's before sampling.
-/// Curves of this type are produced by [`Curve::reparametrize`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct ReparamCurve<T, C, F> {
-    domain: Interval,
-    base: C,
-    f: F,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C, F> Curve<T> for ReparamCurve<T, C, F>
-where
-    C: Curve<T>,
-    F: Fn(f32) -> f32,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.base.sample_unchecked((self.f)(t))
-    }
-}
-
-/// A curve that has had its domain changed by a linear reparametrization (stretching and scaling).
-/// Curves of this type are produced by [`Curve::reparametrize_linear`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct LinearReparamCurve<T, C> {
-    /// Invariants: The domain of the inner curve must always be bounded.
-    base: C,
-    /// Invariants: This interval must always be bounded.
-    new_domain: Interval,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<T> for LinearReparamCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.new_domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        // The invariants imply this unwrap always succeeds.
-        let f = self.new_domain.linear_map_to(self.base.domain()).unwrap();
-        self.base.sample_unchecked(f(t))
-    }
-}
-
-/// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct CurveReparamCurve<T, C, D> {
-    base: C,
-    reparam_curve: D,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C, D> Curve<T> for CurveReparamCurve<T, C, D>
-where
-    C: Curve<T>,
-    D: Curve<f32>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.reparam_curve.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        let sample_time = self.reparam_curve.sample_unchecked(t);
-        self.base.sample_unchecked(sample_time)
-    }
-}
-
-/// A curve that is the graph of another curve over its parameter space. Curves of this type are
-/// produced by [`Curve::graph`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct GraphCurve<T, C> {
-    base: C,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<(f32, T)> for GraphCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.base.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> (f32, T) {
-        (t, self.base.sample_unchecked(t))
-    }
-}
-
-/// A curve that combines the output data from two constituent curves into a tuple output. Curves
-/// of this type are produced by [`Curve::zip`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct ProductCurve<S, T, C, D> {
-    domain: Interval,
-    first: C,
-    second: D,
-    _phantom: PhantomData<(S, T)>,
-}
-
-impl<S, T, C, D> Curve<(S, T)> for ProductCurve<S, T, C, D>
-where
-    C: Curve<S>,
-    D: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> (S, T) {
-        (
-            self.first.sample_unchecked(t),
-            self.second.sample_unchecked(t),
-        )
-    }
 }
 
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
