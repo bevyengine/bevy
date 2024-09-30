@@ -474,7 +474,8 @@ pub struct AnimationClip {
     duration: f32,
 }
 
-pub(crate) type AnimationTriggers = HashMap<AnimationTargetId, Vec<(f32, AnimationTriggerData)>>;
+pub(crate) type AnimationTriggers =
+    HashMap<Option<AnimationTargetId>, Vec<(f32, AnimationTriggerData)>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -610,7 +611,7 @@ impl AnimationClip {
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
     pub fn add_trigger(
         &mut self,
-        target_id: AnimationTargetId,
+        target_id: Option<AnimationTargetId>,
         time: f32,
         event: impl AnimationEvent,
     ) {
@@ -1133,6 +1134,57 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
     ),
 >;
 
+fn for_each_animation_event<'a, 'b>(
+    target_id: Option<AnimationTargetId>,
+    clip: &'a AnimationClip,
+    animation: &ActiveAnimation,
+    mut f: impl FnMut(f32, Box<dyn PartialReflect>),
+) {
+    for (t, e) in clip
+        .triggers
+        .get(&target_id)
+        .iter()
+        .flat_map(|t| t.iter())
+        .filter(|(t, _)| match animation.is_playback_reversed() {
+            true => {
+                *t >= animation.seek_time
+                    && (animation.just_completed || Some(*t) < animation.last_seek_time)
+            }
+            false => {
+                Some(*t) > animation.last_seek_time
+                    && (animation.just_completed || *t <= animation.seek_time)
+            }
+        })
+    {
+        f(*t, e.0.clone_value())
+    }
+}
+
+fn trigger_untargeted_animation_events(
+    mut commands: Commands,
+    clips: Res<Assets<AnimationClip>>,
+    graphs: Res<Assets<AnimationGraph>>,
+    players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
+) {
+    for (entity, player, graph_id) in &players {
+        // The graph might not have loaded yet. Safely bail.
+        let Some(graph) = graphs.get(graph_id) else {
+            return;
+        };
+
+        for (index, animation) in player.active_animations.iter() {
+            let Some(clip_id) = graph.get(*index).unwrap().clip.as_ref() else {
+                continue;
+            };
+            let clip = clips.get(clip_id).unwrap();
+            for_each_animation_event(None, clip, animation, |_, event| {
+                dbg!(animation.seek_time);
+                commands.queue(trigger_animation_event(event, entity));
+            });
+        }
+    }
+}
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 ///
@@ -1220,29 +1272,12 @@ pub fn animate_targets_and_trigger_events(
                     continue;
                 };
 
-                for (_time, event) in clip
-                    .triggers
-                    .get(&target_id)
-                    .iter()
-                    .flat_map(|t| t.iter())
-                    .filter(|(t, _)| match active_animation.is_playback_reversed() {
-                        true => {
-                            *t >= active_animation.seek_time
-                                && (active_animation.just_completed
-                                    || Some(*t) < active_animation.last_seek_time)
-                        }
-                        false => {
-                            Some(*t) > active_animation.last_seek_time
-                                && (active_animation.just_completed
-                                    || *t <= active_animation.seek_time)
-                        }
-                    })
-                {
+                for_each_animation_event(Some(target_id), clip, active_animation, |_, event| {
                     dbg!(active_animation.seek_time);
                     par_commands.command_scope(|mut commands| {
-                        commands.queue(trigger_animation_event(event.0.clone_value(), entity));
+                        commands.queue(trigger_animation_event(event, entity));
                     })
-                }
+                });
 
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
@@ -1313,6 +1348,7 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
+                    trigger_untargeted_animation_events,
                     // TODO: `animate_targets` can animate anything, so
                     // ambiguity testing currently considers it ambiguous with
                     // every other system in `PostUpdate`. We may want to move

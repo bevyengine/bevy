@@ -1171,13 +1171,13 @@ hidden = true
 
 # Animation
 [[example]]
-name = "animation_triggers"
-path = "examples/animation/animation_triggers.rs"
+name = "animation_events"
+path = "examples/animation/animation_events.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animation_triggers]
-name = "Animation Triggers"
-description = "blablabla"
+[package.metadata.example.animation_events]
+name = "Animation Events"
+description = "TODO: add description"
 category = "Animation"
 wasm = true
 
