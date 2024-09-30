@@ -70,16 +70,28 @@ fn setup(mut commands: Commands) {
 
 fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
     commands.spawn((
-        Sprite::sized(Vec2::new(75., 75.)),
-        Transform::from_xyz(0., y, 0.),
+        SpriteBundle {
+            transform: Transform::from_xyz(0., y, 0.),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(75., 75.)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         Curve(CubicBezier::new([points]).to_curve().unwrap()),
     ));
 }
 
 fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T; 4]) {
     commands.spawn((
-        Transform::from_xyz(0., y, 0.),
-        Sprite::sized(Vec2::new(75., 75.)),
+        SpriteBundle {
+            transform: Transform::from_xyz(0., y, 0.),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(75., 75.)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         Mixed(colors),
     ));
 }

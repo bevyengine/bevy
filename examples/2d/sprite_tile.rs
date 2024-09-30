@@ -27,7 +27,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         speed: 50.0,
     });
     commands.spawn((
-        Sprite::from_image(asset_server.load("branding/icon.png")),
+        SpriteBundle {
+            texture: asset_server.load("branding/icon.png"),
+            ..default()
+        },
         ImageScaleMode::Tiled {
             tile_x: true,
             tile_y: true,

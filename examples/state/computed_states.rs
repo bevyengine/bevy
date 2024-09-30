@@ -423,7 +423,10 @@ mod ui {
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             StateScoped(InGame),
-            Sprite::from_image(asset_server.load("branding/icon.png")),
+            SpriteBundle {
+                texture: asset_server.load("branding/icon.png"),
+                ..default()
+            },
         ));
     }
 

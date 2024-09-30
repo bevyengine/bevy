@@ -73,14 +73,15 @@ fn spawn_sprites(
 
     for (label, text_style, size, scale_mode) in cases {
         position.x += 0.5 * size.x;
-        let mut cmd = commands.spawn((
-            Sprite {
-                image: texture_handle.clone(),
+        let mut cmd = commands.spawn(SpriteBundle {
+            transform: Transform::from_translation(position),
+            texture: texture_handle.clone(),
+            sprite: Sprite {
                 custom_size: Some(size),
                 ..default()
             },
-            Transform::from_translation(position),
-        ));
+            ..default()
+        });
         if let Some(scale_mode) = scale_mode {
             cmd = cmd.insert(scale_mode);
         }

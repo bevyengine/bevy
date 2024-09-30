@@ -29,7 +29,10 @@ struct MyComponent;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
-        Sprite::from_image(asset_server.load("branding/icon.png")),
+        SpriteBundle {
+            texture: asset_server.load("branding/icon.png"),
+            ..default()
+        },
         // Add the `Component`.
         MyComponent,
     ));

@@ -107,8 +107,7 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    sprite: Sprite,
-    transform: Transform,
+    sprite_bundle: SpriteBundle,
     collider: Collider,
 }
 
@@ -155,15 +154,21 @@ impl WallBundle {
     // making our code easier to read and less prone to bugs when we change the logic
     fn new(location: WallLocation) -> WallBundle {
         WallBundle {
-            sprite: Sprite::from_color(WALL_COLOR, Vec2::ONE),
-            transform: Transform {
-                // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-                // This is used to determine the order of our sprites
-                translation: location.position().extend(0.0),
-                // The z-scale of 2D objects must always be 1.0,
-                // or their ordering will be affected in surprising ways.
-                // See https://github.com/bevyengine/bevy/issues/4149
-                scale: location.size().extend(1.0),
+            sprite_bundle: SpriteBundle {
+                transform: Transform {
+                    // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+                    // This is used to determine the order of our sprites
+                    translation: location.position().extend(0.0),
+                    // The z-scale of 2D objects must always be 1.0,
+                    // or their ordering will be affected in surprising ways.
+                    // See https://github.com/bevyengine/bevy/issues/4149
+                    scale: location.size().extend(1.0),
+                    ..default()
+                },
+                sprite: Sprite {
+                    color: WALL_COLOR,
+                    ..default()
+                },
                 ..default()
             },
             collider: Collider,
@@ -196,10 +201,16 @@ fn setup(
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
     commands.spawn((
-        Sprite::from_color(PADDLE_COLOR, Vec2::ONE),
-        Transform {
-            translation: Vec3::new(0.0, paddle_y, 0.0),
-            scale: PADDLE_SIZE.extend(1.0),
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(0.0, paddle_y, 0.0),
+                scale: PADDLE_SIZE.extend(1.0),
+                ..default()
+            },
+            sprite: Sprite {
+                color: PADDLE_COLOR,
+                ..default()
+            },
             ..default()
         },
         Paddle,
@@ -287,13 +298,16 @@ fn setup(
 
             // brick
             commands.spawn((
-                Sprite {
-                    color: BRICK_COLOR,
-                    ..default()
-                },
-                Transform {
-                    translation: brick_position.extend(0.0),
-                    scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: BRICK_COLOR,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: brick_position.extend(0.0),
+                        scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
+                        ..default()
+                    },
                     ..default()
                 },
                 Brick,

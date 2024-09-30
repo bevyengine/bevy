@@ -42,5 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // path.
     assert_eq!(asset_path, "example_files://bevy_pixel_light.png".into());
 
-    commands.spawn(Sprite::from_image(asset_server.load(asset_path)));
+    commands.spawn(SpriteBundle {
+        texture: asset_server.load(asset_path),
+        ..default()
+    });
 }

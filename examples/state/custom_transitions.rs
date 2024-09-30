@@ -223,7 +223,10 @@ fn setup(mut commands: Commands) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
+    commands.spawn(SpriteBundle {
+        texture: asset_server.load("branding/icon.png"),
+        ..default()
+    });
     info!("Setup game");
 }
 

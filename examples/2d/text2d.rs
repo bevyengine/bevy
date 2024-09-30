@@ -79,10 +79,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
     commands
-        .spawn((
-            Sprite::from_color(Color::srgb(0.25, 0.25, 0.75), box_size),
-            Transform::from_translation(box_position.extend(0.0)),
-        ))
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::srgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(box_size.x, box_size.y)),
+                ..default()
+            },
+            transform: Transform::from_translation(box_position.extend(0.0)),
+            ..default()
+        })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text {
@@ -105,10 +110,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let other_box_size = Vec2::new(300.0, 200.0);
     let other_box_position = Vec2::new(320.0, -250.0);
     commands
-        .spawn((
-            Sprite::from_color(Color::srgb(0.20, 0.3, 0.70), other_box_size),
-            Transform::from_translation(other_box_position.extend(0.0)),
-        ))
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::srgb(0.20, 0.3, 0.70),
+                custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
+                ..default()
+            },
+            transform: Transform::from_translation(other_box_position.extend(0.0)),
+            ..default()
+        })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text {
