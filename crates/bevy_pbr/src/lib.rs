@@ -7,6 +7,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+extern crate alloc;
+
 #[cfg(feature = "meshlet")]
 mod meshlet;
 pub mod wireframe;
@@ -41,7 +43,7 @@ mod ssr;
 mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub use bundle::*;
 pub use cluster::*;

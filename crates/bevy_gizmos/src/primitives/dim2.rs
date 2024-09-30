@@ -1,6 +1,6 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use core::f32::consts::{FRAC_PI_2, PI};
 
 use super::helpers::*;
 

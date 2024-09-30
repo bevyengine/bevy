@@ -12,6 +12,7 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
+extern crate alloc;
 extern crate core;
 
 pub mod alpha;
@@ -42,6 +43,7 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -81,14 +83,13 @@ use crate::{
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
+use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::{Arc, Mutex},
-};
+use core::ops::{Deref, DerefMut};
+use std::sync::Mutex;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -436,13 +437,13 @@ struct ScratchMainWorld(World);
 fn extract(main_world: &mut World, render_world: &mut World) {
     // temporarily add the app world to the render world as a resource
     let scratch_world = main_world.remove_resource::<ScratchMainWorld>().unwrap();
-    let inserted_world = std::mem::replace(main_world, scratch_world.0);
+    let inserted_world = core::mem::replace(main_world, scratch_world.0);
     render_world.insert_resource(MainWorld(inserted_world));
     render_world.run_schedule(ExtractSchedule);
 
     // move the app world back, as if nothing happened.
     let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
-    let scratch_world = std::mem::replace(main_world, inserted_world.0);
+    let scratch_world = core::mem::replace(main_world, inserted_world.0);
     main_world.insert_resource(ScratchMainWorld(scratch_world));
 }
 

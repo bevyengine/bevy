@@ -112,7 +112,7 @@ impl MeshBuilder for CylinderMeshBuilder {
         let mut uvs = Vec::with_capacity(num_vertices as usize);
         let mut indices = Vec::with_capacity(num_indices as usize);
 
-        let step_theta = std::f32::consts::TAU / resolution as f32;
+        let step_theta = core::f32::consts::TAU / resolution as f32;
         let step_y = 2.0 * self.cylinder.half_height / segments as f32;
 
         // rings

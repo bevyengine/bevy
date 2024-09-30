@@ -3,12 +3,12 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
+use core::{marker::PhantomData, num::NonZero};
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
 use nonmax::NonMaxU32;
-use std::{marker::PhantomData, num::NonZero};
 use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large

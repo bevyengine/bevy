@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
@@ -310,7 +310,7 @@ impl PartialReflect for DynamicSet {
         set_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicSet(")?;
         set_debug(self, f)?;
         write!(f, ")")
@@ -325,7 +325,7 @@ impl PartialReflect for DynamicSet {
 impl_type_path!((in bevy_reflect) DynamicSet);
 
 impl Debug for DynamicSet {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -371,7 +371,7 @@ impl IntoIterator for DynamicSet {
 
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
-    type IntoIter = std::iter::Map<
+    type IntoIter = core::iter::Map<
         bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
@@ -432,7 +432,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_set();
     for value in dyn_set.iter() {
         debug.entry(&value as &dyn Debug);

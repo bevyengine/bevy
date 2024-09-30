@@ -2,13 +2,14 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
+use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
 use bevy_utils::{
     tracing::{error, warn},
     Duration, HashMap,
 };
-use std::{fmt::Display, hash::Hash, sync::Arc};
+use core::{fmt::Display, hash::Hash};
 use thiserror::Error;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
@@ -27,7 +28,7 @@ pub enum AssetSourceId<'a> {
 }
 
 impl<'a> Display for AssetSourceId<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.as_str() {
             None => write!(f, "AssetSourceId::Default"),
             Some(v) => write!(f, "AssetSourceId::Name({v})"),
@@ -114,7 +115,7 @@ impl From<String> for AssetSourceId<'static> {
 }
 
 impl<'a> Hash for AssetSourceId<'a> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }

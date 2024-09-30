@@ -12,8 +12,8 @@ struct EventBase;
 
 pub fn observe_simple(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("observe");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("trigger_simple", |bencher| {
         let mut world = World::new();

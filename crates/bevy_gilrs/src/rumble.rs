@@ -1,5 +1,5 @@
 //! Handle user specified rumble request events.
-use crate::Gilrs;
+use crate::{Gilrs, GilrsGamepads};
 use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
@@ -15,8 +15,6 @@ use gilrs::{
     GamepadId,
 };
 use thiserror::Error;
-
-use crate::converter::convert_gamepad_id;
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
@@ -84,6 +82,7 @@ fn get_base_effects(
 fn handle_rumble_request(
     running_rumbles: &mut RunningRumbleEffects,
     gilrs: &mut gilrs::Gilrs,
+    gamepads: &GilrsGamepads,
     rumble: GamepadRumbleRequest,
     current_time: Duration,
 ) -> Result<(), RumbleError> {
@@ -91,7 +90,7 @@ fn handle_rumble_request(
 
     let (gamepad_id, _) = gilrs
         .gamepads()
-        .find(|(pad_id, _)| convert_gamepad_id(*pad_id) == gamepad)
+        .find(|(pad_id, _)| *pad_id == gamepads.get_gamepad_id(gamepad).unwrap())
         .ok_or(RumbleError::GamepadNotFound)?;
 
     match rumble {
@@ -129,6 +128,7 @@ pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    gamepads: Res<GilrsGamepads>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
@@ -146,7 +146,7 @@ pub(crate) fn play_gilrs_rumble(
     // Add new effects.
     for rumble in requests.read().cloned() {
         let gamepad = rumble.gamepad();
-        match handle_rumble_request(&mut running_rumbles, gilrs, rumble, current_time) {
+        match handle_rumble_request(&mut running_rumbles, gilrs, &gamepads, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
                 if let ff::Error::FfNotSupported(_) = err {

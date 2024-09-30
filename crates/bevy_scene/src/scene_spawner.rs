@@ -285,7 +285,7 @@ impl SceneSpawner {
 
     /// Immediately despawns all scenes scheduled for despawn by despawning their instances.
     pub fn despawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_despawn = std::mem::take(&mut self.scenes_to_despawn);
+        let scenes_to_despawn = core::mem::take(&mut self.scenes_to_despawn);
 
         for scene_handle in scenes_to_despawn {
             self.despawn_sync(world, scene_handle)?;
@@ -295,7 +295,7 @@ impl SceneSpawner {
 
     /// Immediately despawns all scene instances scheduled for despawn.
     pub fn despawn_queued_instances(&mut self, world: &mut World) {
-        let instances_to_despawn = std::mem::take(&mut self.instances_to_despawn);
+        let instances_to_despawn = core::mem::take(&mut self.instances_to_despawn);
 
         for instance_id in instances_to_despawn {
             self.despawn_instance_sync(world, &instance_id);
@@ -304,7 +304,7 @@ impl SceneSpawner {
 
     /// Immediately spawns all scenes scheduled for spawn.
     pub fn spawn_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
-        let scenes_to_spawn = std::mem::take(&mut self.dynamic_scenes_to_spawn);
+        let scenes_to_spawn = core::mem::take(&mut self.dynamic_scenes_to_spawn);
 
         for (handle, instance_id, parent) in scenes_to_spawn {
             let mut entity_map = EntityHashMap::default();
@@ -334,7 +334,7 @@ impl SceneSpawner {
             }
         }
 
-        let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
+        let scenes_to_spawn = core::mem::take(&mut self.scenes_to_spawn);
 
         for (scene_handle, instance_id, parent) in scenes_to_spawn {
             let mut entity_map = EntityHashMap::default();
@@ -363,7 +363,7 @@ impl SceneSpawner {
     }
 
     pub(crate) fn set_scene_instance_parent_sync(&mut self, world: &mut World) {
-        let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
+        let scenes_with_parent = core::mem::take(&mut self.scenes_with_parent);
 
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
@@ -557,16 +557,18 @@ mod tests {
     }
 
     fn build_scene(app: &mut App) -> Handle<Scene> {
-        app.world_mut().run_system_once(
-            |world: &World,
-             type_registry: Res<'_, AppTypeRegistry>,
-             asset_server: Res<'_, AssetServer>| {
-                asset_server.add(
-                    Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
-                        .unwrap(),
-                )
-            },
-        )
+        app.world_mut()
+            .run_system_once(
+                |world: &World,
+                 type_registry: Res<'_, AppTypeRegistry>,
+                 asset_server: Res<'_, AssetServer>| {
+                    asset_server.add(
+                        Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
+                            .unwrap(),
+                    )
+                },
+            )
+            .expect("Failed to run scene builder system.")
     }
 
     fn build_dynamic_scene(app: &mut App) -> Handle<DynamicScene> {
@@ -574,6 +576,7 @@ mod tests {
             .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
                 asset_server.add(DynamicScene::from_world(world))
             })
+            .expect("Failed to run dynamic scene builder system.")
     }
 
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
@@ -608,7 +611,8 @@ mod tests {
                     trigger_count.0, 1,
                     "wrong number of `SceneInstanceReady` triggers"
                 );
-            });
+            })
+            .unwrap();
     }
 
     #[test]
@@ -619,11 +623,12 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -637,11 +642,12 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn_dynamic(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn_dynamic(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -655,13 +661,17 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -675,13 +685,17 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -718,13 +732,15 @@ mod tests {
         check(app.world_mut(), count);
 
         // Despawn scene.
-        app.world_mut().run_system_once(
-            |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
-                for entity in query.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-            },
-        );
+        app.world_mut()
+            .run_system_once(
+                |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                    for entity in query.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                },
+            )
+            .unwrap();
 
         app.update();
         check(app.world_mut(), 0);

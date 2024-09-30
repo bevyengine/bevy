@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadSettings},
+    input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
     sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -25,20 +25,20 @@ const LIVE_COLOR: Color = Color::srgb(0.4, 0.4, 0.4);
 const DEAD_COLOR: Color = Color::srgb(0.13, 0.13, 0.13);
 
 #[derive(Component, Deref)]
-struct ReactTo(GamepadButtonType);
+struct ReactTo(GamepadButton);
 #[derive(Component)]
 struct MoveWithAxes {
-    x_axis: GamepadAxisType,
-    y_axis: GamepadAxisType,
+    x_axis: GamepadAxis,
+    y_axis: GamepadAxis,
     scale: f32,
 }
 #[derive(Component)]
 struct TextWithAxes {
-    x_axis: GamepadAxisType,
-    y_axis: GamepadAxisType,
+    x_axis: GamepadAxis,
+    y_axis: GamepadAxis,
 }
 #[derive(Component, Deref)]
-struct TextWithButtonValue(GamepadButtonType);
+struct TextWithButtonValue(GamepadButton);
 
 #[derive(Component)]
 struct ConnectedGamepadsText;
@@ -84,7 +84,7 @@ struct GamepadButtonBundle {
 
 impl GamepadButtonBundle {
     pub fn new(
-        button_type: GamepadButtonType,
+        button_type: GamepadButton,
         mesh: Mesh2dHandle,
         material: Handle<ColorMaterial>,
         x: f32,
@@ -140,28 +140,28 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::North,
+                GamepadButton::North,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::South,
+                GamepadButton::South,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 -BUTTON_CLUSTER_RADIUS,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::West,
+                GamepadButton::West,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 -BUTTON_CLUSTER_RADIUS,
                 0.,
             ));
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::East,
+                GamepadButton::East,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 BUTTON_CLUSTER_RADIUS,
@@ -172,7 +172,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Start and Pause
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::Select,
+        GamepadButton::Select,
         meshes.start_pause.clone(),
         materials.normal.clone(),
         -30.,
@@ -180,7 +180,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     ));
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::Start,
+        GamepadButton::Start,
         meshes.start_pause.clone(),
         materials.normal.clone(),
         30.,
@@ -196,7 +196,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         })
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
-                GamepadButtonType::DPadUp,
+                GamepadButton::DPadUp,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 0.,
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             ));
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadDown,
+                    GamepadButton::DPadDown,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     0.,
@@ -214,7 +214,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             );
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadLeft,
+                    GamepadButton::DPadLeft,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     -BUTTON_CLUSTER_RADIUS,
@@ -224,7 +224,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
             );
             parent.spawn(
                 GamepadButtonBundle::new(
-                    GamepadButtonType::DPadRight,
+                    GamepadButton::DPadRight,
                     meshes.triangle.clone(),
                     materials.normal.clone(),
                     BUTTON_CLUSTER_RADIUS,
@@ -237,7 +237,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Triggers
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::LeftTrigger,
+        GamepadButton::LeftTrigger,
         meshes.trigger.clone(),
         materials.normal.clone(),
         -BUTTONS_X,
@@ -245,7 +245,7 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     ));
 
     commands.spawn(GamepadButtonBundle::new(
-        GamepadButtonType::RightTrigger,
+        GamepadButton::RightTrigger,
         meshes.trigger.clone(),
         materials.normal.clone(),
         BUTTONS_X,
@@ -257,8 +257,10 @@ fn setup_sticks(
     mut commands: Commands,
     meshes: Res<ButtonMeshes>,
     materials: Res<ButtonMaterials>,
-    gamepad_settings: Res<GamepadSettings>,
 ) {
+    // NOTE: This stops making sense because in entities because there isn't a "global" default,
+    // instead each gamepad has its own default setting
+    let gamepad_settings = GamepadSettings::default();
     let dead_upper =
         STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
     let dead_lower =
@@ -358,16 +360,16 @@ fn setup_sticks(
     spawn_stick(
         -STICKS_X,
         STICKS_Y,
-        GamepadAxisType::LeftStickX,
-        GamepadAxisType::LeftStickY,
-        GamepadButtonType::LeftThumb,
+        GamepadAxis::LeftStickX,
+        GamepadAxis::LeftStickY,
+        GamepadButton::LeftThumb,
     );
     spawn_stick(
         STICKS_X,
         STICKS_Y,
-        GamepadAxisType::RightStickX,
-        GamepadAxisType::RightStickY,
-        GamepadButtonType::RightThumb,
+        GamepadAxis::RightStickX,
+        GamepadAxis::RightStickY,
+        GamepadButton::RightThumb,
     );
 }
 
@@ -403,16 +405,8 @@ fn setup_triggers(
             });
     };
 
-    spawn_trigger(
-        -BUTTONS_X,
-        BUTTONS_Y + 145.,
-        GamepadButtonType::LeftTrigger2,
-    );
-    spawn_trigger(
-        BUTTONS_X,
-        BUTTONS_Y + 145.,
-        GamepadButtonType::RightTrigger2,
-    );
+    spawn_trigger(-BUTTONS_X, BUTTONS_Y + 145., GamepadButton::LeftTrigger2);
+    spawn_trigger(BUTTONS_X, BUTTONS_Y + 145., GamepadButton::RightTrigger2);
 }
 
 fn setup_connected(mut commands: Commands) {
@@ -443,30 +437,28 @@ fn setup_connected(mut commands: Commands) {
 }
 
 fn update_buttons(
-    gamepads: Res<Gamepads>,
-    button_inputs: Res<ButtonInput<GamepadButton>>,
+    gamepads: Query<&Gamepad>,
     materials: Res<ButtonMaterials>,
     mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
 ) {
-    for gamepad in gamepads.iter() {
+    for buttons in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {
-            if button_inputs.just_pressed(GamepadButton::new(gamepad, **react_to)) {
+            if buttons.just_pressed(**react_to) {
                 *handle = materials.active.clone();
             }
-            if button_inputs.just_released(GamepadButton::new(gamepad, **react_to)) {
+            if buttons.just_released(**react_to) {
                 *handle = materials.normal.clone();
             }
         }
     }
 }
-
 fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
-            if button_event.button_type == **text_with_button_value {
+            if button_event.button == **text_with_button_value {
                 text.sections[0].value = format!("{:.3}", button_event.value);
             }
         }
@@ -479,7 +471,7 @@ fn update_axes(
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
     for axis_event in axis_events.read() {
-        let axis_type = axis_event.axis_type;
+        let axis_type = axis_event.axis;
         let value = axis_event.value;
         for (mut transform, move_with) in query.iter_mut() {
             if axis_type == move_with.x_axis {
@@ -501,18 +493,19 @@ fn update_axes(
 }
 
 fn update_connected(
-    gamepads: Res<Gamepads>,
+    mut connected: EventReader<GamepadConnectionEvent>,
+    gamepads: Query<(Entity, &Gamepad)>,
     mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
 ) {
-    if !gamepads.is_changed() {
+    if connected.is_empty() {
         return;
     }
-
+    connected.clear();
     let mut text = query.single_mut();
 
     let formatted = gamepads
         .iter()
-        .map(|g| format!("- {}", gamepads.name(g).unwrap()))
+        .map(|(entity, gamepad)| format!("{} - {}", entity, gamepad.name()))
         .collect::<Vec<_>>()
         .join("\n");
 

@@ -108,7 +108,7 @@ mod tests {
     use bevy_ecs::prelude::AppTypeRegistry;
     use bevy_reflect::Reflect;
     use bevy_state_macros::States;
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, States, Reflect)]
     enum StateTest {

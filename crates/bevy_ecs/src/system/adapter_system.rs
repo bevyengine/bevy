@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 use super::{IntoSystem, ReadOnlySystem, System};
 use crate::{

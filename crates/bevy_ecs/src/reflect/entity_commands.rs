@@ -5,8 +5,9 @@ use crate::{
     system::{EntityCommands, Resource},
     world::{Command, World},
 };
+use alloc::borrow::Cow;
 use bevy_reflect::{PartialReflect, TypeRegistry};
-use std::{borrow::Cow, marker::PhantomData};
+use core::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {

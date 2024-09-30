@@ -3,6 +3,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice},
     Extract,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     event::EventReader,
@@ -15,15 +16,9 @@ use bevy_utils::{
     tracing::{debug, error},
     HashMap, HashSet,
 };
+use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
-use std::{
-    borrow::Cow,
-    future::Future,
-    hash::Hash,
-    mem,
-    ops::Deref,
-    sync::{Arc, Mutex, PoisonError},
-};
+use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;

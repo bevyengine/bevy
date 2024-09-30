@@ -48,6 +48,10 @@ ref_as_ptr = "warn"
 # see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
 too_long_first_doc_paragraph = "allow"
 
+std_instead_of_core = "warn"
+std_instead_of_alloc = "warn"
+alloc_instead_of_core = "warn"
+
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
@@ -55,8 +59,44 @@ unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
-[lints]
-workspace = true
+# Unfortunately, cargo does not currently support overriding workspace lints
+# inside a particular crate. See https://github.com/rust-lang/cargo/issues/13157
+#
+# We require an override for cases like `std_instead_of_core`, which are intended
+# for the library contributors and not for how users should consume Bevy.
+# To ensure examples aren't subject to these lints, below is a duplication of the
+# workspace lints, with the "overrides" applied.
+#
+# [lints]
+# workspace = true
+
+[lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "allow"
+std_instead_of_alloc = "allow"
+alloc_instead_of_core = "allow"
+
+[lints.rust]
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [features]
 default = [
@@ -1106,7 +1146,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1849,6 +1889,17 @@ doc-scrape-examples = true
 [package.metadata.example.run_conditions]
 name = "Run Conditions"
 description = "Run systems only when one or multiple conditions are met"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_params"
+path = "examples/ecs/fallible_params.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_params]
+name = "Fallible System Parameters"
+description = "Systems are skipped if their parameters cannot be acquired"
 category = "ECS (Entity Component System)"
 wasm = false
 

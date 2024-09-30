@@ -322,7 +322,7 @@ pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -
     }
 
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
@@ -345,7 +345,7 @@ pub fn get_fitting_videomode(monitor: &MonitorHandle, width: u32, height: u32) -
 pub fn get_best_videomode(monitor: &MonitorHandle) -> VideoModeHandle {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
                 Equal => b
@@ -470,7 +470,7 @@ struct DisplayInfo {
 }
 
 impl core::fmt::Display for DisplayInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Display information:")?;
         write!(
             f,

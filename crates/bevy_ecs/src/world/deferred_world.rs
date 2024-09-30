@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use crate::{
     archetype::Archetype,
@@ -152,7 +152,7 @@ impl<'w> DeferredWorld<'w> {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -181,7 +181,7 @@ impl<'w> DeferredWorld<'w> {
                 "Requested non-send resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`?
                 Non-send resources can also be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -202,7 +202,7 @@ impl<'w> DeferredWorld<'w> {
     /// or [`None`] if the `event` could not be sent.
     #[inline]
     pub fn send_event<E: Event>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(std::iter::once(event))?.next()
+        self.send_event_batch(core::iter::once(event))?.next()
     }
 
     /// Sends the default value of the [`Event`] of type `E`.
@@ -224,7 +224,7 @@ impl<'w> DeferredWorld<'w> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             bevy_utils::tracing::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                std::any::type_name::<E>()
+                core::any::type_name::<E>()
             );
             return None;
         };

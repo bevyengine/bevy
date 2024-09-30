@@ -52,8 +52,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use smallvec::SmallVec;
-use std::{
+use core::{
     fmt::{self, Debug, Formatter},
     hash::Hash,
     iter,
@@ -61,6 +60,7 @@ use std::{
     ops::Range,
     slice::SliceIndex,
 };
+use smallvec::SmallVec;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.

@@ -2,8 +2,8 @@ use crate::{
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
     render_resource::{Buffer, Sampler, TextureView},
 };
+use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use std::borrow::Cow;
 use thiserror::Error;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
