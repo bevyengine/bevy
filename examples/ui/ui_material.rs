@@ -54,7 +54,7 @@ fn setup(
                     }),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(20.)),
+                BorderRadius::all(Val::Px(10.)),
             ));
         });
 }
