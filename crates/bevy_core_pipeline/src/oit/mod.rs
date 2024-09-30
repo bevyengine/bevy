@@ -3,7 +3,7 @@
 //! This implementation uses 2 passes.
 //!
 //! The first pass writes the depth and color of all the fragments to a big buffer.
-//! The buffer contains N layers for each pixel, where N can be set with `[`OrderIndependentTransparencySettings::layer_count`].
+//! The buffer contains N layers for each pixel, where N can be set with [`OrderIndependentTransparencySettings::layer_count`].
 //! This pass is essentially a forward pass.
 //!
 //! The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
