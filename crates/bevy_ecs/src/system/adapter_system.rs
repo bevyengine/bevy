@@ -179,7 +179,7 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         self.system.validate_param_unsafe(world)
     }
 

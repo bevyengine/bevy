@@ -212,7 +212,7 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
     }
 
@@ -430,7 +430,7 @@ where
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
     }
 

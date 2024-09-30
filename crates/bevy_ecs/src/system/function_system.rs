@@ -43,6 +43,7 @@ pub struct SystemMeta {
     is_send: bool,
     has_deferred: bool,
     pub(crate) last_run: Tick,
+    warn_policy: WarnPolicy,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
     #[cfg(feature = "trace")]
@@ -59,6 +60,7 @@ impl SystemMeta {
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
+            warn_policy: WarnPolicy::Once,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
             #[cfg(feature = "trace")]
@@ -75,6 +77,7 @@ impl SystemMeta {
     /// Sets the name of of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    #[inline]
     pub fn set_name(&mut self, new_name: impl Into<Cow<'static, str>>) {
         let new_name: Cow<'static, str> = new_name.into();
         #[cfg(feature = "trace")]
@@ -108,8 +111,69 @@ impl SystemMeta {
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
     /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    #[inline]
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
+    }
+
+    /// Changes the warn policy.
+    #[inline]
+    pub fn set_warn_policy(&mut self, warn_policy: WarnPolicy) {
+        self.warn_policy = warn_policy;
+    }
+
+    /// Advances the warn policy after validation failed.
+    #[inline]
+    pub fn advance_warn_policy(&mut self) {
+        self.warn_policy.advance();
+    }
+
+    /// Emits a warning about inaccessible system param if policy allows it.
+    #[inline]
+    pub fn try_warn<P>(&self)
+    where
+        P: SystemParam,
+    {
+        self.warn_policy.try_warn::<P>(&self.name);
+    }
+}
+
+/// State machine for emitting warnings when [system params are invalid](System::validate_param).
+#[derive(Clone, Copy)]
+pub enum WarnPolicy {
+    /// No warning should ever be emitted.
+    Never,
+    /// The warning will be emitted once and status will update to [`Self::Never`].
+    Once,
+    /// The warning will be emitted every time.
+    Always,
+}
+
+impl WarnPolicy {
+    /// Advances the warn policy after validation failed.
+    #[inline]
+    fn advance(&mut self) {
+        *self = match self {
+            Self::Never => Self::Never,
+            Self::Once => Self::Never,
+            Self::Always => Self::Always,
+        };
+    }
+
+    /// Emits a warning about inaccessible system param if policy allows it.
+    #[inline]
+    fn try_warn<P>(&self, name: &str)
+    where
+        P: SystemParam,
+    {
+        if matches!(self, Self::Never) {
+            return;
+        }
+        bevy_utils::tracing::warn!(
+            "System {0} will not run because it requested inaccessible system parameter {1}",
+            name,
+            std::any::type_name::<P>()
+        );
     }
 }
 
@@ -657,9 +721,13 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
-        F::Param::validate_param(param_state, &self.system_meta, world)
+        let is_valid = unsafe { F::Param::validate_param(param_state, &self.system_meta, world) };
+        if !is_valid {
+            self.system_meta.advance_warn_policy();
+        }
+        is_valid
     }
 
     #[inline]

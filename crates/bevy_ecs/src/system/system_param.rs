@@ -419,7 +419,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        result.is_ok()
+        let is_valid = result.is_ok();
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 }
 
@@ -481,7 +485,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
+        let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 }
 
@@ -756,14 +764,18 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -866,14 +878,18 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -1412,14 +1428,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -1519,14 +1539,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
