@@ -26,15 +26,15 @@ fn main() {
         //
         // There are two ways of disabling warnings:
         // - During development, it's preferential to disable warnings selectively per system
-        //   using the `.never_warn()` method.
+        //   using the `.never_param_warn()` method.
         // - When releasing the game, it's best to disable all warnings by removing the
         //   `bevy_warn_invalid_param` feature flag, which is enabled by default in `bevy_ecs`.
         .add_systems(
             Update,
             (
                 user_input,
-                move_targets.never_warn(),
-                move_pointer.never_warn(),
+                move_targets.never_param_warn(),
+                move_pointer.never_param_warn(),
             )
                 .chain(),
         )

@@ -44,7 +44,7 @@ pub struct SystemMeta {
     has_deferred: bool,
     pub(crate) last_run: Tick,
     #[cfg(feature = "bevy_warn_invalid_param")]
-    warn_policy: WarnPolicy,
+    param_warn_policy: ParamWarnPolicy,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
     #[cfg(feature = "trace")]
@@ -62,7 +62,7 @@ impl SystemMeta {
             has_deferred: false,
             last_run: Tick::new(0),
             #[cfg(feature = "bevy_warn_invalid_param")]
-            warn_policy: WarnPolicy::Once,
+            param_warn_policy: ParamWarnPolicy::Once,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
             #[cfg(feature = "trace")]
@@ -123,23 +123,23 @@ impl SystemMeta {
 impl SystemMeta {
     /// Changes the warn policy.
     #[inline]
-    pub fn set_warn_policy(&mut self, warn_policy: WarnPolicy) {
-        self.warn_policy = warn_policy;
+    pub fn set_param_warn_policy(&mut self, warn_policy: ParamWarnPolicy) {
+        self.param_warn_policy = warn_policy;
     }
 
     /// Advances the warn policy after validation failed.
     #[inline]
-    pub fn advance_warn_policy(&mut self) {
-        self.warn_policy.advance();
+    pub fn advance_param_warn_policy(&mut self) {
+        self.param_warn_policy.advance();
     }
 
     /// Emits a warning about inaccessible system param if policy allows it.
     #[inline]
-    pub fn try_warn<P>(&self)
+    pub fn try_warn_param<P>(&self)
     where
         P: SystemParam,
     {
-        self.warn_policy.try_warn::<P>(&self.name);
+        self.param_warn_policy.try_warn::<P>(&self.name);
     }
 }
 
@@ -147,31 +147,28 @@ impl SystemMeta {
 #[cfg(not(feature = "bevy_warn_invalid_param"))]
 impl SystemMeta {
     #[inline]
-    pub fn set_warn_policy(&mut self, _warn_policy: WarnPolicy) {}
+    pub fn set_warn_policy(&mut self, _warn_policy: ParamWarnPolicy) {}
     #[inline]
-    pub fn advance_warn_policy(&mut self) {}
+    pub fn advance_param_warn_policy(&mut self) {}
     #[inline]
-    pub fn try_warn<P: SystemParam>(&self) {}
+    pub fn try_warn_param<P: SystemParam>(&self) {}
 }
 
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
 #[derive(Clone, Copy)]
-pub enum WarnPolicy {
+pub enum ParamWarnPolicy {
     /// No warning should ever be emitted.
     Never,
     /// The warning will be emitted once and status will update to [`Self::Never`].
     Once,
-    /// The warning will be emitted every time.
-    Always,
 }
 
-impl WarnPolicy {
+impl ParamWarnPolicy {
     /// Advances the warn policy after validation failed.
     #[inline]
     fn advance(&mut self) {
         *self = match self {
             Self::Never | Self::Once => Self::Never,
-            Self::Always => Self::Always,
         };
     }
 
@@ -194,34 +191,29 @@ impl WarnPolicy {
 
 /// Trait for manipulating warn policy of systems.
 #[doc(hidden)]
-pub trait WithWarnPolicy<M, F>
+pub trait WithParamWarnPolicy<M, F>
 where
     M: 'static,
     F: SystemParamFunction<M>,
     Self: Sized,
 {
     /// Set warn policy.
-    fn with_warn_policy(self, warn_policy: WarnPolicy) -> FunctionSystem<M, F>;
+    fn with_param_warn_policy(self, warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F>;
 
-    /// Disable all warnings.
-    fn never_warn(self) -> FunctionSystem<M, F> {
-        self.with_warn_policy(WarnPolicy::Never)
-    }
-
-    /// Show all warnings.
-    fn always_warn(self) -> FunctionSystem<M, F> {
-        self.with_warn_policy(WarnPolicy::Always)
+    /// Disable all param warnings.
+    fn never_param_warn(self) -> FunctionSystem<M, F> {
+        self.with_param_warn_policy(ParamWarnPolicy::Never)
     }
 }
 
-impl<M, F> WithWarnPolicy<M, F> for F
+impl<M, F> WithParamWarnPolicy<M, F> for F
 where
     M: 'static,
     F: SystemParamFunction<M>,
 {
-    fn with_warn_policy(self, warn_policy: WarnPolicy) -> FunctionSystem<M, F> {
+    fn with_param_warn_policy(self, param_warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F> {
         let mut system = IntoSystem::into_system(self);
-        system.system_meta.warn_policy = warn_policy;
+        system.system_meta.param_warn_policy = param_warn_policy;
         system
     }
 }
@@ -779,7 +771,7 @@ where
         //   will ensure that there are no data access conflicts.
         let is_valid = unsafe { F::Param::validate_param(param_state, &self.system_meta, world) };
         if !is_valid {
-            self.system_meta.advance_warn_policy();
+            self.system_meta.advance_param_warn_policy();
         }
         is_valid
     }

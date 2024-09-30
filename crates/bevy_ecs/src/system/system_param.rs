@@ -421,7 +421,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         };
         let is_valid = result.is_ok();
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
@@ -487,7 +487,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         };
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
@@ -773,7 +773,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             .get(component_id)
             .is_some_and(ResourceData::is_present);
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
@@ -887,7 +887,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             .get(component_id)
             .is_some_and(ResourceData::is_present);
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
@@ -1437,7 +1437,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .get(component_id)
             .is_some_and(ResourceData::is_present);
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
@@ -1548,7 +1548,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .get(component_id)
             .is_some_and(ResourceData::is_present);
         if !is_valid {
-            system_meta.try_warn::<Self>();
+            system_meta.try_warn_param::<Self>();
         }
         is_valid
     }
