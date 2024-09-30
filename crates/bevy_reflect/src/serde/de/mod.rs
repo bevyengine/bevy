@@ -531,6 +531,7 @@ mod tests {
             fn try_deserialize<'de, D>(
                 &mut self,
                 registration: &TypeRegistration,
+                _: &TypeRegistry,
                 deserializer: D,
             ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
@@ -583,6 +584,7 @@ mod tests {
             fn try_deserialize<'de, D>(
                 &mut self,
                 registration: &TypeRegistration,
+                _: &TypeRegistry,
                 deserializer: D,
             ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
@@ -632,6 +634,7 @@ mod tests {
             fn try_deserialize<'de, D>(
                 &mut self,
                 registration: &TypeRegistration,
+                _: &TypeRegistry,
                 deserializer: D,
             ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
@@ -677,6 +680,7 @@ mod tests {
             fn try_deserialize<'de, D>(
                 &mut self,
                 _: &TypeRegistration,
+                _: &TypeRegistry,
                 deserializer: D,
             ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
             where
