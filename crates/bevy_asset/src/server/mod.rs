@@ -383,13 +383,7 @@ impl AssetServer {
         );
 
         if should_load {
-            let task = self.spawn_load_task(handle.clone().untyped(), path, guard);
-
-            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-            infos.pending_tasks.insert(handle.id().untyped(), task);
-
-            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-            task.detach();
+            self.spawn_load_task(handle.clone().untyped(), path, &mut *infos, guard);
         }
 
         handle
@@ -413,13 +407,7 @@ impl AssetServer {
         );
 
         if should_load {
-            let task = self.spawn_load_task(handle.clone(), path, guard);
-
-            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-            infos.pending_tasks.insert(handle.id(), task);
-
-            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-            task.detach();
+            self.spawn_load_task(handle.clone(), path, &mut *infos, guard);
         }
 
         handle
@@ -429,15 +417,26 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
+        infos: &mut AssetInfos,
         guard: G,
-    ) -> Task<()> {
+    ) {
+        let owned_handle = handle.clone();
         let server = self.clone();
-        IoTaskPool::get().spawn(async move {
-            if let Err(err) = server.load_internal(Some(handle), path, false, None).await {
+        let task = IoTaskPool::get().spawn(async move {
+            if let Err(err) = server
+                .load_internal(Some(owned_handle), path, false, None)
+                .await
+            {
                 error!("{}", err);
             }
             drop(guard);
-        })
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(handle.id(), task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
     }
 
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
