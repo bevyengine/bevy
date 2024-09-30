@@ -26,13 +26,10 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// pass it in to your deserializer.
 ///
 /// Whenever the deserializer attempts to deserialize a value, it will first
-/// check using [`should_deserialize`] whether this processor should take
-/// control of the deserialization. If so, the processor returns a
-/// [`Box<dyn FnOnce>`] which then uses the [`erased_serde::Deserializer`] to
-/// give back either a [`Box<dyn PartialReflect>`] or an error.
-///
-/// Because the processor returns a [`Box<dyn FnOnce>`], you can change the
-/// behaviour of the deserializer based on the [`TypeRegistration`].
+/// call [`try_deserialize`] on your processor, which may take ownership of the
+/// deserializer and give back a [`Box<dyn PartialReflect>`], or return
+/// ownership of the deserializer back to the deserializer, and continue with
+/// the default logic.
 ///
 /// # Examples
 ///
@@ -75,45 +72,111 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// }
 ///
 /// # type AssetError = Box<dyn core::error::Error>;
-/// # fn load<AssetPathVisitor: for<'de> Visitor<'de, Value = ()> + Copy>(
-/// #     asset_bytes: &[u8],
-/// #     type_registry: &TypeRegistry,
-/// #     load_context: &mut LoadContext,
-/// #     AssetPathVisitor: AssetPathVisitor,
-/// # ) -> Result<MyAsset, AssetError> {
-/// let mut ron_deserializer = ron::Deserializer::from_bytes(asset_bytes)?;
-/// let mut processor = ReflectDeserializerProcessor::new(|registration: &TypeRegistration| {
-///     let Some(reflect_handle) = registration.data::<ReflectHandle>() else {
-///         return None;
-///     };
-///
-///     Some(Box::new(|deserializer| {
-///         let asset_type_id = reflect_handle.asset_type_id();
-///
-///         let asset_path = deserializer.deserialize_str(AssetPathVisitor)?;
-///
-///         // takes in `load_context` from its scope
-///         let handle: Handle<LoadedUntypedAsset> = load_context
-///             .load()
-///             .with_asset_type_id(asset_type_id)
-///             .untyped()
-///             .load_asset(asset_path);
-/// #       let _: Result<_, ()> = {
-///         Ok(Box::new(handle))
-/// #       };
-/// #       unimplemented!()
-///     }))
-/// });
-/// let reflect_deserializer =
-///     ReflectDeserializer::new_with_processor(type_registry, &mut processor);
-/// let asset = reflect_deserializer.deserialize(&mut ron_deserializer)?;
-/// # unimplemented!()
+/// fn load(
+///     asset_bytes: &[u8],
+///     type_registry: &TypeRegistry,
+///     load_context: &mut LoadContext
+/// ) -> Result<MyAsset, AssetError> {
+/// #   unimplemented!()
 /// # }
+/// # fn _load<AssetPathVisitor: for<'de> Visitor<'de, Value = ()> + Copy>(
+/// #   asset_bytes: &[u8],
+/// #   type_registry: &TypeRegistry,
+/// #   load_context: &mut LoadContext,
+/// #   AssetPathVisitor: AssetPathVisitor,
+/// # ) -> Result<MyAsset, AssetError> {
+///     struct HandleProcessor<'a> {
+///         load_context: &'a mut LoadContext,
+///     }
+///
+///     impl ReflectDeserializerProcessor for HandleProcessor<'_> {
+///         fn try_deserialize<'de, D>(
+///             &mut self,
+///             registration: &TypeRegistration,
+///             deserializer: D,
+///         ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+///         where
+///             D: serde::Deserializer<'de>
+///         {
+///             let Some(reflect_handle) = registration.data::<ReflectHandle>() else {
+///                 return None;
+///             };
+///
+///
+///             let asset_type_id = reflect_handle.asset_type_id();
+///
+///             let asset_path = deserializer.deserialize_str(AssetPathVisitor)?;
+///
+///             // takes in `load_context` from its scope
+///             let handle: Handle<LoadedUntypedAsset> = load_context
+///                 .load()
+///                 .with_asset_type_id(asset_type_id)
+///                 .untyped()
+///                 .load_asset(asset_path);
+/// #           let _: Result<_, ()> = {
+///             Ok(Box::new(handle))
+/// #           };
+/// #           unimplemented!()
+///         }
+///     }
+///
+///     let mut ron_deserializer = ron::Deserializer::from_bytes(asset_bytes)?;
+///     let mut processor = HandleProcessor { load_context };
+///     let reflect_deserializer =
+///         ReflectDeserializer::with_processor(type_registry, &mut processor);
+///     let asset = reflect_deserializer.deserialize(&mut ron_deserializer)?;
+/// #   unimplemented!()
+/// }
 /// ```
 ///
-/// [`should_deserialize`]: Self::should_deserialize
-/// [`deserialize`]: Self::deserialize
+/// [`try_deserialize`]: Self::try_deserialize
 pub trait ReflectDeserializerProcessor {
+    /// Attempts to deserialize the value which a [`TypedReflectDeserializer`]
+    /// is currently looking at, and knows the type of.
+    ///
+    /// If you've read the `registration` and want to override the default
+    /// deserialization, return `Ok(Ok(value))` with the boxed reflected value
+    /// that you want to assign this value to. The type inside the box must
+    /// be the same one as the `registration` is for.
+    ///
+    /// If you don't want to override the deserialization, return ownership of
+    /// the deserializer back via `Ok(Err(deserializer))`.
+    ///
+    /// Note that, if you do want to return a value, you *must* read from the
+    /// deserializer passed to this function (you are free to ignore the result
+    /// though). Otherwise, the deserializer will be in an inconsistent state,
+    /// and future value parsing will fail.
+    ///
+    /// # Examples
+    ///
+    /// Correct way to return a constant value (not using any output from the
+    /// deserializer):
+    ///
+    /// ```
+    /// # use bevy_reflect::prelude::*;
+    /// # use bevy_reflect::serde::de::ReflectDeserializerProcessor};
+    /// use serde::de::IgnoredAny;
+    ///
+    /// struct ConstantI32Processor;
+    ///
+    /// impl ReflectDeserializerProcessor for ConstantI32Processor {
+    ///     fn try_deserialize<'de, D>(
+    ///         &mut self,
+    ///         registration: &TypeRegistration,
+    ///         deserializer: D,
+    ///     ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+    ///     where
+    ///         D: serde::Deserializer<'de>
+    ///     {
+    ///         if registration.type_id() == TypeId::of::<i32>() {
+    ///             _ = deserializer.deserialize_ignored_any(IgnoredAny);
+    ///             Ok(Ok(Box::new(42_i32)))
+    ///         } else {
+    ///             Ok(Err(deserializer))
+    ///         }
+    ///     }
+    /// }
+    /// ```
     fn try_deserialize<'de, D>(
         &mut self,
         registration: &TypeRegistration,
@@ -165,7 +228,7 @@ impl ReflectDeserializerProcessor for () {
 ///
 /// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
-/// take priority over all other deserialization methods - see [`new_with_processor`].
+/// take priority over all other deserialization methods - see [`with_processor`].
 ///
 /// # Example
 ///
@@ -219,7 +282,7 @@ impl ReflectDeserializerProcessor for () {
 /// [`Box<DynamicList>`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
-/// [`new_with_processor`]: Self::new_with_processor
+/// [`with_processor`]: Self::with_processor
 pub struct ReflectDeserializer<'a, P> {
     registry: &'a TypeRegistry,
     processor: Option<&'a mut P>,
@@ -333,7 +396,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 ///
 /// If you want to override deserialization for a specific [`TypeRegistration`],
 /// you can pass in a reference to a [`ReflectDeserializerProcessor`] which will
-/// take priority over all other deserialization methods - see [`new_with_processor`].
+/// take priority over all other deserialization methods - see [`with_processor`].
 ///
 /// # Example
 ///
@@ -386,7 +449,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// [`Box<DynamicList>`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
-/// [`new_with_processor`]: Self::new_with_processor
+/// [`with_processor`]: Self::with_processor
 pub struct TypedReflectDeserializer<'a, P> {
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
