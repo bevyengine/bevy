@@ -1,4 +1,4 @@
-//! A simple 3D scene showing how alpha blending can break and how OIT can fix it.
+//! A simple 3D scene showing how alpha blending can break (TODO: Can you expand on this a little more for new users?) and how order independent transparency (OIT) can fix it.
 //!
 //! If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
 //! You also need to make sure that your fragment shader doesn't output any colors.

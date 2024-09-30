@@ -3,7 +3,7 @@
 //! This implementation uses 2 passes.
 //!
 //! The first pass writes the depth and color of all the fragments to a big buffer.
-//! The buffer contains N layers for each pixel.
+//! The buffer contains N layers for each pixel, where N can be set with `[`OrderIndependentTransparencySettings::layer_count`].
 //! This pass is essentially a forward pass.
 //!
 //! The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
@@ -44,7 +44,7 @@ pub mod resolve;
 pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4042527984320512);
 
 /// Used to identify which camera will use OIT to render transparent meshes
-/// and to configure OIT
+/// and to configure OIT.
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component
@@ -110,7 +110,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
     }
 }
 
-// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`]
+// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
 // but when multiple cameras are present on the same window
 // bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
