@@ -1,7 +1,5 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use std::cmp::Reverse;
-
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
@@ -56,7 +54,7 @@ pub fn ui_stack_system(
         ));
     }
 
-    root_nodes.sort_by_key(|(_, z)| Reverse(*z));
+    root_nodes.sort_by_key(|(_, z)| *z);
 
     for (root_entity, _) in root_nodes.drain(..) {
         update_uistack_recursive(
@@ -92,7 +90,7 @@ fn update_uistack_recursive(
                     .map(|zindex| (*child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
             })
             .collect();
-        z_children.sort_by_key(|k| Reverse(k.1));
+        z_children.sort_by_key(|k| k.1);
         for (child_entity, _) in z_children {
             update_uistack_recursive(child_entity, children_query, zindex_query, ui_stack);
         }
