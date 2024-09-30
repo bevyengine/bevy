@@ -1,4 +1,5 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -1600,6 +1601,61 @@ impl<const N: usize> Polygon<N> {
     /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
+    }
+}
+
+/// A convex polygon with `N` vertices.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ConvexPolygon<const N: usize> {
+    /// The vertices of the `ConvexPolygon`.
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
+    pub vertices: [Vec2; N],
+}
+impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+
+/// An error that happens when creating a `ConvexPolygon`.
+#[derive(Error, Debug, Clone)]
+pub enum ConvexPolygonError {
+    /// The created polygon is not convex.
+    #[error("The created polygon is not convex")]
+    NotConvex,
+}
+
+impl<const N: usize> ConvexPolygon<N> {
+
+    fn compute_cross_product_for(&self, a_index: usize, b_index: usize, c_index: usize) -> f32 {
+        let a = self.vertices[a_index];
+        let b = self.vertices[b_index];
+        let c = self.vertices[c_index];
+        
+        (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+    }
+
+    /// Create a `ConvexPolygon` from its vertices.
+    /// The convexity of the polygon is checked.
+    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+        let polygon = Self::new_unchecked(vertices);
+        let ref_cross_product_sign = polygon.compute_cross_product_for(N - 1, 0, 1).signum();
+        for i in 1..N {
+            let cross_product = polygon.compute_cross_product_for(i - 1, i, (i + 1) % N);
+            if cross_product.signum() != ref_cross_product_sign {
+                return Err(ConvexPolygonError::NotConvex);
+            }
+        }
+        Ok(polygon)
+    }
+
+    /// Create a `ConvexPolygon` from its vertices, without checks.
+    /// Only use this version if you know that the `vertices` make up a convex polygon. 
+    #[inline(always)]
+    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
     }
 }
 
