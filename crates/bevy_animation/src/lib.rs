@@ -1380,6 +1380,20 @@ impl Plugin for AnimationPlugin {
 }
 
 impl AnimationTargetId {
+    ///Creates a new [`AnimationTargetId`] by hashing a string seperated by `/`.
+    ///
+    /// Typically, this will be the path from the animation root to the
+    /// animation target (e.g. bone) that is to be animated.
+    pub fn from_str(path: impl AsRef<str>) -> Self {
+        let mut blake3 = blake3::Hasher::new();
+        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        for str in path.as_ref().split('/') {
+            blake3.update(str.as_bytes());
+        }
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
+        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+    }
+
     /// Creates a new [`AnimationTargetId`] by hashing a list of names.
     ///
     /// Typically, this will be the path from the animation root to the
