@@ -38,8 +38,8 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///
 /// ```
 /// # use bevy_reflect::serde::{ReflectDeserializer, ReflectDeserializerProcessor};
-/// # use bevy_reflect::{Reflect, TypeData, TypeRegistration, TypeRegistry};
-/// # use serde::de::{Visitor, Deserializer, DeserializeSeed};
+/// # use bevy_reflect::{PartialReflect, Reflect, TypeData, TypeRegistration, TypeRegistry};
+/// # use serde::de::{DeserializeSeed, Deserializer, Visitor};
 /// # use std::marker::PhantomData;
 /// #
 /// # #[derive(Debug, Clone, Reflect)]
@@ -59,32 +59,33 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// #
 /// # struct ReflectHandle;
 /// # impl TypeData for ReflectHandle {
-/// #     fn clone_type_data(&self) -> Box<dyn TypeData> { unimplemented!() }
+/// #     fn clone_type_data(&self) -> Box<dyn TypeData> {
+/// #         unimplemented!()
+/// #     }
 /// # }
 /// # impl ReflectHandle {
-/// #     fn asset_type_id(&self) { unimplemented!() }
+/// #     fn asset_type_id(&self) {
+/// #         unimplemented!()
+/// #     }
 /// # }
 /// #
+/// # struct AssetPathVisitor;
+/// # impl<'de> Visitor<'de> for AssetPathVisitor {
+/// #     type Value = ();
+/// #     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result { unimplemented!() }
+/// # }
+/// # type AssetError = Box<dyn core::error::Error>;
 /// #[derive(Debug, Clone, Reflect)]
 /// struct MyAsset {
 ///     name: String,
 ///     mesh: Handle<Mesh>,
 /// }
 ///
-/// # type AssetError = Box<dyn core::error::Error>;
 /// fn load(
 ///     asset_bytes: &[u8],
 ///     type_registry: &TypeRegistry,
-///     load_context: &mut LoadContext
+///     load_context: &mut LoadContext,
 /// ) -> Result<MyAsset, AssetError> {
-/// #   unimplemented!()
-/// # }
-/// # fn _load<AssetPathVisitor: for<'de> Visitor<'de, Value = ()> + Copy>(
-/// #   asset_bytes: &[u8],
-/// #   type_registry: &TypeRegistry,
-/// #   load_context: &mut LoadContext,
-/// #   AssetPathVisitor: AssetPathVisitor,
-/// # ) -> Result<MyAsset, AssetError> {
 ///     struct HandleProcessor<'a> {
 ///         load_context: &'a mut LoadContext,
 ///     }
@@ -96,27 +97,25 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///             deserializer: D,
 ///         ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
 ///         where
-///             D: serde::Deserializer<'de>
+///             D: Deserializer<'de>,
 ///         {
 ///             let Some(reflect_handle) = registration.data::<ReflectHandle>() else {
-///                 return None;
+///                 // we don't want to deserialize this - give the deserializer back
+///                 return Ok(Err(deserializer));
 ///             };
 ///
-///
 ///             let asset_type_id = reflect_handle.asset_type_id();
-///
 ///             let asset_path = deserializer.deserialize_str(AssetPathVisitor)?;
 ///
-///             // takes in `load_context` from its scope
-///             let handle: Handle<LoadedUntypedAsset> = load_context
+///             let handle: Handle<LoadedUntypedAsset> = self.load_context
 ///                 .load()
 ///                 .with_asset_type_id(asset_type_id)
 ///                 .untyped()
 ///                 .load_asset(asset_path);
-/// #           let _: Result<_, ()> = {
+///             # let _: Result<_, ()> = {
 ///             Ok(Box::new(handle))
-/// #           };
-/// #           unimplemented!()
+///             # };
+///             # unimplemented!()
 ///         }
 ///     }
 ///
@@ -125,7 +124,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///     let reflect_deserializer =
 ///         ReflectDeserializer::with_processor(type_registry, &mut processor);
 ///     let asset = reflect_deserializer.deserialize(&mut ron_deserializer)?;
-/// #   unimplemented!()
+///     # unimplemented!()
 /// }
 /// ```
 ///
@@ -153,8 +152,9 @@ pub trait ReflectDeserializerProcessor {
     /// deserializer):
     ///
     /// ```
-    /// # use bevy_reflect::prelude::*;
-    /// # use bevy_reflect::serde::de::ReflectDeserializerProcessor};
+    /// # use bevy_reflect::{TypeRegistration, PartialReflect};
+    /// # use bevy_reflect::serde::ReflectDeserializerProcessor;
+    /// # use core::any::TypeId;
     /// use serde::de::IgnoredAny;
     ///
     /// struct ConstantI32Processor;
