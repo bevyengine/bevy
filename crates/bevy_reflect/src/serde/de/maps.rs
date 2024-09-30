@@ -13,7 +13,7 @@ use super::ReflectDeserializerProcessor;
 pub(super) struct MapVisitor<'a, P> {
     pub map_info: &'static MapInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for MapVisitor<'_, P> {
@@ -33,12 +33,12 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for MapVisitor<'_, P> {
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
             key_registration,
             self.registry,
-            &mut self.processor,
+            self.processor.as_deref_mut(),
         ))? {
             let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
                 value_registration,
                 self.registry,
-                &mut self.processor,
+                self.processor.as_deref_mut(),
             ))?;
             dynamic_map.insert_boxed(key, value);
         }

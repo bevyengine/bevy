@@ -24,7 +24,7 @@ pub(super) struct EnumVisitor<'a, P> {
     pub enum_info: &'static EnumInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for EnumVisitor<'_, P> {
@@ -149,7 +149,7 @@ struct StructVariantVisitor<'a, P> {
     struct_info: &'static StructVariantInfo,
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    processor: P,
+    processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVariantVisitor<'_, P> {
@@ -190,7 +190,7 @@ struct TupleVariantVisitor<'a, P> {
     tuple_info: &'static TupleVariantInfo,
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
-    processor: P,
+    processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleVariantVisitor<'_, P> {
