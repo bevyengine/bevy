@@ -15,6 +15,7 @@ use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{InheritedVisibility, ViewVisibility, Visibility},
+    world_sync::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -108,6 +109,8 @@ pub struct PointLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
+    pub sync: SyncToRenderWorld,
 }
 
 /// A component bundle for spot light entities
@@ -124,6 +127,8 @@ pub struct SpotLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
+    pub sync: SyncToRenderWorld,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -142,4 +147,6 @@ pub struct DirectionalLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
+    pub sync: SyncToRenderWorld,
 }

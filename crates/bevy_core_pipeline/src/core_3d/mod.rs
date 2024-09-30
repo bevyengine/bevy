@@ -91,6 +91,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
@@ -504,23 +505,21 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 }
 
 pub fn extract_core_3d_camera_phases(
-    mut commands: Commands,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(&RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_3d {
+    for (render_entity, camera) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
-        commands.get_or_spawn(entity);
-
+        let entity = render_entity.id();
         opaque_3d_phases.insert_or_clear(entity);
         alpha_mask_3d_phases.insert_or_clear(entity);
         transmissive_3d_phases.insert_or_clear(entity);
@@ -545,7 +544,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
-                Entity,
+                &RenderEntity,
                 &Camera,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
@@ -559,13 +558,20 @@ pub fn extract_camera_prepass_phase(
 ) {
     live_entities.clear();
 
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        render_entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
         }
 
+        let entity = render_entity.id();
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(entity);
             alpha_mask_3d_prepass_phases.insert_or_clear(entity);
@@ -581,7 +587,6 @@ pub fn extract_camera_prepass_phase(
             opaque_3d_deferred_phases.remove(&entity);
             alpha_mask_3d_deferred_phases.remove(&entity);
         }
-
         live_entities.insert(entity);
 
         commands

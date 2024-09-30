@@ -27,7 +27,7 @@ use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 pub use converters::convert_system_cursor_icon;
 pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
-use system::{changed_windows, despawn_windows};
+use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
@@ -133,6 +133,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     despawn_windows,
+                    check_keyboard_focus_lost,
                 )
                     .chain(),
             );

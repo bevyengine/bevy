@@ -106,6 +106,7 @@ use {
             ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
+        world_sync::TemporaryRenderEntity,
         Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     },
     bytemuck::cast_slice,
@@ -116,7 +117,6 @@ use {
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
 ))]
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
-
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
 use config::{
@@ -446,6 +446,7 @@ fn extract_gizmo_data(
             (*handle).clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             config::GizmoMeshConfig::from(config),
+            TemporaryRenderEntity,
         ));
     }
 }
