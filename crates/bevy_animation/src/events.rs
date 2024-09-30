@@ -33,7 +33,7 @@ pub trait AnimationEvent: Reflect + Send + Sync {
 pub(crate) struct AnimationEventData(pub(crate) Box<dyn AnimationEvent>);
 
 impl Debug for AnimationEventData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("AnimationEventData(")?;
         PartialReflect::debug(self.0.as_ref(), f)?;
         f.write_str(")")?;
