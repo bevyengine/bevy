@@ -606,46 +606,6 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 /// }
 /// # bevy_ecs::system::assert_is_system(event_system);
 /// ```
-///
-/// If you want to use `ParamSet` with a [`SystemParamBuilder`](crate::system::SystemParamBuilder), use [`ParamSetBuilder`](crate::system::ParamSetBuilder) and pass a builder for each param.
-/// ```
-/// # use bevy_ecs::{prelude::*, system::*};
-/// #
-/// # #[derive(Component)]
-/// # struct Health;
-/// #
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// # #[derive(Component)]
-/// # struct Ally;
-/// #
-/// let mut world = World::new();
-///
-/// let system = (ParamSetBuilder((
-///     QueryParamBuilder::new(|builder| {
-///         builder.with::<Enemy>();
-///     }),
-///     QueryParamBuilder::new(|builder| {
-///         builder.with::<Ally>();
-///     }),
-///     ParamBuilder,
-/// )),)
-///     .build_state(&mut world)
-///     .build_system(buildable_system);
-/// world.run_system_once(system);
-///
-/// fn buildable_system(mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>) {
-///     // The first parameter is built from the first builder,
-///     // so this will iterate over enemies.
-///     for mut health in set.p0().iter_mut() {}
-///     // And the second parameter is built from the second builder,
-///     // so this will iterate over allies.
-///     for mut health in set.p1().iter_mut() {}
-///     // Parameters that don't need special building can use `ParamBuilder`.
-///     let entities = set.p2().entities();
-/// }
-/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
     world: UnsafeWorldCell<'w>,
@@ -2124,22 +2084,22 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 /// # #[derive(Default, Resource)]
 /// # struct B;
 /// #
-/// let mut world = World::new();
-/// world.init_resource::<A>();
-/// world.init_resource::<B>();
-///
+/// # let mut world = World::new();
+/// # world.init_resource::<A>();
+/// # world.init_resource::<B>();
+/// #
 /// // If the inner parameter doesn't require any special building, use `ParamBuilder`.
 /// // Either specify the type parameter on `DynParamBuilder::new()` ...
 /// let system = (DynParamBuilder::new::<Res<A>>(ParamBuilder),)
 ///     .build_state(&mut world)
 ///     .build_system(expects_res_a);
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 ///
 /// // ... or use a factory method on `ParamBuilder` that returns a specific type.
 /// let system = (DynParamBuilder::new(ParamBuilder::resource::<A>()),)
 ///     .build_state(&mut world)
 ///     .build_system(expects_res_a);
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 ///
 /// fn expects_res_a(mut param: DynSystemParam) {
 ///     // Use the `downcast` methods to retrieve the inner parameter.
@@ -2165,7 +2125,7 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///         let local: Local<usize> = param.downcast::<Local<usize>>().unwrap();
 ///         assert_eq!(*local, 10);
 ///     });
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 /// ```
 pub struct DynSystemParam<'w, 's> {
     /// A `ParamState<T>` wrapping the state for the underlying system param.
