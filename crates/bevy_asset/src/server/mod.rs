@@ -131,10 +131,10 @@ impl AssetServer {
     }
 
     /// Retrieves the [`AssetSource`] for the given `source`.
-    pub fn get_source<'a, 'b>(
-        &'a self,
-        source: impl Into<AssetSourceId<'b>>,
-    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+    pub fn get_source<'a>(
+        &self,
+        source: impl Into<AssetSourceId<'a>>,
+    ) -> Result<&AssetSource, MissingAssetSourceError> {
         self.data.sources.get(source.into())
     }
 
@@ -218,9 +218,9 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
-    pub async fn get_path_asset_loader<'a, 'b>(
+    pub async fn get_path_asset_loader<'a>(
         &self,
-        path: impl Into<AssetPath<'b>>,
+        path: impl Into<AssetPath<'a>>,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
         let path = path.into();
 
@@ -245,7 +245,7 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] [`TypeId`], if one can be found.
-    pub async fn get_asset_loader_with_asset_type_id<'a>(
+    pub async fn get_asset_loader_with_asset_type_id(
         &self,
         type_id: TypeId,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
@@ -257,7 +257,7 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
-    pub async fn get_asset_loader_with_asset_type<'a, A: Asset>(
+    pub async fn get_asset_loader_with_asset_type<A: Asset>(
         &self,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
         self.get_asset_loader_with_asset_type_id(TypeId::of::<A>())
