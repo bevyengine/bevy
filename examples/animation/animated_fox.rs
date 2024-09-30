@@ -5,7 +5,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{
     animation::{
         animate_targets_and_trigger_events,
-        animation_events::{AnimationEvent, ReflectAnimationEvent},
+        animation_event::{AnimationEvent, ReflectAnimationEvent},
         AnimationTargetId, RepeatAnimation,
     },
     color::palettes::css::WHITE,

@@ -11,14 +11,14 @@ extern crate alloc;
 
 pub mod animatable;
 pub mod animation_curves;
-pub mod animation_events;
+pub mod animation_event;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
 mod util;
 
 use alloc::collections::BTreeMap;
-use animation_events::{trigger_animation_event, AnimationEvent, AnimationEventData};
+use animation_event::{trigger_animation_event, AnimationEvent, AnimationEventData};
 use core::{
     any::{Any, TypeId},
     cell::RefCell,

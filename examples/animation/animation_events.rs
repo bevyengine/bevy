@@ -1,7 +1,7 @@
 //! Demonstrate how to use animation events.
 
 use bevy::{
-    animation::animation_events::{AnimationEvent, ReflectAnimationEvent},
+    animation::animation_event::{AnimationEvent, ReflectAnimationEvent},
     prelude::*,
 };
 
