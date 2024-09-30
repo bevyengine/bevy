@@ -15,10 +15,26 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
+#[derive(Default)]
+pub(crate) struct ChildBufferCache {
+    pub inner: Vec<Vec<(Entity, i32)>>,
+}
+
+impl ChildBufferCache {
+    fn pop(&mut self) -> Vec<(Entity, i32)> {
+        self.inner.pop().unwrap_or_default()
+    }
+
+    fn push(&mut self, vec: Vec<(Entity, i32)>) {
+        self.inner.push(vec);
+    }
+}
+
 /// Create a list of root nodes from unparented entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
@@ -58,6 +74,7 @@ pub fn ui_stack_system(
 
     for (root_entity, _) in root_nodes.drain(..) {
         update_uistack_recursive(
+            &mut cache,
             root_entity,
             &children_query,
             &zindex_query,
@@ -73,6 +90,7 @@ pub fn ui_stack_system(
 }
 
 fn update_uistack_recursive(
+    cache: &mut ChildBufferCache,
     node_entity: Entity,
     children_query: &Query<&Children>,
     zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
@@ -81,19 +99,18 @@ fn update_uistack_recursive(
     ui_stack.push(node_entity);
 
     if let Ok(children) = children_query.get(node_entity) {
-        let mut z_children: Vec<_> = children
-            .iter()
-            .filter_map(|child_entity| {
-                zindex_query
-                    .get(*child_entity)
-                    .ok()
-                    .map(|zindex| (*child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            })
-            .collect();
-        z_children.sort_by_key(|k| k.1);
-        for (child_entity, _) in z_children {
-            update_uistack_recursive(child_entity, children_query, zindex_query, ui_stack);
+        let mut child_buffer = cache.pop();
+        child_buffer.extend(children.iter().filter_map(|child_entity| {
+            zindex_query
+                .get(*child_entity)
+                .ok()
+                .map(|zindex| (*child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+        }));
+        child_buffer.sort_by_key(|k| k.1);
+        for (child_entity, _) in child_buffer.drain(..) {
+            update_uistack_recursive(cache, child_entity, children_query, zindex_query, ui_stack);
         }
+        cache.push(child_buffer);
     }
 }
 
