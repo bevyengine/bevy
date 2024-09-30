@@ -154,8 +154,7 @@ impl WarnPolicy {
     #[inline]
     fn advance(&mut self) {
         *self = match self {
-            Self::Never => Self::Never,
-            Self::Once => Self::Never,
+            Self::Never | Self::Once => Self::Never,
             Self::Always => Self::Always,
         };
     }
@@ -172,7 +171,7 @@ impl WarnPolicy {
         bevy_utils::tracing::warn!(
             "System {0} will not run because it requested inaccessible system parameter {1}",
             name,
-            std::any::type_name::<P>()
+            core::any::type_name::<P>()
         );
     }
 }
@@ -723,6 +722,7 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
+        // SAFETY: Delegate to `SystemParam` implementation.
         let is_valid = unsafe { F::Param::validate_param(param_state, &self.system_meta, world) };
         if !is_valid {
             self.system_meta.advance_warn_policy();
