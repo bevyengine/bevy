@@ -11,10 +11,11 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.77.0"
 
 [features]
-default = ["bevy_reflect"]
+default = ["bevy_reflect", "bevy_warn_invalid_param"]
 trace = []
 multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
+bevy_warn_invalid_param = []
 serialize = ["dep:serde"]
 track_change_detection = []
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]

@@ -19,9 +19,27 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // We add all the systems one after another.
-        // We don't need to use run conditions here.
-        .add_systems(Update, (user_input, move_targets, move_pointer).chain())
+        // Systems that fail parameter validation will emit warnings.
+        // The default policy is to emit a warning once per system.
+        // This is good for catching unexpected behavior, but can
+        // lead to spam and performance drop due to additional checks.
+        //
+        // There are two ways of disabling warnings:
+        // - During development, it's preferential to disable warnings selectively per system
+        //   using the `.never_warn()` method.
+        // - When releasing the game, it's best to disable all warnings by removing the
+        //   `bevy_warn_invalid_param` feature flag, which is enabled by default in `bevy_ecs`.
+        .add_systems(
+            Update,
+            (
+                user_input,
+                move_targets.never_warn(),
+                move_pointer.never_warn(),
+            )
+                .chain(),
+        )
+        // We will leave this systems with default warning policy.
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 
@@ -66,9 +84,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-// System that reads user input.
-// If user presses 'A' we spawn a new random enemy.
-// If user presses 'R' we remove a random enemy (if any exist).
+/// System that reads user input.
+/// If user presses 'A' we spawn a new random enemy.
+/// If user presses 'R' we remove a random enemy (if any exist).
 fn user_input(
     mut commands: Commands,
     enemies: Query<Entity, With<Enemy>>,
@@ -104,8 +122,8 @@ fn user_input(
     }
 }
 
-// System that moves the enemies in a circle.
-// TODO: Use [`NonEmptyQuery`] when it exists.
+/// System that moves the enemies in a circle.
+/// TODO: Use `Populated` when it exists.
 fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut enemies {
         target.rotation += target.rotation_speed * time.delta_seconds();
@@ -145,3 +163,7 @@ fn move_pointer(
         player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_seconds());
     }
 }
+
+/// This system always fails param validation, because we never
+/// create an entity with both [`Player`] and [`Enemy`] components.
+fn do_nothing_fail_validation(_: Single<(), (With<Player>, With<Enemy>)>) {}

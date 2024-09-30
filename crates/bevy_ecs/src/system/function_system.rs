@@ -115,7 +115,10 @@ impl SystemMeta {
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
     }
+}
 
+#[cfg(feature = "bevy_warn_invalid_param")]
+impl SystemMeta {
     /// Changes the warn policy.
     #[inline]
     pub fn set_warn_policy(&mut self, warn_policy: WarnPolicy) {
@@ -136,6 +139,17 @@ impl SystemMeta {
     {
         self.warn_policy.try_warn::<P>(&self.name);
     }
+}
+
+// No-op when warnings are disabled.
+#[cfg(not(feature = "bevy_warn_invalid_param"))]
+impl SystemMeta {
+    #[inline]
+    pub fn set_warn_policy(&mut self, _warn_policy: WarnPolicy) {}
+    #[inline]
+    pub fn advance_warn_policy(&mut self) {}
+    #[inline]
+    pub fn try_warn<P: SystemParam>(&self) {}
 }
 
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
@@ -173,6 +187,40 @@ impl WarnPolicy {
             name,
             core::any::type_name::<P>()
         );
+    }
+}
+
+/// Trait for manipulating warn policy of systems.
+#[doc(hidden)]
+pub trait WithWarnPolicy<M, F>
+where
+    M: 'static,
+    F: SystemParamFunction<M>,
+    Self: Sized,
+{
+    /// Set warn policy.
+    fn with_warn_policy(self, warn_policy: WarnPolicy) -> FunctionSystem<M, F>;
+
+    /// Disable all warnings.
+    fn never_warn(self) -> FunctionSystem<M, F> {
+        self.with_warn_policy(WarnPolicy::Never)
+    }
+
+    /// Show all warnings.
+    fn always_warn(self) -> FunctionSystem<M, F> {
+        self.with_warn_policy(WarnPolicy::Always)
+    }
+}
+
+impl<M, F> WithWarnPolicy<M, F> for F
+where
+    M: 'static,
+    F: SystemParamFunction<M>,
+{
+    fn with_warn_policy(self, warn_policy: WarnPolicy) -> FunctionSystem<M, F> {
+        let mut system = IntoSystem::into_system(self);
+        system.system_meta.warn_policy = warn_policy;
+        system
     }
 }
 
