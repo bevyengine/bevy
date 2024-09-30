@@ -28,7 +28,7 @@ fn main() {
         // - During development, it's preferential to disable warnings selectively per system
         //   using the `.never_param_warn()` method.
         // - When releasing the game, it's best to disable all warnings by removing the
-        //   `bevy_warn_invalid_param` feature flag, which is enabled by default in `bevy_ecs`.
+        //   `bevy_param_warn` feature flag, which is enabled by default in `bevy_ecs`.
         .add_systems(
             Update,
             (
