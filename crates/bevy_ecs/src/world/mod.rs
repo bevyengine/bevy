@@ -336,19 +336,20 @@ impl World {
 
     /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
     ///
-    /// Note that the resource doesn't have a value in world, it's only registered.
-    /// if you want to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or [`World::insert_resource`] instead.
+    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
+    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
+    /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components.register_resource::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
     ///
-    /// The returned `ComponentId` is specific to the `World` instance
-    /// it was retrieved from and should not be used with another `World` instance.
+    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
+    /// and should not be used with another [`World`] instance.
     ///
-    /// Returns [`None`] if the `Resource` type has not yet been initialized within
-    /// the `World` using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
+    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.components.get_resource_id(TypeId::of::<T>())
     }
@@ -1318,6 +1319,23 @@ impl World {
             .into_iter()
             .flatten()
             .map(Into::into)
+    }
+
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
+    ///
+    /// # Note
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.components
+            .register_resource_with_descriptor(descriptor)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -3249,6 +3267,39 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_resource() {
+        let mut world = World::new();
+
+        let descriptor = ComponentDescriptor::new_resource::<TestResource>();
+
+        let component_id = world.register_resource_with_descriptor(descriptor);
+
+        let value = 0;
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the layout of `TestResource`
+            unsafe {
+                world.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    panic::Location::caller(),
+                );
+            }
+        });
+
+        // SAFETY: We know that the resource is of type `TestResource`
+        let resource = unsafe {
+            world
+                .get_resource_by_id(component_id)
+                .unwrap()
+                .deref::<TestResource>()
+        };
+        assert_eq!(resource.0, 0);
+
+        assert!(world.remove_resource_by_id(component_id).is_some());
+    }
+
+    #[test]
     fn custom_resource_with_layout() {
         static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
 
@@ -3268,7 +3319,7 @@ mod tests {
             )
         };
 
-        let component_id = world.register_component_with_descriptor(descriptor);
+        let component_id = world.register_resource_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
