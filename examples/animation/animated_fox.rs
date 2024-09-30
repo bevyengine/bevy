@@ -220,6 +220,7 @@ fn setup(
     println!("  - digit 1 / 3 / 5: play the animation <digit> times");
     println!("  - L: loop the animation forever");
     println!("  - return: change animation");
+    println!("  - R: reverse animation");
 }
 
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
@@ -301,6 +302,12 @@ fn keyboard_animation_control(
             let playing_animation = player.animation_mut(playing_animation_index).unwrap();
             let elapsed = playing_animation.seek_time();
             playing_animation.seek_to(elapsed + 0.1);
+        }
+
+        if keyboard_input.just_pressed(KeyCode::KeyR) {
+            let playing_animation = player.animation_mut(playing_animation_index).unwrap();
+            let speed = playing_animation.speed();
+            playing_animation.set_speed(-speed);
         }
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
