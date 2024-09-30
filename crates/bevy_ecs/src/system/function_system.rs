@@ -115,18 +115,16 @@ impl SystemMeta {
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
     }
-}
 
-impl SystemMeta {
     /// Changes the warn policy.
     #[inline]
-    pub fn set_param_warn_policy(&mut self, warn_policy: ParamWarnPolicy) {
+    pub(crate) fn set_param_warn_policy(&mut self, warn_policy: ParamWarnPolicy) {
         self.param_warn_policy = warn_policy;
     }
 
     /// Advances the warn policy after validation failed.
     #[inline]
-    pub fn advance_param_warn_policy(&mut self) {
+    pub(crate) fn advance_param_warn_policy(&mut self) {
         self.param_warn_policy.advance();
     }
 
@@ -167,10 +165,11 @@ impl ParamWarnPolicy {
         if matches!(self, Self::Never) {
             return;
         }
+
         bevy_utils::tracing::warn!(
             "System {0} will not run because it requested inaccessible system parameter {1}",
             name,
-            core::any::type_name::<P>()
+            disqualified::ShortName::of::<P>()
         );
     }
 }
