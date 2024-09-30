@@ -67,6 +67,11 @@ impl Default for Viewport {
     }
 }
 
+/// Settings to define a camera sub view.
+///
+/// When added to a camera, only the sub-section of the image defined by `size`
+/// and `offset` (relative to the `full_size` of the whole image) is projected
+/// to the cameras viewport.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
 pub struct SubCameraView {
     /// Size of the entire camera view
