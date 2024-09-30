@@ -50,7 +50,7 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 
-    /// Returns true if system as deferred buffers
+    /// Returns true if system has deferred buffers.
     fn has_deferred(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
@@ -106,7 +106,7 @@ pub trait System: Send + Sync + 'static {
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
     /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
-    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// world mutations in between. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
     /// # Safety
