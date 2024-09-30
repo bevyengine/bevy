@@ -110,7 +110,10 @@
 //! - `entity`: The ID of the entity whose components will be fetched.
 //! - `components`: An array of [fully-qualified type names] of components to fetch.
 //!
-//! `result`: A map associating each type name to its value on the requested entity.
+//! `result`:
+//! - `components`: A map associating each type name to its value on the requested entity.
+//! - `errors`: A map associating each type name with an error if it was not on the entity
+//!   or could not be reflected.
 //!
 //! ### bevy/query
 //!
