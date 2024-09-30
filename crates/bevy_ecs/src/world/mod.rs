@@ -336,19 +336,21 @@ impl World {
 
     /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
     ///
-    /// Note that the resource doesn't have a value in world, it's only registered.
-    /// if you want to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or [`World::insert_resource`] instead.
+    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered.
+    /// If you want to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
+    /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components.register_resource::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
     ///
-    /// The returned `ComponentId` is specific to the `World` instance
-    /// it was retrieved from and should not be used with another `World` instance.
+    /// The returned [`ComponentId`] is specific to the [`World`] instance
+    /// it was retrieved from and should not be used with another [`World`] instance.
     ///
-    /// Returns [`None`] if the `Resource` type has not yet been initialized within
-    /// the `World` using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within
+    /// the [`World`] using [`World::register_resource`], [`World::init_resource`] or
+    /// [`World::insert_resource`].
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.components.get_resource_id(TypeId::of::<T>())
     }
