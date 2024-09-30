@@ -450,7 +450,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`with_processor`]: Self::with_processor
-pub struct TypedReflectDeserializer<'a, P> {
+pub struct TypedReflectDeserializer<'a, P = ()> {
     registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
     processor: Option<&'a mut P>,
