@@ -1,5 +1,7 @@
 //! This module contains the systems that update the stored UI nodes stack
 
+use std::cmp::Reverse;
+
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 
@@ -20,8 +22,7 @@ pub struct UiStack {
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut traversal_stack: Local<Vec<Entity>>,
-    mut z_children: Local<Vec<(Entity, i32)>>,
+    mut traversal_stack: Local<Vec<(Entity, i32)>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
         (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
@@ -59,26 +60,21 @@ pub fn ui_stack_system(
         ));
     }
 
-    root_nodes.sort_by_key(|(_, z)| *z);
-    traversal_stack.extend(root_nodes.into_iter().map(|root| root.0));
+    root_nodes.sort_by_key(|(_, z)| Reverse(*z));
+    traversal_stack.extend(root_nodes.into_iter().map(|root| (root.0, 0)));
 
-    while let Some(entity) = traversal_stack.pop() {
+    while let Some((entity, _)) = traversal_stack.pop() {
         ui_stack.uinodes.push(entity);
 
         if let Ok(children) = children_query.get(entity) {
-            z_children.extend(children.iter().filter_map(|entity| {
+            let start = traversal_stack.len();
+            traversal_stack.extend(children.iter().filter_map(|entity| {
                 zindex_query
                     .get(*entity)
                     .ok()
                     .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
             }));
-            radsort::sort_by_key(&mut z_children, |k| k.1);
-            z_children.sort_by_key(|k| std::cmp::Reverse(k.1));
-
-            // reverse order because we're walking the tree depth first
-            for (child_id, _) in z_children.drain(..) {
-                traversal_stack.push(child_id);
-            }
+            (&mut traversal_stack[start..]).sort_by_key(|k| Reverse(k.1));
         }
     }
 
