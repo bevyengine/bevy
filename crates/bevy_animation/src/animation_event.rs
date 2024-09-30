@@ -53,15 +53,18 @@ impl Clone for AnimationEventData {
     }
 }
 
+// We have to implement `GetTypeRegistration` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl GetTypeRegistration for AnimationEventData {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
 
+// We have to implement `Typed` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl Typed for AnimationEventData {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -71,6 +74,8 @@ impl Typed for AnimationEventData {
     }
 }
 
+// We have to implement `TupleStruct` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl TupleStruct for AnimationEventData {
     fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
         match index {
@@ -99,6 +104,8 @@ impl TupleStruct for AnimationEventData {
     }
 }
 
+// We have to implement `PartialReflect` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl PartialReflect for AnimationEventData {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -167,6 +174,8 @@ impl PartialReflect for AnimationEventData {
     }
 }
 
+// We have to implement `Reflect` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl Reflect for AnimationEventData {
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
@@ -205,6 +214,8 @@ impl Reflect for AnimationEventData {
     }
 }
 
+// We have to implement `FromReflect` manually because of the embedded
+// `Box<dyn AnimationEvent>`, which can't be automatically derived yet.
 impl FromReflect for AnimationEventData {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         Some(reflect.try_downcast_ref::<AnimationEventData>()?.clone())
