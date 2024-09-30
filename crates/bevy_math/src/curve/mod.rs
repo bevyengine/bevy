@@ -6,19 +6,20 @@ pub mod adaptors;
 pub mod cores;
 pub mod interval;
 pub mod iterable;
+pub mod sample_curves;
 
+// bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
 pub use interval::{interval, Interval};
-use itertools::Itertools;
+pub use sample_curves::*;
 
-use crate::StableInterpolate;
+use cores::{EvenCore, UnevenCore};
+
+use crate::{StableInterpolate, VectorSpace};
 use core::{marker::PhantomData, ops::Deref};
-use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
+use itertools::Itertools;
 use thiserror::Error;
-
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -139,7 +140,7 @@ pub trait Curve<T> {
     /// # use bevy_math::vec2;
     /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
-    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - t);
+    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - (t - domain.start()));
     ///
     /// // Take a segment of a curve:
     /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
@@ -246,10 +247,14 @@ pub trait Curve<T> {
         })
     }
 
-    /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another curve
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
     /// with outputs of the same type. The domain of the other curve is translated so that its start
-    /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
-    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
+    /// coincides with where this curve ends.
+    ///
+    /// # Errors
+    ///
+    /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
+    /// `other`'s domain doesn't have a finite start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
@@ -264,6 +269,149 @@ pub trait Curve<T> {
         Ok(ChainCurve {
             first: self,
             second: other,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// Create a new [`Curve`] inverting this curve on the x-axis, producing another curve with
+    /// outputs of the same type, effectively playing backwards starting at `self.domain().end()`
+    /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
+    /// same.
+    ///
+    /// # Error
+    ///
+    /// A [`ReverseError`] is returned if this curve's domain isn't bounded.
+    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .is_bounded()
+            .then(|| ReverseCurve {
+                curve: self,
+                _phantom: PhantomData,
+            })
+            .ok_or(ReverseError::SourceDomainEndInfinite)
+    }
+
+    /// Create a new [`Curve`] repeating this curve `N` times, producing another curve with outputs
+    /// of the same type. The domain of the new curve will be bigger by a factor of `n + 1`.
+    ///
+    /// # Notes
+    ///
+    /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
+    ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
+    /// - for `count == 0` the output of this adaptor is basically identical to the previous curve
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+    ///   value at `domain.end()` in the original curve
+    ///
+    /// # Error
+    ///
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
+    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .is_bounded()
+            .then(|| {
+                // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
+                // length of `curve` cannot be NAN. It's still fine if it's infinity.
+                let domain = Interval::new(
+                    self.domain().start(),
+                    self.domain().end() + self.domain().length() * count as f32,
+                )
+                .unwrap();
+                RepeatCurve {
+                    domain,
+                    curve: self,
+                    _phantom: PhantomData,
+                }
+            })
+            .ok_or(RepeatError::SourceDomainUnbounded)
+    }
+
+    /// Create a new [`Curve`] repeating this curve forever, producing another curve with
+    /// outputs of the same type. The domain of the new curve will be unbounded.
+    ///
+    /// # Notes
+    ///
+    /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
+    ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+    ///   value at `domain.end()` in the original curve
+    ///
+    /// # Error
+    ///
+    /// A [`RepeatError`] is returned if this curve's domain isn't bounded.
+    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .is_bounded()
+            .then(|| ForeverCurve {
+                curve: self,
+                _phantom: PhantomData,
+            })
+            .ok_or(RepeatError::SourceDomainUnbounded)
+    }
+
+    /// Create a new [`Curve`] chaining the original curve with its inverse, producing
+    /// another curve with outputs of the same type. The domain of the new curve will be twice as
+    /// long. The transition point is guaranteed to not make any jumps.
+    ///
+    /// # Error
+    ///
+    /// A [`PingPongError`] is returned if this curve's domain isn't right-finite.
+    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .has_finite_end()
+            .then(|| PingPongCurve {
+                curve: self,
+                _phantom: PhantomData,
+            })
+            .ok_or(PingPongError::SourceDomainEndInfinite)
+    }
+
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another
+    /// curve with outputs of the same type. The domain of the other curve is translated so that
+    /// its start coincides with where this curve ends.
+    ///
+    ///
+    /// Additionally the transition of the samples is guaranteed to make no sudden jumps. This is
+    /// useful if you really just know about the shapes of your curves and don't want to deal with
+    /// stitching them together properly when it would just introduce useless complexity. It is
+    /// realized by translating the other curve so that its start sample point coincides with the
+    /// current curves' end sample point.
+    ///
+    /// # Error
+    ///
+    /// A [`ChainError`] is returned if this curve's domain doesn't have a finite end or if
+    /// `other`'s domain doesn't have a finite start.
+    fn chain_continue<C>(self, other: C) -> Result<ContinuationCurve<T, Self, C>, ChainError>
+    where
+        Self: Sized,
+        T: VectorSpace,
+        C: Curve<T>,
+    {
+        if !self.domain().has_finite_end() {
+            return Err(ChainError::FirstEndInfinite);
+        }
+        if !other.domain().has_finite_start() {
+            return Err(ChainError::SecondStartInfinite);
+        }
+
+        let offset = self.sample_unchecked(self.domain().end())
+            - other.sample_unchecked(self.domain().start());
+
+        Ok(ContinuationCurve {
+            first: self,
+            second: other,
+            offset,
             _phantom: PhantomData,
         })
     }
@@ -486,6 +634,36 @@ pub enum LinearReparamError {
     TargetIntervalUnbounded,
 }
 
+/// An error indicating that a reversion of a curve couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not reverse this curve")]
+pub enum ReverseError {
+    /// The source curve that was to be reversed had unbounded domain end.
+    #[error("This curve has an unbounded domain end")]
+    SourceDomainEndInfinite,
+}
+
+/// An error indicating that a repetition of a curve couldn't be performed because of malformed
+/// inputs.
+#[derive(Debug, Error)]
+#[error("Could not repeat this curve")]
+pub enum RepeatError {
+    /// The source curve that was to be repeated had unbounded domain.
+    #[error("This curve has an unbounded domain")]
+    SourceDomainUnbounded,
+}
+
+/// An error indicating that a ping ponging of a curve couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not ping pong this curve")]
+pub enum PingPongError {
+    /// The source curve that was to be ping ponged had unbounded domain end.
+    #[error("This curve has an unbounded domain end")]
+    SourceDomainEndInfinite,
+}
+
 /// An error indicating that an end-to-end composition couldn't be performed because of
 /// malformed inputs.
 #[derive(Debug, Error)]
@@ -512,199 +690,6 @@ pub enum ResamplingError {
     /// This resampling operation failed because of an unbounded interval.
     #[error("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
-}
-
-/// A curve that is defined by explicit neighbor interpolation over a set of samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct SampleCurve<T, I> {
-    core: EvenCore<T>,
-    interpolation: I,
-}
-
-impl<T, I> Curve<T> for SampleCurve<T, I>
-where
-    T: Clone,
-    I: Fn(&T, &T, f32) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core.sample_with(t, &self.interpolation)
-    }
-}
-
-impl<T, I> SampleCurve<T, I> {
-    /// Create a new [`SampleCurve`] using the specified `interpolation` to interpolate between
-    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
-    /// given `domain` is unbounded.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(
-        domain: Interval,
-        samples: impl IntoIterator<Item = T>,
-        interpolation: I,
-    ) -> Result<Self, EvenCoreError>
-    where
-        I: Fn(&T, &T, f32) -> T,
-    {
-        Ok(Self {
-            core: EvenCore::new(domain, samples)?,
-            interpolation,
-        })
-    }
-}
-
-/// A curve that is defined by neighbor interpolation over a set of samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct SampleAutoCurve<T> {
-    core: EvenCore<T>,
-}
-
-impl<T> Curve<T> for SampleAutoCurve<T>
-where
-    T: StableInterpolate,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
-    }
-}
-
-impl<T> SampleAutoCurve<T> {
-    /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
-    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
-    /// given `domain` is unbounded.
-    pub fn new(
-        domain: Interval,
-        samples: impl IntoIterator<Item = T>,
-    ) -> Result<Self, EvenCoreError> {
-        Ok(Self {
-            core: EvenCore::new(domain, samples)?,
-        })
-    }
-}
-
-/// A curve that is defined by interpolation over unevenly spaced samples with explicit
-/// interpolation.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct UnevenSampleCurve<T, I> {
-    core: UnevenCore<T>,
-    interpolation: I,
-}
-
-impl<T, I> Curve<T> for UnevenSampleCurve<T, I>
-where
-    T: Clone,
-    I: Fn(&T, &T, f32) -> T,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core.sample_with(t, &self.interpolation)
-    }
-}
-
-impl<T, I> UnevenSampleCurve<T, I> {
-    /// Create a new [`UnevenSampleCurve`] using the provided `interpolation` to interpolate
-    /// between adjacent `timed_samples`. The given samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(
-        timed_samples: impl IntoIterator<Item = (f32, T)>,
-        interpolation: I,
-    ) -> Result<Self, UnevenCoreError> {
-        Ok(Self {
-            core: UnevenCore::new(timed_samples)?,
-            interpolation,
-        })
-    }
-
-    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
-    /// but the function inputs to each are inverses of one another.
-    ///
-    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
-    /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
-        Self {
-            core: self.core.map_sample_times(f),
-            interpolation: self.interpolation,
-        }
-    }
-}
-
-/// A curve that is defined by interpolation over unevenly spaced samples.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct UnevenSampleAutoCurve<T> {
-    core: UnevenCore<T>,
-}
-
-impl<T> Curve<T> for UnevenSampleAutoCurve<T>
-where
-    T: StableInterpolate,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.core.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.core
-            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
-    }
-}
-
-impl<T> UnevenSampleAutoCurve<T> {
-    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples, interpolated
-    /// using the  The samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
-    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
-        Ok(Self {
-            core: UnevenCore::new(timed_samples)?,
-        })
-    }
-
-    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
-    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
-    /// but the function inputs to each are inverses of one another.
-    ///
-    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
-    /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
-        Self {
-            core: self.core.map_sample_times(f),
-        }
-    }
 }
 
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
@@ -779,6 +764,91 @@ mod tests {
         assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
         assert_eq!(mapped_curve.domain(), Interval::UNIT);
+    }
+
+    #[test]
+    fn reverse() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let rev_curve = curve.reverse().unwrap();
+        assert_eq!(rev_curve.sample(-0.1), None);
+        assert_eq!(rev_curve.sample(0.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.1), None);
+
+        let curve = function_curve(Interval::new(-2.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let rev_curve = curve.reverse().unwrap();
+        assert_eq!(rev_curve.sample(-2.1), None);
+        assert_eq!(rev_curve.sample(-2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(-0.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.1), None);
+    }
+
+    #[test]
+    fn repeat() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let repeat_curve = curve.by_ref().repeat(1).unwrap();
+        assert_eq!(repeat_curve.sample(-0.1), None);
+        assert_eq!(repeat_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(0.99), Some(0.99 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.01), Some(0.01 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.99), Some(0.99 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(2.01), None);
+
+        let repeat_curve = curve.by_ref().repeat(3).unwrap();
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(5.0), None);
+
+        let repeat_curve = curve.by_ref().forever().unwrap();
+        assert_eq!(repeat_curve.sample(-1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(5.0), Some(1.0 * 3.0 + 1.0));
+    }
+
+    #[test]
+    fn ping_pong() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let ping_pong_curve = curve.ping_pong().unwrap();
+        assert_eq!(ping_pong_curve.sample(-0.1), None);
+        assert_eq!(ping_pong_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(1.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.1), None);
+
+        let curve = function_curve(Interval::new(-2.0, 2.0).unwrap(), |t| t * 3.0 + 1.0);
+        let ping_pong_curve = curve.ping_pong().unwrap();
+        assert_eq!(ping_pong_curve.sample(-2.1), None);
+        assert_eq!(ping_pong_curve.sample(-2.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(-0.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.0), Some(2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(4.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(6.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(6.1), None);
+    }
+
+    #[test]
+    fn continue_chain() {
+        let first = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let second = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
+        let c0_chain_curve = first.chain_continue(second).unwrap();
+        assert_eq!(c0_chain_curve.sample(-0.1), None);
+        assert_eq!(c0_chain_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(1.5), Some(1.0 * 3.0 + 1.0 + 0.25));
+        assert_eq!(c0_chain_curve.sample(2.0), Some(1.0 * 3.0 + 1.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(2.1), None);
     }
 
     #[test]
