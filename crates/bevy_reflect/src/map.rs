@@ -3,6 +3,7 @@ use core::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, ApplyError, MaybeTyped, PartialReflect,
     Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
@@ -317,21 +318,6 @@ impl PartialReflect for DynamicMap {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -389,6 +375,7 @@ impl PartialReflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+impl_cast_partial_reflect!(for DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

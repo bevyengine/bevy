@@ -1,3 +1,4 @@
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
@@ -167,18 +168,6 @@ impl PartialReflect for DynamicFunction<'static> {
         None
     }
 
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -249,6 +238,7 @@ impl MaybeTyped for DynamicFunction<'static> {}
 impl RegisterForReflection for DynamicFunction<'static> {}
 
 impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
+impl_cast_partial_reflect!(for DynamicFunction<'static>);
 
 /// Outputs the function's signature.
 ///

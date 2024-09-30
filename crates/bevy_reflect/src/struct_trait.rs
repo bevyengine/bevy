@@ -1,3 +1,4 @@
+use crate::cast::impl_cast_partial_reflect;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
@@ -382,21 +383,6 @@ impl PartialReflect for DynamicStruct {
         self.represented_type
     }
 
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
@@ -462,6 +448,7 @@ impl PartialReflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+impl_cast_partial_reflect!(for DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {

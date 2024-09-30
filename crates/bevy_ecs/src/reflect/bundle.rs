@@ -44,7 +44,7 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + FromReflect + TypePath>() -> Self {
+    pub fn new<T: Bundle + FromReflect + Reflect + TypePath>() -> Self {
         <ReflectBundle as FromType<T>>::from_type().0
     }
 }

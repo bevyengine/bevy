@@ -479,7 +479,7 @@ impl Debug for TypeRegistration {
 
 impl TypeRegistration {
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed + TypePath>() -> Self {
+    pub fn of<T: Typed + TypePath>() -> Self {
         Self {
             data: Default::default(),
             type_info: T::type_info(),
