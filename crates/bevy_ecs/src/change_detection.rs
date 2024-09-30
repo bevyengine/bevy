@@ -543,11 +543,10 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 ///
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<Res<T>>` instead if the resource might not always exist.
+/// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
@@ -622,11 +621,10 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// If you need a shared borrow, use [`Res`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<ResMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -684,11 +682,10 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-///
-/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,

@@ -1,5 +1,6 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
+use thiserror::Error;
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -103,6 +104,10 @@ pub trait System: Send + Sync + 'static {
     /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
+    ///
+    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
     ///
     /// # Safety
     ///
@@ -265,7 +270,7 @@ where
 /// let mut world = World::default();
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
-/// });
+/// }).unwrap();
 /// # assert!(world.get_entity(entity).is_some());
 /// ```
 ///
@@ -285,7 +290,7 @@ where
 /// world.spawn(T(1));
 /// let count = world.run_system_once(|query: Query<&T>| {
 ///     query.iter().filter(|t| t.0 == 1).count()
-/// });
+/// }).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
@@ -307,25 +312,25 @@ where
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system_once(count);
+/// let count = world.run_system_once(count).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
 pub trait RunSystemOnce: Sized {
-    /// Runs a system and applies its deferred parameters.
-    fn run_system_once<T, Out, Marker>(self, system: T) -> Out
+    /// Tries to run a system and apply its deferred parameters.
+    fn run_system_once<T, Out, Marker>(self, system: T) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<(), Out, Marker>,
     {
         self.run_system_once_with((), system)
     }
 
-    /// Runs a system with given input and applies its deferred parameters.
+    /// Tries to run a system with given input and apply deferred parameters.
     fn run_system_once_with<T, In, Out, Marker>(
         self,
         input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out
+    ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
         In: SystemInput;
@@ -336,14 +341,36 @@ impl RunSystemOnce for &mut World {
         self,
         input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out
+    ) -> Result<Out, RunSystemError>
     where
         T: IntoSystem<In, Out, Marker>,
         In: SystemInput,
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system.run(input, self)
+        if system.validate_param(self) {
+            Ok(system.run(input, self))
+        } else {
+            Err(RunSystemError::InvalidParams(system.name()))
+        }
+    }
+}
+
+/// Running system failed.
+#[derive(Error)]
+pub enum RunSystemError {
+    /// System could not be run due to parameters that failed validation.
+    ///
+    /// This can occur because the data required by the system was not present in the world.
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    InvalidParams(Cow<'static, str>),
+}
+
+impl Debug for RunSystemError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+        }
     }
 }
 
@@ -365,7 +392,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with(1, system);
+        let n = world.run_system_once_with(1, system).unwrap();
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
@@ -383,9 +410,9 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -398,7 +425,7 @@ mod tests {
     fn command_processing() {
         let mut world = World::new();
         assert_eq!(world.entities.len(), 0);
-        world.run_system_once(spawn_entity);
+        world.run_system_once(spawn_entity).unwrap();
         assert_eq!(world.entities.len(), 1);
     }
 
@@ -411,7 +438,20 @@ mod tests {
         let mut world = World::new();
         world.insert_non_send_resource(Counter(10));
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system_once(non_send_count_down);
+        world.run_system_once(non_send_count_down).unwrap();
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+    }
+
+    #[test]
+    fn run_system_once_invalid_params() {
+        struct T;
+        impl Resource for T {}
+        fn system(_: Res<T>) {}
+
+        let mut world = World::default();
+        // This fails because `T` has not been added to the world yet.
+        let result = world.run_system_once(system);
+
+        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }
 }
