@@ -289,10 +289,10 @@ where
 
 /// An error indicating that a multisampling keyframe curve could not be constructed.
 #[derive(Debug, Error)]
-#[error("Unable to construct a curve using this data")]
+#[error("unable to construct a curve using this data")]
 pub enum WideKeyframeCurveError {
     /// The number of given values was not divisible by a multiple of the number of keyframes.
-    #[error("The number of values ({values_given}) was expected to be divisible by {divisor}")]
+    #[error("number of values ({values_given}) is not divisible by {divisor}")]
     LengthMismatch {
         /// The number of values given.
         values_given: usize,
@@ -305,7 +305,9 @@ pub enum WideKeyframeCurveError {
 }
 
 impl<T> WideCubicKeyframeCurve<T> {
-    /// Create a new [`WideCubicKeyframeCurve`]. An error will be returned if:
+    /// Create a new [`WideCubicKeyframeCurve`].
+    ///
+    /// An error will be returned if:
     /// - `values` has length zero.
     /// - `times` has less than `2` unique valid entries.
     /// - The length of `values` is not divisible by three times that of `times` (once sorted,
