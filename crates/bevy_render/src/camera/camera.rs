@@ -106,6 +106,7 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
+    old_sub_camera_view: Option<SubCameraView>,
 }
 
 /// How much energy a `Camera3d` absorbs from incoming light.
@@ -866,6 +867,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
+                || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
                     &windows,
@@ -923,6 +925,10 @@ pub fn camera_system<T: CameraProjection + Component>(
 
         if camera.computed.old_viewport_size != viewport_size {
             camera.computed.old_viewport_size = viewport_size;
+        }
+
+        if camera.computed.old_sub_camera_view != camera.sub_camera_view {
+            camera.computed.old_sub_camera_view = camera.sub_camera_view;
         }
     }
 }
