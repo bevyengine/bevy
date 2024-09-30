@@ -456,7 +456,7 @@ where
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ProductCurve<S, T, C, D> {
+pub struct ZipCurve<S, T, C, D> {
     pub(crate) domain: Interval,
     pub(crate) first: C,
     pub(crate) second: D,
@@ -464,7 +464,7 @@ pub struct ProductCurve<S, T, C, D> {
     pub(crate) _phantom: PhantomData<(S, T)>,
 }
 
-impl<S, T, C, D> Curve<(S, T)> for ProductCurve<S, T, C, D>
+impl<S, T, C, D> Curve<(S, T)> for ZipCurve<S, T, C, D>
 where
     C: Curve<S>,
     D: Curve<T>,

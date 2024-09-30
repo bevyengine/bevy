@@ -232,13 +232,13 @@ pub trait Curve<T> {
     /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
     /// intersection of the domains of its constituents. If the domain intersection would be empty,
     /// an error is returned.
-    fn zip<S, C>(self, other: C) -> Result<ProductCurve<T, S, Self, C>, InvalidIntervalError>
+    fn zip<S, C>(self, other: C) -> Result<ZipCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
         C: Curve<S> + Sized,
     {
         let domain = self.domain().intersect(other.domain())?;
-        Ok(ProductCurve {
+        Ok(ZipCurve {
             domain,
             first: self,
             second: other,
