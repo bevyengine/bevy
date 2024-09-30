@@ -13,7 +13,7 @@ use serde::{Serialize, Serializer};
 /// want to handle parts of the serialization process, but temporarily pass control
 /// to the standard reflection serializer for other parts.
 ///
-/// For the deserializtion equivalent of this trait, see [`DeserializeWithRegistry`].
+/// For the deserialization equivalent of this trait, see [`DeserializeWithRegistry`].
 ///
 /// # Rationale
 ///
