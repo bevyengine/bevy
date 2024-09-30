@@ -25,6 +25,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -77,6 +78,7 @@ use world_sync::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, WorldSyncPlugin,
 };
 
+use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
@@ -368,6 +370,7 @@ impl Plugin for RenderPlugin {
             BatchingPlugin,
             WorldSyncPlugin,
             StoragePlugin,
+            GpuReadbackPlugin::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
