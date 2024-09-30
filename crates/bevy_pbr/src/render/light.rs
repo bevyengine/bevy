@@ -1,9 +1,11 @@
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
-use bevy_ecs::entity::EntityHashSet;
-use bevy_ecs::prelude::*;
-use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
+use bevy_ecs::{
+    entity::{EntityHashMap, EntityHashSet},
+    prelude::*,
+    system::lifetimeless::Read,
+};
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -19,11 +21,13 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::prelude::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::tracing::{error, warn};
-use std::{hash::Hash, ops::Range};
+use bevy_utils::{
+    default,
+    tracing::{error, warn},
+};
+use core::{hash::Hash, ops::Range};
 
 use crate::*;
 
@@ -41,6 +45,7 @@ pub struct ExtractedPointLight {
     pub shadow_normal_bias: f32,
     pub shadow_map_near_z: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    pub volumetric: bool,
 }
 
 #[derive(Component, Debug)]
@@ -65,6 +70,7 @@ bitflags::bitflags! {
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = 1 << 0;
         const SPOT_LIGHT_Y_NEGATIVE      = 1 << 1;
+        const VOLUMETRIC                 = 1 << 2;
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -118,7 +124,7 @@ pub struct GpuLights {
     spot_light_shadowmap_offset: i32,
 }
 
-//NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
+// NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
 // when loading the wgsl "pbr_functions.wgsl" in the function apply_fog.
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
@@ -191,6 +197,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &CubemapFrusta,
+            Option<&VolumetricLight>,
         )>,
     >,
     spot_lights: Extract<
@@ -200,6 +207,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
+            Option<&VolumetricLight>,
         )>,
     >,
     directional_lights: Extract<
@@ -241,8 +249,14 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        let Ok((point_light, cubemap_visible_entities, transform, view_visibility, frusta)) =
-            point_lights.get(entity)
+        let Ok((
+            point_light,
+            cubemap_visible_entities,
+            transform,
+            view_visibility,
+            frusta,
+            volumetric_light,
+        )) = point_lights.get(entity)
         else {
             continue;
         };
@@ -257,7 +271,7 @@ pub fn extract_lights(
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
             // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
             // for details.
-            intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+            intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
             range: point_light.range,
             radius: point_light.radius,
             transform: *transform,
@@ -267,9 +281,10 @@ pub fn extract_lights(
             // The factor of SQRT_2 is for the worst-case diagonal offset
             shadow_normal_bias: point_light.shadow_normal_bias
                 * point_light_texel_size
-                * std::f32::consts::SQRT_2,
+                * core::f32::consts::SQRT_2,
             shadow_map_near_z: point_light.shadow_map_near_z,
             spot_light_angles: None,
+            volumetric: volumetric_light.is_some(),
         };
         point_lights_values.push((
             entity,
@@ -285,8 +300,14 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, view_visibility, frustum)) =
-            spot_lights.get(entity)
+        if let Ok((
+            spot_light,
+            visible_entities,
+            transform,
+            view_visibility,
+            frustum,
+            volumetric_light,
+        )) = spot_lights.get(entity)
         {
             if !view_visibility.get() {
                 continue;
@@ -308,7 +329,7 @@ pub fn extract_lights(
                         // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
                         // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
                         // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
                         range: spot_light.range,
                         radius: spot_light.radius,
                         transform: *transform,
@@ -318,9 +339,10 @@ pub fn extract_lights(
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
                             * texel_size
-                            * std::f32::consts::SQRT_2,
+                            * core::f32::consts::SQRT_2,
                         shadow_map_near_z: spot_light.shadow_map_near_z,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                        volumetric: volumetric_light.is_some(),
                     },
                     render_visible_entities,
                     *frustum,
@@ -360,7 +382,8 @@ pub fn extract_lights(
                 shadows_enabled: directional_light.shadows_enabled,
                 shadow_depth_bias: directional_light.shadow_depth_bias,
                 // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
+                shadow_normal_bias: directional_light.shadow_normal_bias
+                    * core::f32::consts::SQRT_2,
                 cascade_shadow_config: cascade_config.clone(),
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
@@ -616,6 +639,12 @@ pub fn prepare_lights(
         .filter(|light| light.1.spot_light_angles.is_none())
         .count();
 
+    let point_light_volumetric_enabled_count = point_lights
+        .iter()
+        .filter(|(_, light, _)| light.volumetric && light.spot_light_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
+
     let point_light_shadow_maps_count = point_lights
         .iter()
         .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
@@ -636,6 +665,12 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
+    let spot_light_volumetric_enabled_count = point_lights
+        .iter()
+        .filter(|(_, light, _)| light.volumetric && light.spot_light_angles.is_some())
+        .count()
+        .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
+
     let spot_light_shadow_maps_count = point_lights
         .iter()
         .filter(|(_, light, _)| light.shadows_enabled && light.spot_light_angles.is_some())
@@ -649,16 +684,18 @@ pub fn prepare_lights(
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
         clusterable_object_order(
-            (
-                entity_1,
-                &light_1.shadows_enabled,
-                &light_1.spot_light_angles.is_some(),
-            ),
-            (
-                entity_2,
-                &light_2.shadows_enabled,
-                &light_2.spot_light_angles.is_some(),
-            ),
+            ClusterableObjectOrderData {
+                entity: entity_1,
+                shadows_enabled: &light_1.shadows_enabled,
+                is_volumetric_light: &light_1.volumetric,
+                is_spot_light: &light_1.spot_light_angles.is_some(),
+            },
+            ClusterableObjectOrderData {
+                entity: entity_2,
+                shadows_enabled: &light_2.shadows_enabled,
+                is_volumetric_light: &light_2.volumetric,
+                is_spot_light: &light_2.spot_light_angles.is_some(),
+            },
         )
     });
 
@@ -697,10 +734,18 @@ pub fn prepare_lights(
         }
 
         let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-            std::f32::consts::FRAC_PI_2,
+            core::f32::consts::FRAC_PI_2,
             1.0,
             light.shadow_map_near_z,
         );
+        if light.shadows_enabled
+            && light.volumetric
+            && (index < point_light_volumetric_enabled_count
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_count < spot_light_volumetric_enabled_count))
+        {
+            flags |= PointLightFlags::VOLUMETRIC;
+        }
 
         let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
             Some((inner, outer)) => {
@@ -905,7 +950,7 @@ pub fn prepare_lights(
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
-                std::f32::consts::FRAC_PI_2,
+                core::f32::consts::FRAC_PI_2,
                 1.0,
                 light.shadow_map_near_z,
             );

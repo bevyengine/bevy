@@ -2,9 +2,11 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        render_resource::{AsBindGroup, ShaderRef},
+        storage::ShaderStorageBuffer,
+    },
 };
-use bevy_render::storage::ShaderStorageBuffer;
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
 

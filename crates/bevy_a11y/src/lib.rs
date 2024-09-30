@@ -7,10 +7,10 @@
 
 //! Accessibility for Bevy
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+extern crate alloc;
+
+use alloc::sync::Arc;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 pub use accesskit;
 use accesskit::NodeBuilder;
@@ -21,8 +21,7 @@ use bevy_ecs::{
     schedule::SystemSet,
     system::Resource,
 };
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]

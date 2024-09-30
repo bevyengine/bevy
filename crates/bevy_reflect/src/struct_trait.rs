@@ -1,14 +1,17 @@
-use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect,
+    attributes::{impl_custom_attribute_methods, CustomAttributes},
+    type_info::impl_type_methods,
+    ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
-use std::{borrow::Cow, slice::Iter};
+use core::{
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// A trait used to power [struct-like] operations via [reflection].
 ///
@@ -90,7 +93,6 @@ impl StructInfo {
     /// # Arguments
     ///
     /// * `fields`: The fields of this struct in the order they are defined
-    ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
@@ -406,19 +408,15 @@ impl PartialReflect for DynamicStruct {
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
-            for (i, value) in struct_value.iter_fields().enumerate() {
-                let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.try_apply(value)?;
-                }
+        let struct_value = value.reflect_ref().as_struct()?;
+
+        for (i, value) in struct_value.iter_fields().enumerate() {
+            let name = struct_value.name_at(i).unwrap();
+            if let Some(v) = self.field_mut(name) {
+                v.try_apply(value)?;
             }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::Struct,
-            });
         }
+
         Ok(())
     }
 
@@ -451,7 +449,7 @@ impl PartialReflect for DynamicStruct {
         struct_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
         write!(f, ")")
@@ -466,7 +464,7 @@ impl PartialReflect for DynamicStruct {
 impl_type_path!((in bevy_reflect) DynamicStruct);
 
 impl Debug for DynamicStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -488,7 +486,7 @@ where
 
 impl IntoIterator for DynamicStruct {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -558,7 +556,7 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
 /// // }
 /// ```
 #[inline]
-pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_struct(
         dyn_struct
             .get_represented_type_info()

@@ -31,6 +31,8 @@
 
 #![allow(clippy::type_complexity)]
 
+extern crate alloc;
+
 mod bounds;
 mod error;
 mod font;
@@ -107,7 +109,9 @@ impl Plugin for TextPlugin {
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
             .add_systems(
                 PostUpdate,
                 (

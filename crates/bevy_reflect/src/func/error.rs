@@ -1,5 +1,4 @@
-use crate::func::args::ArgError;
-use crate::func::Return;
+use crate::func::{args::ArgError, Return};
 use alloc::borrow::Cow;
 use thiserror::Error;
 

@@ -2,20 +2,20 @@
 
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
-use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
-    serde::{ReflectDeserializer, TypeRegistrationDeserializer},
-    TypeRegistry,
+    serde::{
+        ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
+        TypedReflectSerializer,
+    },
+    PartialReflect, ReflectFromReflect, TypeRegistry,
 };
-use bevy_reflect::{PartialReflect, ReflectFromReflect};
 use bevy_utils::HashSet;
-use serde::ser::SerializeMap;
+use core::fmt::Formatter;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
-    ser::SerializeStruct,
+    ser::{SerializeMap, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use std::fmt::Formatter;
 
 /// Name of the serialized scene struct type.
 pub const SCENE_STRUCT: &str = "Scene";
@@ -237,7 +237,7 @@ struct SceneVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     type Value = DynamicScene;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("scene struct")
     }
 
@@ -326,7 +326,7 @@ struct SceneEntitiesVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of entities")
     }
 
@@ -381,7 +381,7 @@ struct SceneEntityVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = DynamicEntity;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("entities")
     }
 
@@ -456,7 +456,7 @@ struct SceneMapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map of reflect types")
     }
 
@@ -509,19 +509,21 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ron;
-    use crate::serde::{SceneDeserializer, SceneSerializer};
-    use crate::{DynamicScene, DynamicSceneBuilder};
-    use bevy_ecs::entity::EntityHashMap;
-    use bevy_ecs::entity::{Entity, EntityMapper, MapEntities};
-    use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
-    use bevy_ecs::query::{With, Without};
-    use bevy_ecs::reflect::{AppTypeRegistry, ReflectMapEntities};
-    use bevy_ecs::world::FromWorld;
+    use crate::{
+        ron,
+        serde::{SceneDeserializer, SceneSerializer},
+        DynamicScene, DynamicSceneBuilder,
+    };
+    use bevy_ecs::{
+        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
+        query::{With, Without},
+        reflect::{AppTypeRegistry, ReflectMapEntities},
+        world::FromWorld,
+    };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
     use bincode::Options;
-    use serde::de::DeserializeSeed;
-    use serde::{Deserialize, Serialize};
+    use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]

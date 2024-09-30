@@ -21,15 +21,18 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
+use alloc::sync::Arc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use core::{
+    mem::size_of,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::{
     io::SeekFrom,
     path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
 };
 use thiserror::Error;
 
@@ -190,32 +193,35 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<PathStream>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
     /// Returns true if the provided path points to a directory.
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<bool, AssetReaderError>>;
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`ErasedAssetReader::read_meta`] by default.
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Vec<u8>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>>;
 }
 
 impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
         Box::pin(async {
             let reader = Self::read(self, path).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
@@ -224,7 +230,7 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
         Box::pin(async {
             let reader = Self::read_meta(self, path).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
@@ -233,16 +239,19 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<PathStream>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
         Box::pin(Self::read_directory(self, path))
     }
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<bool, AssetReaderError>> {
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(Self::is_directory(self, path))
     }
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Vec<u8>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>> {
         Box::pin(Self::read_meta_bytes(self, path))
     }
 }
@@ -351,115 +360,127 @@ pub trait AssetWriter: Send + Sync + 'static {
 /// as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>>;
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     /// Writes the full asset meta bytes at the provided path.
     /// This _should not_ include storage specific extensions like `.meta`.
     fn write_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     /// Removes the asset stored at the given path.
-    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the asset meta stored at the given path.
     /// This _should not_ include storage specific extensions like `.meta`.
-    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Renames the asset at `old_path` to `new_path`
     fn rename<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Renames the asset meta for the asset at `old_path` to `new_path`.
     /// This _should not_ include storage specific extensions like `.meta`.
     fn rename_meta<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
     /// directory is not empty.
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes all assets (and directories) in this directory, resulting in an empty directory.
     fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Writes the asset `bytes` to the given `path`.
     fn write_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Writes the asset meta `bytes` to the given `path`.
     fn write_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
 }
 
 impl<T: AssetWriter> ErasedAssetWriter for T {
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>> {
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
         Box::pin(Self::write(self, path))
     }
     fn write_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
         Box::pin(Self::write_meta(self, path))
     }
-    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove(self, path))
     }
-    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_meta(self, path))
     }
     fn rename<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename(self, old_path, new_path))
     }
     fn rename_meta<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
     }
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_directory(self, path))
     }
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_empty_directory(self, path))
     }
     fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_assets_in_directory(self, path))
     }
     fn write_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::write_bytes(self, path, bytes))
     }
     fn write_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::write_meta_bytes(self, path, bytes))
     }
 }
@@ -695,7 +716,7 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }

@@ -1,22 +1,23 @@
 //! This module contains basic node bundles used to build UIs
 
-#[cfg(feature = "bevy_text")]
-use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
+    ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
-#[cfg(feature = "bevy_text")]
-use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
-#[cfg(feature = "bevy_text")]
-use bevy_text::{
-    BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
-};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+
+#[cfg(feature = "bevy_text")]
+use {
+    crate::widget::TextFlags,
+    bevy_color::Color,
+    bevy_text::{
+        BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
+    },
+};
 
 /// The basic UI node.
 ///
@@ -38,6 +39,8 @@ pub struct NodeBundle {
     pub border_radius: BorderRadius,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The scroll position of the node,
+    pub scroll_position: ScrollPosition,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.

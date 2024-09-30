@@ -41,9 +41,9 @@ smallvec = "1.11"
 radsort = "0.1"
 
 [features]
+default = ["bevy_ui_picking_backend"]
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
-bevy_picking = ["dep:bevy_picking"]
-
+bevy_ui_picking_backend = ["bevy_picking"]
 
 [lints]
 workspace = true

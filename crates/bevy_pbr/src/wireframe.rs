@@ -60,11 +60,11 @@ impl Plugin for WireframePlugin {
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
+///
 /// If this component is present but there's no [`Wireframe`] component,
 /// it will still affect the color of the wireframe when [`WireframeConfig::global`] is set to true.
 ///
 /// This overrides the [`WireframeConfig::default_color`].
-//
 // TODO: consider caching materials based on this color.
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.

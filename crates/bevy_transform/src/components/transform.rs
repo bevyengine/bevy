@@ -1,10 +1,11 @@
 use super::GlobalTransform;
-#[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use core::ops::Mul;
 #[cfg(feature = "bevy-support")]
-use bevy_reflect::prelude::*;
-use std::ops::Mul;
+use {
+    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_reflect::prelude::*,
+};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -12,7 +13,9 @@ use std::ops::Mul;
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
+///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
+///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
+///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -38,6 +41,7 @@ use std::ops::Mul;
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
+    require(GlobalTransform),
     reflect(Component, Default, PartialEq, Debug)
 )]
 #[cfg_attr(

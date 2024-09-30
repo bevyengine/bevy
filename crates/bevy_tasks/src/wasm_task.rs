@@ -1,4 +1,4 @@
-use std::{
+use core::{
     any::Any,
     future::{Future, IntoFuture},
     panic::{AssertUnwindSafe, UnwindSafe},
@@ -44,7 +44,7 @@ impl<T: 'static> Task<T> {
             Ok(Err(panic)) => {
                 // drop this to prevent the panic payload from resuming the panic on drop.
                 // this also leaks the box but I'm not sure how to avoid that
-                std::mem::forget(panic);
+                core::mem::forget(panic);
                 None
             }
         }
@@ -54,8 +54,8 @@ impl<T: 'static> Task<T> {
 impl<T> Future for Task<T> {
     type Output = T;
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         match Pin::new(&mut self.0).poll(cx) {
             Poll::Ready(Ok(Ok(value))) => Poll::Ready(value),
@@ -76,7 +76,7 @@ struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
+    fn poll(self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context) -> Poll<Self::Output> {
         std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx)))?.map(Ok)
     }
 }

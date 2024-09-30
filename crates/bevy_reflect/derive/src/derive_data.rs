@@ -1,24 +1,23 @@
 use core::fmt;
 use proc_macro2::Span;
 
-use crate::container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs};
-use crate::field_attributes::FieldAttributes;
-use crate::type_path::parse_path_no_leading_colon;
-use crate::utility::{StringExpr, WhereClauseOptions};
+use crate::{
+    container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
+    field_attributes::FieldAttributes,
+    remote::RemoteType,
+    result_sifter::ResultSifter,
+    serialization::SerializationDataDef,
+    string_expr::StringExpr,
+    type_path::parse_path_no_leading_colon,
+    where_clause_options::WhereClauseOptions,
+    REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
+};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
-use crate::remote::RemoteType;
-use crate::serialization::SerializationDataDef;
-use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
-    TYPE_PATH_ATTRIBUTE_NAME,
-};
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned;
 use syn::{
-    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, Variant,
+    parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
+    GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -26,7 +25,7 @@ pub(crate) enum ReflectDerive<'a> {
     TupleStruct(ReflectStruct<'a>),
     UnitStruct(ReflectStruct<'a>),
     Enum(ReflectEnum<'a>),
-    Value(ReflectMeta<'a>),
+    Opaque(ReflectMeta<'a>),
 }
 
 /// Metadata present on all reflected types, including name, generics, and attributes.
@@ -121,11 +120,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The fields within this variant.
     pub fields: EnumVariantFields<'a>,
     /// The reflection-based attributes on the variant.
-    #[allow(dead_code)]
     pub attrs: FieldAttributes,
-    /// The index of this variant within the enum.
-    #[allow(dead_code)]
-    pub index: usize,
     /// The documentation for this variant, if any
     #[cfg(feature = "documentation")]
     pub doc: crate::documentation::Documentation,
@@ -135,15 +130,6 @@ pub(crate) enum EnumVariantFields<'a> {
     Named(Vec<StructField<'a>>),
     Unnamed(Vec<StructField<'a>>),
     Unit,
-}
-
-/// The method in which the type should be reflected.
-#[derive(PartialEq, Eq)]
-enum ReflectMode {
-    /// Reflect the type normally, providing information about all fields/variants.
-    Normal,
-    /// Reflect the type as a value.
-    Value,
 }
 
 /// How the macro was invoked.
@@ -194,8 +180,6 @@ impl<'a> ReflectDerive<'a> {
         provenance: ReflectProvenance,
     ) -> Result<Self, syn::Error> {
         let mut container_attributes = ContainerAttributes::default();
-        // Should indicate whether `#[reflect_value]` was used.
-        let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
         let mut custom_path: Option<Path> = None;
         // Should indicate whether `#[type_name = "..."]` was used.
@@ -207,36 +191,7 @@ impl<'a> ReflectDerive<'a> {
         for attribute in &input.attrs {
             match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    if !matches!(reflect_mode, None | Some(ReflectMode::Normal)) {
-                        return Err(syn::Error::new(
-                            meta_list.span(),
-                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
-                        ));
-                    }
-
-                    reflect_mode = Some(ReflectMode::Normal);
                     container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
-                }
-                Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
-                        return Err(syn::Error::new(
-                            meta_list.span(),
-                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
-                        ));
-                    }
-
-                    reflect_mode = Some(ReflectMode::Value);
-                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
-                }
-                Meta::Path(path) if path.is_ident(REFLECT_VALUE_ATTRIBUTE_NAME) => {
-                    if !matches!(reflect_mode, None | Some(ReflectMode::Value)) {
-                        return Err(syn::Error::new(
-                            path.span(),
-                            format_args!("cannot use both `#[{REFLECT_ATTRIBUTE_NAME}]` and `#[{REFLECT_VALUE_ATTRIBUTE_NAME}]`"),
-                        ));
-                    }
-
-                    reflect_mode = Some(ReflectMode::Value);
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
                     let syn::Expr::Lit(syn::ExprLit {
@@ -317,11 +272,8 @@ impl<'a> ReflectDerive<'a> {
         #[cfg(feature = "documentation")]
         let meta = meta.with_docs(doc);
 
-        // Use normal reflection if unspecified
-        let reflect_mode = reflect_mode.unwrap_or(ReflectMode::Normal);
-
-        if reflect_mode == ReflectMode::Value {
-            return Ok(Self::Value(meta));
+        if meta.attrs().is_opaque() {
+            return Ok(Self::Opaque(meta));
         }
 
         return match &input.data {
@@ -356,7 +308,7 @@ impl<'a> ReflectDerive<'a> {
     ///
     /// # Panics
     ///
-    /// Panics when called on [`ReflectDerive::Value`].
+    /// Panics when called on [`ReflectDerive::Opaque`].
     pub fn set_remote(&mut self, remote_ty: Option<RemoteType<'a>>) {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
@@ -365,7 +317,7 @@ impl<'a> ReflectDerive<'a> {
             Self::Enum(data) => {
                 data.meta.remote_ty = remote_ty;
             }
-            Self::Value(meta) => {
+            Self::Opaque(meta) => {
                 meta.remote_ty = remote_ty;
             }
         }
@@ -378,7 +330,7 @@ impl<'a> ReflectDerive<'a> {
                 data.meta.remote_ty()
             }
             Self::Enum(data) => data.meta.remote_ty(),
-            Self::Value(meta) => meta.remote_ty(),
+            Self::Opaque(meta) => meta.remote_ty(),
         }
     }
 
@@ -387,7 +339,7 @@ impl<'a> ReflectDerive<'a> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
             Self::Enum(data) => data.meta(),
-            Self::Value(meta) => meta,
+            Self::Opaque(meta) => meta,
         }
     }
 
@@ -397,13 +349,13 @@ impl<'a> ReflectDerive<'a> {
                 data.where_clause_options()
             }
             Self::Enum(data) => data.where_clause_options(),
-            Self::Value(meta) => WhereClauseOptions::new(meta),
+            Self::Opaque(meta) => WhereClauseOptions::new(meta),
         }
     }
 
     fn collect_struct_fields(fields: &'a Fields) -> Result<Vec<StructField<'a>>, syn::Error> {
         let mut active_index = 0;
-        let sifter: utility::ResultSifter<StructField<'a>> = fields
+        let sifter: ResultSifter<StructField<'a>> = fields
             .iter()
             .enumerate()
             .map(
@@ -427,10 +379,7 @@ impl<'a> ReflectDerive<'a> {
                     })
                 },
             )
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -438,10 +387,9 @@ impl<'a> ReflectDerive<'a> {
     fn collect_enum_variants(
         variants: &'a Punctuated<Variant, Comma>,
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
-        let sifter: utility::ResultSifter<EnumVariant<'a>> = variants
+        let sifter: ResultSifter<EnumVariant<'a>> = variants
             .iter()
-            .enumerate()
-            .map(|(index, variant)| -> Result<EnumVariant, syn::Error> {
+            .map(|variant| -> Result<EnumVariant, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
 
                 let fields = match variant.fields {
@@ -453,15 +401,11 @@ impl<'a> ReflectDerive<'a> {
                     fields,
                     attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
-                    index,
                     #[cfg(feature = "documentation")]
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
-            .fold(
-                utility::ResultSifter::default(),
-                utility::ResultSifter::fold,
-            );
+            .fold(ResultSifter::default(), ResultSifter::fold);
 
         sifter.finish()
     }
@@ -473,7 +417,7 @@ impl<'a> ReflectMeta<'a> {
             attrs,
             type_path,
             remote_ty: None,
-            bevy_reflect_path: utility::get_bevy_reflect_path(),
+            bevy_reflect_path: crate::meta::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
         }
@@ -491,7 +435,10 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The `FromReflect` attributes on this type.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(
+        clippy::wrong_self_convention,
+        reason = "Method returns `FromReflectAttrs`, does not actually convert data."
+    )]
     pub fn from_reflect(&self) -> &FromReflectAttrs {
         self.attrs.from_reflect_attrs()
     }
@@ -530,7 +477,7 @@ impl<'a> ReflectMeta<'a> {
             self,
             where_clause_options,
             None,
-            Option::<std::iter::Empty<&Type>>::None,
+            Option::<core::iter::Empty<&Type>>::None,
         )
     }
 
@@ -562,7 +509,13 @@ impl<'a> StructField<'a> {
         let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
         };
@@ -674,7 +627,13 @@ impl<'a> ReflectStruct<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new::<Self>(&[
                 #(#field_infos),*
@@ -771,7 +730,13 @@ impl<'a> ReflectEnum<'a> {
             .custom_attributes()
             .to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::EnumInfo::new::<Self>(&[
                 #(#variants),*
@@ -802,7 +767,6 @@ impl<'a> EnumVariant<'a> {
     }
 
     /// The complete set of fields in this variant.
-    #[allow(dead_code)]
     pub fn fields(&self) -> &[StructField<'a>] {
         match &self.fields {
             EnumVariantFields::Named(fields) | EnumVariantFields::Unnamed(fields) => fields,
@@ -842,7 +806,13 @@ impl<'a> EnumVariant<'a> {
 
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[allow(unused_mut)] // Needs mutability for the feature gate
+        #[cfg_attr(
+            not(feature = "documentation"),
+            expect(
+                unused_mut,
+                reason = "Needs to be mutable if `documentation` feature is enabled.",
+            )
+        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
                 .with_custom_attributes(#custom_attributes)
@@ -885,18 +855,17 @@ impl<'a> EnumVariant<'a> {
 /// ```ignore  (bevy_reflect is not accessible from this crate)
 /// # use syn::parse_quote;
 /// # use bevy_reflect_derive::ReflectTypePath;
-/// let path: syn::Path = parse_quote!(::core::marker::PhantomData)?;
+/// let path: syn::Path = parse_quote!(::std::marker::PhantomData)?;
 ///
 /// let type_path = ReflectTypePath::External {
 ///     path,
 ///     custom_path: None,
 /// };
 ///
-/// // Equivalent to "core::marker".
+/// // Equivalent to "std::marker".
 /// let module_path = type_path.module_path();
 /// # Ok::<(), syn::Error>(())
 /// ```
-///
 pub(crate) enum ReflectTypePath<'a> {
     /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),
@@ -922,8 +891,10 @@ pub(crate) enum ReflectTypePath<'a> {
         generics: &'a Generics,
     },
     /// Any [`Type`] with only a defined `type_path` and `short_type_path`.
-    #[allow(dead_code)]
-    // Not currently used but may be useful in the future due to its generality.
+    #[expect(
+        dead_code,
+        reason = "Not currently used but may be useful in the future due to its generality."
+    )]
     Anonymous {
         qualified_type: Type,
         long_type_path: StringExpr,
@@ -1087,7 +1058,7 @@ impl<'a> ReflectTypePath<'a> {
 
     /// Returns a [`StringExpr`] representing the "type path" of the type.
     ///
-    /// For `Option<PhantomData>`, this is `"core::option::Option<core::marker::PhantomData>"`.
+    /// For `Option<PhantomData>`, this is `"std::option::Option<std::marker::PhantomData>"`.
     pub fn long_type_path(&self, bevy_reflect_path: &Path) -> StringExpr {
         match self {
             Self::Primitive(ident) => StringExpr::from(ident),
@@ -1163,7 +1134,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// For non-customised [internal] paths this is created from [`module_path`].
     ///
-    /// For `Option<PhantomData>`, this is `"core::option"`.
+    /// For `Option<PhantomData>`, this is `"std::option"`.
     ///
     /// [primitive]: ReflectTypePath::Primitive
     /// [anonymous]: ReflectTypePath::Anonymous

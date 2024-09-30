@@ -1,4 +1,5 @@
-use std::{array, num::NonZero, sync::Arc};
+use alloc::sync::Arc;
+use core::{array, num::NonZero};
 
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,

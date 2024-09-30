@@ -44,6 +44,7 @@ pub enum PlaybackMode {
 }
 
 /// Initial settings to be used when audio starts playing.
+///
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
