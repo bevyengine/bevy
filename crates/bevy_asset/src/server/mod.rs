@@ -220,7 +220,7 @@ impl AssetServer {
     /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
     pub async fn get_path_asset_loader<'a, 'b>(
         &self,
-        path: impl Into<AssetPath<'a, 'b>>,
+        path: impl Into<AssetPath<'b>>,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
         let path = path.into();
 
