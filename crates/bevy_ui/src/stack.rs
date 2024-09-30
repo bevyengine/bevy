@@ -17,6 +17,31 @@ pub struct UiStack {
     pub uinodes: Vec<Entity>,
 }
 
+fn update_uistack_recursively(
+    node_entity: Entity,
+    children_query: &Query<&Children>,
+    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    ui_stack: &mut Vec<Entity>,
+) {
+    ui_stack.push(node_entity);
+
+    if let Ok(children) = children_query.get(node_entity) {
+        let mut z_children: Vec<_> = children
+            .iter()
+            .filter_map(|child_entity| {
+                zindex_query
+                    .get(*child_entity)
+                    .ok()
+                    .map(|zindex| (*child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            })
+            .collect();
+        z_children.sort_by_key(|k| Reverse(k.1));
+        for (child_entity, _) in z_children {
+            update_uistack_recursively(child_entity, children_query, zindex_query, ui_stack);
+        }
+    }
+}
+
 /// Create a list of root nodes from unparented entities and entities with a `GlobalZIndex` component.
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
@@ -38,7 +63,6 @@ pub fn ui_stack_system(
 ) {
     traversal_stack.clear();
     ui_stack.uinodes.clear();
-    root_nodes.clear();
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         root_nodes.push((
@@ -61,21 +85,29 @@ pub fn ui_stack_system(
     }
 
     root_nodes.sort_by_key(|(_, z)| Reverse(*z));
-    traversal_stack.extend(root_nodes.into_iter().map(|root| (root.0, 0)));
 
-    while let Some((entity, _)) = traversal_stack.pop() {
-        ui_stack.uinodes.push(entity);
+    // while let Some((entity, _)) = traversal_stack.pop() {
+    //     ui_stack.uinodes.push(entity);
 
-        if let Ok(children) = children_query.get(entity) {
-            let start = traversal_stack.len();
-            traversal_stack.extend(children.iter().filter_map(|entity| {
-                zindex_query
-                    .get(*entity)
-                    .ok()
-                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            }));
-            (&mut traversal_stack[start..]).sort_by_key(|k| Reverse(k.1));
-        }
+    //     if let Ok(children) = children_query.get(entity) {
+    //         let start = traversal_stack.len();
+    //         traversal_stack.extend(children.iter().filter_map(|entity| {
+    //             zindex_query
+    //                 .get(*entity)
+    //                 .ok()
+    //                 .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+    //         }));
+    //         (&mut traversal_stack[start..]).sort_by_key(|k| Reverse(k.1));
+    //     }
+    // }
+
+    for (root_entity, _) in root_nodes.drain(..) {
+        update_uistack_recursively(
+            root_entity,
+            &children_query,
+            &zindex_query,
+            &mut ui_stack.uinodes,
+        );
     }
 
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
