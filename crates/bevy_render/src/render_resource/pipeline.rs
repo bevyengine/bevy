@@ -1,9 +1,11 @@
 use super::ShaderDefVal;
+use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
-    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
+    render_resource::{BindGroupLayout, Shader},
 };
 use alloc::borrow::Cow;
+use alloc::sync::Arc;
 use bevy_asset::Handle;
 use core::ops::Deref;
 use wgpu::{
@@ -12,7 +14,6 @@ use wgpu::{
 };
 
 define_atomic_id!(RenderPipelineId);
-render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -21,7 +22,7 @@ render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: ErasedRenderPipeline,
+    value: Arc<WgpuWrapper<wgpu::RenderPipeline>>,
 }
 
 impl RenderPipeline {
@@ -35,7 +36,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId::new(),
-            value: ErasedRenderPipeline::new(value),
+            value: Arc::new(WgpuWrapper::new(value)),
         }
     }
 }
@@ -50,7 +51,6 @@ impl Deref for RenderPipeline {
 }
 
 define_atomic_id!(ComputePipelineId);
-render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
@@ -59,7 +59,7 @@ render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: ErasedComputePipeline,
+    value: Arc<WgpuWrapper<wgpu::ComputePipeline>>,
 }
 
 impl ComputePipeline {
@@ -74,7 +74,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId::new(),
-            value: ErasedComputePipeline::new(value),
+            value: Arc::new(WgpuWrapper::new(value)),
         }
     }
 }
