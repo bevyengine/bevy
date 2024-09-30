@@ -115,7 +115,15 @@ impl FoxStep {
     }
 }
 
-impl AnimationEvent for FoxStep {}
+impl AnimationEvent for FoxStep {
+    fn trigger(&self, entity: Entity, world: &mut World) {
+        world.entity_mut(entity).trigger(self.clone());
+    }
+
+    fn clone_value(&self) -> Box<dyn AnimationEvent> {
+        Box::new(self.clone())
+    }
+}
 
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
 // When the player is added, start the animation.

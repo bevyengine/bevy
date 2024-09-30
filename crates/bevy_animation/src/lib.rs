@@ -1144,11 +1144,11 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
     ),
 >;
 
-fn for_each_animation_event<'a, 'b>(
+fn for_each_animation_event(
     target_id: Option<AnimationTargetId>,
-    clip: &'a AnimationClip,
+    clip: &AnimationClip,
     animation: &ActiveAnimation,
-    mut f: impl FnMut(f32, Box<dyn PartialReflect>),
+    mut f: impl FnMut(f32, Box<dyn AnimationEvent>),
 ) {
     for (t, e) in clip
         .triggers
@@ -1167,7 +1167,7 @@ fn for_each_animation_event<'a, 'b>(
             }
         })
     {
-        f(*t, e.0.clone_value())
+        f(*t, e.clone().0);
     }
 }
 
@@ -1288,7 +1288,7 @@ pub fn animate_targets_and_trigger_events(
                     dbg!(active_animation.seek_time);
                     par_commands.command_scope(|mut commands| {
                         commands.queue(trigger_animation_event(event, entity));
-                    })
+                    });
                 });
 
                 let Some(curves) = clip.curves_for_target(target_id) else {

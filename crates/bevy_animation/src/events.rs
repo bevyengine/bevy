@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, fmt::Debug};
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::{
@@ -7,93 +7,47 @@ use bevy_reflect::{
     TupleStructFieldIter, TupleStructInfo, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 
-// TODO: make a struct
 pub(crate) fn trigger_animation_event(
-    event: Box<dyn PartialReflect>,
+    event: Box<dyn AnimationEvent>,
     entity: Entity,
 ) -> impl Command {
     move |world: &mut World| {
-        let (from_reflect, animation_event) = {
-            let registry = world
-                .get_resource::<AppTypeRegistry>()
-                .expect("Missing resource `AppTypeRegistry`");
-            let lock = registry.read();
-            let type_info = event.get_represented_type_info().unwrap(); // FIXME: when would this fail?
-            let registration = lock
-                .get_with_type_path(type_info.type_path())
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Missing type registration for type: `{}`",
-                        type_info.type_path()
-                    )
-                });
-            (
-                registration
-                    .data::<ReflectFromReflect>()
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Type `{}` is not registered with data: `ReflectFromReflect`",
-                            type_info.type_path()
-                        )
-                    }),
-                registration
-                    .data::<ReflectAnimationEvent>()
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Type `{}` is not registered with data: `ReflectAnimationEvent`",
-                            type_info.type_path()
-                        )
-                    }),
-            )
-        };
-        let event = from_reflect.from_reflect(event.as_ref()).unwrap(); // FIXME: when would this fail?
-        animation_event.trigger(event.as_ref(), entity, world);
+        event.trigger(entity, world);
     }
 }
 
 /// An event that can be used with animations.
-pub trait AnimationEvent: Event + Reflect + Clone {}
+#[reflect_trait]
+pub trait AnimationEvent: Reflect + Send + Sync {
+    /// Trigger the event, targeting `entity`.
+    fn trigger(&self, entity: Entity, world: &mut World);
 
-#[derive(Clone)]
-pub struct ReflectAnimationEvent {
-    trigger: fn(&dyn Reflect, Entity, &mut World),
-}
-
-impl ReflectAnimationEvent {
-    /// # Panics
-    ///
-    /// Panics if the underlying type of `event` does not match the type this `ReflectAnimationEvent` was constructed for.
-    pub(crate) fn trigger(&self, event: &dyn Reflect, entity: Entity, world: &mut World) {
-        (self.trigger)(event, entity, world)
-    }
-}
-
-impl<T: AnimationEvent> FromType<T> for ReflectAnimationEvent {
-    fn from_type() -> Self {
-        Self {
-            trigger: |value, entity, world| {
-                let event = value.downcast_ref::<T>().unwrap().clone();
-                world.entity_mut(entity).trigger(event);
-            },
-        }
-    }
+    /// Clone this value into a new `Box<dyn AnimationEvent>`
+    fn clone_value(&self) -> Box<dyn AnimationEvent>;
 }
 
 /// The data that will be used to trigger an animation event.
-#[derive(TypePath, Debug)]
-pub(crate) struct AnimationEventData(pub(crate) Box<dyn PartialReflect>);
+#[derive(TypePath)]
+pub(crate) struct AnimationEventData(pub(crate) Box<dyn AnimationEvent>);
+
+impl Debug for AnimationEventData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AnimationEventData(")?;
+        PartialReflect::debug(self.0.as_ref(), f)?;
+        f.write_str(")")?;
+        Ok(())
+    }
+}
 
 impl AnimationEventData {
-    pub(crate) fn new(event: impl Event + PartialReflect) -> Self {
+    pub(crate) fn new(event: impl AnimationEvent) -> Self {
         Self(Box::new(event))
     }
 }
 
 impl Clone for AnimationEventData {
     fn clone(&self) -> Self {
-        Self(self.0.clone_value())
+        Self(AnimationEvent::clone_value(self.0.as_ref()))
     }
 }
 
@@ -101,6 +55,7 @@ impl GetTypeRegistration for AnimationEventData {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
