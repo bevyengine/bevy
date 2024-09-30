@@ -2492,7 +2492,9 @@ impl World {
         }
     }
 
-    /// Flushes queued entities and calls [`World::flush_commands`].
+    /// Flushes queued entities and commands.
+    ///
+    /// Queued entities will be spawned, and then commands will be applied.
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
