@@ -11,13 +11,14 @@ extern crate alloc;
 
 pub mod animatable;
 pub mod animation_curves;
-pub mod events;
+pub mod animation_events;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
 mod util;
 
 use alloc::collections::BTreeMap;
+use animation_events::{trigger_animation_event, AnimationEvent, AnimationEventData};
 use core::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -25,7 +26,6 @@ use core::{
     hash::{Hash, Hasher},
     iter,
 };
-use events::{trigger_animation_event, AnimationEvent, AnimationEventData};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
