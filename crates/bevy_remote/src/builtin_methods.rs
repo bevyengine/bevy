@@ -64,11 +64,6 @@ pub struct BrpGetParams {
     ///
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
-
-    /// An optional flag to fail when encountering an invalid component rather
-    /// than skipping it. Defaults to false.
-    #[serde(default)]
-    pub strict: bool,
 }
 
 /// `bevy/query`: Performs a query over components in the ECS, returning entities
@@ -233,7 +228,11 @@ pub struct BrpSpawnResponse {
 }
 
 /// The response to a `bevy/get` request.
-pub type BrpGetResponse = HashMap<String, Value>;
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct BrpGetResponse {
+    components: HashMap<String, Value>,
+    errors: HashMap<String, Value>,
+}
 
 /// The response to a `bevy/list` request.
 pub type BrpListResponse = Vec<String>;
@@ -278,11 +277,7 @@ fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, B
 
 /// Handles a `bevy/get` request coming from a client.
 pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpGetParams {
-        entity,
-        components,
-        strict,
-    } = parse_some(params)?;
+    let BrpGetParams { entity, components } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
@@ -291,10 +286,12 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     let mut response = BrpGetResponse::default();
 
     for component_path in components {
-        match handle_get_component(component_path, entity, entity_ref, &type_registry) {
-            Ok(serialized_object) => response.extend(serialized_object.into_iter()),
-            Err(err) if strict => return Err(err),
-            Err(_) => {}
+        match handle_get_component(&component_path, entity, entity_ref, &type_registry) {
+            Ok(serialized_object) => response.components.extend(serialized_object.into_iter()),
+            Err(err) => {
+                let err_value = serde_json::to_value(err).map_err(BrpError::internal)?;
+                response.errors.insert(component_path, err_value);
+            }
         }
     }
 
@@ -303,17 +300,17 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 
 /// Handle a single component for [`process_remote_get_request`].
 fn handle_get_component(
-    component_path: String,
+    component_path: &str,
     entity: Entity,
     entity_ref: EntityRef,
     type_registry: &TypeRegistry,
 ) -> Result<Map<String, Value>, BrpError> {
     let reflect_component =
-        get_reflect_component(type_registry, &component_path).map_err(BrpError::component_error)?;
+        get_reflect_component(type_registry, component_path).map_err(BrpError::component_error)?;
 
     // Retrieve the reflected value for the given specified component on the given entity.
     let Some(reflected) = reflect_component.reflect(entity_ref) else {
-        return Err(BrpError::component_not_present(&component_path, entity));
+        return Err(BrpError::component_not_present(component_path, entity));
     };
 
     // Each component value serializes to a map with a single entry.

@@ -109,8 +109,6 @@
 //! `params`:
 //! - `entity`: The ID of the entity whose components will be fetched.
 //! - `components`: An array of [fully-qualified type names] of components to fetch.
-//! - `strict` (optional): An option to fail when an invalid component is encountered rather than
-//!   skipping it. Defaults to false and skips rather than erroring.
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
