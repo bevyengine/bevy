@@ -28,7 +28,6 @@ mod taa;
 pub mod tonemapping;
 pub mod upscaling;
 
-use oit::OrderIndependentTransparencyPlugin;
 pub use skybox::Skybox;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
@@ -76,6 +75,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_render::prelude::Shader;
+use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
