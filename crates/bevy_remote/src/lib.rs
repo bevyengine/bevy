@@ -112,14 +112,14 @@
 //! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
 //!   components is not present or can not be reflected. Defaults to false.
 //!
-//! If `strict` is false.
+//! If `strict` is false:
 //!
 //! `result`:
 //! - `components`: A map associating each type name to its value on the requested entity.
 //! - `errors`: A map associating each type name with an error if it was not on the entity
 //!   or could not be reflected.
 //!
-//! If `strict` is true.
+//! If `strict` is true:
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
