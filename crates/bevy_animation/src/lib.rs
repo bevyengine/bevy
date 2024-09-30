@@ -13,6 +13,7 @@ pub mod animatable;
 pub mod graph;
 pub mod keyframes;
 pub mod transition;
+pub mod triggers;
 mod util;
 
 use alloc::collections::BTreeMap;
@@ -23,6 +24,7 @@ use core::{
     hash::{Hash, Hasher},
     iter,
 };
+use triggers::{trigger_animation_event, AnimationEvent, AnimationTriggerData};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
@@ -30,7 +32,7 @@ use bevy_core::Name;
 use bevy_ecs::{
     entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
 };
-use bevy_math::FloatExt;
+use bevy_math::{FloatExt, FloatOrd};
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicStruct, FieldIter,
     FromReflect, FromType, GetTypeRegistration, NamedField, PartialReflect, Reflect,
@@ -468,8 +470,11 @@ pub enum Interpolation {
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
     curves: AnimationCurves,
+    triggers: AnimationTriggers,
     duration: f32,
 }
+
+pub(crate) type AnimationTriggers = HashMap<AnimationTargetId, Vec<(f32, AnimationTriggerData)>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -599,6 +604,21 @@ impl AnimationClip {
             .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
         self.curves.entry(target_id).or_default().push(curve);
     }
+
+    /// Add an [`AnimationTrigger`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    ///
+    /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
+    pub fn add_trigger(
+        &mut self,
+        target_id: AnimationTargetId,
+        time: f32,
+        event: impl AnimationEvent,
+    ) {
+        self.duration = self.duration.max(time);
+        let triggers = self.triggers.entry(target_id).or_default();
+        triggers.push((time, AnimationTriggerData::new(event)));
+        triggers.sort_by_key(|(k, _)| FloatOrd(*k));
+    }
 }
 
 /// Repetition behavior of an animation.
@@ -660,9 +680,11 @@ pub struct ActiveAnimation {
     ///
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
+    last_seek_time: Option<f32>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
     completions: u32,
+    just_completed: bool,
     paused: bool,
 }
 
@@ -676,7 +698,9 @@ impl Default for ActiveAnimation {
             speed: 1.0,
             elapsed: 0.0,
             seek_time: 0.0,
+            last_seek_time: None,
             completions: 0,
+            just_completed: false,
             paused: false,
         }
     }
@@ -702,6 +726,9 @@ impl ActiveAnimation {
             return;
         }
 
+        self.just_completed = false;
+        self.last_seek_time = Some(self.seek_time);
+
         self.elapsed += delta;
         self.seek_time += delta * self.speed;
 
@@ -709,6 +736,7 @@ impl ActiveAnimation {
         let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
         if over_time || under_time {
+            self.just_completed = true;
             self.completions += 1;
 
             if self.is_finished() {
@@ -1107,16 +1135,24 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
-pub fn animate_targets(
+///
+/// Also triggers animation events.
+pub fn animate_targets_and_trigger_events(
+    par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTarget,
+        Option<&mut Transform>,
+        AnimationEntityMut,
+    )>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(target, mut transform, mut entity_mut)| {
+        .for_each(|(entity, target, mut transform, mut entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -1183,6 +1219,30 @@ pub fn animate_targets(
                 else {
                     continue;
                 };
+
+                for (_time, event) in clip
+                    .triggers
+                    .get(&target_id)
+                    .iter()
+                    .flat_map(|t| t.iter())
+                    .filter(|(t, _)| match active_animation.is_playback_reversed() {
+                        true => {
+                            *t >= active_animation.seek_time
+                                && (active_animation.just_completed
+                                    || Some(*t) < active_animation.last_seek_time)
+                        }
+                        false => {
+                            Some(*t) > active_animation.last_seek_time
+                                && (active_animation.just_completed
+                                    || *t <= active_animation.seek_time)
+                        }
+                    })
+                {
+                    dbg!(active_animation.seek_time);
+                    par_commands.command_scope(|mut commands| {
+                        commands.queue(trigger_animation_event(event.0.clone_value(), entity));
+                    })
+                }
 
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
@@ -1259,7 +1319,7 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    animate_targets
+                    animate_targets_and_trigger_events
                         .after(bevy_render::mesh::morph::inherit_weights)
                         .ambiguous_with_all(),
                     expire_completed_transitions,
