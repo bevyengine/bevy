@@ -334,6 +334,25 @@ impl World {
         self.components.component_id::<T>()
     }
 
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// Note that the resource doesn't have a value in world, it's only registered.
+    /// if you want to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or [`World::insert_resource`] instead.
+    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
+        self.components.register_resource::<R>()
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `World` instance
+    /// it was retrieved from and should not be used with another `World` instance.
+    ///
+    /// Returns [`None`] if the `Resource` type has not yet been initialized within
+    /// the `World` using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.components.get_resource_id(TypeId::of::<T>())
+    }
+
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
     /// This will panic if the `entity` does not exist. Use [`World::get_entity`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
@@ -921,7 +940,8 @@ impl World {
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
     /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
-    /// retrieve its id.
+    /// retrieve its id. In case large batches of entities need to be spawned, consider using
+    /// [`World::spawn_batch`] instead.
     ///
     /// ```
     /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
@@ -1018,9 +1038,9 @@ impl World {
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
     /// [`Bundle`] iterator and returns a corresponding [`Entity`] iterator.
-    /// This is more efficient than spawning entities and adding components to them individually,
-    /// but it is limited to spawning entities with the same [`Bundle`] type, whereas spawning
-    /// individually is more flexible.
+    /// This is more efficient than spawning entities and adding components to them individually
+    /// using [`World::spawn`], but it is limited to spawning entities with the same [`Bundle`]
+    /// type, whereas spawning individually is more flexible.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -2206,6 +2226,9 @@ impl World {
 
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
+    ///
+    /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
+    /// If this is possible, you should instead use [`flush`](Self::flush).
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
