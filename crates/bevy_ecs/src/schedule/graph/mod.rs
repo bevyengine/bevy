@@ -315,9 +315,11 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         subgraph.remove_node(root);
 
         // divide remainder into smaller SCCs
-        for scc in subgraph.iter_scc().filter(|scc| scc.len() > 1) {
-            sccs.push(scc);
-        }
+        subgraph.for_each_scc(|scc| {
+            if scc.len() > 1 {
+                sccs.push(scc.to_vec());
+            }
+        });
     }
 
     cycles

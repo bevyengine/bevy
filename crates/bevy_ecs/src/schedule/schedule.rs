@@ -1689,15 +1689,15 @@ impl ScheduleGraph {
         let mut top_sorted_nodes = Vec::with_capacity(graph.node_count());
         let mut sccs_with_cycles = Vec::new();
 
-        for scc in graph.iter_scc() {
+        graph.for_each_scc(|scc| {
             // A strongly-connected component is a group of nodes who can all reach each other
             // through one or more paths. If an SCC contains more than one node, there must be
             // at least one cycle within them.
-            top_sorted_nodes.extend_from_slice(&scc);
+            top_sorted_nodes.extend_from_slice(scc);
             if scc.len() > 1 {
-                sccs_with_cycles.push(scc);
+                sccs_with_cycles.push(scc.to_vec());
             }
-        }
+        });
 
         if sccs_with_cycles.is_empty() {
             // reverse to get topological order

@@ -274,13 +274,9 @@ where
 }
 
 impl<S: BuildHasher> Graph<true, S> {
-    pub(crate) fn iter_scc(
-        &self,
-    ) -> impl DoubleEndedIterator<Item = Vec<NodeId>> + ExactSizeIterator<Item = Vec<NodeId>> {
-        let mut sccs = Vec::new();
+    pub(crate) fn for_each_scc(&self, f: impl FnMut(&[NodeId])) {
         let mut tarjan_scc = TarjanScc::new();
-        tarjan_scc.run(self, |scc| sccs.push(scc.to_vec()));
-        sccs.into_iter()
+        tarjan_scc.run(self, f);
     }
 }
 
@@ -466,7 +462,9 @@ mod tests {
 
         graph.add_edge(System(6), System(2));
 
-        let sccs = graph.iter_scc().collect::<Vec<_>>();
+        let mut sccs = Vec::new();
+
+        graph.for_each_scc(|scc| sccs.push(scc.to_vec()));
 
         assert_eq!(
             sccs,
