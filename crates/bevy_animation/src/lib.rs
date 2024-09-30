@@ -1190,7 +1190,6 @@ fn trigger_untargeted_animation_events(
             };
             let clip = clips.get(clip_id).unwrap();
             for_each_animation_event(None, clip, animation, |_, event| {
-                dbg!(animation.seek_time);
                 commands.queue(trigger_animation_event(event, entity));
             });
         }
@@ -1285,7 +1284,6 @@ pub fn animate_targets_and_trigger_events(
                 };
 
                 for_each_animation_event(Some(target_id), clip, active_animation, |_, event| {
-                    dbg!(active_animation.seek_time);
                     par_commands.command_scope(|mut commands| {
                         commands.queue(trigger_animation_event(event, entity));
                     });
