@@ -1177,7 +1177,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.animation_events]
 name = "Animation Events"
-description = "TODO: add description"
+description = "Demonstrate how to use animation events"
 category = "Animation"
 wasm = true
 

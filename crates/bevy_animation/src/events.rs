@@ -7,6 +7,7 @@ use bevy_reflect::{
     TupleStructFieldIter, TupleStructInfo, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 
+// TODO: make a struct
 pub(crate) fn trigger_animation_event(
     event: Box<dyn PartialReflect>,
     entity: Entity,
@@ -52,6 +53,7 @@ pub(crate) fn trigger_animation_event(
     }
 }
 
+/// An event that can be used with animations.
 pub trait AnimationEvent: Event + Reflect + Clone {}
 
 #[derive(Clone)]
@@ -79,6 +81,7 @@ impl<T: AnimationEvent> FromType<T> for ReflectAnimationEvent {
     }
 }
 
+/// The data that will be used to trigger an animation event.
 #[derive(TypePath, Debug)]
 pub(crate) struct AnimationEventData(pub(crate) Box<dyn PartialReflect>);
 

@@ -606,7 +606,7 @@ impl AnimationClip {
         self.curves.entry(target_id).or_default().push(curve);
     }
 
-    /// Add an [`AnimationTrigger`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
     pub fn add_event_with_id(
@@ -621,9 +621,9 @@ impl AnimationClip {
         triggers.sort_by_key(|(k, _)| FloatOrd(*k));
     }
 
-    /// Add an [`AnimationTrigger`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
     ///
-    /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
+    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` is reached in the animation.
     pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
         self.duration = self.duration.max(time);
         let triggers = self.triggers.entry(None).or_default();
@@ -1144,6 +1144,7 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
     ),
 >;
 
+///
 fn for_each_animation_event<'a, 'b>(
     target_id: Option<AnimationTargetId>,
     clip: &'a AnimationClip,
@@ -1170,6 +1171,7 @@ fn for_each_animation_event<'a, 'b>(
     }
 }
 
+/// A system that triggers untargeted animation events for the currently-playing animations.
 fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,

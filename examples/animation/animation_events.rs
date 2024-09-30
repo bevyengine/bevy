@@ -1,4 +1,4 @@
-// TODO: rename to animation_events
+//! Demonstrate how to use animation events.
 
 use bevy::{
     animation::{
