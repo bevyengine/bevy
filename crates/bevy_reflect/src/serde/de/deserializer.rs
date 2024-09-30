@@ -340,7 +340,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
                     .write_str("map containing `type` and `value` entries for the reflected value")
             }
 
-            fn visit_map<A>(mut self, mut map: A) -> Result<Self::Value, A::Error>
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
             where
                 A: MapAccess<'de>,
             {
@@ -348,11 +348,11 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de> for ReflectDeser
                     .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
                     .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
 
-                let value = map.next_value_seed(TypedReflectDeserializer {
+                let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
                     registration,
-                    registry: self.registry,
-                    processor: self.processor.as_deref_mut(),
-                })?;
+                    self.registry,
+                    self.processor,
+                ))?;
 
                 if map.next_key::<IgnoredAny>()?.is_some() {
                     return Err(Error::invalid_length(2, &"a single entry"));
