@@ -12,7 +12,30 @@ use crate::{
     },
     PartialReflect, ReflectRef, TypeRegistry,
 };
-use serde::{ser::SerializeMap, Serialize};
+use serde::{ser::SerializeMap, Serialize, Serializer};
+
+pub trait ReflectSerializerProcessor {
+    fn try_serialize<S>(
+        &self,
+        value: &dyn PartialReflect,
+        serializer: S,
+    ) -> Result<Result<S::Ok, S>, S::Error>
+    where
+        S: Serializer;
+}
+
+impl ReflectSerializerProcessor for () {
+    fn try_serialize<S>(
+        &self,
+        _value: &dyn PartialReflect,
+        serializer: S,
+    ) -> Result<Result<S::Ok, S>, S::Error>
+    where
+        S: Serializer,
+    {
+        Ok(Err(serializer))
+    }
+}
 
 /// A general purpose serializer for reflected types.
 ///
@@ -50,21 +73,40 @@ use serde::{ser::SerializeMap, Serialize};
 ///
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [type path]: crate::TypePath::type_path
-pub struct ReflectSerializer<'a> {
+pub struct ReflectSerializer<'a, P = ()> {
     value: &'a dyn PartialReflect,
     registry: &'a TypeRegistry,
+    processor: Option<&'a P>,
 }
 
-impl<'a> ReflectSerializer<'a> {
+impl<'a> ReflectSerializer<'a, ()> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        Self { value, registry }
+        Self {
+            value,
+            registry,
+            processor: None,
+        }
     }
 }
 
-impl<'a> Serialize for ReflectSerializer<'a> {
+impl<'a, P: ReflectSerializerProcessor> ReflectSerializer<'a, P> {
+    pub fn with_processor(
+        value: &'a dyn PartialReflect,
+        registry: &'a TypeRegistry,
+        processor: &'a P,
+    ) -> Self {
+        Self {
+            value,
+            registry,
+            processor: Some(processor),
+        }
+    }
+}
+
+impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(1))?;
         state.serialize_entry(
@@ -84,7 +126,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                     }
                 })?
                 .type_path(),
-            &TypedReflectSerializer::new(self.value, self.registry),
+            &TypedReflectSerializer::with_processor(self.value, self.registry, self.processor),
         )?;
         state.end()
     }
@@ -128,29 +170,59 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 ///
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [type path]: crate::TypePath::type_path
-pub struct TypedReflectSerializer<'a> {
+pub struct TypedReflectSerializer<'a, P = ()> {
     value: &'a dyn PartialReflect,
     registry: &'a TypeRegistry,
+    processor: Option<&'a P>,
 }
 
-impl<'a> TypedReflectSerializer<'a> {
+impl<'a> TypedReflectSerializer<'a, ()> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
 
-        Self { value, registry }
-    }
-
-    /// An internal constructor for creating a serializer without resetting the type info stack.
-    pub(super) fn new_internal(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        Self { value, registry }
+        Self {
+            value,
+            registry,
+            processor: None,
+        }
     }
 }
 
-impl<'a> Serialize for TypedReflectSerializer<'a> {
+impl<'a, P> TypedReflectSerializer<'a, P> {
+    pub fn with_processor(
+        value: &'a dyn PartialReflect,
+        registry: &'a TypeRegistry,
+        processor: &'a P,
+    ) -> Self {
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self {
+            value,
+            registry,
+            processor: Some(processor),
+        }
+    }
+
+    /// An internal constructor for creating a serializer without resetting the type info stack.
+    pub(super) fn new_internal(
+        value: &'a dyn PartialReflect,
+        registry: &'a TypeRegistry,
+        processor: Option<&'a P>,
+    ) -> Self {
+        Self {
+            value,
+            registry,
+            processor,
+        }
+    }
+}
+
+impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         #[cfg(feature = "debug_stack")]
         {
@@ -158,6 +230,20 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
             }
         }
+
+        let serializer = if let Some(processor) = self.processor.as_deref() {
+            match processor.try_serialize(self.value, serializer) {
+                Ok(Ok(value)) => {
+                    return Ok(value);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+                Ok(Err(serializer)) => serializer,
+            }
+        } else {
+            serializer
+        };
 
         // Handle both Value case and types that have a custom `Serialize`
         let serializable =
@@ -170,30 +256,54 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
         }
 
         let output = match self.value.reflect_ref() {
-            ReflectRef::Struct(value) => {
-                StructSerializer::new(value, self.registry).serialize(serializer)
+            ReflectRef::Struct(struct_value) => StructSerializer {
+                struct_value,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::TupleStruct(value) => {
-                TupleStructSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::TupleStruct(tuple_struct) => TupleStructSerializer {
+                tuple_struct,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::Tuple(value) => {
-                TupleSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::Tuple(tuple) => TupleSerializer {
+                tuple,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::List(value) => {
-                ListSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::List(list) => ListSerializer {
+                list,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::Array(value) => {
-                ArraySerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::Array(array) => ArraySerializer {
+                array,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::Map(value) => {
-                MapSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::Map(map) => MapSerializer {
+                map,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::Set(value) => {
-                SetSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::Set(set) => SetSerializer {
+                set,
+                registry: self.registry,
+                processor: self.processor,
             }
-            ReflectRef::Enum(value) => {
-                EnumSerializer::new(value, self.registry).serialize(serializer)
+            .serialize(serializer),
+            ReflectRef::Enum(enum_value) => EnumSerializer {
+                enum_value,
+                registry: self.registry,
+                processor: self.processor,
             }
+            .serialize(serializer),
             #[cfg(feature = "functions")]
             ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
             ReflectRef::Opaque(_) => Err(serializable.err().unwrap()),
