@@ -57,7 +57,8 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
 pub struct DefaultGizmoConfigGroup;
 
-/// A type-erased gizmo config group.
+/// Used when the gizmo config group needs to be type-erased.
+/// Also used for retained gizmos, which can't have a gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
 pub struct ErasedGizmoConfigGroup;
 
