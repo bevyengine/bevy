@@ -67,6 +67,26 @@ impl Default for Viewport {
     }
 }
 
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq)]
+pub struct SubCameraView {
+    /// Size of the entire camera view
+    pub full_size: UVec2,
+    /// Offset of the sub camera
+    pub offset: UVec2,
+    /// Size of the sub camera
+    pub size: UVec2,
+}
+
+impl Default for SubCameraView {
+    fn default() -> Self {
+        Self {
+            full_size: UVec2::new(100, 100),
+            offset: UVec2::new(0, 0),
+            size: UVec2::new(100, 100),
+        }
+    }
+}
+
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
@@ -256,6 +276,8 @@ pub struct Camera {
     pub msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
+    pub sub_camera_view: Option<SubCameraView>,
 }
 
 impl Default for Camera {
@@ -270,6 +292,7 @@ impl Default for Camera {
             hdr: false,
             msaa_writeback: true,
             clear_color: Default::default(),
+            sub_camera_view: None,
         }
     }
 }
@@ -890,7 +913,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = camera_projection.get_clip_from_view();
+                    camera.computed.clip_from_view = match &camera.sub_camera_view {
+                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
+                        None => camera_projection.get_clip_from_view(),
+                    }
                 }
             }
         }

@@ -76,6 +76,7 @@ pub struct CameraUpdateSystem;
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -121,6 +122,13 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.get_clip_from_view(),
             Projection::Orthographic(projection) => projection.get_clip_from_view(),
+        }
+    }
+
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        match self {
+            Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
+            Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
         }
     }
 
@@ -187,6 +195,10 @@ pub struct PerspectiveProjection {
 impl CameraProjection for PerspectiveProjection {
     fn get_clip_from_view(&self) -> Mat4 {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
+    }
+
+    fn get_clip_from_view_for_sub(&self, _sub_view: &super::SubCameraView) -> Mat4 {
+        self.get_clip_from_view()
     }
 
     fn update(&mut self, width: f32, height: f32) {
@@ -393,6 +405,10 @@ impl CameraProjection for OrthographicProjection {
             self.far,
             self.near,
         )
+    }
+
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        self.get_clip_from_view()
     }
 
     fn update(&mut self, width: f32, height: f32) {
