@@ -2467,13 +2467,24 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_instancing"
-path = "examples/shader/shader_instancing.rs"
+name = "custom_shader_instancing"
+path = "examples/shader/custom_shader_instancing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.shader_instancing]
+[package.metadata.example.custom_shader_instancing]
 name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "automatic_instancing"
+path = "examples/shader/automatic_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.automatic_instancing]
+name = "Instancing"
+description = "Shows that multiple instances of a cube are automatically instanced in one draw call"
 category = "Shaders"
 wasm = true
 
