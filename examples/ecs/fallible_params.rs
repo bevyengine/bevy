@@ -2,9 +2,10 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - If resource doesn't exist.
-//! - [`Single<D, F>`] - If there is no or more than one entities matching.
-//! - [`Option<Single<D, F>>`] - If there are more than one entities matching.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
+//! - [`Single<D, F>`] - There must be exactly one matching entity.
+//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
+//! - [`Populated<D, F>`] - There must be at least one matching entity.
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -117,10 +118,10 @@ fn user_input(
     }
 }
 
-/// System that moves the enemies in a circle.
-/// TODO: Use `Populated` when it exists.
-fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
-    for (mut transform, mut target) in &mut enemies {
+// System that moves the enemies in a circle.
+// Only runs if there are enemies.
+fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
+    for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_seconds();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
