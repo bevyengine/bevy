@@ -1,34 +1,33 @@
+use super::RenderQueue;
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use crate::WgpuWrapper;
+use alloc::sync::Arc;
 use bevy_ecs::system::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
 };
 
-use super::RenderQueue;
-
-use crate::{render_resource::resource_macros::*, WgpuWrapper};
-
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
-
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: WgpuWrapper<ErasedRenderDevice>,
+    device: Arc<WgpuWrapper<wgpu::Device>>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self {
-            device: WgpuWrapper::new(ErasedRenderDevice::new(device)),
-        }
+        Self::new(Arc::new(WgpuWrapper::new(device)))
     }
 }
 
 impl RenderDevice {
+    pub fn new(device: Arc<WgpuWrapper<wgpu::Device>>) -> Self {
+        Self { device }
+    }
+
     /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.

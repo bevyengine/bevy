@@ -7,15 +7,12 @@
 struct PackedMeshletVertex {
     a: vec4<f32>,
     b: vec4<f32>,
-    tangent: vec4<f32>,
 }
 
-// TODO: Octahedral encode normal, remove tangent and derive from UV derivatives
 struct MeshletVertex {
     position: vec3<f32>,
     normal: vec3<f32>,
     uv: vec2<f32>,
-    tangent: vec4<f32>,
 }
 
 fn unpack_meshlet_vertex(packed: PackedMeshletVertex) -> MeshletVertex {
@@ -23,7 +20,6 @@ fn unpack_meshlet_vertex(packed: PackedMeshletVertex) -> MeshletVertex {
     vertex.position = packed.a.xyz;
     vertex.normal = vec3(packed.a.w, packed.b.xy);
     vertex.uv = packed.b.zw;
-    vertex.tangent = packed.tangent;
     return vertex;
 }
 
