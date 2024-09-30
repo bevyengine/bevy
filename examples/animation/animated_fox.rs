@@ -242,10 +242,10 @@ fn setup_scene_once_loaded(
         let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
 
         // Fire the `FoxStep` event at certain times in the animation, targeting the different feet.
-        clip.add_event_with_id(feet.forward_right, 0.46, step.clone());
-        clip.add_event_with_id(feet.forward_left, 0.64, step.clone());
-        clip.add_event_with_id(feet.back_right, 0.14, step.clone());
-        clip.add_event_with_id(feet.back_left, 0.02, step.clone());
+        clip.add_event_to_target(feet.forward_right, 0.46, step.clone());
+        clip.add_event_to_target(feet.forward_left, 0.64, step.clone());
+        clip.add_event_to_target(feet.back_right, 0.14, step.clone());
+        clip.add_event_to_target(feet.back_left, 0.02, step.clone());
 
         let mut transitions = AnimationTransitions::new();
 

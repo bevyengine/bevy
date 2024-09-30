@@ -446,7 +446,7 @@ impl AnimationClip {
     /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
-    pub fn add_event_with_id(
+    pub fn add_event_to_target(
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
@@ -519,10 +519,12 @@ pub struct ActiveAnimation {
     ///
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
+    /// The `seek_time` of the previous tick, if any.
     last_seek_time: Option<f32>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
     completions: u32,
+    /// `true` if the animation was completed at least once this tick.
     just_completed: bool,
     paused: bool,
 }
