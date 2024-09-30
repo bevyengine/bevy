@@ -1,4 +1,11 @@
-//! Renders multiple cameras with different sub view efffects.
+//! Demonstrates different sub view effects.
+//!
+//! A sub view is essentially a smaller section of a larger viewport. Some use
+//! cases include:
+//! - Split one image across multiple cameras, for use in a multimonitor setups
+//! - Magnify a section of the image, by rendering a small sub view in another
+//!   camera
+//! - Rapidly change the sub view offset to get a screen shake effect
 use bevy::{
     math::{ivec2, uvec2},
     prelude::*,
