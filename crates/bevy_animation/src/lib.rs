@@ -1144,7 +1144,6 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
     ),
 >;
 
-///
 fn for_each_animation_event<'a, 'b>(
     target_id: Option<AnimationTargetId>,
     clip: &'a AnimationClip,
@@ -1156,6 +1155,7 @@ fn for_each_animation_event<'a, 'b>(
         .get(&target_id)
         .iter()
         .flat_map(|t| t.iter())
+        // filter out events that did not occur this tick
         .filter(|(t, _)| match animation.is_playback_reversed() {
             true => {
                 *t >= animation.seek_time
