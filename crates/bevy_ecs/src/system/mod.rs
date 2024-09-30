@@ -99,7 +99,15 @@
 //! - [`Components`](crate::component::Components) (Provides Components metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
+//! - [`ParamSet`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
+//!
+//! In addition, the following parameters can be used when constructing a dynamic system with [`SystemParamBuilder`],
+//! but will only provide an empty value when used with an ordinary system:
+//!
+//! - [`DynSystemParam`]
+//! - [`Vec<P>`] where `P: SystemParam`
+//! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
 
 mod adapter_system;
 mod builder;
@@ -117,7 +125,7 @@ mod system_name;
 mod system_param;
 mod system_registry;
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 pub use adapter_system::*;
 pub use builder::*;
@@ -300,7 +308,7 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 #[cfg(test)]
 mod tests {
     use bevy_utils::default;
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     use crate::{
         self as bevy_ecs,
@@ -880,10 +888,10 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
+        struct NotSend2(alloc::rc::Rc<i32>);
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
         fn sys(
             op: Option<NonSend<NotSend1>>,
@@ -905,12 +913,12 @@ mod tests {
 
         world.insert_resource(SystemRan::No);
         #[allow(dead_code)]
-        struct NotSend1(std::rc::Rc<i32>);
+        struct NotSend1(alloc::rc::Rc<i32>);
         #[allow(dead_code)]
-        struct NotSend2(std::rc::Rc<i32>);
+        struct NotSend2(alloc::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
+        world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
+        world.insert_non_send_resource(NotSend2(alloc::rc::Rc::new(2)));
 
         fn sys(
             _op: NonSend<NotSend1>,
@@ -1445,7 +1453,7 @@ mod tests {
         let mut world = World::default();
         let mut system = IntoSystem::into_system(a_not_b_system);
         let mut expected_ids = HashSet::<ArchetypeComponentId>::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         // set up system and verify its access is empty
         system.initialize(&mut world);
@@ -1593,7 +1601,7 @@ mod tests {
 
     #[test]
     fn assert_systems() {
-        use std::str::FromStr;
+        use core::str::FromStr;
 
         use crate::{prelude::*, system::assert_is_system};
 

@@ -1,4 +1,4 @@
-use std::{iter, marker::PhantomData};
+use core::{iter, marker::PhantomData};
 
 use crate::{
     render_resource::Buffer,

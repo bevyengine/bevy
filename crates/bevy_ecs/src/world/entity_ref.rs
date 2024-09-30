@@ -13,7 +13,7 @@ use crate::{
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use std::{any::TypeId, marker::PhantomData};
+use core::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
@@ -926,7 +926,7 @@ impl<'w> EntityWorldMut<'w> {
             .bundles
             .init_dynamic_info(&self.world.components, component_ids);
         let mut storage_types =
-            std::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
+            core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
         let bundle_inserter = BundleInserter::new_with_id(
             self.world,
             self.location.archetype_id,
@@ -941,7 +941,7 @@ impl<'w> EntityWorldMut<'w> {
             iter_components,
             (*storage_types).iter().cloned(),
         );
-        *self.world.bundles.get_storages_unchecked(bundle_id) = std::mem::take(&mut storage_types);
+        *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self
     }
 
@@ -955,7 +955,7 @@ impl<'w> EntityWorldMut<'w> {
         let world = &mut self.world;
         let storages = &mut world.storages;
         let components = &mut world.components;
-        let bundle_id = world.bundles.init_info::<T>(components, storages);
+        let bundle_id = world.bundles.register_info::<T>(components, storages);
         // SAFETY: We just ensured this bundle exists
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
@@ -1221,7 +1221,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.init_info::<T>(components, storages);
+        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(bundle_info) };
@@ -1237,7 +1237,7 @@ impl<'w> EntityWorldMut<'w> {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
 
-        let retained_bundle = self.world.bundles.init_info::<T>(components, storages);
+        let retained_bundle = self.world.bundles.register_info::<T>(components, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;
@@ -1895,6 +1895,36 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 }
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
+///
+/// To define the access when used as a [`QueryData`](crate::query::QueryData),
+/// use a [`QueryBuilder`](crate::query::QueryBuilder) or [`QueryParamBuilder`](crate::system::QueryParamBuilder).
+/// The `FilteredEntityRef` must be the entire `QueryData`, and not nested inside a tuple with other data.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, world::FilteredEntityRef};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # let mut world = World::new();
+/// # world.spawn(A);
+/// #
+/// // This gives the `FilteredEntityRef` access to `&A`.
+/// let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+///     .data::<&A>()
+///     .build();
+///
+/// let filtered_entity: FilteredEntityRef = query.single(&mut world);
+/// let component: &A = filtered_entity.get().unwrap();
+///
+/// // Here `FilteredEntityRef` is nested in a tuple, so it does not have access to `&A`.
+/// let mut query = QueryBuilder::<(Entity, FilteredEntityRef)>::new(&mut world)
+///     .data::<&A>()
+///     .build();
+///
+/// let (_, filtered_entity) = query.single(&mut world);
+/// assert!(filtered_entity.get::<A>().is_none());
+/// ```
 #[derive(Clone)]
 pub struct FilteredEntityRef<'w> {
     entity: UnsafeEntityCell<'w>,
@@ -2136,6 +2166,36 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
 }
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
+///
+/// To define the access when used as a [`QueryData`](crate::query::QueryData),
+/// use a [`QueryBuilder`](crate::query::QueryBuilder) or [`QueryParamBuilder`](crate::system::QueryParamBuilder).
+/// The `FilteredEntityMut` must be the entire `QueryData`, and not nested inside a tuple with other data.
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # let mut world = World::new();
+/// # world.spawn(A);
+/// #
+/// // This gives the `FilteredEntityMut` access to `&mut A`.
+/// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+///     .data::<&mut A>()
+///     .build();
+///
+/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world);
+/// let component: Mut<A> = filtered_entity.get_mut().unwrap();
+///
+/// // Here `FilteredEntityMut` is nested in a tuple, so it does not have access to `&mut A`.
+/// let mut query = QueryBuilder::<(Entity, FilteredEntityMut)>::new(&mut world)
+///     .data::<&mut A>()
+///     .build();
+///
+/// let (_, mut filtered_entity) = query.single_mut(&mut world);
+/// assert!(filtered_entity.get_mut::<A>().is_none());
+/// ```
 pub struct FilteredEntityMut<'w> {
     entity: UnsafeEntityCell<'w>,
     access: Access<ComponentId>,
@@ -2784,7 +2844,7 @@ pub(crate) unsafe fn take_component<'a>(
 #[cfg(test)]
 mod tests {
     use bevy_ptr::OwningPtr;
-    use std::panic::AssertUnwindSafe;
+    use core::panic::AssertUnwindSafe;
 
     use crate::{
         self as bevy_ecs,
@@ -2830,7 +2890,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(std::any::TypeId::of::<TestComponent>())
+            .get_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let entity = world.entity(entity);
@@ -2847,7 +2907,7 @@ mod tests {
         let entity = world.spawn(TestComponent(42)).id();
         let component_id = world
             .components()
-            .get_id(std::any::TypeId::of::<TestComponent>())
+            .get_id(core::any::TypeId::of::<TestComponent>())
             .unwrap();
 
         let mut entity_mut = world.entity_mut(entity);
@@ -3107,7 +3167,7 @@ mod tests {
     #[test]
     fn entity_mut_insert_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_id = world.register_component::<TestComponent>();
 
         let mut entity = world.spawn_empty();
         OwningPtr::make(TestComponent(42), |ptr| {
@@ -3135,8 +3195,8 @@ mod tests {
     #[test]
     fn entity_mut_insert_bundle_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
-        let test_component_2_id = world.init_component::<TestComponent2>();
+        let test_component_id = world.register_component::<TestComponent>();
+        let test_component_2_id = world.register_component::<TestComponent2>();
 
         let component_ids = [test_component_id, test_component_2_id];
         let test_component_value = TestComponent(42);
@@ -3175,7 +3235,7 @@ mod tests {
     #[test]
     fn entity_mut_remove_by_id() {
         let mut world = World::new();
-        let test_component_id = world.init_component::<TestComponent>();
+        let test_component_id = world.register_component::<TestComponent>();
 
         let mut entity = world.spawn(TestComponent(42));
         entity.remove_by_id(test_component_id);
@@ -3192,8 +3252,8 @@ mod tests {
     #[test]
     fn entity_ref_except() {
         let mut world = World::new();
-        world.init_component::<TestComponent>();
-        world.init_component::<TestComponent2>();
+        world.register_component::<TestComponent>();
+        world.register_component::<TestComponent2>();
 
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
@@ -3225,7 +3285,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>) {}
     }
@@ -3241,7 +3301,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>) {}
     }
@@ -3253,7 +3313,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
             for entity_ref in query.iter() {
@@ -3301,7 +3361,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>) {}
     }
@@ -3317,7 +3377,7 @@ mod tests {
         // This should panic, because we have a mutable borrow on
         // `TestComponent` but have a simultaneous indirect immutable borrow on
         // that component via `EntityRefExcept`.
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
             for mut entity_mut in query.iter_mut() {
@@ -3335,7 +3395,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        world.run_system_once(system);
+        world.run_system_once(system).unwrap();
 
         fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
             for mut entity_mut in query.iter_mut() {
@@ -3458,7 +3518,7 @@ mod tests {
     #[test]
     fn filtered_entity_ref_normal() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let e: FilteredEntityRef = world.spawn(A).into();
 
@@ -3472,7 +3532,7 @@ mod tests {
     #[test]
     fn filtered_entity_ref_missing() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let e: FilteredEntityRef = world.spawn(()).into();
 
@@ -3486,7 +3546,7 @@ mod tests {
     #[test]
     fn filtered_entity_mut_normal() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let mut e: FilteredEntityMut = world.spawn(A).into();
 
@@ -3502,7 +3562,7 @@ mod tests {
     #[test]
     fn filtered_entity_mut_missing() {
         let mut world = World::new();
-        let a_id = world.init_component::<A>();
+        let a_id = world.register_component::<A>();
 
         let mut e: FilteredEntityMut = world.spawn(()).into();
 

@@ -12,7 +12,7 @@ use bevy_utils::{
     tracing::error,
     Entry, HashMap,
 };
-use std::{fmt::Debug, hash::Hash};
+use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 
 pub trait SpecializedRenderPipeline {
@@ -142,7 +142,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                 .map_err(|mut err| {
                     {
                         let SpecializedMeshPipelineError::MissingVertexAttribute(err) = &mut err;
-                        err.pipeline_type = Some(std::any::type_name::<S>());
+                        err.pipeline_type = Some(core::any::type_name::<S>());
                     }
                     err
                 })?;
@@ -171,7 +171,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                                     unused' MeshVertexBufferLayout information to specialize \
                                     the pipeline. This is not allowed because it would invalidate \
                                     the pipeline cache.",
-                                std::any::type_name::<S>()
+                                core::any::type_name::<S>()
                             );
                         }
                     }

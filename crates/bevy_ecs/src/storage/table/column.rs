@@ -282,10 +282,10 @@ impl ThinColumn {
     /// - `last_element_index` is indeed the index of the last element
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
-        std::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
-        std::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
+        core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
+        core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
         #[cfg(feature = "track_change_detection")]
-        std::ptr::drop_in_place(self.changed_by.get_unchecked_raw(last_element_index));
+        core::ptr::drop_in_place(self.changed_by.get_unchecked_raw(last_element_index));
         self.data.drop_last_element(last_element_index);
     }
 

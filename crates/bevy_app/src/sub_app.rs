@@ -9,7 +9,7 @@ use bevy_ecs::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -75,7 +75,7 @@ pub struct SubApp {
 }
 
 impl Debug for SubApp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SubApp")
     }
 }
@@ -109,9 +109,9 @@ impl SubApp {
         F: FnOnce(&mut App),
     {
         let mut app = App::empty();
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
         f(&mut app);
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
     }
 
     /// Returns a reference to the [`World`].
@@ -327,7 +327,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugin_names.contains(std::any::type_name::<T>())
+        self.plugin_names.contains(core::any::type_name::<T>())
     }
 
     /// See [`App::get_added_plugins`].
@@ -352,7 +352,7 @@ impl SubApp {
         match self.plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugin_registry);
+                let plugins = core::mem::take(&mut self.plugin_registry);
                 self.run_as_app(|app| {
                     for plugin in &plugins {
                         if !plugin.ready(app) {
@@ -370,7 +370,7 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
+        let plugins = core::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
             for plugin in &plugins {
                 plugin.finish(app);
@@ -382,7 +382,7 @@ impl SubApp {
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
+        let plugins = core::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
             for plugin in &plugins {
                 plugin.cleanup(app);
@@ -428,7 +428,7 @@ impl SubApp {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
         &mut self,
-        name: impl Into<std::borrow::Cow<'static, str>>,
+        name: impl Into<alloc::borrow::Cow<'static, str>>,
         function: F,
     ) -> &mut Self
     where
@@ -472,12 +472,12 @@ impl SubApps {
 
     /// Returns an iterator over the sub-apps (starting with the main one).
     pub fn iter(&self) -> impl Iterator<Item = &SubApp> + '_ {
-        std::iter::once(&self.main).chain(self.sub_apps.values())
+        core::iter::once(&self.main).chain(self.sub_apps.values())
     }
 
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
-        std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+        core::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
     }
 
     /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.

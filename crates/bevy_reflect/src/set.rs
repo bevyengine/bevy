@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
@@ -10,15 +10,18 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`](std::collections::HashSet). The
-/// order of these entries is not guaranteed by this trait.
+/// Sets contain zero or more entries of a fixed type, and correspond to types
+/// like [`HashSet`] and [`BTreeSet`].
+/// The order of these entries is not guaranteed by this trait.
 ///
-/// # Hashing
+/// # Hashing and equality
 ///
-/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
-/// This is true even for manual implementors who do not use the hashed value,
+/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
+/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
+/// This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicSet`].
 ///
 /// # Example
@@ -36,6 +39,8 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
+/// [`HashSet`]: std::collections::HashSet
+/// [`BTreeSet`]: std::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: PartialReflect {
@@ -310,7 +315,7 @@ impl PartialReflect for DynamicSet {
         set_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicSet(")?;
         set_debug(self, f)?;
         write!(f, ")")
@@ -325,7 +330,7 @@ impl PartialReflect for DynamicSet {
 impl_type_path!((in bevy_reflect) DynamicSet);
 
 impl Debug for DynamicSet {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -371,7 +376,7 @@ impl IntoIterator for DynamicSet {
 
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
-    type IntoIter = std::iter::Map<
+    type IntoIter = core::iter::Map<
         bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
@@ -432,7 +437,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
+pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_set();
     for value in dyn_set.iter() {
         debug.entry(&value as &dyn Debug);

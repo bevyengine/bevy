@@ -13,6 +13,8 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
+extern crate alloc;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -41,14 +43,6 @@ pub use bevy_ptr as ptr;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[cfg(feature = "reflect_functions")]
-    pub use crate::reflect::AppFunctionRegistry;
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
-    };
-    #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -65,13 +59,24 @@ pub mod prelude {
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
             NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
-            Resource, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
+            Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_reflect")]
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
+
+    #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
 }
 
 #[cfg(test)]
@@ -87,17 +92,16 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
+    use alloc::sync::Arc;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::{
+    use core::{
         any::TypeId,
         marker::PhantomData,
         num::NonZero,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc, Mutex,
-        },
+        sync::atomic::{AtomicUsize, Ordering},
     };
+    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -181,8 +185,8 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
             ]
         );
 
@@ -235,10 +239,10 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<A>(),
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
-                world.init_component::<B>(),
+                world.register_component::<A>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+                world.register_component::<B>(),
             ]
         );
 
@@ -288,7 +292,7 @@ mod tests {
             },
         );
 
-        assert_eq!(ids, &[world.init_component::<C>(),]);
+        assert_eq!(ids, &[world.register_component::<C>(),]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
@@ -2011,7 +2015,7 @@ mod tests {
         struct Y;
 
         let mut world = World::new();
-        let x_id = world.init_component::<X>();
+        let x_id = world.register_component::<X>();
 
         let mut e = world.spawn_empty();
 

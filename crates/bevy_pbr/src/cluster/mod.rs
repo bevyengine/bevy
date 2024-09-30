@@ -1,6 +1,6 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
-use std::num::NonZero;
+use core::num::NonZero;
 
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
@@ -491,6 +491,13 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
+pub(crate) struct ClusterableObjectOrderData<'a> {
+    pub(crate) entity: &'a Entity,
+    pub(crate) shadows_enabled: &'a bool,
+    pub(crate) is_volumetric_light: &'a bool,
+    pub(crate) is_spot_light: &'a bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 // Sort clusterable objects by:
 //
@@ -505,13 +512,14 @@ impl Default for GpuClusterableObjectsUniform {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
-    (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
-    is_spot_light_1
-        .cmp(is_spot_light_2) // pointlights before spot lights
-        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
-        .then_with(|| entity_1.cmp(entity_2)) // stable
+    a: ClusterableObjectOrderData,
+    b: ClusterableObjectOrderData,
+) -> core::cmp::Ordering {
+    a.is_spot_light
+        .cmp(b.is_spot_light) // pointlights before spot lights
+        .then_with(|| b.shadows_enabled.cmp(a.shadows_enabled)) // shadow casters before non-casters
+        .then_with(|| b.is_volumetric_light.cmp(a.is_volumetric_light)) // volumetric lights before non-volumetric lights
+        .then_with(|| a.entity.cmp(b.entity)) // stable
 }
 
 /// Extracts clusters from the main world from the render world.

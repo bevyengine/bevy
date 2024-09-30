@@ -4,7 +4,8 @@ use crate::{
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::{borrow::Cow, ops::Deref};
+use alloc::borrow::Cow;
+use core::ops::Deref;
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -61,10 +62,10 @@ impl<'s> From<SystemName<'s>> for &'s str {
     }
 }
 
-impl<'s> std::fmt::Display for SystemName<'s> {
+impl<'s> core::fmt::Display for SystemName<'s> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name(), f)
     }
 }
 
@@ -140,7 +141,7 @@ mod tests {
         let mut world = World::default();
         let system =
             IntoSystem::into_system(|name: SystemName| name.name().to_owned()).with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 
@@ -150,7 +151,7 @@ mod tests {
         let system =
             IntoSystem::into_system(|_world: &mut World, name: SystemName| name.name().to_owned())
                 .with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 }

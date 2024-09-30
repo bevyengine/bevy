@@ -1,14 +1,13 @@
-use std::marker::PhantomData;
-
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     change_detection::Mut,
     entity::Entity,
     system::{input::SystemInput, BoxedSystem, IntoSystem, System},
     world::{Command, World},
-    {self as bevy_ecs},
 };
 use bevy_ecs_macros::{Component, Resource};
+use core::marker::PhantomData;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -96,14 +95,14 @@ impl<I: SystemInput, O> PartialEq for SystemId<I, O> {
 }
 
 // A manual impl is used because the trait bounds should ignore the `I` and `O` phantom parameters.
-impl<I: SystemInput, O> std::hash::Hash for SystemId<I, O> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<I: SystemInput, O> core::hash::Hash for SystemId<I, O> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.entity.hash(state);
     }
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for SystemId<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for SystemId<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemId").field(&self.entity).finish()
     }
 }
@@ -337,7 +336,12 @@ impl World {
             system.initialize(self);
             initialized = true;
         }
-        let result = system.run(input, self);
+
+        let result = if system.validate_param(self) {
+            Ok(system.run(input, self))
+        } else {
+            Err(RegisteredSystemError::InvalidParams(id))
+        };
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.entity) {
@@ -346,7 +350,7 @@ impl World {
                 system,
             });
         }
-        Ok(result)
+        result
     }
 
     /// Registers a system or returns its cached [`SystemId`].
@@ -496,7 +500,7 @@ where
 {
     #[inline]
     fn apply(self, world: &mut World) {
-        let _ = world.run_system_with_input(self.system_id, self.input);
+        _ = world.run_system_with_input(self.system_id, self.input);
     }
 }
 
@@ -595,10 +599,15 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// A system tried to remove itself.
     #[error("System {0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
+    /// System could not be run due to parameters that failed validation.
+    ///
+    /// This can occur because the data required by the system was not present in the world.
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    InvalidParams(SystemId<I, O>),
 }
 
-impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
@@ -606,13 +615,14 @@ impl<I: SystemInput, O> std::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
+            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
         }
     }
 }
 
 mod tests {
-    use crate as bevy_ecs;
     use crate::prelude::*;
+    use crate::{self as bevy_ecs};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
@@ -912,5 +922,24 @@ mod tests {
             .run_system_with_input(post_system, &mut event)
             .unwrap();
         assert!(event.cancelled);
+    }
+
+    #[test]
+    fn run_system_invalid_params() {
+        use crate::system::RegisteredSystemError;
+
+        struct T;
+        impl Resource for T {}
+        fn system(_: Res<T>) {}
+
+        let mut world = World::new();
+        let id = world.register_system_cached(system);
+        // This fails because `T` has not been added to the world yet.
+        let result = world.run_system(id);
+
+        assert!(matches!(
+            result,
+            Err(RegisteredSystemError::InvalidParams(_))
+        ));
     }
 }

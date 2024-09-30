@@ -30,7 +30,7 @@ pub mod graph {
     }
 }
 
-use std::ops::Range;
+use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
 use bevy_utils::HashMap;
