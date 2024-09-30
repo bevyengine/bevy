@@ -1170,6 +1170,17 @@ doc-scrape-examples = true
 hidden = true
 
 # Animation
+[[examples]]
+name = "animation_triggers"
+path = "examples/animation/animation_triggers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_triggers]
+name = "Animation Triggers"
+description = "blablabla"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
