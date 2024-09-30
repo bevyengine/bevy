@@ -4,8 +4,8 @@ use bevy_render::{
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{
-        ComputePassDescriptor, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor,
+        ComputePassDescriptor, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, StoreOp,
     },
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
@@ -19,12 +19,15 @@ use super::{
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
-pub struct AtmosphereNodeLabel;
+pub enum AtmosphereNode {
+    RenderLuts,
+    RenderSky,
+}
 
 #[derive(Default)]
-pub(super) struct AtmosphereNode {}
+pub(super) struct AtmosphereLutsNode {}
 
-impl ViewNode for AtmosphereNode {
+impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
         Read<AtmosphereTextures>,
         Read<AtmosphereSettings>,
@@ -181,6 +184,61 @@ impl ViewNode for AtmosphereNode {
         }
 
         render_context.command_encoder().pop_debug_group();
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(super) struct RenderSkyNode;
+
+impl ViewNode for RenderSkyNode {
+    type ViewQuery = (
+        Read<AtmosphereBindGroups>,
+        Read<ViewTarget>,
+        Read<ViewUniformOffset>,
+    );
+
+    fn run<'w>(
+        &self,
+        _graph: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        (atmosphere_bind_groups, view_target, view_uniforms_offset): QueryItem<'w, Self::ViewQuery>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let atmosphere_pipelines = world.resource::<AtmospherePipelines>();
+        let Some(render_sky_pipeline) =
+            pipeline_cache.get_render_pipeline(atmosphere_pipelines.render_sky)
+        else {
+            return Ok(());
+        }; //TODO: warning
+
+        let mut render_sky_pass =
+            render_context
+                .command_encoder()
+                .begin_render_pass(&RenderPassDescriptor {
+                    label: Some("render_sky_pass"),
+                    color_attachments: &[Some(RenderPassColorAttachment {
+                        view: view_target.main_texture_view(),
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Load,
+                            store: StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+
+        render_sky_pass.set_pipeline(render_sky_pipeline);
+        render_sky_pass.set_bind_group(
+            0,
+            &atmosphere_bind_groups.render_sky,
+            &[view_uniforms_offset.offset],
+        );
+        render_sky_pass.draw(0..3, 0..1);
+
         Ok(())
     }
 }

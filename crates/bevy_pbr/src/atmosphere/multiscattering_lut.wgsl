@@ -46,7 +46,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }*/
 }
 
-fn sample_multiscattering_dir(atmosphere: Atmosphere, r_mu: vec2<f32>, dir: vec2<f32>, atmosphere_dist: f32) {
+fn sample_multiscattering_dir(atmosphere: Atmosphere, r_cos_azimuth: vec2<f32>, dir: vec2<f32>, atmosphere_dist: f32) {
 //    for (var step_i: u32 = 0u; step_i < settings.multiscattering_lut_samples; step_i++) {
 //    }
 }

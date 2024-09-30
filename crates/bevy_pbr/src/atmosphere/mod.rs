@@ -26,7 +26,7 @@ use bevy_utils::tracing::warn;
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 
 use self::{
-    node::{AtmosphereNode, AtmosphereNodeLabel},
+    node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
         AtmospherePipelines, AtmosphereSamplers,
@@ -131,14 +131,29 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
             )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereNode>>(Core3d, AtmosphereNodeLabel)
+            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
+                Core3d,
+                AtmosphereNode::RenderLuts,
+            )
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // END_PRE_PASSES -> PREPARE_SKY -> MAIN_PASS
+                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
                     Node3d::EndPrepasses,
-                    AtmosphereNodeLabel,
+                    AtmosphereNode::RenderLuts,
                     Node3d::StartMainPass,
+                ),
+            )
+            .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(
+                Core3d,
+                AtmosphereNode::RenderSky,
+            )
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::MainOpaquePass,
+                    AtmosphereNode::RenderSky,
+                    Node3d::MainTransparentPass,
                 ),
             );
     }

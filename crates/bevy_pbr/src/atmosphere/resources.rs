@@ -264,7 +264,7 @@ impl FromWorld for AtmospherePipelines {
                 shader_defs: vec![],
                 entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rgba8Unorm, //TODO: support HDR
+                    format: TextureFormat::Rgba16Float,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
