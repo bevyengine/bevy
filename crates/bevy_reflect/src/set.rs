@@ -10,15 +10,18 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`](std::collections::HashSet). The
-/// order of these entries is not guaranteed by this trait.
+/// Sets contain zero or more entries of a fixed type, and correspond to types
+/// like [`HashSet`] and [`BTreeSet`].
+/// The order of these entries is not guaranteed by this trait.
 ///
-/// # Hashing
+/// # Hashing and equality
 ///
-/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
-/// This is true even for manual implementors who do not use the hashed value,
+/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
+/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
+/// This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicSet`].
 ///
 /// # Example
@@ -36,6 +39,8 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
+/// [`HashSet`]: std::collections::HashSet
+/// [`BTreeSet`]: std::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: PartialReflect {
@@ -56,7 +61,9 @@ pub trait Set: PartialReflect {
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -182,8 +189,8 @@ impl Set for DynamicSet {
         Box::new(iter)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.hash_table.into_iter().collect::<Vec<_>>()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.hash_table.drain().collect::<Vec<_>>()
     }
 
     fn clone_dynamic(&self) -> DynamicSet {
