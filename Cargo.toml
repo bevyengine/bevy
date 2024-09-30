@@ -911,6 +911,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "query_gltf_primitives"
+path = "examples/3d/query_gltf_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.query_gltf_primitives]
+name = "Query glTF primitives"
+description = "Query primitives in a glTF scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "motion_blur"
 path = "examples/3d/motion_blur.rs"
 doc-scrape-examples = true
