@@ -1,5 +1,4 @@
 //! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](crate::gizmos::Gizmos) system parameter.
-//!
 
 use core::ops::{Deref, DerefMut};
 
@@ -17,8 +16,6 @@ use {
     bevy_render::Extract,
 };
 
-#[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-use crate::config;
 use crate::{
     config::{ErasedGizmoConfigGroup, GizmoConfig},
     gizmos::GizmoBuffer,
@@ -109,7 +106,7 @@ pub(crate) fn extract_linegizmos(
                 },
                 linegizmo.handle.clone_weak(),
                 #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-                config::GizmoMeshConfig::from(&linegizmo.config),
+                crate::config::GizmoMeshConfig::from(&linegizmo.config),
             ),
         ));
     }
