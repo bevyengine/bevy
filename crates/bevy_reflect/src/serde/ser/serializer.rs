@@ -235,7 +235,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
 
         // First, check if our processor wants to serialize this type
         // This takes priority over any other serialization operations
-        let serializer = if let Some(processor) = self.processor.as_deref() {
+        let serializer = if let Some(processor) = self.processor {
             match processor.try_serialize(self.value, self.registry, serializer) {
                 Ok(Ok(value)) => {
                     return Ok(value);

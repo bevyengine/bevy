@@ -21,10 +21,10 @@ mod tests {
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
     use bevy_utils::{HashMap, HashSet};
+    use core::any::TypeId;
     use core::{f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::{Serialize, Serializer};
-    use std::any::TypeId;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -511,8 +511,8 @@ mod tests {
         let mut registry = TypeRegistry::new();
         registry.register::<Foo>();
 
-        let mut processor = FooProcessor;
-        let serializer = ReflectSerializer::with_processor(&value, &registry, &mut processor);
+        let processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
         let output = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::Foo": (
@@ -573,8 +573,8 @@ mod tests {
         registry.register::<Foo>();
         registry.register::<SubFoo>();
 
-        let mut processor = FooProcessor;
-        let serializer = ReflectSerializer::with_processor(&value, &registry, &mut processor);
+        let processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
         let output = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::Foo": (
@@ -584,6 +584,53 @@ mod tests {
 }"#;
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_propagate_processor_serialize_error() {
+        struct ErroringProcessor;
+
+        impl ReflectSerializerProcessor for ErroringProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i32>() {
+                    Err(serde::ser::Error::custom("my custom serialize error"))
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = 123_i32;
+
+        let registry = TypeRegistry::new();
+
+        let processor = ErroringProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
+        let error = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap_err();
+
+        #[cfg(feature = "debug_stack")]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error (stack: `i32`)".to_string())
+        );
+        #[cfg(not(feature = "debug_stack"))]
+        assert_eq!(
+            error,
+            ron::Error::Message("my custom deserialize error".to_string())
+        );
     }
 
     #[cfg(feature = "functions")]
