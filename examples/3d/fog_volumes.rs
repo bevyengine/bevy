@@ -9,8 +9,8 @@ use bevy::{
     math::vec3,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render::world_sync::SyncToRenderWorld,
 };
-use bevy_render::world_sync::SyncToRenderWorld;
 
 /// Entry point.
 fn main() {
