@@ -14,7 +14,7 @@ pub(super) struct StructVisitor<'a, P> {
     pub struct_info: &'static StructInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVisitor<'_, P> {

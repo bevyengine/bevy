@@ -14,7 +14,7 @@ use super::ReflectDeserializerProcessor;
 pub(super) struct OptionVisitor<'a, P> {
     pub enum_info: &'static EnumInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for OptionVisitor<'_, P> {

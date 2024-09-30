@@ -13,7 +13,7 @@ use super::ReflectDeserializerProcessor;
 pub(super) struct ListVisitor<'a, P> {
     pub list_info: &'static ListInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
@@ -32,7 +32,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for ListVisitor<'_, P> {
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
             registration,
             self.registry,
-            &mut self.processor,
+            self.processor.as_deref_mut(),
         ))? {
             list.push_box(value);
         }

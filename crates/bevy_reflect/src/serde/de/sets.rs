@@ -13,7 +13,7 @@ use super::ReflectDeserializerProcessor;
 pub(super) struct SetVisitor<'a, P> {
     pub set_info: &'static SetInfo,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
@@ -32,7 +32,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
         while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new_internal(
             value_registration,
             self.registry,
-            &mut self.processor,
+            self.processor.as_deref_mut(),
         ))? {
             dynamic_set.insert_boxed(value);
         }

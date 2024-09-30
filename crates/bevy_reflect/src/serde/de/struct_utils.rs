@@ -90,7 +90,7 @@ pub(super) fn visit_struct<'de, T, V, P>(
     info: &'static T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
-    mut processor: P,
+    mut processor: Option<&mut P>,
 ) -> Result<DynamicStruct, V::Error>
 where
     T: StructLikeInfo,
@@ -111,7 +111,7 @@ where
         let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
             registration,
             registry,
-            &mut processor,
+            processor.as_deref_mut(),
         ))?;
         dynamic_struct.insert_boxed(&key, value);
     }
@@ -139,7 +139,7 @@ pub(super) fn visit_struct_seq<'de, T, V, P>(
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
-    mut processor: P,
+    mut processor: Option<&mut P>,
 ) -> Result<DynamicStruct, V::Error>
 where
     T: StructLikeInfo,
@@ -174,7 +174,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
-                &mut processor,
+                processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         dynamic_struct.insert_boxed(name, value);

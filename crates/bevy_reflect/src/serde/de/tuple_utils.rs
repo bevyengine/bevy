@@ -71,7 +71,7 @@ pub(super) fn visit_tuple<'de, T, V, P>(
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
-    mut processor: P,
+    mut processor: Option<&mut P>,
 ) -> Result<DynamicTuple, V::Error>
 where
     T: TupleLikeInfo,
@@ -99,7 +99,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
-                &mut processor,
+                processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);
