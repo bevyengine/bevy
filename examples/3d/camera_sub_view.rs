@@ -1,8 +1,8 @@
 //! Renders multiple cameras with different sub view efffects.
 use bevy::{
-    math::uvec2,
+    math::{ivec2, uvec2},
     prelude::*,
-    render::camera::{SubCameraView, Viewport},
+    render::camera::{ScalingMode, SubCameraView, Viewport},
 };
 
 const PADDING: u32 = 10;
@@ -10,12 +10,13 @@ const SMALL_SIZE: u32 = 100;
 const LARGE_SIZE: u32 = 450;
 
 const WINDOW_HEIGHT: f32 = (LARGE_SIZE + PADDING * 3 + SMALL_SIZE) as f32;
-const WINDOW_WIDTH: f32 = (LARGE_SIZE + PADDING * 2) as f32;
+const WINDOW_WIDTH: f32 = (LARGE_SIZE * 2 + PADDING * 3) as f32;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
+                // Fix window size to avoid issues with viewports on resizing
                 resize_constraints: WindowResizeConstraints {
                     min_width: WINDOW_WIDTH,
                     min_height: WINDOW_HEIGHT,
@@ -90,12 +91,12 @@ fn setup(
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
+                // Set the sub view camera to the left half of the full image
                 full_size: uvec2(500, 500),
-                offset: uvec2(0, 0),
+                offset: ivec2(0, 0),
                 size: uvec2(250, 500),
             }),
             order: 1,
-            clear_color: ClearColorConfig::None,
             ..default()
         },
         transform,
@@ -112,12 +113,13 @@ fn setup(
                     ..default()
                 }),
                 sub_camera_view: Some(SubCameraView {
+                    // Set the sub view camera to a fifth of the full view and
+                    // move it in another system
                     full_size: uvec2(500, 500),
-                    offset: uvec2(0, 0),
+                    offset: ivec2(0, 0),
                     size: uvec2(100, 100),
                 }),
                 order: 2,
-                clear_color: ClearColorConfig::None,
                 ..default()
             },
             transform,
@@ -135,34 +137,116 @@ fn setup(
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
+                // Set the sub view to the full image, to ensure that it matches
+                // the projection without sub view
                 full_size: uvec2(450, 450),
-                offset: uvec2(0, 0),
+                offset: ivec2(0, 0),
                 size: uvec2(450, 450),
             }),
             order: 3,
-            clear_color: ClearColorConfig::None,
             ..default()
         },
         transform,
         ..default()
     });
 
-    // Orthographic camera right
+    // Main orthographic camera
     commands.spawn(Camera3dBundle {
-        projection: OrthographicProjection::default().into(),
+        projection: OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(6.0),
+            ..default()
+        }
+        .into(),
+        camera: Camera {
+            viewport: Option::from(Viewport {
+                physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
+                physical_position: UVec2::new(PADDING * 2 + LARGE_SIZE, PADDING * 2 + SMALL_SIZE),
+                ..default()
+            }),
+            order: 4,
+            ..default()
+        },
+        transform,
+        ..default()
+    });
+
+    // Orthographic camera left half
+    commands.spawn(Camera3dBundle {
+        projection: OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(6.0),
+            ..default()
+        }
+        .into(),
         camera: Camera {
             viewport: Option::from(Viewport {
                 physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                physical_position: uvec2(PADDING * 4 + SMALL_SIZE * 3, PADDING),
+                physical_position: uvec2(PADDING * 5 + SMALL_SIZE * 4, PADDING),
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
+                // Set the sub view camera to the left half of the full image
                 full_size: uvec2(500, 500),
-                offset: uvec2(250, 0),
+                offset: ivec2(0, 0),
                 size: uvec2(250, 500),
             }),
-            order: 4,
-            clear_color: ClearColorConfig::None,
+            order: 5,
+            ..default()
+        },
+        transform,
+        ..default()
+    });
+
+    // Orthographic camera moving
+    commands.spawn((
+        Camera3dBundle {
+            projection: OrthographicProjection {
+                scaling_mode: ScalingMode::FixedVertical(6.0),
+                ..default()
+            }
+            .into(),
+            camera: Camera {
+                viewport: Option::from(Viewport {
+                    physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
+                    physical_position: uvec2(PADDING * 6 + SMALL_SIZE * 5, PADDING),
+                    ..default()
+                }),
+                sub_camera_view: Some(SubCameraView {
+                    // Set the sub view camera to a fifth of the full view and
+                    // move it in another system
+                    full_size: uvec2(500, 500),
+                    offset: ivec2(0, 0),
+                    size: uvec2(100, 100),
+                }),
+                order: 6,
+                ..default()
+            },
+            transform,
+            ..default()
+        },
+        MovingCameraMarker,
+    ));
+
+    // Orthographic camera control
+    commands.spawn(Camera3dBundle {
+        projection: OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(6.0),
+            ..default()
+        }
+        .into(),
+        camera: Camera {
+            viewport: Option::from(Viewport {
+                physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
+                physical_position: uvec2(PADDING * 7 + SMALL_SIZE * 6, PADDING),
+                ..default()
+            }),
+            sub_camera_view: Some(SubCameraView {
+                // Set the sub view to the full image, to ensure that it matches
+                // the projection without sub view
+                full_size: uvec2(450, 450),
+                offset: ivec2(0, 0),
+                size: uvec2(450, 450),
+            }),
+            order: 7,
             ..default()
         },
         transform,
@@ -174,9 +258,9 @@ fn move_camera_view(
     mut movable_camera_query: Query<&mut Camera, With<MovingCameraMarker>>,
     time: Res<Time>,
 ) {
-    if let Ok(mut camera) = movable_camera_query.get_single_mut() {
+    for mut camera in movable_camera_query.iter_mut() {
         if let Some(sub_view) = &mut camera.sub_camera_view {
-            sub_view.offset.x = (time.elapsed_seconds() * 100.) as u32 % 400;
+            sub_view.offset.x = (time.elapsed_seconds() * 150.) as i32 % 450 - 50;
             sub_view.offset.y = sub_view.offset.x;
         }
     }

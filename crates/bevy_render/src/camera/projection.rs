@@ -198,18 +198,12 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let super::SubCameraView {
-            full_size,
-            offset,
-            size,
-        } = sub_view;
-
-        let full_width = full_size.x as f32;
-        let full_height = full_size.y as f32;
-        let offset_x = offset.x as f32;
-        let offset_y = offset.y as f32;
-        let sub_width = size.x as f32;
-        let sub_height = size.y as f32;
+        let full_width = sub_view.full_size.x as f32;
+        let full_height = sub_view.full_size.y as f32;
+        let offset_x = sub_view.offset.x as f32;
+        let offset_y = sub_view.offset.y as f32;
+        let sub_width = sub_view.size.x as f32;
+        let sub_height = sub_view.size.y as f32;
 
         // Y-axis increases from top to bottom
         let offset_y = full_height - (offset_y + sub_height);
@@ -450,8 +444,40 @@ impl CameraProjection for OrthographicProjection {
         )
     }
 
-    fn get_clip_from_view_for_sub(&self, _sub_view: &super::SubCameraView) -> Mat4 {
-        self.get_clip_from_view()
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        let full_width = sub_view.full_size.x as f32;
+        let full_height = sub_view.full_size.y as f32;
+        let offset_x = sub_view.offset.x as f32;
+        let offset_y = sub_view.offset.y as f32;
+        let sub_width = sub_view.size.x as f32;
+        let sub_height = sub_view.size.y as f32;
+
+        // Orthographic projection parameters
+        let top = self.area.max.y;
+        let bottom = self.area.min.y;
+        let right = self.area.max.x;
+        let left = self.area.min.x;
+
+        // Calculate scaling factors
+        let scale_w = (right - left) / full_width;
+        let scale_h = (top - bottom) / full_height;
+
+        // Calculate the new orthographic bounds
+        let left_prime = left + scale_w * offset_x;
+        let right_prime = left_prime + scale_w * sub_width;
+        let top_prime = top - scale_h * offset_y;
+        let bottom_prime = top_prime - scale_h * sub_height;
+
+        Mat4::orthographic_rh(
+            left_prime,
+            right_prime,
+            bottom_prime,
+            top_prime,
+            // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
+            // This is for interoperability with pipelines using infinite reverse perspective projections.
+            self.far,
+            self.near,
+        )
     }
 
     fn update(&mut self, width: f32, height: f32) {

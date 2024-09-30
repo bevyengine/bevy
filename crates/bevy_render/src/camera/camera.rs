@@ -25,7 +25,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{ops, vec2, Dir3, IVec2, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
@@ -72,7 +72,7 @@ pub struct SubCameraView {
     /// Size of the entire camera view
     pub full_size: UVec2,
     /// Offset of the sub camera
-    pub offset: UVec2,
+    pub offset: IVec2,
     /// Size of the sub camera
     pub size: UVec2,
 }
@@ -81,7 +81,7 @@ impl Default for SubCameraView {
     fn default() -> Self {
         Self {
             full_size: UVec2::new(100, 100),
-            offset: UVec2::new(0, 0),
+            offset: IVec2::new(0, 0),
             size: UVec2::new(100, 100),
         }
     }
