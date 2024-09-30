@@ -282,7 +282,7 @@ impl ReflectDeserializerProcessor for () {
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 /// [`with_processor`]: Self::with_processor
-pub struct ReflectDeserializer<'a, P> {
+pub struct ReflectDeserializer<'a, P = ()> {
     registry: &'a TypeRegistry,
     processor: Option<&'a mut P>,
 }
