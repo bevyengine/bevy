@@ -33,13 +33,14 @@ fn setup(
 
     // A sphere made out of 30_000 lines!
     linegizmo
-        .sphere(Isometry3d::from_translation(Vec3::Y * 4.), 1.5, CRIMSON)
+        .sphere(Isometry3d::from_xyz(4., 0.5, 0.), 0.5, CRIMSON)
         .resolution(30_000 / 3);
 
     commands.spawn(LineGizmo {
         handle: linegizmos.add(linegizmo),
+        // LineGizmos have their own configuration
         config: GizmoConfig {
-            line_width: 3.,
+            line_width: 5.,
             ..default()
         },
     });
