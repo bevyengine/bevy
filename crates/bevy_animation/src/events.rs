@@ -1,4 +1,5 @@
 use std::{any::Any, fmt::Debug};
+//! Traits and types for triggering events from animations.
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::{
