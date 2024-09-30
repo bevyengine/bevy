@@ -25,7 +25,6 @@ mod texture_slice;
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -189,9 +188,9 @@ pub fn calculate_bounds_2d(
     atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite),
+        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
-            Or<(Without<Aabb>, Changed<Sprite>)>,
+            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -203,13 +202,13 @@ pub fn calculate_bounds_2d(
             }
         }
     }
-    for (entity, sprite) in &sprites_to_recalculate_aabb {
+    for (entity, sprite, texture_handle, atlas) in &sprites_to_recalculate_aabb {
         if let Some(size) = sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
-            .or_else(|| match &sprite.atlas {
+            .or_else(|| match atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(&sprite.image).map(Image::size_f32),
+                None => images.get(texture_handle).map(Image::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)
@@ -263,7 +262,10 @@ mod test {
         app.add_systems(Update, calculate_bounds_2d);
 
         // Add entities
-        let entity = app.world_mut().spawn(Sprite::from_image(image_handle)).id();
+        let entity = app
+            .world_mut()
+            .spawn((Sprite::default(), image_handle))
+            .id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
