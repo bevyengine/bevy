@@ -94,6 +94,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 ///         fn try_deserialize<'de, D>(
 ///             &mut self,
 ///             registration: &TypeRegistration,
+///             _registry: &TypeRegistry,
 ///             deserializer: D,
 ///         ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
 ///         where
@@ -163,6 +164,7 @@ pub trait ReflectDeserializerProcessor {
     ///     fn try_deserialize<'de, D>(
     ///         &mut self,
     ///         registration: &TypeRegistration,
+    ///         _registry: &TypeRegistry,
     ///         deserializer: D,
     ///     ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     ///     where
@@ -180,6 +182,7 @@ pub trait ReflectDeserializerProcessor {
     fn try_deserialize<'de, D>(
         &mut self,
         registration: &TypeRegistration,
+        registry: &TypeRegistry,
         deserializer: D,
     ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     where
@@ -190,6 +193,7 @@ impl ReflectDeserializerProcessor for () {
     fn try_deserialize<'de, D>(
         &mut self,
         _registration: &TypeRegistration,
+        _registry: &TypeRegistry,
         deserializer: D,
     ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
     where
@@ -541,7 +545,7 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
             // First, check if our processor wants to deserialize this type
             // This takes priority over any other deserialization operations
             let deserializer = if let Some(processor) = self.processor.as_deref_mut() {
-                match processor.try_deserialize(self.registration, deserializer) {
+                match processor.try_deserialize(self.registration, self.registry, deserializer) {
                     Ok(Ok(value)) => {
                         return Ok(value);
                     }
