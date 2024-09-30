@@ -20,7 +20,7 @@ use crate::{
 use alloc::sync::Arc;
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_tasks::{IoTaskPool, Task};
+use bevy_tasks::IoTaskPool;
 use bevy_utils::{
     tracing::{error, info},
     HashSet,
@@ -383,7 +383,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone().untyped(), path, &mut *infos, guard);
+            self.spawn_load_task(handle.clone().untyped(), path, &mut infos, guard);
         }
 
         handle
@@ -407,7 +407,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone(), path, &mut *infos, guard);
+            self.spawn_load_task(handle.clone(), path, &mut infos, guard);
         }
 
         handle
