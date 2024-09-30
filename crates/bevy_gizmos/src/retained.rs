@@ -50,7 +50,7 @@ impl DerefMut for LineGizmoAsset {
 /// # use bevy_gizmos::prelude::*;
 /// # use bevy_asset::prelude::*;
 /// # use bevy_color::palettes::css::*;
-/// # use bevy_utils::default; 
+/// # use bevy_utils::default;
 /// fn system(
 ///     mut commands: Commands,
 ///     mut linegizmos: ResMut<Assets<LineGizmoAsset>>,
