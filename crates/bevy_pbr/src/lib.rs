@@ -68,9 +68,9 @@ pub use volumetric_fog::{
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
-    #[allow(deprecated)]
     pub use crate::{
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
