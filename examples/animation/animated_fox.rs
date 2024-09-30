@@ -8,6 +8,7 @@ use bevy::{
         events::{AnimationEvent, ReflectAnimationEvent},
         AnimationTargetId, RepeatAnimation,
     },
+    color::palettes::css::WHITE,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
@@ -21,12 +22,15 @@ fn main() {
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)
+        .init_resource::<FoxFeetIds>()
+        .init_resource::<FoxStep>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             setup_scene_once_loaded.before(animate_targets_and_trigger_events),
         )
         .add_systems(Update, keyboard_animation_control)
+        .add_systems(Update, update_particle)
         .observe(FoxStep::observer)
         .register_type::<FoxStep>()
         .run();
@@ -37,6 +41,81 @@ struct Animations {
     animations: Vec<AnimationNodeIndex>,
     #[allow(dead_code)]
     graph: Handle<AnimationGraph>,
+}
+
+#[derive(Resource)]
+struct FoxFeetIds {
+    forward_right: AnimationTargetId,
+    forward_left: AnimationTargetId,
+    back_right: AnimationTargetId,
+    back_left: AnimationTargetId,
+}
+
+impl Default for FoxFeetIds {
+    fn default() -> Self {
+        Self {
+            forward_right: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_Spine01_02/b_Spine02_03/b_RightUpperArm_06/b_RightForeArm_07/b_RightHand_08"),
+            forward_left: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_Spine01_02/b_Spine02_03/b_LeftUpperArm_09/b_LeftForeArm_010/b_LeftHand_011"),
+            back_right: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_RightLeg01_019/b_RightLeg02_020/b_RightFoot01_021/b_RightFoot02_022"),
+            back_left: AnimationTargetId::from_str("root/_rootJoint/b_Root_00/b_Hip_01/b_LeftLeg01_015/b_LeftLeg02_016/b_LeftFoot01_017/b_LeftFoot02_018"),
+        }
+    }
+}
+
+#[derive(Component, Debug)]
+struct Particle {
+    size: f32,
+    lifetime: Timer,
+}
+
+#[derive(Resource, Event, Reflect, Clone)]
+#[reflect(AnimationEvent)]
+struct FoxStep {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for FoxStep {
+    fn from_world(world: &mut World) -> Self {
+        let mesh = world.resource_mut::<Assets<Mesh>>().add(Sphere::new(10.0));
+        let material = world
+            .resource_mut::<Assets<StandardMaterial>>()
+            .add(StandardMaterial::from_color(WHITE));
+        Self { mesh, material }
+    }
+}
+
+impl FoxStep {
+    fn observer(trigger: Trigger<Self>, query: Query<&GlobalTransform>, mut commands: Commands) {
+        let transform = query.get(trigger.entity()).unwrap().compute_transform();
+        commands.spawn((
+            Particle {
+                lifetime: Timer::from_seconds(1.0, TimerMode::Once),
+                size: 1.0,
+            },
+            MaterialMeshBundle {
+                mesh: trigger.event().mesh.clone(),
+                material: trigger.event().material.clone(),
+                transform: Transform {
+                    translation: transform.translation.reject_from(Vec3::Y),
+                    scale: Vec3::splat(1.0),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ));
+        // println!("STEP: {}", transform.translation);
+    }
+}
+
+impl AnimationEvent for FoxStep {
+    fn trigger(&self, entity: Entity, world: &mut World) {
+        world.entity_mut(entity).trigger(self.clone());
+    }
+
+    fn clone_value(&self) -> Box<dyn AnimationEvent> {
+        Box::new(self.clone())
+    }
 }
 
 fn setup(
@@ -105,31 +184,13 @@ fn setup(
     println!("  - return: change animation");
 }
 
-#[derive(Event, Reflect, Clone)]
-#[reflect(AnimationEvent)]
-struct FoxStep;
-
-impl FoxStep {
-    fn observer(_: Trigger<Self>) {
-        println!("STEP!!!");
-    }
-}
-
-impl AnimationEvent for FoxStep {
-    fn trigger(&self, entity: Entity, world: &mut World) {
-        world.entity_mut(entity).trigger(self.clone());
-    }
-
-    fn clone_value(&self) -> Box<dyn AnimationEvent> {
-        Box::new(self.clone())
-    }
-}
-
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
 // When the player is added, start the animation.
 fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
+    feet: Res<FoxFeetIds>,
+    step: Res<FoxStep>,
     mut clips: ResMut<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
@@ -138,10 +199,10 @@ fn setup_scene_once_loaded(
         let graph = graphs.get(&animations.graph).unwrap();
         let node = graph.get(animations.animations[0]).unwrap();
         let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
-        clip.add_event(0.46, FoxStep);
-        clip.add_event(0.64, FoxStep);
-        clip.add_event(0.02, FoxStep);
-        clip.add_event(0.14, FoxStep);
+        clip.add_event_with_id(feet.forward_right, 0.46, step.clone());
+        clip.add_event_with_id(feet.forward_left, 0.64, step.clone());
+        clip.add_event_with_id(feet.back_right, 0.14, step.clone());
+        clip.add_event_with_id(feet.back_left, 0.02, step.clone());
 
         let mut transitions = AnimationTransitions::new();
 
@@ -241,5 +302,18 @@ fn keyboard_animation_control(
             let playing_animation = player.animation_mut(playing_animation_index).unwrap();
             playing_animation.set_repeat(RepeatAnimation::Forever);
         }
+    }
+}
+
+fn update_particle(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Particle, &mut Transform)>,
+    time: Res<Time>,
+) {
+    for (entity, mut particle, mut transform) in &mut query {
+        if particle.lifetime.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn();
+        }
+        transform.scale = Vec3::ONE * particle.size.lerp(0.0, particle.lifetime.fraction());
     }
 }
