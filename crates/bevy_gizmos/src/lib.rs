@@ -475,6 +475,15 @@ pub struct LineGizmoAsset {
 }
 
 impl LineGizmoAsset {
+    /// Create a new [`LineGizmoAsset`].
+    pub fn new() -> Self {
+        LineGizmoAsset {
+            buffer: GizmoBuffer::default(),
+            joints: GizmoLineJoint::default(),
+            config_ty: TypeId::of::<ErasedGizmoConfigGroup>(),
+        }
+    }
+
     /// The type of the gizmo's configuration group.
     pub fn config_typeid(&self) -> TypeId {
         self.config_ty
@@ -483,11 +492,7 @@ impl LineGizmoAsset {
 
 impl Default for LineGizmoAsset {
     fn default() -> Self {
-        LineGizmoAsset {
-            buffer: GizmoBuffer::default(),
-            joints: GizmoLineJoint::default(),
-            config_ty: TypeId::of::<ErasedGizmoConfigGroup>(),
-        }
+        LineGizmoAsset::new()
     }
 }
 

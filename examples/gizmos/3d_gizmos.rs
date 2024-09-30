@@ -26,7 +26,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut linegizmo = LineGizmoAsset::default();
+    let mut linegizmo = LineGizmoAsset::new();
 
     // When drawing a lot of lines that don't need to update as often
     // a LineGizmo can have far better performance than the Gizmos system parameter
