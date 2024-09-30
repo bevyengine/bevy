@@ -2477,6 +2477,7 @@ impl World {
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
     ///
+    /// # Panics
     /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
     /// If this is possible, you should instead use [`flush`](Self::flush).
     pub(crate) fn flush_commands(&mut self) {
