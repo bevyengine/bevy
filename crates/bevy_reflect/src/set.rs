@@ -61,7 +61,9 @@ pub trait Set: PartialReflect {
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -187,8 +189,8 @@ impl Set for DynamicSet {
         Box::new(iter)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.hash_table.into_iter().collect::<Vec<_>>()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.hash_table.drain().collect::<Vec<_>>()
     }
 
     fn clone_dynamic(&self) -> DynamicSet {

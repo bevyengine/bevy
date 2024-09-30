@@ -75,7 +75,9 @@ pub trait Map: PartialReflect {
     fn iter(&self) -> MapIter;
 
     /// Drain the key-value pairs of this map to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)>;
 
     /// Clones the map, producing a [`DynamicMap`].
     fn clone_dynamic(&self) -> DynamicMap;
@@ -286,8 +288,8 @@ impl Map for DynamicMap {
         MapIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.values
+    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
+        self.values.drain(..).collect()
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
