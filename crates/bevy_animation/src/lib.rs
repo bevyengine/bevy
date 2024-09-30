@@ -10,8 +10,8 @@
 extern crate alloc;
 
 pub mod animatable;
-pub mod events;
 pub mod animation_curves;
+pub mod events;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
@@ -36,7 +36,7 @@ use bevy_ecs::{
     reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
     world::EntityMutExcept,
 };
-use bevy_math::{FloatExt, FloatOrd};
+use bevy_math::FloatOrd;
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicTupleStruct,
     FromReflect, FromType, GetTypeRegistration, PartialReflect, Reflect, ReflectFromPtr,
