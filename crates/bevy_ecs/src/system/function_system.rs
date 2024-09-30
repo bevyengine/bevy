@@ -43,6 +43,7 @@ pub struct SystemMeta {
     is_send: bool,
     has_deferred: bool,
     pub(crate) last_run: Tick,
+    #[cfg(feature = "bevy_warn_invalid_param")]
     warn_policy: WarnPolicy,
     #[cfg(feature = "trace")]
     pub(crate) system_span: Span,
@@ -60,6 +61,7 @@ impl SystemMeta {
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
+            #[cfg(feature = "bevy_warn_invalid_param")]
             warn_policy: WarnPolicy::Once,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
@@ -770,7 +772,11 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
-        // SAFETY: Delegate to `SystemParam` implementation.
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
         let is_valid = unsafe { F::Param::validate_param(param_state, &self.system_meta, world) };
         if !is_valid {
             self.system_meta.advance_warn_policy();

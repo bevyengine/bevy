@@ -213,7 +213,8 @@ where
 
     #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
+        // SAFETY: Delegate to other `System` implementations.
+        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -431,7 +432,8 @@ where
     }
 
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
+        // SAFETY: Delegate to other `System` implementations.
+        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
 
     fn validate_param(&mut self, world: &World) -> bool {
