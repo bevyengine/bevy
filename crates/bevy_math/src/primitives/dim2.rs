@@ -1817,6 +1817,28 @@ impl Capsule2d {
             half_length: length / 2.0,
         }
     }
+
+    /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
+    #[inline]
+    pub fn to_inner_rectangle(&self) -> Rectangle {
+        Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
+    }
+}
+
+impl Measured2d for Capsule2d {
+    /// Get the area of the capsule
+    #[inline]
+    fn area(&self) -> f32 {
+        // pi*r^2 + (2r)*l
+        PI * self.radius.squared() + self.to_inner_rectangle().area()
+    }
+
+    /// Get the perimeter of the capsule
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        // 2pi*r + 2l
+        2.0 * PI * self.radius + 4.0 * self.half_length
+    }
 }
 
 #[cfg(test)]
@@ -1890,6 +1912,18 @@ mod tests {
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
         assert_eq!(circle.area(), 28.274334, "incorrect area");
         assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn capsule_math() {
+        let capsule = Capsule2d::new(2.0, 9.0);
+        assert_eq!(
+            capsule.to_inner_rectangle(),
+            Rectangle::new(4.0, 9.0),
+            "rectangle wasn't created correctly from a capsule"
+        );
+        assert_eq!(capsule.area(), 48.566371, "incorrect area");
+        assert_eq!(capsule.perimeter(), 30.566371, "incorrect perimeter");
     }
 
     #[test]

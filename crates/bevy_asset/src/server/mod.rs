@@ -131,9 +131,9 @@ impl AssetServer {
     }
 
     /// Retrieves the [`AssetSource`] for the given `source`.
-    pub fn get_source<'a>(
+    pub fn get_source<'a, 'b>(
         &'a self,
-        source: impl Into<AssetSourceId<'a>>,
+        source: impl Into<AssetSourceId<'b>>,
     ) -> Result<&'a AssetSource, MissingAssetSourceError> {
         self.data.sources.get(source.into())
     }
@@ -218,9 +218,9 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given path, if one can be found.
-    pub async fn get_path_asset_loader<'a>(
+    pub async fn get_path_asset_loader<'a, 'b>(
         &self,
-        path: impl Into<AssetPath<'a>>,
+        path: impl Into<AssetPath<'b>>,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForExtensionError> {
         let path = path.into();
 

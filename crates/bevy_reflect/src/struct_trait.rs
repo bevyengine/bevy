@@ -1,9 +1,10 @@
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
-    ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath,
+    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
@@ -79,6 +80,7 @@ pub trait Struct: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     ty: Type,
+    generics: Generics,
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
@@ -104,6 +106,7 @@ impl StructInfo {
 
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
@@ -168,6 +171,8 @@ impl StructInfo {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "struct");
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An iterator over the field values of a struct.
