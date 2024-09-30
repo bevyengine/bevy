@@ -236,7 +236,7 @@ pub struct BrpSpawnResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum BrpGetResponse {
-    /// The non-strict response that reports errors seperatly without failing the entire request.
+    /// The non-strict response that reports errors separately without failing the entire request.
     Lenient {
         /// A map of successful components with their values.
         components: HashMap<String, Value>,
