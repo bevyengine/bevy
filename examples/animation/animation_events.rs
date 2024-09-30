@@ -44,8 +44,8 @@ fn setup(
 
     let name = Name::new("abc");
     let id = AnimationTargetId::from(&name);
-    animation.add_trigger(Some(id), 1.0, Say::Hello);
-    animation.add_trigger(Some(id), 2.0, Say::Bye);
+    animation.add_trigger_with_id(id, 1.0, Say::Hello);
+    animation.add_trigger_with_id(id, 2.0, Say::Bye);
 
     let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
     let mut player = AnimationPlayer::default();

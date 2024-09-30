@@ -130,10 +130,10 @@ fn setup_scene_once_loaded(
         let graph = graphs.get(&animations.graph).unwrap();
         let node = graph.get(animations.animations[0]).unwrap();
         let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
-        clip.add_trigger(None, 0.46, FoxStep);
-        clip.add_trigger(None, 0.64, FoxStep);
-        clip.add_trigger(None, 0.02, FoxStep);
-        clip.add_trigger(None, 0.14, FoxStep);
+        clip.add_trigger(0.46, FoxStep);
+        clip.add_trigger(0.64, FoxStep);
+        clip.add_trigger(0.02, FoxStep);
+        clip.add_trigger(0.14, FoxStep);
 
         let mut transitions = AnimationTransitions::new();
 
