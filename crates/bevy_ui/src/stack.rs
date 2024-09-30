@@ -19,6 +19,7 @@ pub struct UiStack {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut traversal_stack: Local<Vec<Entity>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
@@ -35,8 +36,8 @@ pub fn ui_stack_system(
 ) {
     traversal_stack.clear();
     ui_stack.uinodes.clear();
+    root_nodes.clear();
     let uinodes = &mut ui_stack.uinodes;
-    let mut root_nodes = Vec::new();
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         root_nodes.push((
