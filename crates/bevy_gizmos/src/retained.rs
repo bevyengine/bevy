@@ -9,11 +9,11 @@ use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_render")]
 use {
     crate::{config::GizmoLineJoint, LineGizmoUniform},
-    bevy_ecs::{
-        entity::Entity,
-        system::{Commands, Local, Query},
+    bevy_ecs::system::{Commands, Local, Query},
+    bevy_render::{
+        world_sync::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
+        Extract,
     },
-    bevy_render::Extract,
 };
 
 use crate::{
@@ -68,6 +68,7 @@ impl DerefMut for LineGizmoAsset {
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[cfg_attr(feature = "bevy_render", require(SyncToRenderWorld))]
 pub struct LineGizmo {
     /// The handle to the line to draw.
     pub handle: Handle<LineGizmoAsset>,
@@ -79,10 +80,10 @@ pub struct LineGizmo {
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &LineGizmo)>>,
+    query: Extract<Query<(&RenderEntity, &LineGizmo)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, linegizmo) in &query {
+    for (render_entity, linegizmo) in &query {
         if !linegizmo.config.enabled {
             continue;
         }
@@ -95,7 +96,7 @@ pub(crate) fn extract_linegizmos(
 
         // TODO Add transform to LineGizmoUniform
         values.push((
-            entity,
+            render_entity.id(),
             (
                 LineGizmoUniform {
                     line_width: linegizmo.config.line_width,
@@ -107,6 +108,7 @@ pub(crate) fn extract_linegizmos(
                 linegizmo.handle.clone_weak(),
                 #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
                 crate::config::GizmoMeshConfig::from(&linegizmo.config),
+                TemporaryRenderEntity,
             ),
         ));
     }
