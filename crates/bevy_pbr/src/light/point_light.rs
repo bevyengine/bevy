@@ -22,13 +22,11 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
-    CubemapVisibleEntities,
     CubemapFrusta,
+    CubemapVisibleEntities,
     Transform,
-    GlobalTransform,
     Visibility,
-    InheritedVisibility,
-    ViewVisibility
+    SyncToRenderWorld
 )]
 pub struct PointLight {
     /// The color of this light source.

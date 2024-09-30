@@ -52,15 +52,13 @@ use super::*;
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
-    CascadesFrusta,
     Cascades,
+    CascadesFrusta,
     CascadeShadowConfig,
     CascadesVisibleEntities,
     Transform,
-    GlobalTransform,
     Visibility,
-    InheritedVisibility,
-    ViewVisibility
+    SyncToRenderWorld
 )]
 pub struct DirectionalLight {
     /// The color of the light.

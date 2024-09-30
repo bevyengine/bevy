@@ -10,13 +10,11 @@ use super::*;
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
-    VisibleMeshEntities,
     Frustum,
+    VisibleMeshEntities,
     Transform,
-    GlobalTransform,
     Visibility,
-    InheritedVisibility,
-    ViewVisibility
+    SyncToRenderWorld
 )]
 pub struct SpotLight {
     /// The color of the light.
