@@ -18,6 +18,7 @@ pub trait ReflectSerializerProcessor {
     fn try_serialize<S>(
         &self,
         value: &dyn PartialReflect,
+        registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
     where
@@ -28,6 +29,7 @@ impl ReflectSerializerProcessor for () {
     fn try_serialize<S>(
         &self,
         _value: &dyn PartialReflect,
+        _registry: &TypeRegistry,
         serializer: S,
     ) -> Result<Result<S::Ok, S>, S::Error>
     where
@@ -126,7 +128,7 @@ impl<P: ReflectSerializerProcessor> Serialize for ReflectSerializer<'_, P> {
                     }
                 })?
                 .type_path(),
-            &TypedReflectSerializer::with_processor(self.value, self.registry, self.processor),
+            &TypedReflectSerializer::new_internal(self.value, self.registry, self.processor),
         )?;
         state.end()
     }
@@ -231,8 +233,10 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
             }
         }
 
+        // First, check if our processor wants to serialize this type
+        // This takes priority over any other serialization operations
         let serializer = if let Some(processor) = self.processor.as_deref() {
-            match processor.try_serialize(self.value, serializer) {
+            match processor.try_serialize(self.value, self.registry, serializer) {
                 Ok(Ok(value)) => {
                     return Ok(value);
                 }

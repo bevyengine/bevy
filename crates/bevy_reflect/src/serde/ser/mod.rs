@@ -16,13 +16,15 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, serde::ReflectSerializer, PartialReflect, Reflect, ReflectSerialize,
-        Struct, TypeRegistry,
+        self as bevy_reflect,
+        serde::{ReflectSerializer, ReflectSerializerProcessor},
+        PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
     use bevy_utils::{HashMap, HashSet};
     use core::{f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
-    use serde::Serialize;
+    use serde::{Serialize, Serializer};
+    use std::any::TypeId;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -469,6 +471,119 @@ mod tests {
                 "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
             )
         );
+    }
+
+    #[test]
+    fn should_use_processor_for_custom_serialization() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectSerializerProcessor for FooProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i64>() {
+                    serializer.serialize_str("custom!").map(Ok)
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = Foo { bar: 123, qux: 456 };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Foo>();
+
+        let mut processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &mut processor);
+        let output = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
+        let expected = r#"{
+    "bevy_reflect::serde::ser::tests::Foo": (
+        bar: 123,
+        qux: "custom!",
+    ),
+}"#;
+
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_use_processor_for_multiple_registrations() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            sub: SubFoo,
+        }
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct SubFoo {
+            val: i32,
+        }
+
+        struct FooProcessor;
+
+        impl ReflectSerializerProcessor for FooProcessor {
+            fn try_serialize<S>(
+                &self,
+                value: &dyn PartialReflect,
+                _: &TypeRegistry,
+                serializer: S,
+            ) -> Result<Result<S::Ok, S>, S::Error>
+            where
+                S: Serializer,
+            {
+                let Some(value) = value.try_as_reflect() else {
+                    return Ok(Err(serializer));
+                };
+
+                let type_id = value.reflect_type_info().type_id();
+                if type_id == TypeId::of::<i32>() {
+                    serializer.serialize_str("an i32").map(Ok)
+                } else if type_id == TypeId::of::<SubFoo>() {
+                    serializer.serialize_str("a SubFoo").map(Ok)
+                } else {
+                    Ok(Err(serializer))
+                }
+            }
+        }
+
+        let value = Foo {
+            bar: 123,
+            sub: SubFoo { val: 456 },
+        };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Foo>();
+        registry.register::<SubFoo>();
+
+        let mut processor = FooProcessor;
+        let serializer = ReflectSerializer::with_processor(&value, &registry, &mut processor);
+        let output = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
+        let expected = r#"{
+    "bevy_reflect::serde::ser::tests::Foo": (
+        bar: "an i32",
+        sub: "a SubFoo",
+    ),
+}"#;
+
+        assert_eq!(expected, output);
     }
 
     #[cfg(feature = "functions")]
