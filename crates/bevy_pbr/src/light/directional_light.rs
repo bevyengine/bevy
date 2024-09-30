@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::{view::Visibility, world_sync::SyncToRenderWorld};
 
 use super::*;
 

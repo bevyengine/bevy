@@ -1,4 +1,4 @@
-use bevy_render::view::Visibility;
+use bevy_render::{view::Visibility, world_sync::SyncToRenderWorld};
 
 use super::*;
 
@@ -9,13 +9,7 @@ use super::*;
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    Frustum,
-    VisibleMeshEntities,
-    Transform,
-    Visibility,
-    SyncToRenderWorld
-)]
+#[require(Frustum, VisibleMeshEntities, Transform, Visibility, SyncToRenderWorld)]
 pub struct SpotLight {
     /// The color of the light.
     ///
