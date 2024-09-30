@@ -11,7 +11,7 @@ use {
     crate::{config::GizmoLineJoint, LineGizmoUniform},
     bevy_ecs::system::{Commands, Local, Query},
     bevy_render::{
-        world_sync::{RenderEntity, SyncToRenderWorld, TemporaryRenderEntity},
+        world_sync::{RenderEntity, SyncToRenderWorld},
         Extract,
     },
 };
@@ -108,7 +108,6 @@ pub(crate) fn extract_linegizmos(
                 linegizmo.handle.clone_weak(),
                 #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
                 crate::config::GizmoMeshConfig::from(&linegizmo.config),
-                TemporaryRenderEntity,
             ),
         ));
     }
