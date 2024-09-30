@@ -3,7 +3,11 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::{animate_targets_and_trigger_events, RepeatAnimation},
+    animation::{
+        animate_targets_and_trigger_events,
+        triggers::{AnimationEvent, ReflectAnimationEvent},
+        AnimationTargetId, RepeatAnimation,
+    },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
@@ -23,6 +27,8 @@ fn main() {
             setup_scene_once_loaded.before(animate_targets_and_trigger_events),
         )
         .add_systems(Update, keyboard_animation_control)
+        .observe(FoxStep::observer)
+        .register_type::<FoxStep>()
         .run();
 }
 
@@ -99,14 +105,36 @@ fn setup(
     println!("  - return: change animation");
 }
 
+#[derive(Event, Reflect, Clone)]
+#[reflect(AnimationEvent)]
+struct FoxStep;
+
+impl FoxStep {
+    fn observer(_: Trigger<Self>) {
+        println!("STEP!!!");
+    }
+}
+
+impl AnimationEvent for FoxStep {}
+
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
 // When the player is added, start the animation.
 fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
+    mut clips: ResMut<Assets<AnimationClip>>,
+    graphs: Res<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     for (entity, mut player) in &mut players {
+        let graph = graphs.get(&animations.graph).unwrap();
+        let node = graph.get(animations.animations[0]).unwrap();
+        let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
+        clip.add_trigger(None, 0.46, FoxStep);
+        clip.add_trigger(None, 0.64, FoxStep);
+        clip.add_trigger(None, 0.02, FoxStep);
+        clip.add_trigger(None, 0.14, FoxStep);
+
         let mut transitions = AnimationTransitions::new();
 
         // Make sure to start the animation via the `AnimationTransitions`
