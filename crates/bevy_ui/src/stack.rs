@@ -4,6 +4,7 @@ use std::cmp::Reverse;
 
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
+use smallvec::SmallVec;
 
 use crate::{GlobalZIndex, Node, ZIndex};
 
@@ -86,7 +87,7 @@ fn update_uistack_recursively(
     ui_stack.push(node_entity);
 
     if let Ok(children) = children_query.get(node_entity) {
-        let mut z_children: Vec<_> = children
+        let mut z_children: SmallVec<[_; 8]> = children
             .iter()
             .filter_map(|child_entity| {
                 zindex_query
@@ -98,6 +99,39 @@ fn update_uistack_recursively(
         z_children.sort_by_key(|k| Reverse(k.1));
         for (child_entity, _) in z_children {
             update_uistack_recursively(child_entity, children_query, zindex_query, ui_stack);
+        }
+    }
+}
+
+fn update_uistack_iterative(
+    root_entity: Entity,
+    children_query: &Query<&Children>,
+    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    ui_stack: &mut Vec<Entity>,
+) {
+    let mut stack = vec![root_entity];
+
+    while let Some(node_entity) = stack.pop() {
+        ui_stack.push(node_entity);
+
+        if let Ok(children) = children_query.get(node_entity) {
+            // Using SmallVec to avoid heap allocations for a small number of children
+            let mut z_children: SmallVec<[_; 8]> = children
+                .iter()
+                .filter_map(|child_entity| {
+                    zindex_query
+                        .get(*child_entity)
+                        .ok()
+                        .map(|zindex| (*child_entity, zindex.map_or(0, |z| z.0)))
+                })
+                .collect();
+
+            z_children.sort_by_key(|&(_, zindex)| Reverse(zindex));
+
+            // Push children onto the stack in order
+            for (child_entity, _) in z_children {
+                stack.push(child_entity);
+            }
         }
     }
 }
