@@ -513,7 +513,10 @@ mod tests {
 
         let processor = FooProcessor;
         let serializer = ReflectSerializer::with_processor(&value, &registry, &processor);
-        let output = ron::ser::to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
+
+        let config = PrettyConfig::default().new_line(String::from("\n"));
+        let output = ron::ser::to_string_pretty(&serializer, config).unwrap();
+
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::Foo": (
         bar: 123,
