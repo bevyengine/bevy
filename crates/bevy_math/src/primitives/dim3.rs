@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
@@ -187,7 +187,7 @@ impl InfinitePlane3d {
     #[inline(always)]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
-        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+        <T as TryInto<Dir3>>::Error: core::fmt::Debug,
     {
         Self {
             normal: normal
@@ -926,9 +926,9 @@ impl Torus {
         }
 
         match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
-            std::cmp::Ordering::Greater => TorusKind::Ring,
-            std::cmp::Ordering::Equal => TorusKind::Horn,
-            std::cmp::Ordering::Less => TorusKind::Spindle,
+            core::cmp::Ordering::Greater => TorusKind::Ring,
+            core::cmp::Ordering::Equal => TorusKind::Horn,
+            core::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
 }
@@ -1320,7 +1320,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }

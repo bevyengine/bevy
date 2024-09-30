@@ -14,8 +14,11 @@
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::DespawnRecursiveExt;
-use bevy_input::touch::{TouchInput, TouchPhase};
-use bevy_input::{prelude::*, ButtonState};
+use bevy_input::{
+    prelude::*,
+    touch::{TouchInput, TouchPhase},
+    ButtonState,
+};
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;

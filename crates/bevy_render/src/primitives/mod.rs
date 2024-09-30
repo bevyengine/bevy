@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
@@ -127,6 +127,7 @@ impl Sphere {
 }
 
 /// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+///
 /// This bisecting plane partitions 3D space into two infinite regions,
 /// the half-space is one of those regions and excludes the bisecting plane.
 ///

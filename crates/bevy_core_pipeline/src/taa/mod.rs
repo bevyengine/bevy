@@ -15,8 +15,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::vec2;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
@@ -33,6 +32,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
+    world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -352,20 +352,26 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world
-        .query_filtered::<(Entity, &Camera, &Projection, &mut TemporalAntiAliasing), (
-            With<Camera3d>,
-            With<TemporalJitter>,
-            With<DepthPrepass>,
-            With<MotionVectorPrepass>,
-        )>();
+    let mut cameras_3d = main_world.query_filtered::<(
+        &RenderEntity,
+        &Camera,
+        &Projection,
+        &mut TemporalAntiAliasing,
+    ), (
+        With<Camera3d>,
+        With<TemporalJitter>,
+        With<DepthPrepass>,
+        With<MotionVectorPrepass>,
+    )>();
 
     for (entity, camera, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
-            commands.get_or_spawn(entity).insert(taa_settings.clone());
+            commands
+                .get_or_spawn(entity.id())
+                .insert(taa_settings.clone());
             taa_settings.reset = false;
         }
     }

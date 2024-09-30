@@ -1,9 +1,11 @@
 //! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
-use bevy::color::palettes::basic::{GRAY, RED, WHITE};
-use bevy::input::mouse::{AccumulatedMouseMotion, MouseButtonInput};
-use bevy::math::StableInterpolate;
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::basic::{GRAY, RED, WHITE},
+    input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
+    math::StableInterpolate,
+    prelude::*,
+};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

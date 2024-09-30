@@ -9,7 +9,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
-use std::time::Duration;
+use core::time::Duration;
 
 /// A plugin that instruments continuous integration testing by automatically executing user-defined actions.
 ///
@@ -17,8 +17,9 @@ use std::time::Duration;
 /// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the
 /// allowed configuration, see [`CiTestingConfig`].
 ///
-/// This plugin is included within `DefaultPlugins` and `MinimalPlugins` when the `bevy_ci_testing`
-/// feature is enabled. It is recommended to only used this plugin during testing (manual or
+/// This plugin is included within `DefaultPlugins`, `HeadlessPlugins` and `MinimalPlugins`
+/// when the `bevy_ci_testing` feature is enabled.
+/// It is recommended to only used this plugin during testing (manual or
 /// automatic), and disable it during regular development and for production builds.
 #[derive(Default)]
 pub struct CiTestingPlugin;

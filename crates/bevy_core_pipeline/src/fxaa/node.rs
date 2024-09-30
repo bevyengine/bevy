@@ -1,8 +1,7 @@
 use std::sync::Mutex;
 
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{

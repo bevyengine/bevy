@@ -314,7 +314,10 @@ fn display_loading_screen(
 }
 
 mod pipelines_ready {
-    use bevy::{prelude::*, render::render_resource::*, render::*};
+    use bevy::{
+        prelude::*,
+        render::{render_resource::*, *},
+    };
 
     pub struct PipelinesReadyPlugin;
     impl Plugin for PipelinesReadyPlugin {

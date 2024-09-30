@@ -3,6 +3,7 @@ use super::{
     persistent_buffer::PersistentGpuBuffer,
     MeshletMesh,
 };
+use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
     system::{Res, ResMut, Resource},
@@ -13,7 +14,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_utils::HashMap;
-use std::{mem::size_of, ops::Range, sync::Arc};
+use core::ops::Range;
 
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.
 #[derive(Resource)]

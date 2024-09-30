@@ -1,5 +1,3 @@
-use std::mem::size_of;
-
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -17,8 +15,8 @@ struct C;
 
 pub fn empty_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_commands");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("0_entities", |bencher| {
         let mut world = World::default();
@@ -34,8 +32,8 @@ pub fn empty_commands(criterion: &mut Criterion) {
 
 pub fn spawn_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("spawn_commands");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     for entity_count in (1..5).map(|i| i * 2 * 1000) {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
@@ -45,7 +43,7 @@ pub fn spawn_commands(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..entity_count {
-                    let mut entity = commands
+                    let entity = commands
                         .spawn_empty()
                         .insert_if(A, || black_box(i % 2 == 0))
                         .insert_if(B, || black_box(i % 3 == 0))
@@ -71,8 +69,8 @@ struct Vec3([f32; 3]);
 
 pub fn insert_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("insert_commands");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     let entity_count = 10_000;
     group.bench_function("insert", |bencher| {
@@ -134,8 +132,8 @@ impl Command for FakeCommandB {
 
 pub fn fake_commands(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("fake_commands");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     for command_count in (1..5).map(|i| i * 2 * 1000) {
         group.bench_function(format!("{}_commands", command_count), |bencher| {
@@ -179,8 +177,8 @@ impl Default for LargeStruct {
 
 pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group(format!("sized_commands_{}_bytes", size_of::<T>()));
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     for command_count in (1..5).map(|i| i * 2 * 1000) {
         group.bench_function(format!("{}_commands", command_count), |bencher| {
@@ -214,8 +212,8 @@ pub fn large_sized_commands(criterion: &mut Criterion) {
 
 pub fn get_or_spawn(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("get_or_spawn");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("individual", |bencher| {
         let mut world = World::default();

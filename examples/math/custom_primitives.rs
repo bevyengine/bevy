@@ -311,6 +311,7 @@ fn switch_cameras(
 }
 
 /// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.
+///
 /// The tip of the heart connects the two circles at a 45° angle from `Vec3::NEG_Y`.
 #[derive(Copy, Clone)]
 struct Heart {

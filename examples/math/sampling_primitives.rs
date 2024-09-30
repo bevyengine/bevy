@@ -8,8 +8,7 @@ use bevy::{
     math::prelude::*,
     prelude::*,
 };
-use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {

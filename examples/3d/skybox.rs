@@ -125,7 +125,10 @@ fn cycle_cubemap_asset(
         if supported_compressed_formats.contains(CUBEMAPS[new_index].1) {
             break;
         }
-        info!("Skipping unsupported format: {:?}", CUBEMAPS[new_index]);
+        info!(
+            "Skipping format which is not supported by current hardware: {:?}",
+            CUBEMAPS[new_index]
+        );
     }
 
     // Skip swapping to the same texture. Useful for when ktx2, zstd, or compressed texture support
