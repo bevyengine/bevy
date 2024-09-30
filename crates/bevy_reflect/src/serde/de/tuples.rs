@@ -13,7 +13,7 @@ pub(super) struct TupleVisitor<'a, P> {
     pub tuple_info: &'static TupleInfo,
     pub registration: &'a TypeRegistration,
     pub registry: &'a TypeRegistry,
-    pub processor: P,
+    pub processor: Option<&'a mut P>,
 }
 
 impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleVisitor<'_, P> {
