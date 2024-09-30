@@ -583,6 +583,7 @@ mod impls {
 
 pub mod attributes;
 mod enums;
+mod generics;
 pub mod serde;
 pub mod std_traits;
 #[cfg(feature = "debug_stack")]
@@ -610,6 +611,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use generics::*;
 pub use kind::*;
 pub use list::*;
 pub use map::*;
