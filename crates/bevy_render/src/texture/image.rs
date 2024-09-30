@@ -16,8 +16,8 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::prelude::*;
+use core::hash::Hash;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
@@ -167,7 +167,8 @@ impl ImageFormat {
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
-#[reflect_value(Default)]
+#[reflect(opaque)]
+#[reflect(Default, Debug)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -323,6 +324,7 @@ pub enum ImageSamplerBorderColor {
 }
 
 /// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+///
 /// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.
@@ -666,7 +668,9 @@ impl Image {
     /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
     pub fn aspect_ratio(&self) -> AspectRatio {
-        AspectRatio::from_pixels(self.width(), self.height())
+        AspectRatio::try_from_pixels(self.width(), self.height()).expect(
+            "Failed to calculate aspect ratio: Image dimensions must be positive, non-zero values",
+        )
     }
 
     /// Returns the size of a 2D image as f32.

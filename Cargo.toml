@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.79.0"
+rust-version = "1.81.0"
 
 [workspace]
 exclude = [
@@ -45,6 +45,13 @@ ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
+# see: https://github.com/bevyengine/bevy/pull/15375#issuecomment-2366966219
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "warn"
+std_instead_of_alloc = "warn"
+alloc_instead_of_core = "warn"
+
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
@@ -52,8 +59,44 @@ unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
-[lints]
-workspace = true
+# Unfortunately, cargo does not currently support overriding workspace lints
+# inside a particular crate. See https://github.com/rust-lang/cargo/issues/13157
+#
+# We require an override for cases like `std_instead_of_core`, which are intended
+# for the library contributors and not for how users should consume Bevy.
+# To ensure examples aren't subject to these lints, below is a duplication of the
+# workspace lints, with the "overrides" applied.
+#
+# [lints]
+# workspace = true
+
+[lints.clippy]
+doc_markdown = "warn"
+manual_let_else = "warn"
+match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
+
+ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
+ref_as_ptr = "warn"
+
+too_long_first_doc_paragraph = "allow"
+
+std_instead_of_core = "allow"
+std_instead_of_alloc = "allow"
+alloc_instead_of_core = "allow"
+
+[lints.rust]
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [features]
 default = [
@@ -68,11 +111,14 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
+  "bevy_sprite_picking_backend",
+  "bevy_ui_picking_backend",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_remote",
   "multi_threaded",
   "png",
   "hdr",
@@ -86,6 +132,12 @@ default = [
   "webgl2",
   "sysinfo_plugin",
 ]
+
+# Provides an implementation for picking sprites
+bevy_sprite_picking_backend = ["bevy_picking"]
+
+# Provides an implementation for picking ui
+bevy_ui_picking_backend = ["bevy_picking"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -141,6 +193,7 @@ bevy_sprite = [
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
+  "bevy_sprite_picking_backend",
 ]
 
 # Provides text functionality
@@ -153,6 +206,7 @@ bevy_ui = [
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
+  "bevy_ui_picking_backend",
 ]
 
 # winit window and input backend
@@ -163,6 +217,12 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Enable the Bevy Remote Protocol
+bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
+spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -363,6 +423,7 @@ rand_chacha = "0.3.1"
 ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
@@ -372,6 +433,16 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+hyper = { version = "1", features = ["server", "http1"] }
+http-body-util = "0.1"
+anyhow = "1"
+macro_rules_attribute = "0.2"
+
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+smol = "2"
+smol-macros = "0.1"
+smol-hyper = "0.1"
+ureq = { version = "2.10.1", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -1075,7 +1146,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1354,6 +1425,28 @@ category = "Application"
 wasm = false
 
 # Assets
+[[example]]
+name = "alter_mesh"
+path = "examples/asset/alter_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_mesh]
+name = "Alter Mesh"
+description = "Shows how to modify the underlying asset of a Mesh after spawning."
+category = "Assets"
+wasm = false
+
+[[example]]
+name = "alter_sprite"
+path = "examples/asset/alter_sprite.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.alter_sprite]
+name = "Alter Sprite"
+description = "Shows how to modify texture assets after spawning."
+category = "Assets"
+wasm = false
+
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
@@ -1796,6 +1889,17 @@ doc-scrape-examples = true
 [package.metadata.example.run_conditions]
 name = "Run Conditions"
 description = "Run systems only when one or multiple conditions are met"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "fallible_params"
+path = "examples/ecs/fallible_params.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_params]
+name = "Fallible System Parameters"
+description = "Systems are skipped if their parameters cannot be acquired"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2847,7 +2951,17 @@ doc-scrape-examples = true
 [package.metadata.example.grid]
 name = "CSS Grid"
 description = "An example for CSS Grid layout"
+category = "UI (User Interface)"
+wasm = true
 
+[[example]]
+name = "scroll"
+path = "examples/ui/scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scroll]
+name = "Scroll"
+description = "Demonstrates scrolling UI containers"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2914,6 +3028,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_texture_slice]
 name = "UI Texture Slice"
 description = "Illustrates how to use 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_slice_flip_and_tile"
+path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice_flip_and_tile]
+name = "UI Texture Slice Flipping and Tiling"
+description = "Illustrates how to flip and tile images with 9 Slicing in UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3233,6 +3358,28 @@ description = "A first-person camera that uses a world model and a view model wi
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "camera_orbit"
+path = "examples/camera/camera_orbit.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_orbit]
+name = "Camera Orbit"
+description = "Shows how to orbit a static scene using pitch, yaw, and roll."
+category = "Camera"
+wasm = true
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
@@ -3305,6 +3452,28 @@ name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "client"
+path = "examples/remote/client.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.client]
+name = "client"
+description = "A simple command line client that can control Bevy apps via the BRP"
+category = "Remote Protocol"
+wasm = false
+
+[[example]]
+name = "server"
+path = "examples/remote/server.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.server]
+name = "server"
+description = "A Bevy app that you can connect to with the BRP and edit"
+category = "Remote Protocol"
+wasm = false
 
 [[example]]
 name = "anisotropy"
@@ -3401,12 +3570,14 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
+required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "animation_masks"
@@ -3416,6 +3587,28 @@ doc-scrape-examples = true
 [package.metadata.example.animation_masks]
 name = "Animation Masks"
 description = "Demonstrates animation masks"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "pcss"
+path = "examples/3d/pcss.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.pcss]
+name = "Percentage-closer soft shadows"
+description = "Demonstrates percentage-closer soft shadows (PCSS)"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "animated_ui"
+path = "examples/animation/animated_ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_ui]
+name = "Animated UI"
+description = "Shows how to use animation clips to animate UI properties"
 category = "Animation"
 wasm = true
 

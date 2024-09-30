@@ -1,14 +1,13 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
+use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
     prelude::FromWorld,
     world::World,
 };
-use core::slice;
+use core::{ops::Deref, slice};
 use smallvec::SmallVec;
-use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///
@@ -25,7 +24,7 @@ use std::ops::Deref;
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
 #[derive(Component, Debug)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities))]
+#[cfg_attr(feature = "reflect", reflect(Component, MapEntities, Debug, FromWorld))]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 
 impl MapEntities for Children {
@@ -71,7 +70,7 @@ impl Children {
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
-        F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
     {
         self.0.sort_by(compare);
     }
@@ -120,7 +119,7 @@ impl Children {
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
     where
-        F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
     {
         self.0.sort_unstable_by(compare);
     }

@@ -1,14 +1,18 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
+use thiserror::Error;
 
-use crate::component::Tick;
-use crate::schedule::InternedSystemSet;
-use crate::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::world::DeferredWorld;
-use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
+use crate::{
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    query::Access,
+    schedule::InternedSystemSet,
+    system::{input::SystemInput, SystemIn},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+};
 
-use std::any::TypeId;
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use core::any::TypeId;
 
 use super::IntoSystem;
 
@@ -25,9 +29,8 @@ use super::IntoSystem;
 /// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
-    /// The system's input. See [`In`](crate::system::In) for
-    /// [`FunctionSystem`](crate::system::FunctionSystem)s.
-    type In;
+    /// The system's input.
+    type In: SystemInput;
     /// The system's output.
     type Out;
     /// Returns the system's name.
@@ -59,13 +62,14 @@ pub trait System: Send + Sync + 'static {
     ///
     /// # Safety
     ///
-    /// - The caller must ensure that `world` has permission to access any world data
-    ///   registered in [`Self::archetype_component_access`]. There must be no conflicting
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`Self::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If `update_archetype_component_access`
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: Self::In, world: UnsafeWorldCell) -> Self::Out;
+    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
+        -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -74,7 +78,7 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
@@ -93,6 +97,38 @@ pub trait System: Send + Sync + 'static {
     /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
+
+    /// Validates that all parameters can be acquired and that system can run without panic.
+    /// Built-in executors use this to prevent invalid systems from running.
+    ///
+    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
+    /// should provide their own safety mechanism to prevent undefined behavior.
+    ///
+    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
+    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// the validity of the param may change.
+    ///
+    /// # Safety
+    ///
+    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
+    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   simultaneous accesses while the system is running.
+    /// - The method [`System::update_archetype_component_access`] must be called at some
+    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
+    ///   panics (or otherwise does not return for any reason), this method must not be called.
+    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
+
+    /// Safe version of [`System::validate_param_unsafe`].
+    /// that runs on exclusive, single-threaded `world` pointer.
+    fn validate_param(&mut self, world: &World) -> bool {
+        let world_cell = world.as_unsafe_world_cell_readonly();
+        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
+        unsafe { self.validate_param_unsafe(world_cell) }
+    }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
@@ -147,7 +183,7 @@ pub unsafe trait ReadOnlySystem: System {
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: Self::In, world: &World) -> Self::Out {
+    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
         let world = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world);
         // SAFETY:
@@ -171,8 +207,12 @@ pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, syst
     }
 }
 
-impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<In, Out> Debug for dyn System<In = In, Out = Out>
+where
+    In: SystemInput + 'static,
+    Out: 'static,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("System")
             .field("name", &self.name())
             .field("is_exclusive", &self.is_exclusive())
@@ -208,8 +248,8 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.run_system_once(increment); // still prints 1
 /// ```
 ///
-/// If you do need systems to hold onto state between runs, use the [`World::run_system`](World::run_system)
-/// and run the system by their [`SystemId`](crate::system::SystemId).
+/// If you do need systems to hold onto state between runs, use [`World::run_system_cached`](World::run_system_cached)
+/// or [`World::run_system`](World::run_system).
 ///
 /// # Usage
 /// Typically, to test a system, or to extract specific diagnostics information from a world,
@@ -230,7 +270,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// let mut world = World::default();
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
-/// });
+/// }).unwrap();
 /// # assert!(world.get_entity(entity).is_some());
 /// ```
 ///
@@ -250,7 +290,7 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.spawn(T(1));
 /// let count = world.run_system_once(|query: Query<&T>| {
 ///     query.iter().filter(|t| t.0 == 1).count()
-/// });
+/// }).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
@@ -272,33 +312,65 @@ impl<In: 'static, Out: 'static> Debug for dyn System<In = In, Out = Out> {
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system_once(count);
+/// let count = world.run_system_once(count).unwrap();
 ///
 /// # assert_eq!(count, 2);
 /// ```
 pub trait RunSystemOnce: Sized {
-    /// Runs a system and applies its deferred parameters.
-    fn run_system_once<T: IntoSystem<(), Out, Marker>, Out, Marker>(self, system: T) -> Out {
+    /// Tries to run a system and apply its deferred parameters.
+    fn run_system_once<T, Out, Marker>(self, system: T) -> Result<Out, RunSystemError>
+    where
+        T: IntoSystem<(), Out, Marker>,
+    {
         self.run_system_once_with((), system)
     }
 
-    /// Runs a system with given input and applies its deferred parameters.
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    /// Tries to run a system with given input and apply deferred parameters.
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out;
+    ) -> Result<Out, RunSystemError>
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput;
 }
 
 impl RunSystemOnce for &mut World {
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T, In, Out, Marker>(
         self,
-        input: In,
+        input: SystemIn<'_, T::System>,
         system: T,
-    ) -> Out {
+    ) -> Result<Out, RunSystemError>
+    where
+        T: IntoSystem<In, Out, Marker>,
+        In: SystemInput,
+    {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system.run(input, self)
+        if system.validate_param(self) {
+            Ok(system.run(input, self))
+        } else {
+            Err(RunSystemError::InvalidParams(system.name()))
+        }
+    }
+}
+
+/// Running system failed.
+#[derive(Error)]
+pub enum RunSystemError {
+    /// System could not be run due to parameters that failed validation.
+    ///
+    /// This can occur because the data required by the system was not present in the world.
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    InvalidParams(Cow<'static, str>),
+}
+
+impl Debug for RunSystemError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+        }
     }
 }
 
@@ -320,7 +392,7 @@ mod tests {
         }
 
         let mut world = World::default();
-        let n = world.run_system_once_with(1, system);
+        let n = world.run_system_once_with(1, system).unwrap();
         assert_eq!(n, 2);
         assert_eq!(world.resource::<T>().0, 1);
     }
@@ -338,9 +410,9 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Counter>();
         assert_eq!(*world.resource::<Counter>(), Counter(0));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(1));
-        world.run_system_once(count_up);
+        world.run_system_once(count_up).unwrap();
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
@@ -353,7 +425,7 @@ mod tests {
     fn command_processing() {
         let mut world = World::new();
         assert_eq!(world.entities.len(), 0);
-        world.run_system_once(spawn_entity);
+        world.run_system_once(spawn_entity).unwrap();
         assert_eq!(world.entities.len(), 1);
     }
 
@@ -366,7 +438,20 @@ mod tests {
         let mut world = World::new();
         world.insert_non_send_resource(Counter(10));
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(10));
-        world.run_system_once(non_send_count_down);
+        world.run_system_once(non_send_count_down).unwrap();
         assert_eq!(*world.non_send_resource::<Counter>(), Counter(9));
+    }
+
+    #[test]
+    fn run_system_once_invalid_params() {
+        struct T;
+        impl Resource for T {}
+        fn system(_: Res<T>) {}
+
+        let mut world = World::default();
+        // This fails because `T` has not been added to the world yet.
+        let result = world.run_system_once(system);
+
+        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }
 }

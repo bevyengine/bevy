@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -17,11 +17,11 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
@@ -40,16 +40,19 @@ pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
-#[doc(hidden)]
+/// The UI prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+    pub use {
+        crate::{
+            geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
+            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+        },
+        // `bevy_sprite` re-exports for texture slicing
+        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
     };
-    // `bevy_sprite` re-exports for texture slicing
-    #[doc(hidden)]
-    pub use bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer};
 }
 
 use bevy_app::prelude::*;
@@ -98,6 +101,7 @@ pub enum UiSystem {
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
 #[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+#[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
 
 impl Default for UiScale {
@@ -164,7 +168,9 @@ impl Plugin for UiPlugin {
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
+                    .before(TransformSystem::TransformPropagate)
+                    // Text and Text2D operate on disjoint sets of entities
+                    .ambiguous_with(bevy_text::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
@@ -188,8 +194,8 @@ impl Plugin for UiPlugin {
 
         build_ui_render(app);
 
-        #[cfg(feature = "bevy_picking")]
-        app.add_plugins(picking_backend::UiPickingBackend);
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingBackendPlugin);
     }
 
     fn finish(&self, app: &mut App) {
@@ -226,7 +232,8 @@ fn build_text_interop(app: &mut App) {
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::update_text2d_layout),
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(bevy_text::calculate_bounds_text2d),
         ),
     );
 

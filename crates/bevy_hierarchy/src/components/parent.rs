@@ -1,12 +1,12 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
+use bevy_ecs::reflect::{ReflectComponent, ReflectFromWorld, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
     traversal::Traversal,
     world::{FromWorld, World},
 };
-use std::ops::Deref;
+use core::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.
@@ -23,7 +23,10 @@ use std::ops::Deref;
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
 #[derive(Component, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities, PartialEq))]
+#[cfg_attr(
+    feature = "reflect",
+    reflect(Component, MapEntities, PartialEq, Debug, FromWorld)
+)]
 pub struct Parent(pub(crate) Entity);
 
 impl Parent {
@@ -41,7 +44,7 @@ impl Parent {
     /// [`Children`]: super::children::Children
     #[inline(always)]
     pub fn as_slice(&self) -> &[Entity] {
-        std::slice::from_ref(&self.0)
+        core::slice::from_ref(&self.0)
     }
 }
 
@@ -76,8 +79,8 @@ impl Deref for Parent {
 /// `Parent::traverse` will never form loops in properly-constructed hierarchies.
 ///
 /// [event propagation]: bevy_ecs::observer::Trigger::propagate
-impl Traversal for Parent {
-    fn traverse(&self) -> Option<Entity> {
-        Some(self.0)
+impl Traversal for &Parent {
+    fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+        Some(item.0)
     }
 }

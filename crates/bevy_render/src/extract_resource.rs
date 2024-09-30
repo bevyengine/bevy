@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -36,7 +36,7 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
         } else {
             bevy_utils::error_once!(
                 "Render app did not exist when trying to add `extract_resource` for <{}>.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             );
         }
     }
@@ -59,7 +59,7 @@ pub fn extract_resource<R: ExtractResource>(
                 bevy_utils::warn_once!(
                     "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
-                    std::any::type_name::<R>()
+                    core::any::type_name::<R>()
                 );
             }
             commands.insert_resource(R::extract_resource(main_resource));

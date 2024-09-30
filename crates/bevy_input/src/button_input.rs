@@ -1,10 +1,13 @@
 //! The generic input type.
 
 use bevy_ecs::system::Resource;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
-use std::hash::Hash;
+use core::hash::Hash;
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// A "press-able" input of type `T`.
 ///
@@ -70,15 +73,11 @@ use std::hash::Hash;
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
 /// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
-/// # use bevy_input::{ButtonInput, prelude::{GamepadButton, KeyCode, MouseButton}};
+/// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             print_gamepad.run_if(resource_changed::<ButtonInput<GamepadButton>>),
-///         )
 ///         .add_systems(
 ///             Update,
 ///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
@@ -88,10 +87,6 @@ use std::hash::Hash;
 ///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
 ///         )
 ///         .run();
-/// }
-///
-/// fn print_gamepad(gamepad: Res<ButtonInput<GamepadButton>>) {
-///     println!("Gamepad: {:?}", gamepad.get_pressed().collect::<Vec<_>>());
 /// }
 ///
 /// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
@@ -112,33 +107,6 @@ use std::hash::Hash;
 /// }
 /// ```
 ///
-/// Accepting input from multiple devices:
-/// ```no_run
-/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::IntoSystemConfigs, schedule::Condition};
-/// # use bevy_input::{ButtonInput, common_conditions::{input_just_pressed}, prelude::{GamepadButton, Gamepad, GamepadButtonType, KeyCode}};
-///
-/// fn main() {
-///     App::new()
-///         .add_plugins(DefaultPlugins)
-///         .add_systems(
-///             Update,
-///             something_used.run_if(
-///                 input_just_pressed(KeyCode::KeyE)
-///                     .or_else(input_just_pressed(GamepadButton::new(
-///                         Gamepad::new(0),
-///                         GamepadButtonType::West,
-///                     ))),
-///             ),
-///         )
-///         .run();
-/// }
-///
-/// fn something_used() {
-///     println!("Generic use-ish button pressed.");
-/// }
-/// ```
-///
 /// ## Note
 ///
 /// When adding this resource for a new input type, you should:
@@ -151,10 +119,10 @@ use std::hash::Hash;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+/// [`ResMut`]: bevy_ecs::system::ResMut
+/// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,

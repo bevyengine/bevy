@@ -1,11 +1,10 @@
-use crate::system::{ExclusiveSystemParam, SystemMeta};
 use crate::{
     component::Tick,
     storage::SparseSetIndex,
-    system::{ReadOnlySystemParam, SystemParam},
+    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use super::unsafe_world_cell::UnsafeWorldCell;
 
@@ -56,6 +55,7 @@ unsafe impl SystemParam for WorldId {
 
     fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
 
+    #[inline]
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
         _: &SystemMeta,
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn world_ids_unique() {
-        let ids = std::iter::repeat_with(WorldId::new)
+        let ids = core::iter::repeat_with(WorldId::new)
             .take(50)
             .map(Option::unwrap)
             .collect::<Vec<_>>();
@@ -138,7 +138,7 @@ mod tests {
     // #[should_panic]
     // fn panic_on_overflow() {
     //     MAX_WORLD_ID.store(usize::MAX - 50, Ordering::Relaxed);
-    //     std::iter::repeat_with(WorldId::new)
+    //     core::iter::repeat_with(WorldId::new)
     //         .take(500)
     //         .for_each(|_| ());
     // }

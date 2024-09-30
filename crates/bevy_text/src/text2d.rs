@@ -1,6 +1,7 @@
+use crate::pipeline::CosmicFontSystem;
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
-    TextLayoutInfo, TextPipeline, YAxisOrientation,
+    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, SwashCache, Text, TextBounds,
+    TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -158,6 +159,8 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -191,12 +194,15 @@ pub fn update_text2d_layout(
                 scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
+                text.font_smoothing,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 YAxisOrientation::BottomToTop,
                 buffer.as_mut(),
+                &mut font_system,
+                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -273,7 +279,9 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<Events<WindowScaleFactorChanged>>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
             .add_systems(
                 Update,
                 (

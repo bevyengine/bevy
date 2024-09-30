@@ -33,7 +33,7 @@ impl Default for AudioOutput {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
             // We leak `OutputStream` to prevent the audio from stopping.
-            std::mem::forget(stream);
+            core::mem::forget(stream);
             Self {
                 stream_handle: Some(stream_handle),
             }

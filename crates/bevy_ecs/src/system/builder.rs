@@ -9,7 +9,7 @@ use crate::{
     },
     world::{FromWorld, World},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::{init_query_param, Res, ResMut, Resource, SystemState};
 
@@ -71,7 +71,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///     .build_system(single_parameter_system);
 ///
 /// world.run_system_once(system);
-///```
+/// ```
 ///
 /// # Safety
 ///
@@ -227,6 +227,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 }
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
+///
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
 pub struct ParamSetBuilder<T>(pub T);
@@ -348,9 +349,11 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::entity::Entities;
-    use crate::prelude::{Component, Query};
-    use crate::system::{Local, RunSystemOnce};
+    use crate::{
+        entity::Entities,
+        prelude::{Component, Query},
+        system::{Local, RunSystemOnce},
+    };
 
     use super::*;
 
@@ -383,8 +386,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(local_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 10);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 10);
     }
 
     #[test]
@@ -400,8 +403,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(query_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -415,8 +418,8 @@ mod tests {
 
         let system = (state,).build_state(&mut world).build_system(query_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -430,8 +433,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(multi_param_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -461,8 +464,8 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 3);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 3);
     }
 
     #[test]
@@ -476,8 +479,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(|a, b| *a + *b + 1);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -503,8 +506,8 @@ mod tests {
                 params.p0().iter().count() + params.p1().iter().count()
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 5);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -532,8 +535,8 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 5);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -561,8 +564,8 @@ mod tests {
                 },
             );
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 4);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 4);
     }
 
     #[derive(SystemParam)]
@@ -588,7 +591,7 @@ mod tests {
             .build_state(&mut world)
             .build_system(|param: CustomParam| *param.local + param.query.iter().count());
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 101);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 101);
     }
 }

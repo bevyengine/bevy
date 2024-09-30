@@ -6,9 +6,11 @@ use crate::{
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
-use std::{cell::RefCell, rc::Rc};
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::{prelude::*, JsCast};
+use {
+    alloc::rc::Rc,
+    core::cell::RefCell,
+    wasm_bindgen::{prelude::*, JsCast},
+};
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
 ///
