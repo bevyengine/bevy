@@ -31,7 +31,7 @@ pub type DiGraph<S = BuildHasherDefault<AHasher>> = Graph<true, S>;
 /// of its node weights `NodeId`.
 ///
 /// It uses an combined adjacency list and sparse adjacency matrix
-/// representation, using **O(|V| + |E|)** space, and allows testing for edge
+/// representation, using **O(|N| + |E|)** space, and allows testing for edge
 /// existence in constant time.
 ///
 /// `Graph` is parameterized over:
@@ -101,7 +101,7 @@ where
 
     /// Remove a node `n` from the graph.
     ///
-    /// Computes in **O(V)** time, due to the removal of edges with other nodes.
+    /// Computes in **O(N)** time, due to the removal of edges with other nodes.
     pub(crate) fn remove_node(&mut self, n: NodeId) {
         let Some(links) = self.nodes.swap_remove(&n) else {
             return;
@@ -116,7 +116,7 @@ where
                 Self::edge_key(succ, n)
             };
             // remove all successor links
-            self.remove_single_edge(&succ, &n, dir.opposite());
+            self.remove_single_edge(succ, n, dir.opposite());
             // Remove all edge values
             self.edges.remove(&edge);
         }
@@ -151,8 +151,8 @@ where
     /// Remove edge relation from a to b
     ///
     /// Return `true` if it did exist.
-    fn remove_single_edge(&mut self, a: &NodeId, b: &NodeId, dir: Direction) -> bool {
-        let Some(sus) = self.nodes.get_mut(a) else {
+    fn remove_single_edge(&mut self, a: NodeId, b: NodeId, dir: Direction) -> bool {
+        let Some(sus) = self.nodes.get_mut(&a) else {
             return false;
         };
 
@@ -160,7 +160,7 @@ where
             .iter()
             .copied()
             .map(CompactNodeIdAndDirection::load)
-            .position(|elt| (DIRECTED && elt == (*b, dir)) || (!DIRECTED && elt.0 == *b))
+            .position(|elt| (DIRECTED && elt == (b, dir)) || (!DIRECTED && elt.0 == b))
         else {
             return false;
         };
@@ -173,9 +173,9 @@ where
     ///
     /// Return `false` if the edge didn't exist.
     pub(crate) fn remove_edge(&mut self, a: NodeId, b: NodeId) -> bool {
-        let exist1 = self.remove_single_edge(&a, &b, Outgoing);
+        let exist1 = self.remove_single_edge(a, b, Outgoing);
         let exist2 = if a != b {
-            self.remove_single_edge(&b, &a, Incoming)
+            self.remove_single_edge(b, a, Incoming)
         } else {
             exist1
         };
