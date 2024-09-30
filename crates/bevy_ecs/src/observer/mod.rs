@@ -1203,6 +1203,7 @@ mod tests {
         struct ResB;
 
         let mut world = World::new();
+        // This fails because `ResA` is not present in the world
         world.observe(|_: Trigger<EventA>, _: Res<ResA>, mut commands: Commands| {
             commands.insert_resource(ResB);
         });

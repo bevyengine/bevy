@@ -449,6 +449,7 @@ mod tests {
         fn system(_: Res<T>) {}
 
         let mut world = World::default();
+        // This fails because `T` has not been added to the world yet.
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));

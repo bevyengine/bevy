@@ -934,6 +934,7 @@ mod tests {
 
         let mut world = World::new();
         let id = world.register_system_cached(system);
+        // This fails because `T` has not been added to the world yet.
         let result = world.run_system(id);
 
         assert!(matches!(
