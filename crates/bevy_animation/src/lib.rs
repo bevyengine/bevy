@@ -10,10 +10,10 @@
 extern crate alloc;
 
 pub mod animatable;
+pub mod events;
 pub mod graph;
 pub mod keyframes;
 pub mod transition;
-pub mod triggers;
 mod util;
 
 use alloc::collections::BTreeMap;
@@ -24,7 +24,7 @@ use core::{
     hash::{Hash, Hasher},
     iter,
 };
-use triggers::{trigger_animation_event, AnimationEvent, AnimationTriggerData};
+use events::{trigger_animation_event, AnimationEvent, AnimationEventData};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
@@ -475,7 +475,7 @@ pub struct AnimationClip {
 }
 
 pub(crate) type AnimationTriggers =
-    HashMap<Option<AnimationTargetId>, Vec<(f32, AnimationTriggerData)>>;
+    HashMap<Option<AnimationTargetId>, Vec<(f32, AnimationEventData)>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -609,7 +609,7 @@ impl AnimationClip {
     /// Add an [`AnimationTrigger`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
-    pub fn add_trigger_with_id(
+    pub fn add_event_with_id(
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
@@ -617,17 +617,17 @@ impl AnimationClip {
     ) {
         self.duration = self.duration.max(time);
         let triggers = self.triggers.entry(Some(target_id)).or_default();
-        triggers.push((time, AnimationTriggerData::new(event)));
+        triggers.push((time, AnimationEventData::new(event)));
         triggers.sort_by_key(|(k, _)| FloatOrd(*k));
     }
 
     /// Add an [`AnimationTrigger`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
     /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
-    pub fn add_trigger(&mut self, time: f32, event: impl AnimationEvent) {
+    pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
         self.duration = self.duration.max(time);
         let triggers = self.triggers.entry(None).or_default();
-        triggers.push((time, AnimationTriggerData::new(event)));
+        triggers.push((time, AnimationEventData::new(event)));
         triggers.sort_by_key(|(k, _)| FloatOrd(*k));
     }
 }

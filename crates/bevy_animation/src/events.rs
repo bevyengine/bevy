@@ -80,21 +80,21 @@ impl<T: AnimationEvent> FromType<T> for ReflectAnimationEvent {
 }
 
 #[derive(TypePath, Debug)]
-pub(crate) struct AnimationTriggerData(pub(crate) Box<dyn PartialReflect>);
+pub(crate) struct AnimationEventData(pub(crate) Box<dyn PartialReflect>);
 
-impl AnimationTriggerData {
+impl AnimationEventData {
     pub(crate) fn new(event: impl Event + PartialReflect) -> Self {
         Self(Box::new(event))
     }
 }
 
-impl Clone for AnimationTriggerData {
+impl Clone for AnimationEventData {
     fn clone(&self) -> Self {
         Self(self.0.clone_value())
     }
 }
 
-impl GetTypeRegistration for AnimationTriggerData {
+impl GetTypeRegistration for AnimationEventData {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
@@ -102,7 +102,7 @@ impl GetTypeRegistration for AnimationTriggerData {
     }
 }
 
-impl Typed for AnimationTriggerData {
+impl Typed for AnimationEventData {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| {
@@ -111,7 +111,7 @@ impl Typed for AnimationTriggerData {
     }
 }
 
-impl TupleStruct for AnimationTriggerData {
+impl TupleStruct for AnimationEventData {
     fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
         match index {
             0 => Some(self.0.as_partial_reflect()),
@@ -139,7 +139,7 @@ impl TupleStruct for AnimationTriggerData {
     }
 }
 
-impl PartialReflect for AnimationTriggerData {
+impl PartialReflect for AnimationEventData {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -207,7 +207,7 @@ impl PartialReflect for AnimationTriggerData {
     }
 }
 
-impl Reflect for AnimationTriggerData {
+impl Reflect for AnimationEventData {
     #[inline]
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -245,8 +245,8 @@ impl Reflect for AnimationTriggerData {
     }
 }
 
-impl FromReflect for AnimationTriggerData {
+impl FromReflect for AnimationEventData {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<AnimationTriggerData>()?.clone())
+        Some(reflect.try_downcast_ref::<AnimationEventData>()?.clone())
     }
 }
