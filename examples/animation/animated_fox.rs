@@ -54,6 +54,7 @@ struct FoxFeetIds {
 impl Default for FoxFeetIds {
     fn default() -> Self {
         Self {
+            // This is the hierarchy of nodes pointing to the feet, as defined in `Fox.glb`
             forward_right: AnimationTargetId::from_iter([
                 "root",
                 "_rootJoint",
@@ -106,6 +107,8 @@ struct Particle {
     lifetime: Timer,
 }
 
+// The event that will be fired once the fox feets hits the ground in the running animation.
+// It's also a resource to make it easier to re-use the asset handles for the mesh/material.
 #[derive(Resource, Event, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 struct FoxStep {
@@ -142,7 +145,6 @@ impl FoxStep {
                 ..Default::default()
             },
         ));
-        // println!("STEP: {}", transform.translation);
     }
 }
 
@@ -238,6 +240,8 @@ fn setup_scene_once_loaded(
         let graph = graphs.get(&animations.graph).unwrap();
         let node = graph.get(animations.animations[0]).unwrap();
         let clip = clips.get_mut(node.clip.as_ref().unwrap()).unwrap();
+
+        // Fire the `FoxStep` event at certain times in the animation, targeting the different feets.
         clip.add_event_with_id(feet.forward_right, 0.46, step.clone());
         clip.add_event_with_id(feet.forward_left, 0.64, step.clone());
         clip.add_event_with_id(feet.back_right, 0.14, step.clone());
