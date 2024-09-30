@@ -26,6 +26,8 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+use super::Populated;
+
 /// A parameter that can be used in a [`System`](super::System).
 ///
 /// # Derive
@@ -494,6 +496,61 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Option<Single<'a, D, F>>
+{
+}
+
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Populated<'_, '_, D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Populated<'w, 's, D, F>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Query::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        unsafe { Query::new_archetype(state, archetype, system_meta) };
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) };
+        Populated(query)
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state.validate_world(world.id());
+        // SAFETY:
+        // - We have read-only access to the components accessed by query.
+        // - The world has been validated.
+        !unsafe {
+            state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
+        }
+    }
+}
+
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Populated<'w, 's, D, F>
 {
 }
 
