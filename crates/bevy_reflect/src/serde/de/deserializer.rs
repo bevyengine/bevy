@@ -15,7 +15,7 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 
-/// Allows overriding the default deserialization behavior of
+/// Allows overriding the default deserialization behaviour of
 /// [`ReflectDeserializer`] and [`TypedReflectDeserializer`] for specific
 /// [`TypeRegistration`]s.
 ///
@@ -28,8 +28,7 @@ use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 /// Whenever the deserializer attempts to deserialize a value, it will first
 /// call [`try_deserialize`] on your processor, which may take ownership of the
 /// deserializer and give back a [`Box<dyn PartialReflect>`], or return
-/// ownership of the deserializer back to the deserializer, and continue with
-/// the default logic.
+/// ownership of the deserializer back, and continue with the default logic.
 ///
 /// # Examples
 ///
