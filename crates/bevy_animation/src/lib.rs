@@ -28,7 +28,10 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
-    entity::MapEntities, prelude::*, reflect::ReflectMapEntities, world::EntityMutExcept,
+    entity::{VisitEntities, VisitEntitiesMut},
+    prelude::*,
+    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
+    world::EntityMutExcept,
 };
 use bevy_math::FloatExt;
 use bevy_reflect::{
@@ -527,12 +530,13 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, MapEntities)]
+#[derive(Clone, Copy, Component, Reflect, VisitEntities, VisitEntitiesMut)]
+#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
+    #[visit_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
@@ -1094,28 +1098,33 @@ pub fn advance_animations(
         });
 }
 
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type AnimationEntityMut<'w> = EntityMutExcept<
+    'w,
+    (
+        AnimationTarget,
+        Transform,
+        AnimationPlayer,
+        Handle<AnimationGraph>,
+    ),
+>;
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(
-        Option<&mut Transform>,
-        EntityMutExcept<(Transform, AnimationPlayer, Handle<AnimationGraph>)>,
-    )>,
+    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(mut transform, mut entity_mut)| {
-            let Some(&AnimationTarget {
+        .for_each(|(target, mut transform, mut entity_mut)| {
+            let &AnimationTarget {
                 id: target_id,
                 player: player_id,
-            }) = entity_mut.get::<AnimationTarget>()
-            else {
-                return;
-            };
+            } = target;
 
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
@@ -1290,12 +1299,6 @@ impl AnimationTargetId {
 impl From<&Name> for AnimationTargetId {
     fn from(name: &Name) -> Self {
         AnimationTargetId::from_name(name)
-    }
-}
-
-impl MapEntities for AnimationTarget {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.player = entity_mapper.map_entity(self.player);
     }
 }
 

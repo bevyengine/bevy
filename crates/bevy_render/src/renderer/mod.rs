@@ -46,6 +46,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
+            crate::gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
@@ -141,12 +142,20 @@ impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(t)
     }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
 }
 
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
 impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(send_wrapper::SendWrapper::new(t))
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0.take()
     }
 }
 

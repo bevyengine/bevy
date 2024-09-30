@@ -25,6 +25,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -43,6 +44,7 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -72,6 +74,7 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
+use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
     mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
@@ -362,6 +365,7 @@ impl Plugin for RenderPlugin {
             MorphPlugin,
             BatchingPlugin,
             StoragePlugin,
+            GpuReadbackPlugin::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()

@@ -25,6 +25,7 @@ mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
+mod generics;
 mod ident;
 mod impls;
 mod meta;
