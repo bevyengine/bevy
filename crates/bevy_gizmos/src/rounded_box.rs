@@ -1,6 +1,6 @@
-//! Additional [`Gizmos`] Functions -- Rounded cuboids and rectangles
+//! Additional [`GizmoBuffer`] Functions -- Rounded cuboids and rectangles
 //!
-//! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
+//! Includes the implementation of [`GizmoBuffer::rounded_rect`], [`GizmoBuffer::rounded_rect_2d`] and [`GizmoBuffer::rounded_cuboid`].
 //! and assorted support items.
 
 use core::f32::consts::FRAC_PI_2;
@@ -10,7 +10,7 @@ use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Vec2, Vec3};
 use bevy_transform::components::Transform;
 
-/// A builder returned by [`Gizmos::rounded_rect`] and [`Gizmos::rounded_rect_2d`]
+/// A builder returned by [`GizmoBuffer::rounded_rect`] and [`GizmoBuffer::rounded_rect_2d`]
 pub struct RoundedRectBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -20,7 +20,7 @@ where
     gizmos: &'a mut GizmoBuffer<Config, Clear>,
     config: RoundedBoxConfig,
 }
-/// A builder returned by [`Gizmos::rounded_cuboid`]
+/// A builder returned by [`GizmoBuffer::rounded_cuboid`]
 pub struct RoundedCuboidBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,

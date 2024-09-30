@@ -1,4 +1,4 @@
-//! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
+//! A module for rendering each of the 2D [`bevy_math::primitives`] with [`GizmoBuffer`].
 
 use core::f32::consts::{FRAC_PI_2, PI};
 
@@ -22,7 +22,7 @@ const HALF_MIN_LINE_LEN: f32 = 25.0;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 100_000.0;
 
-/// A trait for rendering 2D geometric primitives (`P`) with [`Gizmos`].
+/// A trait for rendering 2D geometric primitives (`P`) with [`GizmoBuffer`].
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
     type Output<'a>

@@ -1,66 +1,112 @@
+//! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](crate::gizmos::Gizmos) system parameter.
+//!
+
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
-use bevy_ecs::{
-    bundle::Bundle,
-    entity::Entity,
-    system::{Commands, Local, Query},
-};
-use bevy_render::Extract;
+use bevy_ecs::component::Component;
+use bevy_reflect::Reflect;
 
+#[cfg(feature = "bevy_render")]
+use {
+    crate::{config::GizmoLineJoint, LineGizmoUniform},
+    bevy_ecs::{
+        entity::Entity,
+        system::{Commands, Local, Query},
+    },
+    bevy_render::Extract,
+};
+
+#[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
+use crate::config;
 use crate::{
-    config::{self, GizmoConfig, GizmoLineJoint, NoGizmoConfigGroup},
+    config::{ErasedGizmoConfigGroup, GizmoConfig},
     gizmos::GizmoBuffer,
-    LineGizmo, LineGizmoUniform,
+    LineGizmoAsset,
 };
 
-impl Deref for LineGizmo {
-    type Target = GizmoBuffer<NoGizmoConfigGroup, ()>;
+impl Deref for LineGizmoAsset {
+    type Target = GizmoBuffer<ErasedGizmoConfigGroup, ()>;
 
     fn deref(&self) -> &Self::Target {
         &self.buffer
     }
 }
 
-impl DerefMut for LineGizmo {
+impl DerefMut for LineGizmoAsset {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.buffer
     }
 }
-
-#[derive(Bundle, Default)]
-pub struct LineGizmoBundle {
-    pub linegizmo: Handle<LineGizmo>,
+/// A component that draws the lines of a [`LineGizmoAsset`].
+///
+/// When drawing a greater number of lines that don't need to update as often
+/// a [`LineGizmo`] can have far better performance than the [`Gizmos`] system parameter.
+///
+/// ## Example
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_gizmos::prelude::*;
+/// # use bevy_color::palettes::css::*;
+/// fn system(
+///     mut commands: Commands,
+///     mut linegizmos: ResMut<Assets<LineGizmoAsset>>,
+/// ) {
+///     let mut linegizmo = LineGizmoAsset::default();
+///
+///     linegizmo.sphere(default(), 1., RED);
+///
+///     commands.spawn(LineGizmo {
+///         handle: linegizmos.add(linegizmo),
+///         config: GizmoConfig {
+///             line_width: 3.,
+///             ..default()
+///         },
+///     });
+/// }
+/// ```
+///
+/// [`Gizmos`]: crate::gizmos::Gizmos
+#[derive(Component, Clone, Debug, Default, Reflect)]
+pub struct LineGizmo {
+    /// The handle to the line to draw.
+    pub handle: Handle<LineGizmoAsset>,
+    /// The configuration for this gizmo.
     pub config: GizmoConfig,
 }
 
-pub fn extract_linegizmos(
+#[cfg(feature = "bevy_render")]
+pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &Handle<LineGizmo>, &GizmoConfig)>>,
+    query: Extract<Query<(Entity, &LineGizmo)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, handle, config) in &query {
-        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
-            resolution
-        } else {
-            0
-        };
+    for (entity, linegizmo) in &query {
+        if !linegizmo.config.enabled {
+            continue;
+        }
+        let joints_resolution =
+            if let GizmoLineJoint::Round(resolution) = linegizmo.config.line_joints {
+                resolution
+            } else {
+                0
+            };
 
         // TODO Add transform to LineGizmoUniform
         values.push((
             entity,
             (
                 LineGizmoUniform {
-                    line_width: config.line_width,
-                    depth_bias: config.depth_bias,
+                    line_width: linegizmo.config.line_width,
+                    depth_bias: linegizmo.config.depth_bias,
                     joints_resolution,
                     #[cfg(feature = "webgl")]
                     _padding: Default::default(),
                 },
-                (*handle).clone_weak(),
+                linegizmo.handle.clone_weak(),
                 #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-                config::GizmoMeshConfig::from(config),
+                config::GizmoMeshConfig::from(&linegizmo.config),
             ),
         ));
     }

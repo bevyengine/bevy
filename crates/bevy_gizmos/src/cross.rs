@@ -1,6 +1,6 @@
-//! Additional [`Gizmos`] Functions -- Crosses
+//! Additional [`GizmoBuffer`] Functions -- Crosses
 //!
-//! Includes the implementation of [`Gizmos::cross`] and [`Gizmos::cross_2d`],
+//! Includes the implementation of [`GizmoBuffer::cross`] and [`GizmoBuffer::cross_2d`],
 //! and assorted support items.
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};

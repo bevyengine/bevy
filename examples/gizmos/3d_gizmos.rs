@@ -22,19 +22,22 @@ struct MyRoundGizmos;
 
 fn setup(
     mut commands: Commands,
-    mut linegizmos: ResMut<Assets<LineGizmo>>,
+    mut linegizmos: ResMut<Assets<LineGizmoAsset>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut linegizmo = LineGizmo::default();
+    let mut linegizmo = LineGizmoAsset::default();
 
-    // A sphere made out of 100_000 lines.
+    // When drawing a lot of lines that don't need to update as often
+    // a LineGizmo can have far better performance than the Gizmos system parameter
+
+    // A sphere made out of 30_000 lines!
     linegizmo
-        .sphere(Isometry3d::from_translation(Vec3::Y * 5.), 2., CRIMSON)
-        .resolution(100_000 / 3);
+        .sphere(Isometry3d::from_translation(Vec3::Y * 4.), 1.5, CRIMSON)
+        .resolution(30_000 / 3);
 
-    commands.spawn(LineGizmoBundle {
-        linegizmo: linegizmos.add(linegizmo),
+    commands.spawn(LineGizmo {
+        handle: linegizmos.add(linegizmo),
         config: GizmoConfig {
             line_width: 3.,
             ..default()

@@ -1,7 +1,7 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoAsset,
     LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
     LINE_SHADER_HANDLE,
 };
@@ -287,7 +287,7 @@ fn queue_line_gizmos_3d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmoAsset>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
@@ -402,7 +402,7 @@ fn queue_line_joint_gizmos_3d(
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &Handle<LineGizmoAsset>, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(

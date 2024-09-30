@@ -1,13 +1,13 @@
-//! Additional [`Gizmos`] Functions -- Grids
+//! Additional [`GizmoBuffer`] Functions -- Grids
 //!
-//! Includes the implementation of [`Gizmos::grid`] and [`Gizmos::grid_2d`].
+//! Includes the implementation of [`GizmoBuffer::grid`] and [`GizmoBuffer::grid_2d`].
 //! and assorted support items.
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
 
-/// A builder returned by [`Gizmos::grid_3d`]
+/// A builder returned by [`GizmoBuffer::grid_3d`]
 pub struct GridBuilder3d<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -21,7 +21,7 @@ where
     outer_edges: [bool; 3],
     color: Color,
 }
-/// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
+/// A builder returned by [`GizmoBuffer::grid`] and [`GizmoBuffer::grid_2d`]
 pub struct GridBuilder2d<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -141,7 +141,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draws a grid, by drawing lines with the stored [`Gizmos`]
+    /// Draws a grid, by drawing lines with the stored [`GizmoBuffer`]
     fn drop(&mut self) {
         draw_grid(
             self.gizmos,

@@ -1,6 +1,6 @@
-//! Additional [`Gizmos`] Functions -- Arcs
+//! Additional [`GizmoBuffer`] Functions -- Arcs
 //!
-//! Includes the implementation of [`Gizmos::arc_2d`],
+//! Includes the implementation of [`GizmoBuffer::arc_2d`],
 //! and assorted support items.
 
 use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
@@ -63,7 +63,7 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::arc_2d`].
+/// A builder returned by [`GizmoBuffer::arc_2d`].
 pub struct Arc2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -443,7 +443,7 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::arc_2d`].
+/// A builder returned by [`GizmoBuffer::arc_2d`].
 pub struct Arc3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,

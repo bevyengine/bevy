@@ -1,6 +1,6 @@
-//! Additional [`Gizmos`] Functions -- Arrows
+//! Additional [`GizmoBuffer`] Functions -- Arrows
 //!
-//! Includes the implementation of [`Gizmos::arrow`] and [`Gizmos::arrow_2d`],
+//! Includes the implementation of [`GizmoBuffer::arrow`] and [`GizmoBuffer::arrow_2d`],
 //! and assorted support items.
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
@@ -11,7 +11,7 @@ use bevy_color::{
 use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles};
 use bevy_transform::TransformPoint;
 
-/// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
+/// A builder returned by [`GizmoBuffer::arrow`] and [`GizmoBuffer::arrow_2d`]
 pub struct ArrowBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -63,7 +63,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draws the arrow, by drawing lines with the stored [`Gizmos`]
+    /// Draws the arrow, by drawing lines with the stored [`GizmoBuffer`]
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;

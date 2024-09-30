@@ -1,7 +1,7 @@
-//! Additional [`Gizmos`] Functions -- Curves
+//! Additional [`GizmoBuffer`] Functions -- Curves
 //!
-//! Includes the implementation of [`Gizmos::curve_2d`],
-//! [`Gizmos::curve_3d`] and assorted support items.
+//! Includes the implementation of [`GizmoBuffer::curve_2d`],
+//! [`GizmoBuffer::curve_3d`] and assorted support items.
 
 use bevy_color::Color;
 use bevy_math::{curve::Curve, Vec2, Vec3};

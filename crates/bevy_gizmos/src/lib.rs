@@ -67,8 +67,8 @@ pub mod prelude {
         },
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
-        retained::LineGizmoBundle,
-        AppGizmoBuilder, LineGizmo,
+        retained::LineGizmo,
+        AppGizmoBuilder, LineGizmoAsset,
     };
 
     #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -83,10 +83,11 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypePath;
 
-use crate::{config::NoGizmoConfigGroup, gizmos::GizmoBuffer, retained::extract_linegizmos};
+use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
 #[cfg(feature = "bevy_render")]
 use {
+    crate::retained::extract_linegizmos,
     bevy_ecs::{
         component::Component,
         query::ROQueryItem,
@@ -121,11 +122,10 @@ use bevy_utils::TypeIdMap;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
 };
-use core::{any::TypeId, mem};
+use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
-use std::marker::PhantomData;
 
 #[cfg(feature = "bevy_render")]
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -154,7 +154,7 @@ impl Plugin for GizmoPlugin {
 
         app.register_type::<GizmoConfig>()
             .register_type::<GizmoConfigStore>()
-            .init_asset::<LineGizmo>()
+            .init_asset::<LineGizmoAsset>()
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
@@ -298,7 +298,7 @@ impl AppGizmoBuilder for App {
 // group creation.
 #[derive(Resource, Default)]
 struct LineGizmoHandles {
-    handles: TypeIdMap<Option<Handle<LineGizmo>>>,
+    handles: TypeIdMap<Option<Handle<LineGizmoAsset>>>,
 }
 
 /// Start a new gizmo clearing context.
@@ -374,7 +374,7 @@ pub struct UpdateGizmoMeshes;
 ///
 /// This also clears the default `GizmoStorage`.
 fn update_gizmo_meshes<Config: GizmoConfigGroup>(
-    mut line_gizmos: ResMut<Assets<LineGizmo>>,
+    mut line_gizmos: ResMut<Assets<LineGizmoAsset>>,
     mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage<Config, ()>>,
     config_store: Res<GizmoConfigStore>,
@@ -392,8 +392,8 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
             linegizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
             linegizmo.joints = config.line_joints;
         } else {
-            let linegizmo = LineGizmo {
-                config_ty: Some(TypeId::of::<Config>()),
+            let linegizmo = LineGizmoAsset {
+                config_ty: TypeId::of::<Config>(),
                 buffer: GizmoBuffer {
                     enabled: true,
                     list_positions: mem::take(&mut storage.list_positions),
@@ -463,28 +463,30 @@ struct LineGizmoUniform {
 }
 
 /// A collection of lines.
+///
+/// Has the same line drawing API as [`Gizmos`](crate::gizmos::Gizmos).
 #[derive(Asset, Debug, Clone, TypePath)]
-pub struct LineGizmo {
+pub struct LineGizmoAsset {
     /// vertex buffers.
-    buffer: GizmoBuffer<NoGizmoConfigGroup, ()>,
+    buffer: GizmoBuffer<ErasedGizmoConfigGroup, ()>,
     /// Whether this gizmo should draw line joints on line-strips.
-    pub joints: GizmoLineJoint,
-    config_ty: Option<TypeId>,
+    joints: GizmoLineJoint,
+    config_ty: TypeId,
 }
 
-impl LineGizmo {
+impl LineGizmoAsset {
     /// The type of the gizmo's configuration group.
-    pub fn config_typeid(&self) -> Option<TypeId> {
+    pub fn config_typeid(&self) -> TypeId {
         self.config_ty
     }
 }
 
-impl Default for LineGizmo {
+impl Default for LineGizmoAsset {
     fn default() -> Self {
-        LineGizmo {
+        LineGizmoAsset {
             buffer: GizmoBuffer::default(),
             joints: GizmoLineJoint::default(),
-            config_ty: None,
+            config_ty: TypeId::of::<ErasedGizmoConfigGroup>(),
         }
     }
 }
@@ -503,7 +505,7 @@ struct GpuLineGizmo {
 
 #[cfg(feature = "bevy_render")]
 impl RenderAsset for GpuLineGizmo {
-    type SourceAsset = LineGizmo;
+    type SourceAsset = LineGizmoAsset;
     type Param = SRes<RenderDevice>;
 
     fn prepare_asset(
@@ -610,7 +612,7 @@ struct DrawLineGizmo<const STRIP: bool>;
 impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<Handle<LineGizmoAsset>>;
 
     #[inline]
     fn render<'w>(
@@ -670,7 +672,7 @@ struct DrawLineJointGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<Handle<LineGizmoAsset>>;
 
     #[inline]
     fn render<'w>(

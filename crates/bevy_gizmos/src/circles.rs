@@ -1,6 +1,6 @@
-//! Additional [`Gizmos`] Functions -- Circles
+//! Additional [`GizmoBuffer`] Functions -- Circles
 //!
-//! Includes the implementation of [`Gizmos::circle`] and [`Gizmos::circle_2d`],
+//! Includes the implementation of [`GizmoBuffer::circle`] and [`GizmoBuffer::circle_2d`],
 //! and assorted support items.
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
@@ -228,7 +228,7 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::ellipse`].
+/// A builder returned by [`GizmoBuffer::ellipse`].
 pub struct EllipseBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -269,7 +269,7 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::ellipse_2d`].
+/// A builder returned by [`GizmoBuffer::ellipse_2d`].
 pub struct Ellipse2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -311,7 +311,7 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::sphere`].
+/// A builder returned by [`GizmoBuffer::sphere`].
 pub struct SphereBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,

@@ -1,4 +1,4 @@
-//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
+//! A module for rendering each of the 3D [`bevy_math::primitives`] with [`GizmoBuffer`].
 
 use super::helpers::*;
 
@@ -17,7 +17,7 @@ const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
-/// A trait for rendering 3D geometric primitives (`P`) with [`Gizmos`].
+/// A trait for rendering 3D geometric primitives (`P`) with [`GizmoBuffer`].
 pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// The output of `primitive_3d`. This is a builder to set non-default values.
     type Output<'a>

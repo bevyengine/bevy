@@ -57,9 +57,9 @@ pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
 pub struct DefaultGizmoConfigGroup;
 
-/// A marker for retained gizmos. Retained gizmos do not belong to a config group.
+/// A type-erased gizmo config group.
 #[derive(Default, Reflect, GizmoConfigGroup, Debug, Clone)]
-pub struct NoGizmoConfigGroup;
+pub struct ErasedGizmoConfigGroup;
 
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
@@ -137,7 +137,7 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
-#[derive(Clone, Reflect, Component)]
+#[derive(Clone, Reflect, Debug)]
 pub struct GizmoConfig {
     /// Set to `false` to stop drawing gizmos.
     ///

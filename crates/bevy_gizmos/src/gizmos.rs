@@ -265,6 +265,7 @@ where
 {
 }
 
+/// Buffer for gizmo vertex data.
 #[derive(Debug, Clone, Reflect)]
 pub struct GizmoBuffer<Config, Clear>
 where
@@ -297,6 +298,18 @@ where
     }
 }
 
+/// Read-only view into [`GizmoBuffer`] data.
+pub struct GizmoBufferView<'a> {
+    /// Vertex positions for line-list topology.
+    pub list_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-list topology.
+    pub list_colors: &'a Vec<LinearRgba>,
+    /// Vertex positions for line-strip topology.
+    pub strip_positions: &'a Vec<Vec3>,
+    /// Vertex colors for line-strip topology.
+    pub strip_colors: &'a Vec<LinearRgba>,
+}
+
 impl<Config, Clear> SystemBuffer for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -316,6 +329,30 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Clear all data.
+    pub fn clear(&mut self) {
+        self.list_positions.clear();
+        self.list_colors.clear();
+        self.strip_positions.clear();
+        self.strip_colors.clear();
+    }
+
+    /// Read-only view into the buffers data.
+    pub fn buffer(&self) -> GizmoBufferView {
+        let GizmoBuffer {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+            ..
+        } = self;
+        GizmoBufferView {
+            list_positions,
+            list_colors,
+            strip_positions,
+            strip_colors,
+        }
+    }
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
