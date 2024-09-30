@@ -278,8 +278,7 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
-        let reflect_deserializer =
-            TypedReflectDeserializer::new_internal(registration, &registry, ());
+        let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -559,8 +558,9 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = FooProcessor;
         let reflect_deserializer =
-            TypedReflectDeserializer::new_internal(registration, &registry, FooProcessor);
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -613,8 +613,9 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = FooProcessor;
         let reflect_deserializer =
-            TypedReflectDeserializer::new_internal(registration, &registry, FooProcessor);
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)
@@ -651,8 +652,8 @@ mod tests {
 
         let input = r#"{"i32":123}"#;
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
-        let reflect_deserializer =
-            ReflectDeserializer::new_with_processor(&registry, ErroringProcessor);
+        let mut processor = ErroringProcessor;
+        let reflect_deserializer = ReflectDeserializer::with_processor(&registry, &mut processor);
         let error = reflect_deserializer
             .deserialize(&mut deserializer)
             .unwrap_err();
@@ -695,13 +696,13 @@ mod tests {
         let input = r#"{"i32":0}"#;
 
         let mut values_found = 0_usize;
-        let deserializer_processor = ValueCountingProcessor {
+        let mut deserializer_processor = ValueCountingProcessor {
             values_found: &mut values_found,
         };
 
         let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let reflect_deserializer =
-            ReflectDeserializer::new_with_processor(&registry, deserializer_processor);
+            ReflectDeserializer::with_processor(&registry, &mut deserializer_processor);
         reflect_deserializer.deserialize(&mut deserializer).unwrap();
         assert_eq!(1, values_found);
     }
