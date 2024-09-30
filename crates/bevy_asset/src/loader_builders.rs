@@ -57,10 +57,11 @@ impl ReaderRef<'_> {
 ///   If you know the type ID of the asset at runtime, but not at compile time,
 ///   use [`with_dynamic_type`] followed by [`load`] to start loading an asset
 ///   of that type. This lets you get an [`UntypedHandle`] (via [`Deferred`]),
-///   or a [`LoadedUntypedAsset`] (via [`Immediate`]).
+///   or a [`ErasedLoadedAsset`] (via [`Immediate`]).
 ///
-/// - in [`UnknownTyped`]: loading a [`LoadedUntypedAsset`], which is a
-///   version of the loaded asset.
+/// - in [`UnknownTyped`]: loading either a type-erased version of the asset
+///   ([`ErasedLoadedAsset`]), or a handle *to a handle* of the actual asset
+///   ([`LoadedUntypedAsset`]).
 ///
 ///   If you have no idea what type of asset you will be loading (not even at
 ///   runtime with a [`TypeId`]), use this.
@@ -68,13 +69,14 @@ impl ReaderRef<'_> {
 /// ## Load mode
 ///
 /// To inform the loader how you want to load the asset:
-/// - [`Deferred`]: when you request to load the asset, you get a [`Handle`] for
-///   it, but the actual loading won't be completed until later.
+/// - in [`Deferred`]: when you request to load the asset, you get a [`Handle`]
+///   for it, but the actual loading won't be completed until later.
 ///
 ///   Use this if you only need a [`Handle`] or [`UntypedHandle`].
 ///
-/// - [`Immediate`]: the load request will load the asset right then and there,
-///   waiting until the asset is fully loaded and giving you access to it.
+/// - in [`Immediate`]: the load request will load the asset right then and
+///   there, waiting until the asset is fully loaded and giving you access to
+///   it.
 ///
 ///   Note that this requires you to `await` a future, so you must be in an
 ///   async context to use direct loading. In an asset loader, you will be in
