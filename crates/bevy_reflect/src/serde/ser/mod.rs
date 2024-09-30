@@ -624,12 +624,12 @@ mod tests {
         #[cfg(feature = "debug_stack")]
         assert_eq!(
             error,
-            ron::Error::Message("my custom deserialize error (stack: `i32`)".to_string())
+            ron::Error::Message("my custom serialize error (stack: `i32`)".to_string())
         );
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(
             error,
-            ron::Error::Message("my custom deserialize error".to_string())
+            ron::Error::Message("my custom serialize error".to_string())
         );
     }
 

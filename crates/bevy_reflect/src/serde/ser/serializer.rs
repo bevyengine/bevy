@@ -36,7 +36,7 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 /// ```
 /// # use core::any::Any;
 /// # use serde::Serialize;
-/// # use bevy_reflect::{Reflect, TypeData, TypeRegistry};
+/// # use bevy_reflect::{PartialReflect, Reflect, TypeData, TypeRegistry};
 /// # use bevy_reflect::serde::{ReflectSerializer, ReflectSerializerProcessor};
 /// #
 /// # #[derive(Debug, Clone, Reflect)]
@@ -76,7 +76,7 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 /// impl ReflectSerializerProcessor for HandleProcessor {
 ///     fn try_serialize<S>(
 ///         &self,
-///         value: &dyn crate::PartialReflect,
+///         value: &dyn PartialReflect,
 ///         registry: &TypeRegistry,
 ///         serializer: S,
 ///     ) -> Result<Result<S::Ok, S>, S::Error>
@@ -109,9 +109,9 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 ///
 ///     let processor = HandleProcessor;
 ///     let serializer = ReflectSerializer::with_processor(asset, type_registry, &processor);
-///     let ron_serializer = ron::Serializer::new(&mut asset_bytes, None);
+///     let mut ron_serializer = ron::Serializer::new(&mut asset_bytes, None)?;
 ///
-///     serializer.serialize(serializer)?;
+///     serializer.serialize(&mut ron_serializer)?;
 ///     Ok(asset_bytes)
 /// }
 /// ```
@@ -133,7 +133,7 @@ pub trait ReflectSerializerProcessor {
     ///
     /// ```
     /// # use bevy_reflect::{TypeRegistration, TypeRegistry, PartialReflect};
-    /// # use bevy_reflect::serde::ReflectDeserializerProcessor;
+    /// # use bevy_reflect::serde::ReflectSerializerProcessor;
     /// # use core::any::TypeId;
     /// struct I32AsStringProcessor;
     ///
@@ -156,7 +156,7 @@ pub trait ReflectSerializerProcessor {
     ///
     ///         if type_id == TypeId::of::<i32>() {
     ///             let value_as_string = format!("{value:?}");
-    ///             serializer.serialize_str(value_as_string).map(Ok)
+    ///             serializer.serialize_str(&value_as_string).map(Ok)
     ///         } else {
     ///             Ok(Err(serializer))
     ///         }
@@ -423,7 +423,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TypedReflectSerializer<'_, P> 
                     return Ok(value);
                 }
                 Err(err) => {
-                    return Err(err);
+                    return Err(make_custom_error(err));
                 }
                 Ok(Err(serializer)) => serializer,
             }
