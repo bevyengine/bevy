@@ -46,6 +46,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
+            crate::gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
