@@ -21,6 +21,7 @@ pub struct UiStack {
 pub fn ui_stack_system(
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut traversal_stack: Local<Vec<Entity>>,
+    mut z_children: Local<Vec<(Entity, i32)>>,
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
         (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
@@ -37,7 +38,6 @@ pub fn ui_stack_system(
     traversal_stack.clear();
     ui_stack.uinodes.clear();
     root_nodes.clear();
-    let uinodes = &mut ui_stack.uinodes;
 
     for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
         root_nodes.push((
@@ -59,26 +59,24 @@ pub fn ui_stack_system(
         ));
     }
 
-    radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
-    traversal_stack.extend(root_nodes.into_iter().map(|(id, _)| id).rev());
+    root_nodes.sort_by_key(|(_, z)| *z);
+    traversal_stack.extend(root_nodes.into_iter().map(|root| root.0));
 
     while let Some(entity) = traversal_stack.pop() {
-        uinodes.push(entity);
+        ui_stack.uinodes.push(entity);
 
         if let Ok(children) = children_query.get(entity) {
-            let mut z_children: Vec<(Entity, i32)> = children
-                .iter()
-                .filter_map(|entity| {
-                    zindex_query
-                        .get(*entity)
-                        .ok()
-                        .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-                })
-                .collect();
+            z_children.extend(children.iter().filter_map(|entity| {
+                zindex_query
+                    .get(*entity)
+                    .ok()
+                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            }));
             radsort::sort_by_key(&mut z_children, |k| k.1);
+            z_children.sort_by_key(|k| std::cmp::Reverse(k.1));
 
             // reverse order because we're walking the tree depth first
-            for (child_id, _) in z_children.into_iter().rev() {
+            for (child_id, _) in z_children.drain(..) {
                 traversal_stack.push(child_id);
             }
         }
