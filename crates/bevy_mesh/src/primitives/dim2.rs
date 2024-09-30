@@ -7,8 +7,8 @@ use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
     ops,
     primitives::{
-        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
-        RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
+        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon,
+        Ellipse, Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
     FloatExt, Vec2,
 };
@@ -395,6 +395,55 @@ impl From<CircularSegment> for Mesh {
     /// See the documentation of [`CircularSegmentMeshBuilder`] for more details.
     fn from(segment: CircularSegment) -> Self {
         segment.mesh().build()
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`ConvexPolygon`] shape.
+pub struct ConvexPolygonMeshBuilder<const N: usize> {
+    pub vertices: [Vec2; N]
+}
+
+impl<const N: usize> Meshable for ConvexPolygon<N> {
+    type Output = ConvexPolygonMeshBuilder<N>;
+
+    fn mesh(&self) -> Self::Output {
+        Self::Output {
+            vertices: self.vertices,
+        }
+    }
+}
+
+impl<const N: usize> MeshBuilder for ConvexPolygonMeshBuilder<N> {
+    fn build(&self) -> Mesh {
+        let mut indices = Vec::with_capacity(self.vertices.len() - 2);
+        let mut positions = Vec::with_capacity(self.vertices.len());
+
+        for vertex in self.vertices {
+            positions.push([vertex.x, vertex.y, 0.0]);
+        }
+        for i in 2..N as u32 {
+            indices.extend_from_slice(&[0, i - 1, i]);
+        }
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_indices(Indices::U32(indices))
+    }
+}
+
+impl<const N: usize> Extrudable for ConvexPolygonMeshBuilder<N> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
+        vec![PerimeterSegment::Flat {
+            indices: (0..N as u32).chain([0]).collect(),
+        }]
+    }
+}
+
+impl<const N: usize> From<ConvexPolygon<N>> for Mesh {
+    fn from(polygon: ConvexPolygon<N>) -> Self {
+        polygon.mesh().build()
     }
 }
 
