@@ -38,8 +38,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// or by converting a [primitive](bevy_math::primitives) using [`into`](Into).
 /// It is also possible to create one manually. They can be edited after creation.
 ///
-/// Meshes can be rendered with a `Mesh2d` and `MeshMaterial2d` or `Mesh3d` and `MeshMaterial3d`
-/// for 2D and 3D respectively.
+/// Meshes can be rendered with a [`Mesh2d`](super::Mesh2d) and `MeshMaterial2d`
+/// or [`Mesh3d`](super::Mesh3d) and `MeshMaterial3d` for 2D and 3D respectively.
 ///
 /// A [`Mesh`] in Bevy is equivalent to a "primitive" in the glTF format, for a
 /// glTF Mesh representation, see `GltfMesh`.
@@ -92,7 +92,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
 /// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
-/// teaches you to access modify a Mesh's attributes after creating it.
+/// teaches you to access and modify the attributes of a [`Mesh`] after creating it.
 ///
 /// ## Common points of confusion
 ///
