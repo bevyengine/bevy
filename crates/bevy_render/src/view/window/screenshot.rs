@@ -187,7 +187,7 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
 
 fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
     for entity in screenshots.iter() {
-        commands.entity(entity).despawn_recursive(true);
+        commands.entity(entity).despawn_recursive();
     }
 }
 
@@ -242,7 +242,7 @@ fn extract_screenshots(
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
-            commands.entity(entity).despawn_recursive(true);
+            commands.entity(entity).despawn_recursive();
             continue;
         }
         seen_targets.insert(render_target.clone());

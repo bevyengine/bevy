@@ -80,13 +80,13 @@ fn rotate(
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
         if time.elapsed_seconds() >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
-            commands.entity(*child).despawn_recursive(true);
+            commands.entity(*child).despawn_recursive();
         }
 
         if time.elapsed_seconds() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.entity(parent).despawn_recursive(true);
+            commands.entity(parent).despawn_recursive();
         }
     }
 }

@@ -84,7 +84,7 @@ pub fn clear_state_scoped_entities<S: States>(
     for (entity, binding) in &query {
         if binding.0 == *exited {
             #[cfg(feature = "bevy_hierarchy")]
-            commands.entity(entity).despawn_recursive(true);
+            commands.entity(entity).despawn_recursive();
             #[cfg(not(feature = "bevy_hierarchy"))]
             commands.entity(entity).despawn();
         }
