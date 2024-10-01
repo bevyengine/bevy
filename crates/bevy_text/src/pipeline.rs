@@ -147,7 +147,7 @@ impl TextPipeline {
         let spans_iter = spans.iter().map(|(span_index, span, style, font_info)| {
             (
                 *span,
-                get_attrs(*span_index, *style, font_info, scale_factor),
+                get_attrs(*span_index, style, font_info, scale_factor),
             )
         });
 
@@ -444,7 +444,7 @@ fn get_attrs<'a>(
 ) -> Attrs<'a> {
     let attrs = Attrs::new()
         .metadata(span_index)
-        .family(Family::Name(&*face_info.family_name))
+        .family(Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
