@@ -88,13 +88,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     }
 
     // Spawn the scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+    )));
 
     // Spawn the help text.
     commands.spawn(

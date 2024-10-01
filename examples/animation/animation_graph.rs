@@ -232,11 +232,12 @@ fn setup_scene(
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_scale(Vec3::splat(0.07)),
+    ));
 
     // Ground
 
