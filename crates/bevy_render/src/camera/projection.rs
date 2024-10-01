@@ -202,9 +202,9 @@ impl CameraProjection for PerspectiveProjection {
         let full_height = sub_view.full_size.y as f32;
         let sub_width = sub_view.size.x as f32;
         let sub_height = sub_view.size.y as f32;
-        let offset_x = sub_view.offset.x as f32;
+        let offset_x = sub_view.offset.x;
         // Y-axis increases from top to bottom
-        let offset_y = full_height - ((sub_view.offset.y as f32) + sub_height);
+        let offset_y = full_height - (sub_view.offset.y + sub_height);
 
         // Original frustum parameters
         let top = self.near * ops::tan(0.5 * self.fov);
@@ -445,8 +445,8 @@ impl CameraProjection for OrthographicProjection {
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
         let full_width = sub_view.full_size.x as f32;
         let full_height = sub_view.full_size.y as f32;
-        let offset_x = sub_view.offset.x as f32;
-        let offset_y = sub_view.offset.y as f32;
+        let offset_x = sub_view.offset.x;
+        let offset_y = sub_view.offset.y;
         let sub_width = sub_view.size.x as f32;
         let sub_height = sub_view.size.y as f32;
 

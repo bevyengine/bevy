@@ -105,7 +105,7 @@ fn setup(
                 full_size: UVec2::new(10, 10),
                 // The `offset` is also relative to the values in `full_size`
                 // and `size`
-                offset: IVec2::new(5, 0),
+                offset: Vec2::new(5.0, 0.0),
                 size: UVec2::new(5, 10),
             }),
             order: 1,
@@ -128,7 +128,7 @@ fn setup(
                     // Set the sub view camera to a fifth of the full view and
                     // move it in another system
                     full_size: UVec2::new(500, 500),
-                    offset: IVec2::new(0, 0),
+                    offset: Vec2::ZERO,
                     size: UVec2::new(100, 100),
                 }),
                 order: 2,
@@ -152,7 +152,7 @@ fn setup(
                 // Set the sub view to the full image, to ensure that it matches
                 // the projection without sub view
                 full_size: UVec2::new(450, 450),
-                offset: IVec2::new(0, 0),
+                offset: Vec2::ZERO,
                 size: UVec2::new(450, 450),
             }),
             order: 3,
@@ -202,7 +202,7 @@ fn setup(
                 // exact values of your physical viewport. The important part is
                 // the ratio between them.
                 full_size: UVec2::new(2, 2),
-                offset: IVec2::new(0, 0),
+                offset: Vec2::ZERO,
                 size: UVec2::new(1, 2),
             }),
             order: 5,
@@ -230,7 +230,7 @@ fn setup(
                     // Set the sub view camera to a fifth of the full view and
                     // move it in another system
                     full_size: UVec2::new(500, 500),
-                    offset: IVec2::new(0, 0),
+                    offset: Vec2::ZERO,
                     size: UVec2::new(100, 100),
                 }),
                 order: 6,
@@ -259,7 +259,7 @@ fn setup(
                 // Set the sub view to the full image, to ensure that it matches
                 // the projection without sub view
                 full_size: UVec2::new(450, 450),
-                offset: IVec2::new(0, 0),
+                offset: Vec2::ZERO,
                 size: UVec2::new(450, 450),
             }),
             order: 7,
@@ -276,7 +276,7 @@ fn move_camera_view(
 ) {
     for mut camera in movable_camera_query.iter_mut() {
         if let Some(sub_view) = &mut camera.sub_camera_view {
-            sub_view.offset.x = (time.elapsed_seconds() * 150.) as i32 % 450 - 50;
+            sub_view.offset.x = (time.elapsed_seconds() * 150.) % 450.0 - 50.0;
             sub_view.offset.y = sub_view.offset.x;
         }
     }
