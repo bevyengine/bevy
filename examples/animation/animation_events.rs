@@ -26,8 +26,7 @@ enum Say {
 impl Say {
     fn entity(&self) -> Entity {
         match self {
-            Say::Hello(entity) => *entity,
-            Say::Bye(entity) => *entity,
+            Say::Hello(entity) | Say::Bye(entity) => *entity,
         }
     }
 }
