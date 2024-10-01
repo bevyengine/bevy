@@ -3402,6 +3402,18 @@ description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "screen_shake"
+path = "examples/camera/screen_shake.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.screen_shake]
+name = "Screen Shake"
+description = "An example for screen shake"
+category = "Camera"
+wasm = true
+
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
