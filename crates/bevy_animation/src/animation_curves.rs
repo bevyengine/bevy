@@ -78,7 +78,7 @@
 //! [there]: AnimatableProperty
 
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     fmt::{self, Debug, Formatter},
     marker::PhantomData,
 };
@@ -90,13 +90,15 @@ use bevy_math::{
         iterable::IterableCurve,
         Curve, Interval,
     },
-    FloatExt, Quat, Vec3,
+    Quat, Vec3,
 };
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
-use crate::{prelude::Animatable, AnimationEntityMut, AnimationEvaluationError};
+use crate::{
+    graph::AnimationNodeIndex, prelude::Animatable, AnimationEntityMut, AnimationEvaluationError,
+};
 
 /// A value on a component that Bevy can animate.
 ///
@@ -189,6 +191,21 @@ pub struct AnimatableCurve<P, C> {
     _phantom: PhantomData<P>,
 }
 
+/// An [`AnimatableCurveEvaluator`] for [`AnimatableProperty`] instances.
+///
+/// You shouldn't ordinarily need to instantiate one of these manually. Bevy
+/// will automatically do so when you use an [`AnimatableCurve`] instance.
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct AnimatableCurveEvaluator<P, C>
+where
+    P: AnimatableProperty,
+{
+    evaluator: BasicAnimationCurveEvaluator<P::Property>,
+    #[reflect(ignore)]
+    phantom: PhantomData<(P, C)>,
+}
+
 impl<P, C> AnimatableCurve<P, C>
 where
     P: AnimatableProperty,
@@ -242,20 +259,72 @@ where
         self.curve.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        _transform: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(AnimatableCurveEvaluator {
+            evaluator: BasicAnimationCurveEvaluator::default(),
+            phantom: PhantomData::<(P, C)>,
+        })
+    }
+}
+
+impl<P, C> AnimationCurveEvaluator for AnimatableCurveEvaluator<P, C>
+where
+    P: AnimatableProperty,
+    C: AnimationCompatibleCurve<P::Property>,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        _: Option<Mut<'a, Transform>>,
+        mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
         })?;
         let property = P::get_mut(&mut component)
             .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
-        let value = self.curve.sample_clamped(t);
-        *property = <P::Property>::interpolate(property, &value, weight);
+        *property = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<AnimatableCurve<P, C>>)?
+            .value;
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve = (*AnimationCurve::as_any(curve))
+            .downcast_ref::<AnimatableCurve<P, C>>()
+            .unwrap();
+        let value = curve.curve.sample_clamped(t);
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
         Ok(())
     }
 }
@@ -268,6 +337,18 @@ where
 #[reflect(from_reflect = false)]
 pub struct TranslationCurve<C>(pub C);
 
+/// An [`AnimationCurveEvaluator`] for use with [`TranslationCurve`]s.
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct TranslationCurveEvaluator<C> {
+    evaluator: BasicAnimationCurveEvaluator<Vec3>,
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
+
 impl<C> AnimationCurve for TranslationCurve<C>
 where
     C: AnimationCompatibleCurve<Vec3>,
@@ -276,23 +357,73 @@ where
         Box::new(self.clone())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn domain(&self) -> Interval {
         self.0.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        transform: Option<Mut<'a, Transform>>,
-        _entity: AnimationEntityMut<'a>,
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(TranslationCurveEvaluator {
+            evaluator: BasicAnimationCurveEvaluator::default(),
+            phantom: PhantomData::<C>,
+        })
+    }
+}
+
+impl<C> AnimationCurveEvaluator for TranslationCurveEvaluator<C>
+where
+    C: AnimationCompatibleCurve<Vec3>,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
         })?;
-        let new_value = self.0.sample_clamped(t);
-        component.translation =
-            <Vec3 as Animatable>::interpolate(&component.translation, &new_value, weight);
+        component.translation = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<TranslationCurve<C>>)?
+            .value;
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve = (*AnimationCurve::as_any(curve))
+            .downcast_ref::<TranslationCurve<C>>()
+            .unwrap();
+        let value = curve.0.sample_clamped(t);
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
         Ok(())
     }
 }
@@ -305,6 +436,18 @@ where
 #[reflect(from_reflect = false)]
 pub struct RotationCurve<C>(pub C);
 
+/// An [`AnimationCurveEvaluator`] for use with [`RotationCurve`]s.
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct RotationCurveEvaluator<C> {
+    evaluator: BasicAnimationCurveEvaluator<Quat>,
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
+
 impl<C> AnimationCurve for RotationCurve<C>
 where
     C: AnimationCompatibleCurve<Quat>,
@@ -313,23 +456,73 @@ where
         Box::new(self.clone())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn domain(&self) -> Interval {
         self.0.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        transform: Option<Mut<'a, Transform>>,
-        _entity: AnimationEntityMut<'a>,
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(RotationCurveEvaluator {
+            evaluator: BasicAnimationCurveEvaluator::default(),
+            phantom: PhantomData::<C>,
+        })
+    }
+}
+
+impl<C> AnimationCurveEvaluator for RotationCurveEvaluator<C>
+where
+    C: AnimationCompatibleCurve<Quat>,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
         })?;
-        let new_value = self.0.sample_clamped(t);
-        component.rotation =
-            <Quat as Animatable>::interpolate(&component.rotation, &new_value, weight);
+        component.rotation = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<RotationCurve<C>>)?
+            .value;
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve = (*AnimationCurve::as_any(curve))
+            .downcast_ref::<RotationCurve<C>>()
+            .unwrap();
+        let value = curve.0.sample_clamped(t);
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
         Ok(())
     }
 }
@@ -342,6 +535,18 @@ where
 #[reflect(from_reflect = false)]
 pub struct ScaleCurve<C>(pub C);
 
+/// An [`AnimationCurveEvaluator`] for use with [`ScaleCurve`]s.
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct ScaleCurveEvaluator<C> {
+    evaluator: BasicAnimationCurveEvaluator<Vec3>,
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
+
 impl<C> AnimationCurve for ScaleCurve<C>
 where
     C: AnimationCompatibleCurve<Vec3>,
@@ -350,22 +555,71 @@ where
         Box::new(self.clone())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn domain(&self) -> Interval {
         self.0.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        transform: Option<Mut<'a, Transform>>,
-        _entity: AnimationEntityMut<'a>,
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(ScaleCurveEvaluator {
+            evaluator: BasicAnimationCurveEvaluator::default(),
+            phantom: PhantomData::<C>,
+        })
+    }
+}
+
+impl<C> AnimationCurveEvaluator for ScaleCurveEvaluator<C>
+where
+    C: AnimationCompatibleCurve<Vec3>,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
         })?;
-        let new_value = self.0.sample_clamped(t);
-        component.scale = <Vec3 as Animatable>::interpolate(&component.scale, &new_value, weight);
+        component.scale = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<ScaleCurve<C>>)?
+            .value;
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve: &ScaleCurve<C> = (*AnimationCurve::as_any(curve)).downcast_ref().unwrap();
+        let value = curve.0.sample_clamped(t);
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
         Ok(())
     }
 }
@@ -381,6 +635,18 @@ where
 #[reflect(from_reflect = false)]
 pub struct TransformCurve<C>(pub C);
 
+/// An [`AnimationCurveEvaluator`] for use with [`TransformCurve`]s.
+///
+/// You shouldn't need to instantiate this manually; Bevy will automatically do
+/// so.
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct TransformCurveEvaluator<C> {
+    evaluator: BasicAnimationCurveEvaluator<Transform>,
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
+
 impl<C> AnimationCurve for TransformCurve<C>
 where
     C: AnimationCompatibleCurve<Transform>,
@@ -389,22 +655,71 @@ where
         Box::new(self.clone())
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn domain(&self) -> Interval {
         self.0.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        transform: Option<Mut<'a, Transform>>,
-        _entity: AnimationEntityMut<'a>,
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(TransformCurveEvaluator {
+            evaluator: BasicAnimationCurveEvaluator::default(),
+            phantom: PhantomData::<C>,
+        })
+    }
+}
+
+impl<C> AnimationCurveEvaluator for TransformCurveEvaluator<C>
+where
+    C: AnimationCompatibleCurve<Transform>,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.blend(graph_node)
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
         })?;
-        let new_value = self.0.sample_clamped(t);
-        *component = <Transform as Animatable>::interpolate(&component, &new_value, weight);
+        *component = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<TransformCurve<C>>)?
+            .value;
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve: &TransformCurve<C> = (*AnimationCurve::as_any(curve)).downcast_ref().unwrap();
+        let value = curve.0.sample_clamped(t);
+        self.evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
         Ok(())
     }
 }
@@ -416,6 +731,46 @@ where
 #[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct WeightsCurve<C>(pub C);
+
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+struct WeightsCurveEvaluator<C> {
+    /// The values of the stack, in which each element is a list of morph target
+    /// weights.
+    ///
+    /// The stack elements are concatenated and tightly packed together.
+    ///
+    /// The number of elements in this stack will always be a multiple of
+    /// [`Self::morph_target_count`].
+    stack_morph_target_weights: Vec<f32>,
+
+    /// The blend weights and graph node indices for each element of the stack.
+    ///
+    /// This should have as many elements as there are stack nodes. In other
+    /// words, `Self::stack_morph_target_weights.len() *
+    /// Self::morph_target_counts as usize ==
+    /// Self::stack_blend_weights_and_graph_nodes`.
+    stack_blend_weights_and_graph_nodes: Vec<(f32, AnimationNodeIndex)>,
+
+    /// The morph target weights in the blend register, if any.
+    ///
+    /// This field should be ignored if [`Self::blend_register_blend_weight`] is
+    /// `None`. If non-empty, it will always have [`Self::morph_target_count`]
+    /// elements in it.
+    blend_register_morph_target_weights: Vec<f32>,
+
+    /// The weight in the blend register.
+    ///
+    /// This will be `None` if the blend register is empty. In that case,
+    /// [`Self::blend_register_morph_target_weights`] will be empty.
+    blend_register_blend_weight: Option<f32>,
+
+    /// The number of morph targets that are to be animated.
+    morph_target_count: Option<u32>,
+
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
 
 impl<C> AnimationCurve for WeightsCurve<C>
 where
@@ -429,63 +784,319 @@ where
         self.0.domain()
     }
 
-    fn apply<'a>(
-        &self,
-        t: f32,
-        _transform: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(WeightsCurveEvaluator {
+            stack_morph_target_weights: vec![],
+            stack_blend_weights_and_graph_nodes: vec![],
+            blend_register_morph_target_weights: vec![],
+            blend_register_blend_weight: None,
+            morph_target_count: None,
+            phantom: PhantomData::<C>,
+        })
+    }
+}
+
+impl<C> AnimationCurveEvaluator for WeightsCurveEvaluator<C>
+where
+    C: IterableCurve<f32> + Debug + Clone + Reflectable,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
+            return Ok(());
+        };
+        if top_graph_node != graph_node {
+            return Ok(());
+        }
+
+        let (weight_to_blend, _) = self.stack_blend_weights_and_graph_nodes.pop().unwrap();
+        let stack_iter = self.stack_morph_target_weights.drain(
+            (self.stack_morph_target_weights.len() - self.morph_target_count.unwrap() as usize)..,
+        );
+
+        match self.blend_register_blend_weight {
+            None => {
+                self.blend_register_blend_weight = Some(weight_to_blend);
+                self.blend_register_morph_target_weights.clear();
+                self.blend_register_morph_target_weights.extend(stack_iter);
+            }
+
+            Some(ref mut current_weight) => {
+                *current_weight += weight_to_blend;
+                for (dest, src) in self
+                    .blend_register_morph_target_weights
+                    .iter_mut()
+                    .zip(stack_iter)
+                {
+                    *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn push_blend_register(
+        &mut self,
         weight: f32,
+        graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut dest = entity.get_mut::<MorphWeights>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
-        })?;
-        lerp_morph_weights(dest.weights_mut(), self.0.sample_iter_clamped(t), weight);
+        if self.blend_register_blend_weight.take().is_some() {
+            self.stack_morph_target_weights
+                .append(&mut self.blend_register_morph_target_weights);
+            self.stack_blend_weights_and_graph_nodes
+                .push((weight, graph_node));
+        }
+        Ok(())
+    }
+
+    fn commit<'a>(
+        &mut self,
+        _: Option<Mut<'a, Transform>>,
+        mut entity: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        if self.stack_morph_target_weights.is_empty() {
+            return Ok(());
+        }
+
+        for (dest, src) in entity
+            .get_mut::<MorphWeights>()
+            .ok_or_else(|| {
+                AnimationEvaluationError::ComponentNotPresent(TypeId::of::<MorphWeights>())
+            })?
+            .weights_mut()
+            .iter_mut()
+            .zip(
+                self.stack_morph_target_weights[(self.stack_morph_target_weights.len()
+                    - self.morph_target_count.unwrap() as usize)..]
+                    .iter(),
+            )
+        {
+            *dest = *src;
+        }
+        self.stack_morph_target_weights.clear();
+        self.stack_blend_weights_and_graph_nodes.clear();
+        Ok(())
+    }
+
+    fn apply<'a>(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve: &WeightsCurve<C> = (*AnimationCurve::as_any(curve)).downcast_ref().unwrap();
+
+        let prev_morph_target_weights_len = self.stack_morph_target_weights.len();
+        self.stack_morph_target_weights
+            .extend(curve.0.sample_iter_clamped(t));
+        self.morph_target_count =
+            Some((self.stack_morph_target_weights.len() - prev_morph_target_weights_len) as u32);
+
+        self.stack_blend_weights_and_graph_nodes
+            .push((weight, graph_node));
         Ok(())
     }
 }
 
-/// Update `morph_weights` based on weights in `incoming_weights` with a linear interpolation
-/// on `lerp_weight`.
-fn lerp_morph_weights(
-    morph_weights: &mut [f32],
-    incoming_weights: impl Iterator<Item = f32>,
-    lerp_weight: f32,
-) {
-    let zipped = morph_weights.iter_mut().zip(incoming_weights);
-    for (morph_weight, incoming_weights) in zipped {
-        *morph_weight = morph_weight.lerp(incoming_weights, lerp_weight);
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+struct BasicAnimationCurveEvaluator<A>
+where
+    A: Animatable,
+{
+    stack: Vec<BasicAnimationCurveEvaluatorStackElement<A>>,
+    blend_register: Option<(A, f32)>,
+}
+
+#[derive(Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+struct BasicAnimationCurveEvaluatorStackElement<A>
+where
+    A: Animatable,
+{
+    value: A,
+    weight: f32,
+    graph_node: AnimationNodeIndex,
+}
+
+impl<A> Default for BasicAnimationCurveEvaluator<A>
+where
+    A: Animatable,
+{
+    fn default() -> Self {
+        BasicAnimationCurveEvaluator {
+            stack: vec![],
+            blend_register: None,
+        }
     }
 }
 
-/// A low-level trait that provides control over how curves are actually applied to entities
-/// by the animation system.
+impl<A> BasicAnimationCurveEvaluator<A>
+where
+    A: Animatable,
+{
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        let Some(top) = self.stack.last() else {
+            return Ok(());
+        };
+        if top.graph_node != graph_node {
+            return Ok(());
+        }
+
+        let BasicAnimationCurveEvaluatorStackElement {
+            value: value_to_blend,
+            weight: weight_to_blend,
+            graph_node: _,
+        } = self.stack.pop().unwrap();
+
+        match self.blend_register {
+            None => self.blend_register = Some((value_to_blend, weight_to_blend)),
+            Some((ref mut current_value, ref mut current_weight)) => {
+                *current_weight += weight_to_blend;
+                *current_value = A::interpolate(
+                    current_value,
+                    &value_to_blend,
+                    weight_to_blend / *current_weight,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        if let Some((value, _)) = self.blend_register.take() {
+            self.stack.push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
+        }
+        Ok(())
+    }
+}
+
+/// A low-level trait that provides control over how curves are actually applied
+/// to entities by the animation system.
 ///
-/// Typically, this will not need to be implemented manually, since it is automatically
-/// implemented by [`AnimatableCurve`] and other curves used by the animation system
-/// (e.g. those that animate parts of transforms or morph weights). However, this can be
-/// implemented manually when `AnimatableCurve` is not sufficiently expressive.
+/// Typically, this will not need to be implemented manually, since it is
+/// automatically implemented by [`AnimatableCurve`] and other curves used by
+/// the animation system (e.g. those that animate parts of transforms or morph
+/// weights). However, this can be implemented manually when `AnimatableCurve`
+/// is not sufficiently expressive.
 ///
-/// In many respects, this behaves like a type-erased form of [`Curve`], where the output
-/// type of the curve is remembered only in the components that are mutated in the
-/// implementation of [`apply`].
+/// In many respects, this behaves like a type-erased form of [`Curve`], where
+/// the output type of the curve is remembered only in the components that are
+/// mutated in the implementation of [`apply`].
 ///
-/// [`apply`]: AnimationCurve::apply
+/// [`apply`]: AnimationCurveEvaluator::apply
 pub trait AnimationCurve: Reflect + Debug + Send + Sync {
     /// Returns a boxed clone of this value.
     fn clone_value(&self) -> Box<dyn AnimationCurve>;
 
+    /// Returns this value upcast to [`Any`].
+    fn as_any(&self) -> &dyn Any;
+
     /// The range of times for which this animation is defined.
     fn domain(&self) -> Interval;
 
-    /// Write the value of sampling this curve at time `t` into `transform` or `entity`,
-    /// as appropriate, interpolating between the existing value and the sampled value
-    /// using the given `weight`.
-    fn apply<'a>(
-        &self,
-        t: f32,
+    /// Returns a newly-instantiated [`AnimationCurveEvaluator`] for use with
+    /// this curve.
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator>;
+}
+
+/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// control over how animations are evaluated.
+///
+/// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
+/// isn't sufficiently-expressive for your needs. For example, [`MorphWeights`]
+/// implements this trait instead of using [`AnimatableCurveEvaluator`] because
+/// it needs to animate arbitrarily many weights at once, which can't be done
+/// with [`Animatable`] as that works on fixed-size values only.
+///
+/// If you implement this trait, you should also implement [`AnimatableCurve`]
+/// on your curve type, as that trait allows creating instances of this one.
+///
+/// Implementations of [`AnimatableCurveEvaluator`] should maintain a *stack* of
+/// (value, weight, node index) triples, as well as a *blend register*, which is
+/// either a (value, weight) pair or empty. *Value* here refers to an instance
+/// of the value being animated: for example, [`Vec3`] in the case of
+/// translation keyframes.  The stack stores intermediate values generated while
+/// evaluating the [`crate::graph::AnimationGraph`], while the blend register
+/// stores the result of a blend operation.
+pub trait AnimationCurveEvaluator: Reflect {
+    /// Blends the top element of the stack with the blend register.
+    ///
+    /// The semantics of this method are as follows:
+    ///
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
+    ///    wₘ. If the stack was empty, return success.
+    ///
+    /// 2. If the blend register is empty, set the blend register value to vₘ
+    ///    and the blend register weight to wₘ; then, return success.
+    ///
+    /// 3. If the blend register is nonempty, call its current value vₙ and its
+    ///    current weight wₙ. Then, set the value of the blend register to
+    ///    `interpolate(vₙ, vₘ, wₘ / (wₘ + wₙ))`, and set the weight of the blend
+    ///    register to wₘ + wₙ.
+    ///
+    /// 4. Return success.
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+
+    /// Pushes the current value of the blend register onto the stack.
+    ///
+    /// If the blend register is empty, this method does nothing successfully.
+    /// Otherwise, this method pushes the current value of the blend register
+    /// onto the stack, alongside the weight and graph node supplied to this
+    /// function. The weight present in the blend register is discarded; only
+    /// the weight parameter to this function is pushed onto the stack. The
+    /// blend register is emptied after this process.
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError>;
+
+    /// Pops the top value off the stack and writes it into the appropriate
+    /// component.
+    ///
+    /// If the stack is empty, this method does nothing successfully. Otherwise,
+    /// it pops the top value off the stack, fetches the associated component
+    /// from either the `transform` or `entity` values as appropriate, and
+    /// updates the appropriate property with the value popped from the stack.
+    /// The weight and node index associated with the popped stack element are
+    /// discarded. After doing this, the stack is emptied.
+    ///
+    /// The property on the component must be overwritten with the value from
+    /// the stack, not blended with it.
+    fn commit<'a>(
+        &mut self,
         transform: Option<Mut<'a, Transform>>,
         entity: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError>;
+
+    /// Samples the curve at the given time `t`, and pushes the sampled value
+    /// onto the evaluation stack.
+    ///
+    /// Be sure not to confuse the `t` and `weight` values. The former
+    /// determines the position at which the *curve* is sampled, while `weight`
+    /// ultimately determines how much the *stack values* will be blended
+    /// together (see the definition of [`AnimationCurveEvaluator::blend`]).
+    fn apply(
+        &mut self,
+        curve: &dyn AnimationCurve,
+        t: f32,
         weight: f32,
+        graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
 }
 
@@ -535,4 +1146,11 @@ where
             core: UnevenCore::new(keyframes)?,
         })
     }
+}
+
+fn inconsistent<P>() -> AnimationEvaluationError
+where
+    P: 'static + ?Sized,
+{
+    AnimationEvaluationError::InconsistentEvaluatorImplementation(TypeId::of::<P>())
 }
