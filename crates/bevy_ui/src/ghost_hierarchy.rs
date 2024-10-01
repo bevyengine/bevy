@@ -41,7 +41,7 @@ impl<'w, 's> UiRootNodes<'w, 's> {
     }
 }
 
-/// System param that gives access UI children utilities, skipping over [`GhostNode`].
+/// System param that gives access to UI children utilities, skipping over [`GhostNode`].
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
     ui_children_query: Query<'w, 's, (Option<&'static Children>, Option<&'static GhostNode>)>,
@@ -52,9 +52,13 @@ pub struct UiChildren<'w, 's> {
 }
 
 impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the UI children of `entity`, skipping over [`GhostNode`].
+    /// Iterates the children of `entity`, skipping over [`GhostNode`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
+    ///
+    /// # Performance
+    ///
+    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
     pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
         UiChildrenIter {
             stack: self
