@@ -10,19 +10,21 @@ use bevy_reflect::{
 };
 
 pub(crate) fn trigger_animation_event(
+    time: f32,
     event: Box<dyn AnimationEvent>,
     entity: Entity,
 ) -> impl Command {
     move |world: &mut World| {
-        event.trigger(entity, world);
+        event.trigger(time, entity, world);
     }
 }
 
+// TODO: this should have a derive macro
 /// An event that can be used with animations.
 #[reflect_trait]
 pub trait AnimationEvent: Reflect + Send + Sync {
     /// Trigger the event, targeting `entity`.
-    fn trigger(&self, entity: Entity, world: &mut World);
+    fn trigger(&self, time: f32, entity: Entity, world: &mut World);
 
     /// Clone this value into a new `Box<dyn AnimationEvent>`
     fn clone_value(&self) -> Box<dyn AnimationEvent>;
@@ -32,18 +34,18 @@ pub trait AnimationEvent: Reflect + Send + Sync {
 #[derive(TypePath)]
 pub(crate) struct AnimationEventData(pub(crate) Box<dyn AnimationEvent>);
 
+impl AnimationEventData {
+    pub(crate) fn new(event: impl AnimationEvent) -> Self {
+        Self(Box::new(event))
+    }
+}
+
 impl Debug for AnimationEventData {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("AnimationEventData(")?;
         PartialReflect::debug(self.0.as_ref(), f)?;
         f.write_str(")")?;
         Ok(())
-    }
-}
-
-impl AnimationEventData {
-    pub(crate) fn new(event: impl AnimationEvent) -> Self {
-        Self(Box::new(event))
     }
 }
 
