@@ -268,10 +268,7 @@ mod test {
         app.add_systems(Update, calculate_bounds_2d);
 
         // Add entities
-        let entity = app
-            .world_mut()
-            .spawn((SpriteProperties::default(), image_handle))
-            .id();
+        let entity = app.world_mut().spawn(Sprite(image_handle)).id();
 
         // Verify that the entity does not have an AABB
         assert!(!app
@@ -312,11 +309,11 @@ mod test {
         let entity = app
             .world_mut()
             .spawn((
+                Sprite(image_handle),
                 SpriteProperties {
                     custom_size: Some(Vec2::ZERO),
                     ..default()
                 },
-                image_handle,
             ))
             .id();
 
@@ -377,12 +374,12 @@ mod test {
         let entity = app
             .world_mut()
             .spawn((
+                Sprite(image_handle),
                 SpriteProperties {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     anchor: Anchor::TopRight,
                     ..default()
                 },
-                image_handle,
             ))
             .id();
 
