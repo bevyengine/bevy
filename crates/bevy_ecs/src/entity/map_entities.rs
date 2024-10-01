@@ -15,8 +15,15 @@ use super::{EntityHashMap, VisitEntitiesMut};
 /// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
+/// This trait is similar to [`VisitEntitiesMut`]. They differ in that [`VisitEntitiesMut`] operates
+/// on `&mut Entity` and allows for in-place modification, while this trait makes no assumption that
+/// such in-place modification is occurring, which is impossible for types such as [`HashSet<Entity>`]
+/// and [`EntityHashMap`] which must be rebuilt when their contained [`Entity`]s are remapped.
+///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
+///
+/// [`HashSet<Entity>`]: bevy_utils::HashSet
 ///
 /// ## Example
 ///
