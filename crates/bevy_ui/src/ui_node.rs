@@ -1073,7 +1073,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the content box
     pub const fn content_box(margin: f32) -> Self {
         Self {
-            visual_box: OverflowClipBox::PaddingBox,
+            visual_box: OverflowClipBox::ContentBox,
             margin,
         }
     }
@@ -1089,7 +1089,7 @@ impl OverflowClipMargin {
     /// Clip any content that overflows outside the border box
     pub const fn border_box(margin: f32) -> Self {
         Self {
-            visual_box: OverflowClipBox::PaddingBox,
+            visual_box: OverflowClipBox::BorderBox,
             margin,
         }
     }
