@@ -33,8 +33,8 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
+    #[expect(deprecated)]
     pub mod taa {
-        #[allow(deprecated)]
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
             TemporalAntiAliasSettings, TemporalAntiAliasing,

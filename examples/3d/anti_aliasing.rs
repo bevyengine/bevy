@@ -5,10 +5,9 @@ use std::{f32::consts::PI, fmt::Write};
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-        },
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
+        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
     pbr::CascadeShadowConfigBuilder,
@@ -19,6 +18,7 @@ use bevy::{
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
+use bevy_render::camera::TemporalJitter;
 
 fn main() {
     App::new()
@@ -27,6 +27,13 @@ fn main() {
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
+
+type TaaComponents = (
+    TemporalAntiAliasing,
+    TemporalJitter,
+    DepthPrepass,
+    MotionVectorPrepass,
+);
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
@@ -51,7 +58,7 @@ fn modify_aa(
         camera = camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
     }
 
     // MSAA
@@ -59,7 +66,7 @@ fn modify_aa(
         camera = camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
 
         *msaa = Msaa::Sample4;
     }
@@ -82,7 +89,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera = camera
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Fxaa::default());
     }
 
@@ -115,7 +122,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera = camera
             .remove::<Fxaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Smaa::default());
     }
 
@@ -141,7 +148,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .insert(TemporalAntiAliasBundle::default());
+            .insert(TaaComponents::default());
     }
 }
 

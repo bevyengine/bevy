@@ -1,11 +1,7 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-use bevy::{
-    core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
-    math::ops,
-    prelude::*,
-};
+use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -23,17 +19,14 @@ fn main() {
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
-        // Add the MotionBlurBundle to a camera to enable motion blur.
+        // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
-        MotionBlurBundle {
-            motion_blur: MotionBlur {
-                shutter_angle: 1.0,
-                samples: 2,
-                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding: Default::default(),
-            },
-            ..default()
+        MotionBlur {
+            shutter_angle: 1.0,
+            samples: 2,
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: Default::default(),
         },
     ));
 }

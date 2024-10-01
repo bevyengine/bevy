@@ -1,12 +1,9 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     math::ops,
-    pbr::{
-        ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle,
-        ScreenSpaceAmbientOcclusionQualityLevel,
-    },
+    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -39,8 +36,8 @@ fn setup(
             msaa: Msaa::Off,
             ..default()
         })
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default());
+        .insert(ScreenSpaceAmbientOcclusion::default())
+        .insert(TemporalAntiAliasing::default());
 
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.5, 0.5, 0.5),

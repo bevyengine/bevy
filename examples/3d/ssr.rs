@@ -9,7 +9,6 @@ use bevy::{
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
-        ScreenSpaceReflectionsBundle,
     },
     prelude::*,
     render::{
@@ -249,7 +248,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             brightness: 5000.0,
             ..default()
         })
-        .insert(ScreenSpaceReflectionsBundle::default())
+        .insert(ScreenSpaceReflections::default())
         .insert(Fxaa::default());
 }
 

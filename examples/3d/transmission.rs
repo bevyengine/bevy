@@ -36,9 +36,7 @@ use bevy::{
 };
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-};
+use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
 use rand::random;
 
 fn main() {
@@ -354,7 +352,7 @@ fn setup(
             ..default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-        TemporalAntiAliasBundle::default(),
+        TemporalAntiAliasing::default(),
         EnvironmentMapLight {
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
