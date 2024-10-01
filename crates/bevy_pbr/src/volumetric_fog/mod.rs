@@ -125,8 +125,8 @@ pub type VolumetricFogSettings = VolumetricFog;
 /// fog volume.
 #[derive(Bundle, Clone, Debug, Default)]
 #[deprecated(
-    since = "0.5.0",
-    note = "Use `FogVolume` directly instead. Inserting it will now automatically add the other components required by it."
+    since = "0.15.0",
+    note = "Use the `FogVolume` component instead. Inserting it will now also insert the other components required by it automatically."
 )]
 pub struct FogVolumeBundle {
     /// The actual fog volume.
@@ -146,13 +146,7 @@ pub struct FogVolumeBundle {
 
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    Transform,
-    GlobalTransform,
-    Visibility,
-    InheritedVisibility,
-    ViewVisibility
-)]
+#[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///
