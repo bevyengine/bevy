@@ -1050,11 +1050,19 @@ impl Default for OverflowAxis {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct OverflipClipMargin {
+pub struct OverflowClipMargin {
     /// Visible unclipped area
     pub clip_box: OverflowClipBox,
     /// Margin around the `clip_box` on all edges, can be negative
+    /// Percentage values are based on the width of the UI node
     pub margin: Val,
+}
+
+impl OverflowClipMargin {
+    pub const DEFAULT: Self = Self {
+        clip_box: OverflowClipBox::ContentBox,
+        margin: Val::ZERO,
+    };
 }
 
 /// Used to determine the bounds of the visible area when a UI node is clipped.
