@@ -40,7 +40,7 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 pub struct MeshletMesh {
     /// Quantized and bitstream-packed vertex positions for meshlet vertices.
     pub(crate) vertex_positions: Arc<[u8]>,
-    /// Octahedral-encoded and 2x16snorm packed normals for meshlet vertices.
+    /// Octahedral-encoded and 2x16unorm packed normals for meshlet vertices.
     pub(crate) vertex_normals: Arc<[u32]>,
     /// Uncompressed vertex texture coordinates for meshlet vertices.
     pub(crate) vertex_uvs: Arc<[Vec2]>,

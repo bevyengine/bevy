@@ -381,7 +381,7 @@ fn build_and_compress_meshlet_vertex_data(
         vertex_uvs.push(uv);
 
         // Compress normal
-        vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
+        vertex_normals.push(pack2x16unorm(octahedral_encode(normal)));
 
         // Quantize position to a fixed-point IVec3
         let quantized_position = (position * quantization_factor + 0.5).as_ivec3();
@@ -452,11 +452,11 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
     n_xy * 0.5 + 0.5
 }
 
-// https://www.w3.org/TR/WGSL/#pack2x16snorm-builtin
-fn pack2x16snorm(v: Vec2) -> u32 {
-    let v = (v.clamp(Vec2::NEG_ONE, Vec2::ONE) * 32767.0)
+// https://www.w3.org/TR/WGSL/#pack2x16unorm-builtin
+fn pack2x16unorm(v: Vec2) -> u32 {
+    let v = (v.clamp(Vec2::ZERO, Vec2::ONE) * 65535.0)
         .round()
-        .as_i16vec2();
+        .as_u16vec2();
     bytemuck::cast([v.y, v.x])
 }
 
