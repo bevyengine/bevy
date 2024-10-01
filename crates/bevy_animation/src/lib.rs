@@ -1056,6 +1056,7 @@ fn trigger_untargeted_animation_events(
             let clip = clips.get(clip_id).unwrap();
             for trigger in AnimationTriggersIter::new(None, clip, active_animation) {
                 commands.queue(trigger_animation_event(
+                    entity,
                     trigger.time,
                     trigger.event.clone().0,
                     entity,
@@ -1166,6 +1167,7 @@ pub fn animate_targets_and_trigger_events(
                 for trigger in AnimationTriggersIter::new(Some(target_id), clip, active_animation) {
                     par_commands.command_scope(|mut commands| {
                         commands.queue(trigger_animation_event(
+                            player_id,
                             trigger.time,
                             trigger.event.clone().0,
                             entity,

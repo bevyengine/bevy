@@ -51,8 +51,8 @@ impl Say {
 }
 
 impl AnimationEvent for Say {
-    fn trigger(&self, _time: f32, entity: Entity, world: &mut World) {
-        world.entity_mut(entity).trigger(self.clone());
+    fn trigger(&self, _player: Entity, _time: f32, target: Entity, world: &mut World) {
+        world.entity_mut(target).trigger(self.clone());
     }
 
     fn clone_value(&self) -> Box<dyn AnimationEvent> {
