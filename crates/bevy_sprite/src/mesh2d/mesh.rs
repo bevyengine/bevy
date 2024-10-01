@@ -15,7 +15,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -27,7 +26,8 @@ use bevy_render::{
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        allocator::MeshAllocator, Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMeshBufferInfo,
     },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -39,69 +39,14 @@ use bevy_render::{
     },
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
-        Visibility,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
-
-/// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
-///
-/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
-///
-/// [`MeshMaterial2d`]: crate::MeshMaterial2d
-/// [`ColorMaterial`]: crate::ColorMaterial
-/// [default material]: crate::MeshMaterial2d#default-material
-///
-/// # Example
-///
-/// ```
-/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
-/// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{AssetServer, Assets};
-/// # use bevy_math::primitives::Circle;
-/// #
-/// // Spawn an entity with a mesh using `ColorMaterial`.
-/// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
-///     asset_server: Res<AssetServer>
-/// ) {
-///     commands.spawn((
-///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
-#[require(Transform, Visibility)]
-pub struct Mesh2d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
-
-impl From<Mesh2d> for AssetId<Mesh> {
-    fn from(mesh: Mesh2d) -> Self {
-        mesh.id()
-    }
-}
-
-impl From<&Mesh2d> for AssetId<Mesh> {
-    fn from(mesh: &Mesh2d) -> Self {
-        mesh.id()
-    }
-}
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;

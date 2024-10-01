@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, Mesh2d},
+    sprite::AlphaMode2d,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},

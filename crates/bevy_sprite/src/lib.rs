@@ -33,7 +33,7 @@ pub mod prelude {
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, Mesh2d, MeshMaterial2d, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
@@ -53,7 +53,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh2d},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},

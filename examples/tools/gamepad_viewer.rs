@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
-    sprite::{Anchor, Mesh2d},
+    sprite::Anchor,
 };
 
 const BUTTON_RADIUS: f32 = 25.;

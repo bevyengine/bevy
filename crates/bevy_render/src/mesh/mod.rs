@@ -2,16 +2,16 @@
 mod mesh;
 
 pub mod allocator;
-mod mesh3d;
+mod components;
 pub mod morph;
 pub mod primitives;
 
 use alloc::sync::Arc;
 use allocator::MeshAllocatorPlugin;
 use bevy_utils::HashSet;
+pub use components::{Mesh2d, Mesh3d};
 use core::hash::{Hash, Hasher};
 pub use mesh::*;
-pub use mesh3d::Mesh3d;
 pub use primitives::*;
 
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};

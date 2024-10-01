@@ -5,11 +5,65 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
+/// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
+///
+/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+///
+/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
+/// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
+/// [default material]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html#default-material>
+///
+/// # Example
+///
+/// ```
+/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::mesh::Mesh;
+/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Circle;
+/// #
+/// // Spawn an entity with a mesh using `ColorMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+#[require(Transform, Visibility)]
+pub struct Mesh2d(pub Handle<Mesh>);
+
+impl From<Handle<Mesh>> for Mesh2d {
+    fn from(handle: Handle<Mesh>) -> Self {
+        Self(handle)
+    }
+}
+
+impl From<Mesh2d> for AssetId<Mesh> {
+    fn from(mesh: Mesh2d) -> Self {
+        mesh.id()
+    }
+}
+
+impl From<&Mesh2d> for AssetId<Mesh> {
+    fn from(mesh: &Mesh2d) -> Self {
+        mesh.id()
+    }
+}
+
 /// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
 ///
 /// Meshes without a [`MeshMaterial3d`] will be rendered with a [default material].
 ///
-/// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/trait.MeshMaterial3d.html>
+/// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
 /// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html#default-material>
 ///

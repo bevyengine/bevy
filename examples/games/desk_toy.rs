@@ -10,7 +10,6 @@ use bevy::{
     app::AppExit,
     input::common_conditions::{input_just_pressed, input_just_released},
     prelude::*,
-    sprite::Mesh2d,
     window::{PrimaryWindow, WindowLevel},
 };
 
