@@ -3409,7 +3409,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.screen_shake]
 name = "Screen Shake"
-description = "An example for screen shake"
+description = "A simple screen shake effect"
 category = "Camera"
 wasm = true
 
