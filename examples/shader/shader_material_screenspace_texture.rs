@@ -32,10 +32,7 @@ fn setup(
         material: standard_materials.add(Color::srgb(0.3, 0.5, 0.3)),
         ..default()
     });
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Cuboid::default()),
