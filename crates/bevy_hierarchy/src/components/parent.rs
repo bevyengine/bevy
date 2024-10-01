@@ -24,7 +24,7 @@ use core::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, Eq, PartialEq, VisitEntities, VisitEntitiesMut)]
+#[derive(Component, Debug, Eq, PartialEq, VisitEntities, VisitEntitiesMut, Clone)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
