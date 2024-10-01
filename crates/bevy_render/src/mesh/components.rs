@@ -20,7 +20,7 @@ use bevy_transform::components::Transform;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
@@ -28,7 +28,6 @@ use bevy_transform::components::Transform;
 ///     mut commands: Commands,
 ///     mut meshes: ResMut<Assets<Mesh>>,
 ///     mut materials: ResMut<Assets<ColorMaterial>>,
-///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -74,7 +73,7 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
@@ -82,7 +81,6 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 ///     mut commands: Commands,
 ///     mut meshes: ResMut<Assets<Mesh>>,
 ///     mut materials: ResMut<Assets<StandardMaterial>>,
-///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),

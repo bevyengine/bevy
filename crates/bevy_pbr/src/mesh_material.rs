@@ -17,7 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Capsule3d;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
@@ -25,7 +25,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///     mut commands: Commands,
 ///     mut meshes: ResMut<Assets<Mesh>>,
 ///     mut materials: ResMut<Assets<StandardMaterial>>,
-///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
@@ -47,7 +46,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::Color;
-/// # use bevy_asset::{AssetServer, Assets, Handle};
+/// # use bevy_asset::{Assets, Handle};
 /// # use bevy_math::primitives::Capsule3d;
 /// #
 /// fn setup(

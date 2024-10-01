@@ -92,7 +92,7 @@ use super::ColorMaterial;
 ///     mut commands: Commands,
 ///     mut meshes: ResMut<Assets<Mesh>>,
 ///     mut materials: ResMut<Assets<CustomMaterial>>,
-///     asset_server: Res<AssetServer>
+///     asset_server: Res<AssetServer>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -157,11 +157,11 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_render::mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
-/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Circle;
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
@@ -169,7 +169,6 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 ///     mut commands: Commands,
 ///     mut meshes: ResMut<Assets<Mesh>>,
 ///     mut materials: ResMut<Assets<ColorMaterial>>,
-///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -187,11 +186,11 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// This material can be overridden by inserting a custom material for the default asset handle.
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, Mesh2d};
+/// # use bevy_sprite::ColorMaterial;
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_render::mesh::{Mesh, Mesh2d};
 /// # use bevy_color::Color;
-/// # use bevy_asset::{AssetServer, Assets, Handle};
+/// # use bevy_asset::{Assets, Handle};
 /// # use bevy_math::primitives::Circle;
 /// #
 /// fn setup(
