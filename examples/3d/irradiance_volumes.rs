@@ -381,10 +381,7 @@ fn rotate_camera(
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<
-        &mut Visibility,
-        (With<MainObject>, With<Mesh3d>, Without<SceneRoot>),
-    >,
+    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
     mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
