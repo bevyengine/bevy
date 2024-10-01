@@ -1060,7 +1060,7 @@ pub struct OverflowClipMargin {
     /// Visible unclipped area
     pub visual_box: OverflowClipBox,
     /// Width of the margin on each edge of the visual box in logical pixels.
-    /// Negative values are ignored and the width of the margin will be zero.
+    /// The width of the margin will be zero if a negative value is set.
     pub margin: f32,
 }
 
