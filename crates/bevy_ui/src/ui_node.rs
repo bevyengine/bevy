@@ -308,6 +308,11 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
 
+    /// How the bounds of clipped content should be determined
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-clip-margin>
+    pub overflow_clip_margin: OverflowClipMargin,
+
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
@@ -585,6 +590,7 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
