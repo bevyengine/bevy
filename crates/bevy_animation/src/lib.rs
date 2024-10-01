@@ -282,8 +282,13 @@ pub struct AnimationClip {
     duration: f32,
 }
 
-pub(crate) type AnimationTriggers =
-    HashMap<Option<AnimationTargetId>, Vec<(f32, AnimationEventData)>>;
+#[derive(Reflect, Debug, Clone)]
+pub(crate) struct AnimationTrigger {
+    time: f32,
+    event: AnimationEventData,
+}
+
+pub(crate) type AnimationTriggers = HashMap<Option<AnimationTargetId>, Vec<AnimationTrigger>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -474,8 +479,11 @@ impl AnimationClip {
     ) {
         self.duration = self.duration.max(time);
         let triggers = self.triggers.entry(target_id).or_default();
-        triggers.push((time, AnimationEventData::new(event)));
-        triggers.sort_by_key(|(k, _)| FloatOrd(*k));
+        triggers.push(AnimationTrigger {
+            time,
+            event: AnimationEventData::new(event),
+        });
+        triggers.sort_by_key(|k| FloatOrd(k.time));
     }
 }
 
@@ -988,26 +996,33 @@ fn for_each_animation_event(
     target_id: Option<AnimationTargetId>,
     clip: &AnimationClip,
     animation: &ActiveAnimation,
-    mut f: impl FnMut(f32, Box<dyn AnimationEvent>),
+    mut f: impl FnMut(&AnimationTrigger),
 ) {
-    for (t, e) in clip
-        .triggers
-        .get(&target_id)
-        .iter()
-        .flat_map(|t| t.iter())
-        // filter out events that did not occur this tick
-        .filter(|(t, _)| match animation.is_playback_reversed() {
-            true => {
-                *t >= animation.seek_time
-                    && (animation.just_completed || Some(*t) < animation.last_seek_time)
+    let Some(triggers) = clip.triggers.get(&target_id) else {
+        return;
+    };
+
+    for trigger in triggers.iter().filter(|t| {
+        match (animation.is_playback_reversed(), animation.just_completed) {
+            // forward, trigger if `last_seek_time < trigger_time <= seek_time`
+            (false, false) => {
+                Some(t.time) >= animation.last_seek_time && t.time <= animation.seek_time
             }
-            false => {
-                Some(*t) > animation.last_seek_time
-                    && (animation.just_completed || *t <= animation.seek_time)
+            // forward, completed this tick
+            (false, true) => {
+                Some(t.time) >= animation.last_seek_time || t.time <= animation.seek_time
             }
-        })
-    {
-        f(*t, e.clone().0);
+            // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
+            (true, false) => {
+                Some(t.time) <= animation.last_seek_time && t.time >= animation.seek_time
+            }
+            // reverse, completed this tick
+            (true, true) => {
+                Some(t.time) <= animation.last_seek_time || t.time >= animation.seek_time
+            }
+        }
+    }) {
+        f(trigger);
     }
 }
 
@@ -1029,8 +1044,8 @@ fn trigger_untargeted_animation_events(
                 continue;
             };
             let clip = clips.get(clip_id).unwrap();
-            for_each_animation_event(None, clip, animation, |_, event| {
-                commands.queue(trigger_animation_event(event, entity));
+            for_each_animation_event(None, clip, animation, |trigger| {
+                commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
             });
         }
     }
@@ -1123,9 +1138,9 @@ pub fn animate_targets_and_trigger_events(
                     continue;
                 };
 
-                for_each_animation_event(Some(target_id), clip, active_animation, |_, event| {
+                for_each_animation_event(Some(target_id), clip, active_animation, |trigger| {
                     par_commands.command_scope(|mut commands| {
-                        commands.queue(trigger_animation_event(event, entity));
+                        commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
                     });
                 });
 
