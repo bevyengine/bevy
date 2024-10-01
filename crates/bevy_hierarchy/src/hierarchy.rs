@@ -99,10 +99,10 @@ pub trait DespawnRecursiveExt {
     /// Despawns all descendants of the given entity.
     fn despawn_descendants(&mut self) -> &mut Self;
 
-    /// Similar to [`despawn_recursive`] but does not emit warnings
+    /// Similar to [`Self::despawn_recursive`] but does not emit warnings
     fn try_despawn_recursive(self);
 
-    /// Similar to [`despawn_descendants`] but does not emit warnings
+    /// Similar to [`Self::despawn_descendants`] but does not emit warnings
     fn try_despawn_descendants(&mut self) -> &mut Self;
 }
 
