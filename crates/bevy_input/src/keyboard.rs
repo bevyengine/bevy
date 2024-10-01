@@ -66,9 +66,9 @@
 // --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    entity::Entity,
     event::{Event, EventReader},
     system::ResMut,
 };
@@ -134,7 +134,7 @@ pub struct KeyboardFocusLost;
 /// ## Differences
 ///
 /// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
-/// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
+/// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,

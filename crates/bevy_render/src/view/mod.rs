@@ -5,13 +5,12 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
-use crate::camera::NormalizedRenderTarget;
-use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, TemporalJitter,
+        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -24,6 +23,7 @@ use crate::{
     },
     Render, RenderApp, RenderSet,
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
@@ -33,12 +33,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
-use std::{
+use core::{
     ops::Range,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
     BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
@@ -121,6 +118,10 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
+                    // `TextureView`s need to be dropped before reconfiguring window surfaces.
+                    clear_view_attachments
+                        .in_set(RenderSet::ManageViews)
+                        .before(create_surfaces),
                     prepare_view_attachments
                         .in_set(RenderSet::ManageViews)
                         .before(prepare_view_targets)
@@ -817,7 +818,6 @@ pub fn prepare_view_attachments(
     cameras: Query<&ExtractedCamera>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
-    view_target_attachments.clear();
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
             continue;
@@ -840,6 +840,11 @@ pub fn prepare_view_attachments(
             }
         };
     }
+}
+
+/// Clears the view target [`OutputColorAttachment`]s.
+pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
+    view_target_attachments.clear();
 }
 
 pub fn prepare_view_targets(

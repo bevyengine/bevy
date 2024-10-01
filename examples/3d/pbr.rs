@@ -1,7 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::render::camera::ScalingMode;
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()
@@ -52,14 +51,13 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 1_500.,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // labels
     commands.spawn(

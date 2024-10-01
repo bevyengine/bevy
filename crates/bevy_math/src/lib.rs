@@ -41,15 +41,14 @@ pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;
 #[cfg(feature = "rand")]
-pub use sampling::{FromRng, ShapeSample};
+pub use sampling::FromRng;
+#[cfg(feature = "rand")]
+pub use sampling::ShapeSample;
 
 /// The math prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[doc(hidden)]
-    #[cfg(feature = "rand")]
-    pub use crate::sampling::{FromRng, ShapeSample};
     #[doc(hidden)]
     pub use crate::{
         cubic_splines::{
@@ -65,6 +64,10 @@ pub mod prelude {
         Isometry3d, Mat2, Mat3, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect,
         UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "rand")]
+    pub use crate::sampling::{FromRng, ShapeSample};
 }
 
 pub use glam::*;

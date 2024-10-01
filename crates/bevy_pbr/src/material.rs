@@ -34,9 +34,12 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
 };
 use bevy_utils::tracing::error;
-use std::marker::PhantomData;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::{hash::Hash, num::NonZero};
+use core::{
+    hash::Hash,
+    marker::PhantomData,
+    num::NonZero,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
@@ -180,6 +183,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh fragment shader will be used.
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
@@ -190,6 +195,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh prepass fragment shader will be used.
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
@@ -200,6 +207,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh deferred fragment shader will be used.
     ///
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
+    ///
+    /// See [`crate::meshlet::MeshletMesh`] for limitations.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
@@ -348,7 +357,7 @@ impl<M: Material> Hash for MaterialPipelineKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }

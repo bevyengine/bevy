@@ -2,13 +2,13 @@
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
 
-use std::cmp::Ordering;
+use core::cmp::Reverse;
 
 use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::{prelude::*, FloatExt};
+use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
@@ -29,26 +29,22 @@ pub fn sprite_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
-    sprite_query: Query<
-        (
-            Entity,
-            Option<&Sprite>,
-            Option<&TextureAtlas>,
-            Option<&Handle<Image>>,
-            &GlobalTransform,
-            Option<&Pickable>,
-            &ViewVisibility,
-        ),
-        Or<(With<Sprite>, With<TextureAtlas>)>,
-    >,
+    sprite_query: Query<(
+        Entity,
+        &Sprite,
+        Option<&TextureAtlas>,
+        &Handle<Image>,
+        &GlobalTransform,
+        Option<&Pickable>,
+        &ViewVisibility,
+    )>,
     mut output: EventWriter<PointerHits>,
 ) {
-    let mut sorted_sprites: Vec<_> = sprite_query.iter().collect();
-    sorted_sprites.sort_by(|a, b| {
-        (b.4.translation().z)
-            .partial_cmp(&a.4.translation().z)
-            .unwrap_or(Ordering::Equal)
-    });
+    let mut sorted_sprites: Vec<_> = sprite_query
+        .iter()
+        .filter(|x| !x.4.affine().is_nan())
+        .collect();
+    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.4.translation().z)));
 
     let primary_window = primary_window.get_single().ok();
 
@@ -88,24 +84,18 @@ pub fn sprite_picking(
                     }
 
                     // Hit box in sprite coordinate system
-                    let (extents, anchor) = if let Some((sprite, atlas)) = sprite.zip(atlas) {
-                        let extents = sprite.custom_size.or_else(|| {
-                            texture_atlas_layout
-                                .get(&atlas.layout)
-                                .map(|f| f.textures[atlas.index].size().as_vec2())
-                        })?;
-                        let anchor = sprite.anchor.as_vec();
-                        (extents, anchor)
-                    } else if let Some((sprite, image)) = sprite.zip(image) {
-                        let extents = sprite
-                            .custom_size
-                            .or_else(|| images.get(image).map(|f| f.size().as_vec2()))?;
-                        let anchor = sprite.anchor.as_vec();
-                        (extents, anchor)
-                    } else {
-                        return None;
+                    let extents = match (sprite.custom_size, atlas) {
+                        (Some(custom_size), _) => custom_size,
+                        (None, None) => images.get(image)?.size().as_vec2(),
+                        (None, Some(atlas)) => texture_atlas_layout
+                            .get(&atlas.layout)
+                            .and_then(|layout| layout.textures.get(atlas.index))
+                            // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
+                            .map_or(images.get(image)?.size().as_vec2(), |rect| {
+                                rect.size().as_vec2()
+                            }),
                     };
-
+                    let anchor = sprite.anchor.as_vec();
                     let center = -anchor * extents;
                     let rect = Rect::from_center_half_size(center, extents / 2.0);
 

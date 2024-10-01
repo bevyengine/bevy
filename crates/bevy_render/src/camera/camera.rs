@@ -10,6 +10,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -28,13 +29,12 @@ use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, V
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{tracing::warn, warn_once};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -67,6 +67,54 @@ impl Default for Viewport {
     }
 }
 
+/// Settings to define a camera sub view.
+///
+/// When [`Camera::sub_camera_view`] is `Some`, only the sub-section of the
+/// image defined by `size` and `offset` (relative to the `full_size` of the
+/// whole image) is projected to the cameras viewport.
+///
+/// Take the example of the following multi-monitor setup:
+/// ```css
+/// ┌───┬───┐
+/// │ A │ B │
+/// ├───┼───┤
+/// │ C │ D │
+/// └───┴───┘
+/// ```
+/// If each monitor is 1920x1080, the whole image will have a resolution of
+/// 3840x2160. For each monitor we can use a single camera with a viewport of
+/// the same size as the monitor it corresponds to. To ensure that the image is
+/// cohesive, we can use a different sub view on each camera:
+/// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
+/// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
+/// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
+/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
+///   1920,1080
+///
+/// However since only the ratio between the values is important, they could all
+/// be divided by 120 and still produce the same image. Camera D would for
+/// example have the following values:
+/// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
+#[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+pub struct SubCameraView {
+    /// Size of the entire camera view
+    pub full_size: UVec2,
+    /// Offset of the sub camera
+    pub offset: Vec2,
+    /// Size of the sub camera
+    pub size: UVec2,
+}
+
+impl Default for SubCameraView {
+    fn default() -> Self {
+        Self {
+            full_size: UVec2::new(1, 1),
+            offset: Vec2::new(0., 0.),
+            size: UVec2::new(1, 1),
+        }
+    }
+}
+
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
@@ -86,13 +134,15 @@ pub struct ComputedCameraValues {
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
+    old_sub_camera_view: Option<SubCameraView>,
 }
 
 /// How much energy a `Camera3d` absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -255,6 +305,8 @@ pub struct Camera {
     pub msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+    /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
+    pub sub_camera_view: Option<SubCameraView>,
 }
 
 impl Default for Camera {
@@ -269,6 +321,7 @@ impl Default for Camera {
             hdr: false,
             msaa_writeback: true,
             clear_color: Default::default(),
+            sub_camera_view: None,
         }
     }
 }
@@ -614,7 +667,8 @@ impl Default for CameraOutputMode {
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component, Debug)]
+#[reflect(opaque)]
+#[reflect(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -841,6 +895,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
+                || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
                     &windows,
@@ -888,7 +943,10 @@ pub fn camera_system<T: CameraProjection + Component>(
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = camera_projection.get_clip_from_view();
+                    camera.computed.clip_from_view = match &camera.sub_camera_view {
+                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
+                        None => camera_projection.get_clip_from_view(),
+                    }
                 }
             }
         }
@@ -896,12 +954,17 @@ pub fn camera_system<T: CameraProjection + Component>(
         if camera.computed.old_viewport_size != viewport_size {
             camera.computed.old_viewport_size = viewport_size;
         }
+
+        if camera.computed.old_sub_camera_view != camera.sub_camera_view {
+            camera.computed.old_sub_camera_view = camera.sub_camera_view;
+        }
     }
 }
 
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
-#[reflect_value(Component, Default)]
+#[reflect(opaque)]
+#[reflect(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -933,7 +996,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            Entity,
+            &RenderEntity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -952,7 +1015,7 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
-        entity,
+        render_entity,
         camera,
         camera_render_graph,
         transform,
@@ -966,11 +1029,10 @@ pub fn extract_cameras(
         gpu_culling,
     ) in query.iter()
     {
-        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
-
         if !camera.is_active {
             continue;
         }
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if let (
             Some(URect {
@@ -988,7 +1050,8 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.get_or_spawn(entity).insert((
+            let mut commands = commands.entity(render_entity.id());
+            commands = commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -1034,7 +1097,6 @@ pub fn extract_cameras(
             if let Some(perspective) = projection {
                 commands = commands.insert(perspective.clone());
             }
-
             if gpu_culling {
                 if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
                     commands.insert(GpuCulling);
@@ -1044,7 +1106,7 @@ pub fn extract_cameras(
                     );
                 }
             }
-        }
+        };
     }
 }
 
@@ -1076,7 +1138,7 @@ pub fn sort_cameras(
     sorted_cameras
         .0
         .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            std::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
             ord => ord,
         });
     let mut previous_order_target = None;

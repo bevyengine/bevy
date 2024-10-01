@@ -1,11 +1,7 @@
+use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use std::{
-    alloc::{handle_alloc_error, Layout},
-    cell::UnsafeCell,
-    num::NonZero,
-    ptr::NonNull,
-};
+use core::{alloc::Layout, cell::UnsafeCell, num::NonZero, ptr::NonNull};
 
 /// A flat, type-erased data storage type
 ///
@@ -24,8 +20,8 @@ pub(super) struct BlobVec {
 }
 
 // We want to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for BlobVec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for BlobVec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("BlobVec")
             .field("item_layout", &self.item_layout)
             .field("capacity", &self.capacity)
@@ -49,7 +45,7 @@ impl BlobVec {
     ///
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
-    /// [`needs_drop`]: core::mem::needs_drop
+    /// [`needs_drop`]: std::mem::needs_drop
     pub unsafe fn new(
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,
@@ -152,7 +148,7 @@ impl BlobVec {
         let new_data = if self.capacity == 0 {
             // SAFETY:
             // - layout has non-zero size as per safety requirement
-            unsafe { std::alloc::alloc(new_layout) }
+            unsafe { alloc::alloc::alloc(new_layout) }
         } else {
             // SAFETY:
             // - ptr was be allocated via this allocator
@@ -162,7 +158,7 @@ impl BlobVec {
             // since the item size is always a multiple of its alignment, the rounding cannot happen
             // here and the overflow is handled in `array_layout`
             unsafe {
-                std::alloc::realloc(
+                alloc::alloc::realloc(
                     self.get_ptr_mut().as_ptr(),
                     array_layout(&self.item_layout, self.capacity)
                         .expect("array layout should be valid"),
@@ -185,7 +181,7 @@ impl BlobVec {
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
+        core::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
@@ -244,7 +240,7 @@ impl BlobVec {
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         unsafe {
-            std::ptr::copy_nonoverlapping::<u8>(
+            core::ptr::copy_nonoverlapping::<u8>(
                 source,
                 destination.as_ptr(),
                 self.item_layout.size(),
@@ -278,7 +274,7 @@ impl BlobVec {
         let new_len = self.len - 1;
         let size = self.item_layout.size();
         if index != new_len {
-            std::ptr::swap_nonoverlapping::<u8>(
+            core::ptr::swap_nonoverlapping::<u8>(
                 self.get_unchecked_mut(index).as_ptr(),
                 self.get_unchecked_mut(new_len).as_ptr(),
                 size,
@@ -367,7 +363,7 @@ impl BlobVec {
     /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFETY: the inner data will remain valid for as long as 'self.
-        unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
+        unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
     /// Clears the vector, removing (and dropping) all values.
@@ -405,7 +401,7 @@ impl Drop for BlobVec {
         if array_layout.size() > 0 {
             // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
             unsafe {
-                std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
+                alloc::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
             }
         }
     }
@@ -505,10 +501,15 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
+    use alloc::rc::Rc;
+    use core::{alloc::Layout, cell::RefCell};
 
+    /// # Safety
+    ///
+    /// The pointer `x` must point to a valid value of type `T` and it must be safe to drop this value.
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
-        // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
+        // SAFETY: It is guaranteed by the caller that `x` points to a
+        //         valid value of type `T` and it is safe to drop this value.
         unsafe {
             x.drop_as::<T>();
         }
@@ -704,7 +705,7 @@ mod tests {
         for zst in q.iter(&world) {
             // Ensure that the references returned are properly aligned.
             assert_eq!(
-                std::ptr::from_ref::<Zst>(zst) as usize % align_of::<Zst>(),
+                core::ptr::from_ref::<Zst>(zst) as usize % align_of::<Zst>(),
                 0
             );
             count += 1;

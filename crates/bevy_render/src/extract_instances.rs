@@ -4,7 +4,7 @@
 //! This is essentially the same as the `extract_component` module, but
 //! higher-performance because it avoids the ECS overhead.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetId, Handle};

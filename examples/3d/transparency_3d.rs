@@ -2,8 +2,7 @@
 //! Shows the effects of different blend modes.
 //! The `fade_transparency` system smoothly changes the transparency over time.
 
-use bevy::math::ops;
-use bevy::prelude::*;
+use bevy::{math::ops, prelude::*};
 
 fn main() {
     App::new()
@@ -88,14 +87,13 @@ fn setup(
     });
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // Camera
     commands.spawn(Camera3dBundle {

@@ -1,35 +1,33 @@
+use super::RenderQueue;
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use crate::WgpuWrapper;
+use alloc::sync::Arc;
 use bevy_ecs::system::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
 };
 
-use super::RenderQueue;
-
-use crate::render_resource::resource_macros::*;
-use crate::WgpuWrapper;
-
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
-
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: WgpuWrapper<ErasedRenderDevice>,
+    device: Arc<WgpuWrapper<wgpu::Device>>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self {
-            device: WgpuWrapper::new(ErasedRenderDevice::new(device)),
-        }
+        Self::new(Arc::new(WgpuWrapper::new(device)))
     }
 }
 
 impl RenderDevice {
+    pub fn new(device: Arc<WgpuWrapper<wgpu::Device>>) -> Self {
+        Self { device }
+    }
+
     /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
@@ -49,6 +47,28 @@ impl RenderDevice {
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
     pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(source)
+                if self
+                    .features()
+                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+            {
+                // SAFETY:
+                // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behaviour.
+                // No attempt is made to ensure that data is valid SPIR-V.
+                unsafe {
+                    self.device
+                        .create_shader_module_spirv(&wgpu::ShaderModuleDescriptorSpirV {
+                            label: desc.label,
+                            source: source.clone(),
+                        })
+                }
+            }
+            _ => self.device.create_shader_module(desc),
+        }
+
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
         self.device.create_shader_module(desc)
     }
 

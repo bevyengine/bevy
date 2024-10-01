@@ -1,7 +1,6 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
 
-use bevy::prelude::*;
-use bevy::render::primitives::Aabb;
+use bevy::{prelude::*, render::primitives::Aabb};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
@@ -48,14 +47,13 @@ fn setup(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     // Lights...
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(2., 6., 0.),
-        ..default()
-    });
+        Transform::from_xyz(2., 6., 0.),
+    ));
 
     // Camera...
     commands.spawn(Camera3dBundle {

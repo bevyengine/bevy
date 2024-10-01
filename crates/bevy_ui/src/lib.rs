@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -17,12 +17,11 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "bevy_text")]
 mod accessibility;
 mod focus;
@@ -46,13 +45,14 @@ use widget::UiImageSize;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button, widget::Label,
-        Interaction, UiMaterialPlugin, UiScale,
+    pub use {
+        crate::{
+            geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
+            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+        },
+        // `bevy_sprite` re-exports for texture slicing
+        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
     };
-    // `bevy_sprite` re-exports for texture slicing
-    #[doc(hidden)]
-    pub use bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer};
 }
 
 use bevy_app::prelude::*;
@@ -194,8 +194,8 @@ impl Plugin for UiPlugin {
 
         build_ui_render(app);
 
-        #[cfg(feature = "bevy_picking")]
-        app.add_plugins(picking_backend::UiPickingBackend);
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        app.add_plugins(picking_backend::UiPickingBackendPlugin);
     }
 
     fn finish(&self, app: &mut App) {

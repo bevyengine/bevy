@@ -16,26 +16,26 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::gpu_preprocessing::IndirectParameters;
-use bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase;
-use bevy_render::batching::no_gpu_preprocessing::{
-    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
-    BatchedInstanceBuffer,
-};
-use bevy_render::batching::GetFullBatchData;
-use bevy_render::mesh::allocator::MeshAllocator;
-use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
-use bevy_render::texture::FallbackImage;
 use bevy_render::{
-    batching::{GetBatchData, NoAutomaticBatching},
+    batching::{
+        gpu_preprocessing::IndirectParameters,
+        no_gpu_preprocessing::{
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
+        },
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{Mesh, RenderMeshBufferInfo},
+    mesh::{
+        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+    },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
@@ -221,8 +221,6 @@ pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 pub struct Mesh2d;
 
 pub fn extract_mesh2d(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
@@ -235,15 +233,11 @@ pub fn extract_mesh2d(
     >,
 ) {
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh2d));
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
@@ -257,8 +251,6 @@ pub fn extract_mesh2d(
             },
         );
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]

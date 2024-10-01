@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use core::hash::Hash;
 
 use bevy_asset::Asset;
 use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
@@ -140,7 +140,7 @@ impl<M: UiMaterial> Hash for UiMaterialKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
         self.bind_group_data.hash(state);
     }

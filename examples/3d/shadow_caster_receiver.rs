@@ -79,38 +79,31 @@ fn setup(
 
     println!("Using DirectionalLight");
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 0.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 0.0,
             range: spawn_plane_depth,
             color: Color::WHITE,
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(5.0, 5.0, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI / 2.,
-            -PI / 4.,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,
             maximum_distance: 25.0,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

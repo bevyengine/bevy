@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
-use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
@@ -51,7 +51,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {

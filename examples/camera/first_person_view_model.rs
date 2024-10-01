@@ -44,11 +44,10 @@
 
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::color::palettes::tailwind;
-use bevy::input::mouse::AccumulatedMouseMotion;
-use bevy::pbr::NotShadowCaster;
-use bevy::prelude::*;
-use bevy::render::view::RenderLayers;
+use bevy::{
+    color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster,
+    prelude::*, render::view::RenderLayers,
+};
 
 fn main() {
     App::new()
@@ -197,15 +196,12 @@ fn spawn_world_model(
 
 fn spawn_lights(mut commands: Commands) {
     commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                color: Color::from(tailwind::ROSE_300),
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(-2.0, 4.0, -0.75),
+        PointLight {
+            color: Color::from(tailwind::ROSE_300),
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(-2.0, 4.0, -0.75),
         // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));

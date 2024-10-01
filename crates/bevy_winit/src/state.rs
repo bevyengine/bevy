@@ -1,14 +1,15 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
-use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventCursor, EventWriter};
-use bevy_ecs::prelude::*;
-use bevy_ecs::system::SystemState;
-use bevy_ecs::world::FromWorld;
+use bevy_ecs::{
+    change_detection::{DetectChanges, NonSendMut, Res},
+    entity::Entity,
+    event::{EventCursor, EventWriter},
+    prelude::*,
+    system::SystemState,
+    world::FromWorld,
+};
 use bevy_input::{
     gestures::*,
-    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
@@ -16,13 +17,15 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::{HashMap, Instant};
-use std::marker::PhantomData;
-use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
-use winit::event;
-use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::WindowId;
+use core::marker::PhantomData;
+use winit::{
+    application::ApplicationHandler,
+    dpi::PhysicalSize,
+    event,
+    event::{DeviceEvent, DeviceId, StartCause, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    window::WindowId,
+};
 
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
@@ -33,11 +36,12 @@ use bevy_window::{
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
-use crate::accessibility::AccessKitAdapters;
-use crate::system::{create_monitors, CachedWindow};
 use crate::{
-    converters, create_windows, AppSendEvent, CreateMonitorParams, CreateWindowParams,
-    EventLoopProxyWrapper, UpdateMode, WinitSettings, WinitWindows,
+    accessibility::AccessKitAdapters,
+    converters, create_windows,
+    system::{create_monitors, CachedWindow},
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, UpdateMode,
+    WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -262,18 +266,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 .send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput {
                 ref event,
-                is_synthetic,
+                // On some platforms, winit sends "synthetic" key press events when the window
+                // gains or loses focus. These should not be handled, so we only process key
+                // events if they are not synthetic key presses.
+                is_synthetic: false,
                 ..
             } => {
-                // Winit sends "synthetic" key press events when the window gains focus. These
-                // should not be handled, so we only process key events if they are not synthetic
-                // key presses. "synthetic" key release events should still be handled though, for
-                // properly releasing keys when the window loses focus.
-                if !(is_synthetic && event.state.is_pressed()) {
-                    // Process the keyboard input event, as long as it's not a synthetic key press.
-                    self.bevy_window_events
-                        .send(converters::convert_keyboard_input(event, window));
-                }
+                self.bevy_window_events
+                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -349,9 +349,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 win.focused = focused;
                 self.bevy_window_events
                     .send(WindowFocused { window, focused });
-                if !focused {
-                    self.bevy_window_events.send(KeyboardFocusLost);
-                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.bevy_window_events

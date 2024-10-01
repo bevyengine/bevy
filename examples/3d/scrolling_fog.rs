@@ -10,12 +10,17 @@
 //! The camera is looking at a pillar with the sun peaking behind it. The light
 //! interactions change based on the density of the fog.
 
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
-use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight};
-use bevy::prelude::*;
-use bevy_render::texture::{
-    ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
+use bevy::{
+    core_pipeline::{
+        bloom::Bloom,
+        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    },
+    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    prelude::*,
+    render::texture::{
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageSamplerDescriptor,
+    },
 };
 
 /// Initializes the example.
@@ -65,15 +70,11 @@ fn setup(
 
     // Spawn a directional light shining at the camera with the VolumetricLight component.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(-5.0, 5.0, -7.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         VolumetricLight,
     ));
 

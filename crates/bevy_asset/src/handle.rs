@@ -2,15 +2,15 @@ use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
     UntypedAssetId,
 };
+use alloc::sync::Arc;
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::get_short_name;
-use crossbeam_channel::{Receiver, Sender};
-use std::{
+use core::{
     any::TypeId,
     hash::{Hash, Hasher},
-    sync::Arc,
 };
+use crossbeam_channel::{Receiver, Sender};
+use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -103,8 +103,8 @@ impl Drop for StrongHandle {
     }
 }
 
-impl std::fmt::Debug for StrongHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for StrongHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("StrongHandle")
             .field("id", &self.id)
             .field("asset_server_managed", &self.asset_server_managed)
@@ -204,9 +204,9 @@ impl<A: Asset> Default for Handle<A> {
     }
 }
 
-impl<A: Asset> std::fmt::Debug for Handle<A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = get_short_name(std::any::type_name::<A>());
+impl<A: Asset> core::fmt::Debug for Handle<A> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = ShortName::of::<A>();
         match self {
             Handle::Strong(handle) => {
                 write!(
@@ -229,13 +229,13 @@ impl<A: Asset> Hash for Handle<A> {
 }
 
 impl<A: Asset> PartialOrd for Handle<A> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl<A: Asset> Ord for Handle<A> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.id().cmp(&other.id())
     }
 }
@@ -357,7 +357,7 @@ impl UntypedHandle {
         let Ok(handle) = self.try_typed() else {
             panic!(
                 "The target Handle<{}>'s TypeId does not match the TypeId of this UntypedHandle",
-                std::any::type_name::<A>()
+                core::any::type_name::<A>()
             )
         };
 
@@ -397,8 +397,8 @@ impl Hash for UntypedHandle {
     }
 }
 
-impl std::fmt::Debug for UntypedHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for UntypedHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             UntypedHandle::Strong(handle) => {
                 write!(
@@ -420,7 +420,7 @@ impl std::fmt::Debug for UntypedHandle {
 }
 
 impl PartialOrd for UntypedHandle {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         if self.type_id() == other.type_id() {
             self.id().partial_cmp(&other.id())
         } else {
@@ -454,7 +454,7 @@ impl<A: Asset> PartialEq<Handle<A>> for UntypedHandle {
 
 impl<A: Asset> PartialOrd<UntypedHandle> for Handle<A> {
     #[inline]
-    fn partial_cmp(&self, other: &UntypedHandle) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &UntypedHandle) -> Option<core::cmp::Ordering> {
         if TypeId::of::<A>() != other.type_id() {
             None
         } else {
@@ -465,7 +465,7 @@ impl<A: Asset> PartialOrd<UntypedHandle> for Handle<A> {
 
 impl<A: Asset> PartialOrd<Handle<A>> for UntypedHandle {
     #[inline]
-    fn partial_cmp(&self, other: &Handle<A>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Handle<A>) -> Option<core::cmp::Ordering> {
         Some(other.partial_cmp(self)?.reverse())
     }
 }

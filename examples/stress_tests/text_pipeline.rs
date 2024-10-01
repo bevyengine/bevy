@@ -66,6 +66,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             sections,
             justify: JustifyText::Center,
             linebreak_behavior: BreakLineOn::AnyCharacter,
+            ..default()
         },
         ..Default::default()
     });
