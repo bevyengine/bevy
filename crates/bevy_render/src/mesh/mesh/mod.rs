@@ -385,6 +385,13 @@ impl Mesh {
             .sum()
     }
 
+    /// Returns the size of a vertex in bytes.
+    pub fn get_vertex_buffer_size(&self) -> usize {
+        let vertex_size = self.get_vertex_size() as usize;
+        let vertex_count = self.count_vertices();
+        vertex_count * vertex_size
+    }
+
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
@@ -459,9 +466,14 @@ impl Mesh {
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
+        let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
+        self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
+        attributes_interleaved_buffer
+    }
+
+    pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
-        let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
         for attribute_data in self.attributes.values() {
@@ -473,14 +485,11 @@ impl Mesh {
                 .enumerate()
             {
                 let offset = vertex_index * vertex_size + attribute_offset;
-                attributes_interleaved_buffer[offset..offset + attribute_size]
-                    .copy_from_slice(attribute_bytes);
+                slice[offset..offset + attribute_size].copy_from_slice(attribute_bytes);
             }
 
             attribute_offset += attribute_size;
         }
-
-        attributes_interleaved_buffer
     }
 
     /// Duplicates the vertex attributes so that no vertices are shared.

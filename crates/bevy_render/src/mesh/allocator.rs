@@ -1,9 +1,8 @@
 //! Manages mesh vertex and index buffers.
 
-use alloc::{borrow::Cow, vec::Vec};
+use alloc::vec::Vec;
 use core::{
     fmt::{self, Display, Formatter},
-    iter,
     ops::Range,
 };
 
@@ -21,8 +20,8 @@ use bevy_utils::{
 };
 use offset_allocator::{Allocation, Allocator};
 use wgpu::{
-    util::BufferInitDescriptor, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
-    DownlevelFlags, COPY_BUFFER_ALIGNMENT,
+    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
+    COPY_BUFFER_ALIGNMENT,
 };
 
 use crate::{
@@ -427,7 +426,7 @@ impl MeshAllocator {
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_size() * mesh.count_vertices() as u64,
+                    mesh.get_vertex_buffer_size() as u64,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
@@ -474,12 +473,12 @@ impl MeshAllocator {
         let Some(&slab_id) = self.mesh_id_to_vertex_slab.get(mesh_id) else {
             return;
         };
-        let vertex_data = mesh.create_packed_vertex_buffer_data();
 
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            &vertex_data,
+            mesh.get_vertex_buffer_size(),
+            |slice| mesh.write_packed_vertex_buffer_data(slice),
             BufferUsages::VERTEX,
             slab_id,
             render_device,
@@ -506,7 +505,8 @@ impl MeshAllocator {
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            index_data,
+            index_data.len(),
+            |slice| slice.copy_from_slice(index_data),
             BufferUsages::INDEX,
             slab_id,
             render_device,
@@ -516,10 +516,11 @@ impl MeshAllocator {
 
     /// A generic function that copies either vertex or index data into a slab.
     #[allow(clippy::too_many_arguments)]
-    fn copy_element_data(
+    fn copy_element_data<T: Fn(&mut [u8]) -> ()>(
         &mut self,
         mesh_id: &AssetId<Mesh>,
-        data: &[u8],
+        len: usize,
+        fill_data: T,
         buffer_usages: BufferUsages,
         slab_id: SlabId,
         render_device: &RenderDevice,
@@ -540,12 +541,17 @@ impl MeshAllocator {
 
                 let slot_size = general_slab.element_layout.slot_size();
 
-                // Write the data in.
-                render_queue.write_buffer(
-                    buffer,
-                    allocated_range.allocation.offset as u64 * slot_size,
-                    &pad_to_alignment(data, slot_size as usize),
-                );
+                if let Some(size) = BufferSize::new((len as u64).next_multiple_of(slot_size)) {
+                    // Write the data in.
+                    if let Some(mut buffer) = render_queue.write_buffer_with(
+                        buffer,
+                        allocated_range.allocation.offset as u64 * slot_size,
+                        size,
+                    ) {
+                        let slice = &mut buffer.as_mut()[..len];
+                        fill_data(slice);
+                    }
+                }
 
                 // Mark the allocation as resident.
                 general_slab
@@ -557,17 +563,19 @@ impl MeshAllocator {
                 debug_assert!(large_object_slab.buffer.is_none());
 
                 // Create the buffer and its data in one go.
-                large_object_slab.buffer = Some(render_device.create_buffer_with_data(
-                    &BufferInitDescriptor {
-                        label: Some(&format!(
-                            "large mesh slab {} ({}buffer)",
-                            slab_id,
-                            buffer_usages_to_str(buffer_usages)
-                        )),
-                        contents: data,
-                        usage: buffer_usages | BufferUsages::COPY_DST,
-                    },
-                ));
+                let buffer = render_device.create_buffer(&BufferDescriptor {
+                    label: Some(&format!(
+                        "large mesh slab {} ({}buffer)",
+                        slab_id,
+                        buffer_usages_to_str(buffer_usages)
+                    )),
+                    size: len as u64,
+                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    mapped_at_creation: true,
+                });
+                let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
+                fill_data(slice);
+                buffer.unmap();
             }
         }
     }
@@ -998,21 +1006,6 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
         a = t;
     }
     a
-}
-
-/// Ensures that the size of a buffer is a multiple of the given alignment by
-/// padding it with zeroes if necessary.
-///
-/// If the buffer already has the required size, then this function doesn't
-/// allocate. Otherwise, it copies the buffer into a new one and writes the
-/// appropriate number of zeroes to the end.
-fn pad_to_alignment(buffer: &[u8], align: usize) -> Cow<[u8]> {
-    if buffer.len() % align == 0 {
-        return Cow::Borrowed(buffer);
-    }
-    let mut buffer = buffer.to_vec();
-    buffer.extend(iter::repeat(0).take(align - buffer.len() % align));
-    Cow::Owned(buffer)
 }
 
 /// Returns a string describing the given buffer usages.
