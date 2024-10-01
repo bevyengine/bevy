@@ -6,7 +6,6 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-
 use bevy::{
     core_pipeline::bloom::Bloom,
     math::vec3,
@@ -55,23 +54,20 @@ fn setup_scene(
             ..default()
         },
     ));
-     // Add screen shake component to track shake duration and intensity
-     commands.insert_resource(ScreenShake::new(10.0, 1.0)); // intensity 10.0, 1 second duration
 
+    // Add screen shake component to track shake duration and intensity
+    commands.insert_resource(ScreenShake::new(10.0, 1.0));
 }
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn(
-        TextBundle::from_section(
-            "Use space to trigger a screen shake",
-            TextStyle::default(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
+        TextBundle::from_section("Use space to trigger a screen shake", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            }),
     );
 }
 
