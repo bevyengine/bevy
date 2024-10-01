@@ -480,9 +480,6 @@ impl MeshAllocator {
             mesh.get_vertex_buffer_size(),
             |slice| mesh.write_packed_vertex_buffer_data(slice),
             BufferUsages::VERTEX,
-            slab_id,
-            render_device,
-            render_queue,
         );
     }
 
