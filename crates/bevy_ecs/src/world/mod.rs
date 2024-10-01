@@ -1388,15 +1388,8 @@ impl World {
         self.despawn_with_caller(entity, Location::caller(), true)
     }
 
-    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
-    /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
-    /// the `entity` does not exist.
-    ///
-    /// # Note
-    ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
-    ///
+    /// Performs the same function as [`Self::despawn`] but does not emit a warning if
+    /// the entity does not exist.
     #[track_caller]
     #[inline]
     pub fn try_despawn(&mut self, entity: Entity) -> bool {
