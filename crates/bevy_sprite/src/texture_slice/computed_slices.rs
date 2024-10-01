@@ -1,7 +1,9 @@
-use crate::{ExtractedSprite, ImageScaleMode, Sprite, TextureAtlas, TextureAtlasLayout};
+use crate::{
+    ExtractedSprite, ImageScaleMode, Sprite, SpriteTexture, TextureAtlas, TextureAtlasLayout,
+};
 
 use super::TextureSlice;
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_render::texture::Image;
@@ -29,7 +31,7 @@ impl ComputedTextureSlices {
         transform: &'a GlobalTransform,
         original_entity: Entity,
         sprite: &'a Sprite,
-        handle: &'a Handle<Image>,
+        handle: &'a SpriteTexture,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
         let mut flip = Vec2::ONE;
         let [mut flip_x, mut flip_y] = [false; 2];
@@ -88,7 +90,7 @@ impl ComputedTextureSlices {
 fn compute_sprite_slices(
     sprite: &Sprite,
     scale_mode: &ImageScaleMode,
-    image_handle: &Handle<Image>,
+    image_handle: &SpriteTexture,
     images: &Assets<Image>,
     atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
@@ -143,7 +145,7 @@ pub(crate) fn compute_slices_on_asset_event(
         Entity,
         &ImageScaleMode,
         &Sprite,
-        &Handle<Image>,
+        &SpriteTexture,
         Option<&TextureAtlas>,
     )>,
 ) {
@@ -187,12 +189,12 @@ pub(crate) fn compute_slices_on_sprite_change(
             Entity,
             &ImageScaleMode,
             &Sprite,
-            &Handle<Image>,
+            &SpriteTexture,
             Option<&TextureAtlas>,
         ),
         Or<(
             Changed<ImageScaleMode>,
-            Changed<Handle<Image>>,
+            Changed<SpriteTexture>,
             Changed<Sprite>,
             Changed<TextureAtlas>,
         )>,

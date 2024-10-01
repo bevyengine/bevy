@@ -177,7 +177,7 @@ impl Plugin for SpritePlugin {
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2dHandle` component,
-/// - a `Sprite` and `Handle<Image>` components,
+/// - a `Sprite` and `SpriteTexture` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
@@ -188,7 +188,7 @@ pub fn calculate_bounds_2d(
     atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
+        (Entity, &Sprite, &SpriteTexture, Option<&TextureAtlas>),
         (
             Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
             Without<NoFrustumCulling>,

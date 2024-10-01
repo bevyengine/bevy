@@ -4,7 +4,7 @@
 
 use core::cmp::Reverse;
 
-use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
+use crate::{Sprite, SpriteTexture, TextureAtlas, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
@@ -33,7 +33,7 @@ pub fn sprite_picking(
         Entity,
         &Sprite,
         Option<&TextureAtlas>,
-        &Handle<Image>,
+        &SpriteTexture,
         &GlobalTransform,
         Option<&Pickable>,
         &ViewVisibility,
