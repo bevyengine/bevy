@@ -1,7 +1,9 @@
+use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
-use bevy::render::render_resource::Extent3d;
-use bevy::render::render_resource::TextureDimension;
-use bevy::render::render_resource::TextureFormat;
+use bevy::render::{
+    render_asset::RenderAssetUsages,
+    render_resource::{Extent3d, TextureDimension, TextureFormat},
+};
 use rand::Rng;
 
 const IMAGE_WIDTH: u32 = 256;
@@ -38,10 +40,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         },
         TextureDimension::D2,
         // Initialize it with a beige color
-        &(Color::BEIGE.as_rgba_u8()),
-        // Use the most common encoding for the data
-        // (8-bit RGBA with sRGB gamma)
+        &(css::BEIGE.to_u8_array()),
+        // Use the same encoding as the color we set
         TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     );
 
     // to make it extra fancy, we can set the Alpha of each pixel
@@ -89,7 +91,7 @@ fn draw(
 
     if *i == 0 {
         // Generate a random color on first run.
-        *draw_color = Color::rgb(rng.gen(), rng.gen(), rng.gen());
+        *draw_color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     // Get the image from Bevy's asset storage.
@@ -110,19 +112,14 @@ fn draw(
     let old_color = image.get_color_at(x, y).unwrap();
 
     // If the old color is our current color, change our drawing color.
-    // (the values are never going to match exactly,
-    // because of the f32 -> u8 -> f32 conversion)
     let tolerance = 1.0 / 255.0;
-    if (old_color.r() - draw_color.r()).abs() <= tolerance
-        && (old_color.g() - draw_color.g()).abs() <= tolerance
-        && (old_color.b() - draw_color.b()).abs() <= tolerance
-    {
-        *draw_color = Color::rgb(rng.gen(), rng.gen(), rng.gen());
+    if old_color.distance(&draw_color) <= tolerance {
+        *draw_color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     // Set the new color, but keep old alpha value from image.
     image
-        .set_color_at(x, y, draw_color.with_a(old_color.a()))
+        .set_color_at(x, y, draw_color.with_alpha(old_color.alpha()))
         .unwrap();
 
     *i += 1;

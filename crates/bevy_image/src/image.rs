@@ -6,10 +6,11 @@ use super::dds::*;
 use super::ktx2::*;
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_color::Color;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
+use bevy_color::{Color, ColorToComponents, Hue, Lcha, LinearRgba, Srgba};
+use bevy_reflect::std_traits::ReflectDefault;
+use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
@@ -994,31 +995,31 @@ impl Image {
         };
 
         match self.texture_descriptor.format {
-            TextureFormat::Rgba8UnormSrgb => Ok(Color::rgba(
+            TextureFormat::Rgba8UnormSrgb => Ok(Color::srgba(
                 bytes[0] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[3] as f32 / u8::MAX as f32,
             )),
-            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => Ok(Color::rgba_linear(
+            TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => Ok(Color::linear_rgba(
                 bytes[0] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[3] as f32 / u8::MAX as f32,
             )),
-            TextureFormat::Bgra8UnormSrgb => Ok(Color::rgba(
+            TextureFormat::Bgra8UnormSrgb => Ok(Color::srgba(
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[0] as f32 / u8::MAX as f32,
                 bytes[3] as f32 / u8::MAX as f32,
             )),
-            TextureFormat::Bgra8Unorm => Ok(Color::rgba_linear(
+            TextureFormat::Bgra8Unorm => Ok(Color::linear_rgba(
                 bytes[2] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
                 bytes[0] as f32 / u8::MAX as f32,
                 bytes[3] as f32 / u8::MAX as f32,
             )),
-            TextureFormat::Rgba32Float => Ok(Color::rgba_linear(
+            TextureFormat::Rgba32Float => Ok(Color::linear_rgba(
                 f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
                 f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
                 f32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
@@ -1031,7 +1032,7 @@ impl Image {
                     u16::from_le_bytes([bytes[4], bytes[5]]),
                     u16::from_le_bytes([bytes[6], bytes[7]]),
                 );
-                Ok(Color::rgba_linear(
+                Ok(Color::linear_rgba(
                     // going via f64 to avoid rounding errors with large numbers and division
                     (r as f64 / u16::MAX as f64) as f32,
                     (g as f64 / u16::MAX as f64) as f32,
@@ -1046,7 +1047,7 @@ impl Image {
                     u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
                     u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]),
                 );
-                Ok(Color::rgba_linear(
+                Ok(Color::linear_rgba(
                     // going via f64 to avoid rounding errors with large numbers and division
                     (r as f64 / u32::MAX as f64) as f32,
                     (g as f64 / u32::MAX as f64) as f32,
@@ -1058,28 +1059,28 @@ impl Image {
             // copy value to all of RGB in Color
             TextureFormat::R8Unorm | TextureFormat::R8Uint => {
                 let x = bytes[0] as f32 / u8::MAX as f32;
-                Ok(Color::rgba_linear(x, x, x, 1.0))
+                Ok(Color::linear_rgb(x, x, x))
             }
             TextureFormat::R16Unorm | TextureFormat::R16Uint => {
                 let x = u16::from_le_bytes([bytes[0], bytes[1]]);
                 // going via f64 to avoid rounding errors with large numbers and division
                 let x = (x as f64 / u16::MAX as f64) as f32;
-                Ok(Color::rgba_linear(x, x, x, 1.0))
+                Ok(Color::linear_rgb(x, x, x))
             }
             TextureFormat::R32Uint => {
                 let x = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
                 // going via f64 to avoid rounding errors with large numbers and division
                 let x = (x as f64 / u32::MAX as f64) as f32;
-                Ok(Color::rgba_linear(x, x, x, 1.0))
+                Ok(Color::linear_rgb(x, x, x))
             }
             TextureFormat::R32Float => {
                 let x = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-                Ok(Color::rgba_linear(x, x, x, 1.0))
+                Ok(Color::linear_rgb(x, x, x))
             }
             TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
                 let r = bytes[0] as f32 / u8::MAX as f32;
                 let g = bytes[1] as f32 / u8::MAX as f32;
-                Ok(Color::rgba_linear(r, g, 0.0, 1.0))
+                Ok(Color::linear_rgb(r, g, 0.0))
             }
             TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
                 let r = u16::from_le_bytes([bytes[0], bytes[1]]);
@@ -1087,7 +1088,7 @@ impl Image {
                 // going via f64 to avoid rounding errors with large numbers and division
                 let r = (r as f64 / u16::MAX as f64) as f32;
                 let g = (g as f64 / u16::MAX as f64) as f32;
-                Ok(Color::rgba_linear(r, g, 0.0, 1.0))
+                Ok(Color::linear_rgb(r, g, 0.0))
             }
             TextureFormat::Rg32Uint => {
                 let r = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
@@ -1095,12 +1096,12 @@ impl Image {
                 // going via f64 to avoid rounding errors with large numbers and division
                 let r = (r as f64 / u32::MAX as f64) as f32;
                 let g = (g as f64 / u32::MAX as f64) as f32;
-                Ok(Color::rgba_linear(r, g, 0.0, 1.0))
+                Ok(Color::linear_rgb(r, g, 0.0))
             }
             TextureFormat::Rg32Float => {
                 let r = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
                 let g = f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-                Ok(Color::rgba_linear(r, g, 0.0, 1.0))
+                Ok(Color::linear_rgb(r, g, 0.0))
             }
             _ => Err(TextureAccessError::UnsupportedTextureFormat(
                 self.texture_descriptor.format,
@@ -1126,42 +1127,42 @@ impl Image {
 
         match format {
             TextureFormat::Rgba8UnormSrgb => {
-                let [r, g, b, a] = color.as_rgba_f32();
+                let [r, g, b, a] = Srgba::from(color).to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
                 bytes[1] = (g * u8::MAX as f32) as u8;
                 bytes[2] = (b * u8::MAX as f32) as u8;
                 bytes[3] = (a * u8::MAX as f32) as u8;
             }
             TextureFormat::Rgba8Unorm | TextureFormat::Rgba8Uint => {
-                let [r, g, b, a] = color.as_linear_rgba_f32();
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
                 bytes[1] = (g * u8::MAX as f32) as u8;
                 bytes[2] = (b * u8::MAX as f32) as u8;
                 bytes[3] = (a * u8::MAX as f32) as u8;
             }
             TextureFormat::Bgra8UnormSrgb => {
-                let [r, g, b, a] = color.as_rgba_f32();
+                let [r, g, b, a] = Srgba::from(color).to_f32_array();
                 bytes[0] = (b * u8::MAX as f32) as u8;
                 bytes[1] = (g * u8::MAX as f32) as u8;
                 bytes[2] = (r * u8::MAX as f32) as u8;
                 bytes[3] = (a * u8::MAX as f32) as u8;
             }
             TextureFormat::Bgra8Unorm => {
-                let [r, g, b, a] = color.as_linear_rgba_f32();
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 bytes[0] = (b * u8::MAX as f32) as u8;
                 bytes[1] = (g * u8::MAX as f32) as u8;
                 bytes[2] = (r * u8::MAX as f32) as u8;
                 bytes[3] = (a * u8::MAX as f32) as u8;
             }
             TextureFormat::Rgba32Float => {
-                let [r, g, b, a] = color.as_linear_rgba_f32();
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
                 bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
                 bytes[8..12].copy_from_slice(&f32::to_le_bytes(b));
                 bytes[12..16].copy_from_slice(&f32::to_le_bytes(a));
             }
             TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
-                let [r, g, b, a] = color.as_linear_rgba_f32();
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 let [r, g, b, a] = [
                     (r * u16::MAX as f32) as u16,
                     (g * u16::MAX as f32) as u16,
@@ -1174,7 +1175,7 @@ impl Image {
                 bytes[6..8].copy_from_slice(&u16::to_le_bytes(a));
             }
             TextureFormat::Rgba32Uint => {
-                let [r, g, b, a] = color.as_linear_rgba_f32();
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 let [r, g, b, a] = [
                     (r * u32::MAX as f32) as u32,
                     (g * u32::MAX as f32) as u32,
@@ -1187,46 +1188,46 @@ impl Image {
                 bytes[12..16].copy_from_slice(&u32::to_le_bytes(a));
             }
             TextureFormat::R8Unorm | TextureFormat::R8Uint => {
-                // TODO: this should probably be changed to do
-                // a proper conversion into greyscale
-                let [r, _, _, _] = color.as_linear_rgba_f32();
+                let [r, _, _, _] =
+                    LinearRgba::from(Lcha::from(color).with_chroma(0.0).with_hue(0.0))
+                        .to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
             }
             TextureFormat::R16Unorm | TextureFormat::R16Uint => {
-                // TODO: this should probably be changed to do
-                // a proper conversion into greyscale
-                let [r, _, _, _] = color.as_linear_rgba_f32();
+                let [r, _, _, _] =
+                    LinearRgba::from(Lcha::from(color).with_chroma(0.0).with_hue(0.0))
+                        .to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
             }
             TextureFormat::R32Uint => {
-                // TODO: this should probably be changed to do
-                // a proper conversion into greyscale
-                let [r, _, _, _] = color.as_linear_rgba_f32();
+                let [r, _, _, _] =
+                    LinearRgba::from(Lcha::from(color).with_chroma(0.0).with_hue(0.0))
+                        .to_f32_array();
                 // go via f64 to avoid imprecision
                 let r = (r as f64 * u32::MAX as f64) as u32;
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
             }
             TextureFormat::R32Float => {
-                // TODO: this should probably be changed to do
-                // a proper conversion into greyscale
-                let [r, _, _, _] = color.as_linear_rgba_f32();
+                let [r, _, _, _] =
+                    LinearRgba::from(Lcha::from(color).with_chroma(0.0).with_hue(0.0))
+                        .to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
             }
             TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
-                let [r, g, _, _] = color.as_linear_rgba_f32();
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
                 bytes[1] = (g * u8::MAX as f32) as u8;
             }
             TextureFormat::Rg16Unorm | TextureFormat::Rg16Uint => {
-                let [r, g, _, _] = color.as_linear_rgba_f32();
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
                 let g = (g * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
                 bytes[2..4].copy_from_slice(&u16::to_le_bytes(g));
             }
             TextureFormat::Rg32Uint => {
-                let [r, g, _, _] = color.as_linear_rgba_f32();
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 // go via f64 to avoid imprecision
                 let r = (r as f64 * u32::MAX as f64) as u32;
                 let g = (g as f64 * u32::MAX as f64) as u32;
@@ -1234,7 +1235,7 @@ impl Image {
                 bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
             }
             TextureFormat::Rg32Float => {
-                let [r, g, _, _] = color.as_linear_rgba_f32();
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
                 bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
             }
