@@ -149,7 +149,7 @@ fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
     let _span = bevy_utils::tracing::info_span!(
         "despawn_recursive",
         entity = bevy_utils::tracing::field::debug(entity),
-        warn = warn
+        warn = bevy_utils::tracing::field::debug(warn)
     )
     .entered();
 
@@ -166,7 +166,7 @@ fn despawn_descendants_inner<'v, 'w>(
     let _span = bevy_utils::tracing::info_span!(
         "despawn_descendants",
         entity = bevy_utils::tracing::field::debug(entity),
-        warn = warn
+        warn = bevy_utils::tracing::field::debug(warn)
     )
     .entered();
 
