@@ -254,12 +254,12 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn_recursive(true);
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn_recursive(true);
         }
     }
     for (entity, sink) in &query_nonspatial_remove {

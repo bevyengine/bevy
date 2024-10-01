@@ -193,7 +193,7 @@ impl SceneSpawner {
             for &entity in instance.entity_map.values() {
                 if let Some(mut entity_mut) = world.get_entity_mut(entity) {
                     entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                    entity_mut.despawn_recursive(true);
                 };
             }
         }
@@ -736,7 +736,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn_recursive(true);
                     }
                 },
             )

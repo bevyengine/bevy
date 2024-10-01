@@ -1410,9 +1410,8 @@ impl EntityCommands<'_> {
     }
 
     /// Despawns the entity.
-    /// This will not emit a warning if the entity does not exist.
-    ///
-    /// See [`World::try_despawn`] for more details.
+    /// This will not emit a warning if the entity does not exist, essentially performing
+    /// the same function as [`Commands::despawn`] without emitting warnings.
     #[track_caller]
     pub fn try_despawn(self) -> Self {
         self.queue(try_despawn())

@@ -136,7 +136,7 @@ fn fade_out(
     for (audio, entity) in audio_sink.iter_mut() {
         audio.set_volume(audio.volume() - time.delta_seconds() / FADE_TIME);
         if audio.volume() <= 0.0 {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn_recursive(true);
         }
     }
 }
