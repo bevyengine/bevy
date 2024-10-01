@@ -1052,10 +1052,18 @@ fn trigger_untargeted_animation_events(
         };
 
         for (index, active_animation) in player.active_animations.iter() {
-            let Some(clip_id) = graph.get(*index).unwrap().clip.as_ref() else {
+            if !active_animation.is_finished() {
+                continue;
+            }
+
+            let Some(clip) = graph
+                .get(*index)
+                .and_then(|node| node.clip.as_ref())
+                .and_then(|id| clips.get(id))
+            else {
                 continue;
             };
-            let clip = clips.get(clip_id).unwrap();
+
             for trigger in AnimationTriggersIter::new(None, clip, active_animation) {
                 commands.queue(trigger_animation_event(
                     entity,
