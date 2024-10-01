@@ -106,14 +106,13 @@ fn setup_pyramid_scene(
     ));
 
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(0.0, 1.0, 0.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(0.0, 1.0, 0.0),
+    ));
 }
 
 fn setup_instructions(mut commands: Commands) {

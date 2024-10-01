@@ -108,14 +108,13 @@ fn setup(
         brightness: 0.0,
     });
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 2000.0,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
 
     commands.spawn(ImageBundle {
         image: UiImage {

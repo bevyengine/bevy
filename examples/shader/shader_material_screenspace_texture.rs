@@ -31,10 +31,7 @@ fn setup(
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
         MeshMaterial3d(standard_materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),

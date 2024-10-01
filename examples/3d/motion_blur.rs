@@ -67,15 +67,14 @@ fn setup_scene(
         brightness: 300.0,
     });
     commands.insert_resource(CameraMode::Chase);
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 3_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
-        ..default()
-    });
+        Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
+    ));
     // Sky
     commands.spawn((
         Mesh3d(meshes.add(Sphere::default())),

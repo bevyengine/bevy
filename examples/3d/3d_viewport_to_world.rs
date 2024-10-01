@@ -63,10 +63,10 @@ fn setup(
     ));
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

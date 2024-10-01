@@ -63,18 +63,17 @@ fn setup(
 
     // Lights.
     {
-        commands.spawn(PointLightBundle {
-            point_light: PointLight {
+        commands.spawn((
+            PointLight {
                 shadows_enabled: true,
                 range: 2.0,
                 color: DARK_CYAN.into(),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 1.5, 0.0),
-            ..default()
-        });
-        commands.spawn(SpotLightBundle {
-            spot_light: SpotLight {
+            Transform::from_xyz(0.0, 1.5, 0.0),
+        ));
+        commands.spawn((
+            SpotLight {
                 shadows_enabled: true,
                 range: 3.5,
                 color: PURPLE.into(),
@@ -82,19 +81,17 @@ fn setup(
                 inner_angle: PI / 4.0 * 0.8,
                 ..default()
             },
-            transform: Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
-            ..default()
-        });
-        commands.spawn(DirectionalLightBundle {
-            directional_light: DirectionalLight {
+            Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
+        ));
+        commands.spawn((
+            DirectionalLight {
                 color: GOLD.into(),
                 illuminance: DirectionalLight::default().illuminance * 0.05,
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
-            ..default()
-        });
+            Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
+        ));
     }
 
     // Camera.

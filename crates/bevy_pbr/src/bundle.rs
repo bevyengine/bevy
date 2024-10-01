@@ -106,6 +106,10 @@ pub struct CascadesVisibleEntities {
 
 /// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `PointLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
     pub cubemap_visible_entities: CubemapVisibleEntities,
@@ -124,6 +128,10 @@ pub struct PointLightBundle {
 
 /// A component bundle for spot light entities
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `SpotLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct SpotLightBundle {
     pub spot_light: SpotLight,
     pub visible_entities: VisibleMeshEntities,
@@ -142,6 +150,10 @@ pub struct SpotLightBundle {
 
 /// A component bundle for [`DirectionalLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `DirectionalLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
     pub frusta: CascadesFrusta,

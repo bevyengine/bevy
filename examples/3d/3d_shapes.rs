@@ -110,17 +110,16 @@ fn setup(
         ));
     }
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
-        transform: Transform::from_xyz(8.0, 16.0, 8.0),
-        ..default()
-    });
+        Transform::from_xyz(8.0, 16.0, 8.0),
+    ));
 
     // ground plane
     commands.spawn((

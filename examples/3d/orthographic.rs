@@ -54,8 +54,5 @@ fn setup(
         Transform::from_xyz(-1.5, 0.5, -1.5),
     ));
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(3.0, 8.0, 5.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(3.0, 8.0, 5.0)));
 }

@@ -51,10 +51,7 @@ fn setup(
             ));
         });
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, -4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, -4.0)));
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 10.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),

@@ -67,8 +67,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
@@ -76,14 +76,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // cascade bounds than the default for better quality.
         // We also adjusted the shadow map to be larger since we're
         // only using a single cascade.
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 1.6,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
     commands.spawn(SceneBundle {
         scene: asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),

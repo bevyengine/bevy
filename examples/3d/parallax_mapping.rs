@@ -221,14 +221,13 @@ fn setup(
 
     // light
     commands
-        .spawn(PointLightBundle {
-            transform: Transform::from_xyz(2.0, 1.0, -1.1),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(2.0, 1.0, -1.1),
+        ))
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());

@@ -339,11 +339,8 @@ fn setup(
         Rotates,
     ));
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 1_000.,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        illuminance: 1_000.,
         ..default()
     });
 }

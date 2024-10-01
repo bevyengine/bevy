@@ -66,14 +66,13 @@ fn setup(
     ));
 
     // A light source
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 7.0, -4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 7.0, -4.0),
+    ));
 
     // Initialize random axes
     let first = seeded_rng.gen();

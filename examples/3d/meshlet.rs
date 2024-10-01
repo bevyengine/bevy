@@ -64,26 +64,20 @@ fn setup(
         CameraController::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 15.0,
             ..default()
         }
         .build(),
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+    ));
 
     // A custom file format storing a [`bevy_render::mesh::Mesh`]
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]

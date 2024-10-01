@@ -70,15 +70,11 @@ fn setup(
 
     // Spawn a directional light shining at the camera with the VolumetricLight component.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(-5.0, 5.0, -7.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         VolumetricLight,
     ));
 

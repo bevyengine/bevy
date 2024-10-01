@@ -83,12 +83,9 @@ fn spawn_sphere(
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 100000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 100000.0,
         ..default()
     });
 }

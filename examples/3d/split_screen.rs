@@ -33,13 +33,13 @@ fn setup(
     });
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: if cfg!(all(
                 feature = "webgl2",
                 target_arch = "wasm32",
@@ -54,9 +54,8 @@ fn setup(
             maximum_distance: 280.0,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Cameras and their dedicated UI
     for (index, (camera_name, camera_pos)) in [

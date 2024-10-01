@@ -66,21 +66,20 @@ fn setup(
         Fxaa::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
             ..default()
         }
-        .into(),
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
-        ..default()
-    });
+        .build(),
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
+    ));
 
     // FlightHelmet
     let helmet_scene = asset_server
@@ -133,17 +132,16 @@ fn setup(
         NotShadowCaster,
     ));
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
             ..default()
         },
-        transform: sphere_pos,
-        ..default()
-    });
+        sphere_pos,
+    ));
 
     // Spheres
     for i in 0..6 {

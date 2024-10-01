@@ -22,14 +22,13 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 16.0, 8.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 16.0, 8.0),
+    ));
 
     let mesh = meshes.add(Cuboid::from_size(Vec3::splat(0.5)));
     // This example uses the StandardMaterial but it can work with most custom material too

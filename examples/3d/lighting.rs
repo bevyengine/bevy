@@ -118,17 +118,15 @@ fn setup(
 
     // red point light
     commands
-        .spawn(PointLightBundle {
-            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-            transform: Transform::from_xyz(1.0, 2.0, 0.0),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 intensity: 100_000.0,
                 color: RED.into(),
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(1.0, 2.0, 0.0),
+        ))
         .with_children(|builder| {
             builder.spawn((
                 Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
@@ -142,10 +140,8 @@ fn setup(
 
     // green spot light
     commands
-        .spawn(SpotLightBundle {
-            transform: Transform::from_xyz(-1.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            spot_light: SpotLight {
+        .spawn((
+            SpotLight {
                 intensity: 100_000.0,
                 color: LIME.into(),
                 shadows_enabled: true,
@@ -153,8 +149,8 @@ fn setup(
                 outer_angle: 0.8,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+        ))
         .with_child((
             Mesh3d(meshes.add(Capsule3d::new(0.1, 0.125))),
             MeshMaterial3d(materials.add(StandardMaterial {
@@ -167,17 +163,15 @@ fn setup(
 
     // blue point light
     commands
-        .spawn(PointLightBundle {
-            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-            transform: Transform::from_xyz(0.0, 4.0, 0.0),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 intensity: 100_000.0,
                 color: BLUE.into(),
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(0.0, 4.0, 0.0),
+        ))
         .with_children(|builder| {
             builder.spawn((
                 Mesh3d(meshes.add(Sphere::new(0.1).mesh().uv(32, 18))),
@@ -190,13 +184,13 @@ fn setup(
         });
 
     // directional 'sun' light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform {
+        Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
@@ -204,14 +198,13 @@ fn setup(
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
         // bounds for better visual quality.
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 4.0,
             maximum_distance: 10.0,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // example instructions
     let style = TextStyle::default();

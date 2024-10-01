@@ -54,10 +54,10 @@ fn setup(
         });
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // example instructions
     commands.spawn(

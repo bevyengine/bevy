@@ -149,10 +149,7 @@ fn setup(
     }
 
     // Light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     // Camera
     commands.spawn(Camera3dBundle {
