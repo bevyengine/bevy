@@ -170,7 +170,7 @@ const SPEED: f32 = 100.0;
 fn movement(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Sprite>>,
+    mut query: Query<&mut Transform, With<SpriteProperties>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
@@ -193,7 +193,7 @@ fn movement(
     }
 }
 
-fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+fn change_color(time: Res<Time>, mut query: Query<&mut SpriteProperties>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
             blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
@@ -223,11 +223,11 @@ fn setup(mut commands: Commands) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteTexture(asset_server.load("branding/icon.png")));
+    commands.spawn(Sprite(asset_server.load("branding/icon.png")));
     info!("Setup game");
 }
 
-fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
+fn teardown_game(mut commands: Commands, player: Query<Entity, With<SpriteProperties>>) {
     commands.entity(player.single()).despawn();
     info!("Teardown game");
 }

@@ -106,8 +106,8 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
                     translation: velocity,
                     rotation: -dir * 5.0,
                 },
-                SpriteTexture(texture_handle.clone()),
-                Sprite {
+                Sprite(texture_handle.clone()),
+                SpriteProperties {
                     custom_size: Some(Vec2::splat(SPRITE_SIZE)),
                     color: DESELECTED.with_hue(hue).into(),
                     flip_x: flipped,
@@ -157,7 +157,7 @@ fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
     mut text_query: Query<&mut Text, With<ContributorDisplay>>,
-    mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
+    mut query: Query<(&Contributor, &mut SpriteProperties, &mut Transform)>,
     time: Res<Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
@@ -190,7 +190,7 @@ fn selection(
 /// Change the tint color to the "selected" color, bring the object to the front
 /// and display the name.
 fn select(
-    sprite: &mut Sprite,
+    sprite: &mut SpriteProperties,
     contributor: &Contributor,
     transform: &mut Transform,
     text: &mut Text,
@@ -210,7 +210,7 @@ fn select(
 
 /// Change the tint color to the "deselected" color and push
 /// the object to the back.
-fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
+fn deselect(sprite: &mut SpriteProperties, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = DESELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z = 0.0;

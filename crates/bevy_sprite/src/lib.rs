@@ -30,7 +30,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
-        sprite::{ImageScaleMode, Sprite, SpriteTexture},
+        sprite::{ImageScaleMode, Sprite, SpriteProperties},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
@@ -89,9 +89,9 @@ pub struct SpriteSource;
 /// [`bevy_render::view::VisibleEntities`].
 pub type WithMesh2d = With<Mesh2dHandle>;
 
-/// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
+/// A convenient alias for `Or<With<SpriteProperties>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
-pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
+pub type WithSprite = Or<(With<SpriteProperties>, With<SpriteSource>)>;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
@@ -110,6 +110,7 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
+            .register_type::<SpriteProperties>()
             .register_type::<ImageScaleMode>()
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
@@ -178,7 +179,7 @@ impl Plugin for SpritePlugin {
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
 /// - a `Mesh2dHandle` component,
-/// - a `Sprite` and `SpriteTexture` components,
+/// - a `SpriteProperties` and `Sprite` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
@@ -189,9 +190,13 @@ pub fn calculate_bounds_2d(
     atlases: Res<Assets<TextureAtlasLayout>>,
     meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
-        (Entity, &Sprite, &SpriteTexture, Option<&TextureAtlas>),
+        (Entity, &SpriteProperties, &Sprite, Option<&TextureAtlas>),
         (
-            Or<(Without<Aabb>, Changed<Sprite>, Changed<TextureAtlas>)>,
+            Or<(
+                Without<Aabb>,
+                Changed<SpriteProperties>,
+                Changed<TextureAtlas>,
+            )>,
             Without<NoFrustumCulling>,
         ),
     >,
@@ -265,7 +270,7 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn((Sprite::default(), image_handle))
+            .spawn((SpriteProperties::default(), image_handle))
             .id();
 
         // Verify that the entity does not have an AABB
@@ -307,7 +312,7 @@ mod test {
         let entity = app
             .world_mut()
             .spawn((
-                Sprite {
+                SpriteProperties {
                     custom_size: Some(Vec2::ZERO),
                     ..default()
                 },
@@ -332,7 +337,7 @@ mod test {
             .get_entity_mut(entity)
             .expect("Could not find entity");
         let mut sprite = binding
-            .get_mut::<Sprite>()
+            .get_mut::<SpriteProperties>()
             .expect("Could not find sprite component of entity");
         sprite.custom_size = Some(Vec2::ONE);
 
@@ -372,7 +377,7 @@ mod test {
         let entity = app
             .world_mut()
             .spawn((
-                Sprite {
+                SpriteProperties {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     anchor: Anchor::TopRight,
                     ..default()

@@ -61,5 +61,5 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(SpriteTexture(asset_server.load("branding/icon.png")));
+    commands.spawn(Sprite(asset_server.load("branding/icon.png")));
 }

@@ -53,7 +53,7 @@ struct Rotate;
 fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
     // the sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
-        SpriteTexture(asset_server.load("pixel/bevy_pixel_dark.png")),
+        Sprite(asset_server.load("pixel/bevy_pixel_dark.png")),
         Transform::from_xyz(-40., 20., 2.),
         Rotate,
         PIXEL_PERFECT_LAYERS,
@@ -61,7 +61,7 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // the sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
-        SpriteTexture(asset_server.load("pixel/bevy_pixel_light.png")),
+        Sprite(asset_server.load("pixel/bevy_pixel_light.png")),
         Transform::from_xyz(-40., -20., 2.),
         Rotate,
         HIGH_RES_LAYERS,
@@ -132,7 +132,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ));
 
     // spawn the canvas
-    commands.spawn((SpriteTexture(image_handle), Canvas, HIGH_RES_LAYERS));
+    commands.spawn((Sprite(image_handle), Canvas, HIGH_RES_LAYERS));
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera

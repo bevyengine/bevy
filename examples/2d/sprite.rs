@@ -1,4 +1,4 @@
-//! Displays a single [`Sprite`], created from an image.
+//! Displays a single [`SpriteProperties`], created from an image.
 
 use bevy::prelude::*;
 
@@ -11,7 +11,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(SpriteTexture(
+    commands.spawn(Sprite(
         asset_server.load("branding/bevy_bird_dark.png").into(),
     ));
 }

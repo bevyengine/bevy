@@ -1,6 +1,6 @@
 use bevy_reflect::Reflect;
 
-/// Struct defining a [`Sprite`](crate::Sprite) border with padding values
+/// Struct defining a [`SpriteProperties`](crate::SpriteProperties) border with padding values
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 pub struct BorderRect {
     /// Pixel padding to the left

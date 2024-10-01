@@ -133,7 +133,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         Name::new("Player"),
-        SpriteTexture(asset_server.load("branding/icon.png")),
+        Sprite(asset_server.load("branding/icon.png")),
         Transform::from_scale(Vec3::splat(0.3)),
         AccumulatedInput::default(),
         Velocity::default(),

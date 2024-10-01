@@ -75,14 +75,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // This marker component ensures we can easily find either of the Birds by using With and
         // Without query filters.
         Left,
-        SpriteTexture(texture_left),
+        Sprite(texture_left),
         Transform::from_xyz(-200.0, 0.0, 0.0),
         bird_left,
     ));
 
     commands.spawn((
         Name::new("Bird Right"),
-        SpriteTexture(asset_server.load(bird_right.get_texture_path())),
+        Sprite(asset_server.load(bird_right.get_texture_path())),
         Transform::from_xyz(200.0, 0.0, 0.0),
         bird_right,
     ));
@@ -117,7 +117,7 @@ fn spawn_text(mut commands: Commands) {
 
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_bird: Query<(&mut Bird, &mut SpriteTexture), Without<Left>>,
+    mut right_bird: Query<(&mut Bird, &mut Sprite), Without<Left>>,
 ) {
     // Image handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one bird without the `Left` marker component.
@@ -134,7 +134,7 @@ fn alter_handle(
     sprite_texture.0 = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&SpriteTexture, With<Left>>) {
+fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Sprite, With<Left>>) {
     // It's convenient to retrieve the asset handle stored with the bird on the left. However,
     // we could just as easily have retained this in a resource or a dedicated component.
     let Ok(sprite_texture) = left_bird.get_single() else {

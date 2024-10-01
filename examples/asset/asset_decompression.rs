@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             compressed: asset_server.load("data/compressed_image.png.gz"),
             ..default()
         },
-        Sprite::default(),
+        SpriteProperties::default(),
         Transform::default(),
         Visibility::default(),
     ));

@@ -284,8 +284,8 @@ fn setup_sticks(
             .with_children(|parent| {
                 // full extent
                 parent.spawn((
-                    SpriteTexture::default(),
-                    Sprite {
+                    Sprite::default(),
+                    SpriteProperties {
                         custom_size: Some(Vec2::splat(STICK_BOUNDS_SIZE * 2.)),
                         color: DEAD_COLOR,
                         ..default()
@@ -293,8 +293,8 @@ fn setup_sticks(
                 ));
                 // live zone
                 parent.spawn((
-                    SpriteTexture::default(),
-                    Sprite {
+                    Sprite::default(),
+                    SpriteProperties {
                         custom_size: Some(Vec2::new(live_size, live_size)),
                         color: LIVE_COLOR,
                         ..default()
@@ -303,8 +303,8 @@ fn setup_sticks(
                 ));
                 // dead zone
                 parent.spawn((
-                    SpriteTexture::default(),
-                    Sprite {
+                    Sprite::default(),
+                    SpriteProperties {
                         custom_size: Some(Vec2::new(dead_size, dead_size)),
                         color: DEAD_COLOR,
                         ..default()

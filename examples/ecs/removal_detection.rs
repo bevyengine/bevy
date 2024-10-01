@@ -29,7 +29,7 @@ struct MyComponent;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
-        SpriteTexture(asset_server.load("branding/icon.png")),
+        Sprite(asset_server.load("branding/icon.png")),
         // Add the `Component`.
         MyComponent,
     ));
@@ -48,7 +48,10 @@ fn remove_component(
     }
 }
 
-fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
+fn react_on_removal(
+    trigger: Trigger<OnRemove, MyComponent>,
+    mut query: Query<&mut SpriteProperties>,
+) {
     // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
     let entity = trigger.entity();
     if let Ok(mut sprite) = query.get_mut(entity) {

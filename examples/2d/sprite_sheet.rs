@@ -48,7 +48,7 @@ fn setup(
     let animation_indices = AnimationIndices { first: 1, last: 6 };
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
-        SpriteTexture(texture),
+        Sprite(texture),
         Transform::from_scale(Vec3::splat(6.0)),
         TextureAtlas {
             layout: texture_atlas_layout,

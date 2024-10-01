@@ -48,5 +48,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "embedded://embedded_asset/files/bevy_pixel_light.png".into()
     );
 
-    commands.spawn(SpriteTexture(asset_server.load(asset_path)));
+    commands.spawn(Sprite(asset_server.load(asset_path)));
 }

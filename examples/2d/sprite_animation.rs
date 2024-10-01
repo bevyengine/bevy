@@ -104,7 +104,7 @@ fn setup(
 
     // create the first (left-hand) sprite
     commands.spawn((
-        SpriteTexture(texture.clone()),
+        Sprite(texture.clone()),
         Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-50.0, 0.0, 0.0)),
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
@@ -119,7 +119,7 @@ fn setup(
 
     // create the second (right-hand) sprite
     commands.spawn((
-        SpriteTexture(texture),
+        Sprite(texture),
         Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(50.0, 0.0, 0.0)),
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
@@ -132,7 +132,7 @@ fn setup(
     // create a minimal UI explaining how to interact with the example
     commands.spawn(TextBundle {
         text: Text::from_section(
-            "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
+            "Left Arrow Key: Animate Left SpriteProperties\nRight Arrow Key: Animate Right SpriteProperties",
             TextStyle::default(),
         ),
         style: Style {

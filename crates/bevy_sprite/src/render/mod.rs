@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, SpriteTexture, WithSprite, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, SpriteProperties, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -375,9 +375,9 @@ pub fn extract_sprites(
             Entity,
             &RenderEntity,
             &ViewVisibility,
-            &Sprite,
+            &SpriteProperties,
             &GlobalTransform,
-            &SpriteTexture,
+            &Sprite,
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
         )>,

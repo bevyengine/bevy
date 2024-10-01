@@ -24,8 +24,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Useful note: The default sampler specified by the ImagePlugin is *not* the same as the default implementation of sampler. This is why
     // everything uses linear by default but if you look at the default of sampler, it uses nearest.
     commands.spawn((
-        SpriteTexture(asset_server.load("bevy_pixel_dark.png")),
-        Sprite {
+        Sprite(asset_server.load("bevy_pixel_dark.png")),
+        SpriteProperties {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },
@@ -42,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // and follow to the default implementation of each fields type.
     // https://docs.rs/bevy/latest/bevy/render/texture/struct.ImageLoaderSettings.html#
     commands.spawn((
-        SpriteTexture(asset_server.load("bevy_pixel_dark_with_meta.png")),
-        Sprite {
+        Sprite(asset_server.load("bevy_pixel_dark_with_meta.png")),
+        SpriteProperties {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },
@@ -61,13 +61,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // This is why this one loads a differently named copy of the asset instead of using
     // same one as without a .meta file.
     commands.spawn((
-        SpriteTexture(asset_server.load_with_settings(
+        Sprite(asset_server.load_with_settings(
             "bevy_pixel_dark_with_settings.png",
             |settings: &mut ImageLoaderSettings| {
                 settings.sampler = ImageSampler::nearest();
             },
         )),
-        Sprite {
+        SpriteProperties {
             custom_size: Some(Vec2 { x: 160.0, y: 120.0 }),
             ..Default::default()
         },

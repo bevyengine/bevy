@@ -1,4 +1,4 @@
-//! Displays a single [`Sprite`], created from an image, but flipped on one axis.
+//! Displays a single [`SpriteProperties`], created from an image, but flipped on one axis.
 
 use bevy::prelude::*;
 
@@ -12,8 +12,8 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
-        SpriteTexture(asset_server.load("branding/bevy_bird_dark.png")),
-        Sprite {
+        Sprite(asset_server.load("branding/bevy_bird_dark.png")),
+        SpriteProperties {
             // Flip the logo to the left
             flip_x: true,
             // And don't flip it upside-down ( the default )

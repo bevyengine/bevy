@@ -1,5 +1,5 @@
 use crate::{
-    ExtractedSprite, ImageScaleMode, Sprite, SpriteTexture, TextureAtlas, TextureAtlasLayout,
+    ExtractedSprite, ImageScaleMode, Sprite, SpriteProperties, TextureAtlas, TextureAtlasLayout,
 };
 
 use super::TextureSlice;
@@ -30,8 +30,8 @@ impl ComputedTextureSlices {
         &'a self,
         transform: &'a GlobalTransform,
         original_entity: Entity,
-        sprite: &'a Sprite,
-        handle: &'a SpriteTexture,
+        sprite: &'a SpriteProperties,
+        handle: &'a Sprite,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
         let mut flip = Vec2::ONE;
         let [mut flip_x, mut flip_y] = [false; 2];
@@ -60,7 +60,10 @@ impl ComputedTextureSlices {
         })
     }
 
-    fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
+    fn redepend_anchor_from_sprite_to_slice(
+        sprite: &SpriteProperties,
+        slice: &TextureSlice,
+    ) -> Vec2 {
         let sprite_size = sprite
             .custom_size
             .unwrap_or(sprite.rect.unwrap_or_default().size());
@@ -88,9 +91,9 @@ impl ComputedTextureSlices {
 /// * `atlas_layouts` - The atlas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_sprite_slices(
-    sprite: &Sprite,
+    sprite: &SpriteProperties,
     scale_mode: &ImageScaleMode,
-    image_handle: &SpriteTexture,
+    image_handle: &Sprite,
     images: &Assets<Image>,
     atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
@@ -144,8 +147,8 @@ pub(crate) fn compute_slices_on_asset_event(
     sprites: Query<(
         Entity,
         &ImageScaleMode,
+        &SpriteProperties,
         &Sprite,
-        &SpriteTexture,
         Option<&TextureAtlas>,
     )>,
 ) {
@@ -188,14 +191,14 @@ pub(crate) fn compute_slices_on_sprite_change(
         (
             Entity,
             &ImageScaleMode,
+            &SpriteProperties,
             &Sprite,
-            &SpriteTexture,
             Option<&TextureAtlas>,
         ),
         Or<(
             Changed<ImageScaleMode>,
-            Changed<SpriteTexture>,
             Changed<Sprite>,
+            Changed<SpriteProperties>,
             Changed<TextureAtlas>,
         )>,
     >,

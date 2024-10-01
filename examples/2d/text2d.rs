@@ -80,8 +80,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let box_position = Vec2::new(0.0, -250.0);
     commands
         .spawn((
-            SpriteTexture::default(),
-            Sprite {
+            Sprite::default(),
+            SpriteProperties {
                 color: Color::srgb(0.25, 0.25, 0.75),
                 custom_size: Some(Vec2::new(box_size.x, box_size.y)),
                 ..default()
@@ -111,8 +111,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let other_box_position = Vec2::new(320.0, -250.0);
     commands
         .spawn((
-            SpriteTexture::default(),
-            Sprite {
+            Sprite::default(),
+            SpriteProperties {
                 color: Color::srgb(0.20, 0.3, 0.70),
                 custom_size: Some(Vec2::new(other_box_size.x, other_box_size.y)),
                 ..default()

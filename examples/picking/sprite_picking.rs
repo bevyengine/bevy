@@ -14,7 +14,7 @@ fn main() {
 
 fn move_sprite(
     time: Res<Time>,
-    mut sprite: Query<&mut Transform, (Without<Sprite>, With<Children>)>,
+    mut sprite: Query<&mut Transform, (Without<SpriteProperties>, With<Children>)>,
 ) {
     let t = time.elapsed_seconds() * 0.1;
     for mut transform in &mut sprite {
@@ -58,8 +58,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // spawn black square behind sprite to show anchor point
                 commands
                     .spawn((
-                        SpriteTexture::default(),
-                        Sprite {
+                        Sprite::default(),
+                        SpriteProperties {
                             custom_size: sprite_size,
                             color: Color::BLACK,
                             ..default()
@@ -73,8 +73,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 commands
                     .spawn((
-                        SpriteTexture(asset_server.load("branding/bevy_bird_dark.png")),
-                        Sprite {
+                        Sprite(asset_server.load("branding/bevy_bird_dark.png")),
+                        SpriteProperties {
                             custom_size: sprite_size,
                             color: Color::srgb(1.0, 0.0, 0.0),
                             anchor: anchor.to_owned(),
@@ -133,7 +133,7 @@ fn setup_atlas(
                 layout: texture_atlas_layout_handle,
                 index: animation_indices.first,
             },
-            SpriteTexture(texture_handle),
+            Sprite(texture_handle),
             Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
@@ -145,7 +145,9 @@ fn setup_atlas(
 }
 
 // An observer listener that changes the target entity's color.
-fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
+fn recolor_on<E: Debug + Clone + Reflect>(
+    color: Color,
+) -> impl Fn(Trigger<E>, Query<&mut SpriteProperties>) {
     move |ev, mut sprites| {
         let Ok(mut sprite) = sprites.get_mut(ev.entity()) else {
             return;

@@ -19,15 +19,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a root entity with no parent
     let parent = commands
         .spawn((
-            SpriteTexture(texture.clone()),
+            Sprite(texture.clone()),
             Transform::from_scale(Vec3::splat(0.75)),
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
             parent.spawn((
-                SpriteTexture(texture.clone()),
-                Sprite {
+                Sprite(texture.clone()),
+                SpriteProperties {
                     color: BLUE.into(),
                     ..default()
                 },
@@ -41,8 +41,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // entity has already been spawned.
     let child = commands
         .spawn((
-            SpriteTexture(texture),
-            Sprite {
+            Sprite(texture),
+            SpriteProperties {
                 color: LIME.into(),
                 ..default()
             },
@@ -58,8 +58,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn rotate(
     mut commands: Commands,
     time: Res<Time>,
-    mut parents_query: Query<(Entity, &Children), With<Sprite>>,
-    mut transform_query: Query<&mut Transform, With<Sprite>>,
+    mut parents_query: Query<(Entity, &Children), With<SpriteProperties>>,
+    mut transform_query: Query<&mut Transform, With<SpriteProperties>>,
 ) {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {

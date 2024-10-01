@@ -423,7 +423,7 @@ mod ui {
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             StateScoped(InGame),
-            SpriteTexture(asset_server.load("branding/icon.png")),
+            Sprite(asset_server.load("branding/icon.png")),
         ));
     }
 
@@ -434,7 +434,7 @@ mod ui {
         time: Res<Time>,
         input: Res<ButtonInput<KeyCode>>,
         turbo: Option<Res<State<TurboMode>>>,
-        mut query: Query<&mut Transform, With<Sprite>>,
+        mut query: Query<&mut Transform, With<SpriteProperties>>,
     ) {
         for mut transform in &mut query {
             let mut direction = Vec3::ZERO;
@@ -541,7 +541,7 @@ mod ui {
             });
     }
 
-    pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+    pub fn change_color(time: Res<Time>, mut query: Query<&mut SpriteProperties>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
                 blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,

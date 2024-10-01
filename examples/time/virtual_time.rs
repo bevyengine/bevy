@@ -53,15 +53,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     // the sprite moving based on real time
     commands.spawn((
-        SpriteTexture(texture_handle.clone()),
+        Sprite(texture_handle.clone()),
         Transform::from_scale(sprite_scale),
         RealTime,
     ));
 
     // the sprite moving based on virtual time
     commands.spawn((
-        SpriteTexture(texture_handle),
-        Sprite {
+        Sprite(texture_handle),
+        SpriteProperties {
             color: virtual_color,
             ..default()
         },
@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
 /// Move sprites using `Real` (unscaled) time
 fn move_real_time_sprites(
-    mut sprite_query: Query<&mut Transform, (With<Sprite>, With<RealTime>)>,
+    mut sprite_query: Query<&mut Transform, (With<SpriteProperties>, With<RealTime>)>,
     // `Real` time which is not scaled or paused
     time: Res<Time<Real>>,
 ) {
@@ -147,7 +147,7 @@ fn move_real_time_sprites(
 
 /// Move sprites using `Virtual` (scaled) time
 fn move_virtual_time_sprites(
-    mut sprite_query: Query<&mut Transform, (With<Sprite>, With<VirtualTime>)>,
+    mut sprite_query: Query<&mut Transform, (With<SpriteProperties>, With<VirtualTime>)>,
     // the default `Time` is either `Time<Virtual>` in regular systems
     // or `Time<Fixed>` in fixed timestep systems so `Time::delta()`,
     // `Time::elapsed()` will return the appropriate values either way

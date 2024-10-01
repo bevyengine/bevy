@@ -70,8 +70,8 @@ fn setup(mut commands: Commands) {
 
 fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
     commands.spawn((
-        SpriteTexture::default(),
-        Sprite {
+        Sprite::default(),
+        SpriteProperties {
             custom_size: Some(Vec2::new(75., 75.)),
             ..Default::default()
         },
@@ -82,8 +82,8 @@ fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T
 
 fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T; 4]) {
     commands.spawn((
-        SpriteTexture::default(),
-        Sprite {
+        Sprite::default(),
+        SpriteProperties {
             custom_size: Some(Vec2::new(75., 75.)),
             ..Default::default()
         },
@@ -94,7 +94,7 @@ fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T
 
 fn animate_curve<T: CurveColor>(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
+    mut query: Query<(&mut Transform, &mut SpriteProperties, &Curve<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 
@@ -108,7 +108,7 @@ fn animate_curve<T: CurveColor>(
 
 fn animate_mixed<T: MixedColor>(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
+    mut query: Query<(&mut Transform, &mut SpriteProperties, &Mixed<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 

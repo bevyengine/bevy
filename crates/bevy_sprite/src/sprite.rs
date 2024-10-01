@@ -13,7 +13,7 @@ use crate::TextureSlicer;
 ///
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Sprite {
+pub struct SpriteProperties {
     /// The sprite's color tint
     pub color: Color,
     /// Flip the sprite along the `X` axis
@@ -33,10 +33,10 @@ pub struct Sprite {
     pub anchor: Anchor,
 }
 
-impl Sprite {
+impl SpriteProperties {
     /// Create a Sprite with a custom size
     pub fn sized(custom_size: Vec2) -> Self {
-        Sprite {
+        SpriteProperties {
             custom_size: Some(custom_size),
             ..Default::default()
         }
@@ -104,12 +104,9 @@ impl Anchor {
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh3d};
-/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_render::texture::Image;
 /// # use bevy_asset::{AssetServer, Assets};
-/// # use bevy_math::primitives::Capsule3d;
 /// #
 /// // Spawn an entity with a sprite.
 /// fn setup(
@@ -118,29 +115,29 @@ impl Anchor {
 ///     asset_server: Res<AssetServer>
 /// ) {
 ///     commands.spawn((
-///         SpriteTexture(images.add(Image::default())),
+///         Sprite(images.add(Image::default())),
 ///     ));
 /// }
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility, Sprite, SyncToRenderWorld)]
-pub struct SpriteTexture(pub Handle<Image>);
+#[require(SpriteProperties, Transform, Visibility, SyncToRenderWorld)]
+pub struct Sprite(pub Handle<Image>);
 
-impl From<Handle<Image>> for SpriteTexture {
+impl From<Handle<Image>> for Sprite {
     fn from(handle: Handle<Image>) -> Self {
         Self(handle)
     }
 }
 
-impl From<SpriteTexture> for AssetId<Image> {
-    fn from(texture: SpriteTexture) -> Self {
+impl From<Sprite> for AssetId<Image> {
+    fn from(texture: Sprite) -> Self {
         texture.id()
     }
 }
 
-impl From<&SpriteTexture> for AssetId<Image> {
-    fn from(texture: &SpriteTexture) -> Self {
+impl From<&Sprite> for AssetId<Image> {
+    fn from(texture: &Sprite) -> Self {
         texture.id()
     }
 }
