@@ -1052,7 +1052,7 @@ fn trigger_untargeted_animation_events(
         };
 
         for (index, active_animation) in player.active_animations.iter() {
-            if !active_animation.is_finished() {
+            if active_animation.is_finished() {
                 continue;
             }
 
