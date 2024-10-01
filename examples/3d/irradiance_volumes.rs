@@ -13,14 +13,17 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use bevy::color::palettes::css::*;
-use bevy::core_pipeline::Skybox;
-use bevy::math::{uvec3, vec3};
-use bevy::pbr::irradiance_volume::IrradianceVolume;
-use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
-use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
-use bevy::window::PrimaryWindow;
+use bevy::{
+    color::palettes::css::*,
+    core_pipeline::Skybox,
+    math::{uvec3, vec3},
+    pbr::{
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
+    },
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    window::PrimaryWindow,
+};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
@@ -257,15 +260,14 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0762, 5.9039, 1.0055),
-        ..default()
-    });
+        Transform::from_xyz(4.0762, 5.9039, 1.0055),
+    ));
 }
 
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
@@ -351,12 +353,11 @@ impl AppStatus {
 
         Text::from_section(
             format!(
-                "{}\n{}\n{}\n{}\n{}",
-                CLICK_TO_MOVE_HELP_TEXT,
-                voxels_help_text,
-                irradiance_volume_help_text,
-                rotation_help_text,
-                switch_mesh_help_text
+                "{CLICK_TO_MOVE_HELP_TEXT}
+        {voxels_help_text}
+        {irradiance_volume_help_text}
+        {rotation_help_text}
+        {switch_mesh_help_text}"
             ),
             TextStyle::default(),
         )
@@ -483,7 +484,7 @@ fn handle_mouse_clicks(
     };
 
     // Figure out where the user clicked on the plane.
-    let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
     let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {

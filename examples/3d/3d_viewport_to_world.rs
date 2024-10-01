@@ -24,7 +24,7 @@ fn draw_cursor(
     };
 
     // Calculate a ray pointing from the camera into the world based on the cursor's position.
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
         return;
     };
 
@@ -66,10 +66,10 @@ fn setup(
     ));
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

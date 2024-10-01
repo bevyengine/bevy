@@ -23,8 +23,8 @@ fn setup(
                 text: Text::from_section("Click Me to get a box", TextStyle::default()),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    top: Val::Percent(10.0),
-                    left: Val::Percent(10.0),
+                    top: Val::Percent(12.0),
+                    left: Val::Percent(12.0),
                     ..default()
                 },
                 ..Default::default()
@@ -74,14 +74,13 @@ fn setup(
             println!("{click:?}");
         });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),

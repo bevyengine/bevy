@@ -108,15 +108,14 @@ fn setup_scene(
     });
 
     // Spawn the light.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 8.0, 13.0),
+    ));
 
     // Spawn the fox.
     commands.spawn(SceneBundle {
@@ -144,8 +143,8 @@ fn setup_ui(mut commands: Commands) {
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(10.0),
-            top: Val::Px(10.0),
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
         }),
     );
@@ -157,8 +156,8 @@ fn setup_ui(mut commands: Commands) {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()

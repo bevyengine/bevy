@@ -55,6 +55,7 @@ fn setup(mut commands: Commands) {
         }],
         justify: JustifyText::Left,
         linebreak_behavior: BreakLineOn::AnyCharacter,
+        ..default()
     };
 
     commands

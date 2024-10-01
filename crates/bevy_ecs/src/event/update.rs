@@ -8,7 +8,7 @@ use bevy_ecs::{
 };
 use bevy_ecs_macros::SystemSet;
 #[cfg(feature = "bevy_reflect")]
-use std::hash::Hash;
+use core::hash::Hash;
 
 use super::registry::ShouldUpdateEvents;
 

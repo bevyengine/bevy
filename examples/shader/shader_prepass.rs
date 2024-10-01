@@ -127,14 +127,13 @@ fn setup(
     });
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     let style = TextStyle::default();
 
@@ -189,7 +188,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (time.elapsed_seconds().sin() * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
+        let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }

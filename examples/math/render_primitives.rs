@@ -318,15 +318,14 @@ fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 }
 
 fn setup_lights(mut commands: Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 5000.0,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+        Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 /// Marker component for header text
@@ -635,9 +634,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -655,9 +654,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            time.elapsed_seconds().sin(),
-            time.elapsed_seconds().cos(),
-            time.elapsed_seconds().sin() * 0.5,
+            ops::sin(time.elapsed_seconds()),
+            ops::cos(time.elapsed_seconds()),
+            ops::sin(time.elapsed_seconds()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),

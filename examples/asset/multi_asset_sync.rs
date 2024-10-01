@@ -186,7 +186,7 @@ fn setup_ui(mut commands: Commands) {
                         sections: vec![TextSection {
                             value: "Loading...".to_owned(),
                             style: TextStyle {
-                                font_size: 64.0,
+                                font_size: 53.0,
                                 color: Color::BLACK,
                                 ..Default::default()
                             },
@@ -214,14 +214,13 @@ fn setup_scene(
     });
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+    ));
 
     // Plane
     commands.spawn((

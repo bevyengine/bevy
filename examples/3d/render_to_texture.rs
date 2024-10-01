@@ -5,11 +5,11 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::{
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
         view::RenderLayers,
     },
 };
-use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
@@ -81,10 +81,8 @@ fn setup(
     // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
     // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
     commands.spawn((
-        PointLightBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            ..default()
-        },
+        PointLight::default(),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         RenderLayers::layer(0).with(1),
     ));
 

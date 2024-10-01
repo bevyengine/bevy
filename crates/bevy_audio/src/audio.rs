@@ -46,11 +46,12 @@ pub enum PlaybackMode {
 }
 
 /// Initial settings to be used when audio starts playing.
+///
 /// If you would like to control the audio while it is playing, query for the
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Component)]
+#[reflect(Default, Component, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -146,7 +147,7 @@ impl PlaybackSettings {
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Default, Component)]
+#[reflect(Default, Component, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -177,7 +178,7 @@ impl SpatialListener {
 ///
 /// Note: changing this value will not affect already playing audio.
 #[derive(Resource, Default, Clone, Copy, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub struct GlobalVolume {
     /// The global volume of all audio.
     pub volume: Volume,
@@ -225,7 +226,7 @@ impl Default for SpatialScale {
 ///
 /// Default is `Vec3::ONE`.
 #[derive(Resource, Default, Clone, Copy, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Default)]
 pub struct DefaultSpatialScale(pub SpatialScale);
 
 /// Bundle for playing a standard bevy audio asset

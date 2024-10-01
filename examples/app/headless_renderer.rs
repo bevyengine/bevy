@@ -174,14 +174,13 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -533,7 +532,7 @@ fn update(
                     // Finally saving image to file, this heavy blocking operation is kept here
                     // for example simplicity, but in real app you should move it to a separate task
                     if let Err(e) = img.save(image_path) {
-                        panic!("Failed to save image: {}", e);
+                        panic!("Failed to save image: {e}");
                     };
                 }
                 if scene_controller.single_image {

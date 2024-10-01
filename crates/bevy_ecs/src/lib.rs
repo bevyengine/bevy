@@ -13,6 +13,8 @@
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
+extern crate alloc;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -36,16 +38,10 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The ECS prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[doc(hidden)]
-    #[cfg(feature = "reflect_functions")]
-    pub use crate::reflect::AppFunctionRegistry;
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
-    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -61,42 +57,53 @@ pub mod prelude {
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
-            System, SystemParamBuilder, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
+            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction,
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
             OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_reflect")]
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
+
+    #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
 }
 
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::Or;
-    use crate::world::EntityMut;
+    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
+        prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
-        world::{EntityRef, Mut, World},
+        world::{EntityMut, EntityRef, Mut, World},
     };
+    use alloc::{sync::Arc, vec};
+    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::num::NonZero;
-    use std::{
+    use core::{
         any::TypeId,
         marker::PhantomData,
-        sync::{
-            atomic::{AtomicUsize, Ordering},
-            Arc, Mutex,
-        },
+        num::NonZero,
+        sync::atomic::{AtomicUsize, Ordering},
     };
+    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -180,8 +187,8 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
             ]
         );
 
@@ -234,10 +241,10 @@ mod tests {
         assert_eq!(
             ids,
             &[
-                world.init_component::<A>(),
-                world.init_component::<TableStored>(),
-                world.init_component::<SparseStored>(),
-                world.init_component::<B>(),
+                world.register_component::<A>(),
+                world.register_component::<TableStored>(),
+                world.register_component::<SparseStored>(),
+                world.register_component::<B>(),
             ]
         );
 
@@ -287,7 +294,7 @@ mod tests {
             },
         );
 
-        assert_eq!(ids, &[world.init_component::<C>(),]);
+        assert_eq!(ids, &[world.register_component::<C>(),]);
 
         let e4 = world
             .spawn(BundleWithIgnored {
@@ -621,7 +628,6 @@ mod tests {
                 .collect::<HashSet<_>>(),
             HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
         );
-
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
             world
@@ -2011,7 +2017,7 @@ mod tests {
         struct Y;
 
         let mut world = World::new();
-        let x_id = world.init_component::<X>();
+        let x_id = world.register_component::<X>();
 
         let mut e = world.spawn_empty();
 
@@ -2021,6 +2027,259 @@ mod tests {
         });
 
         assert!(e.contains::<Y>());
+    }
+
+    #[test]
+    fn runtime_required_components() {
+        // Same as `required_components` test but with runtime registration
+
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component)]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        let mut world = World::new();
+
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(7));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_1() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - Y requires Z with custom constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(5));
+        world.register_required_components_with::<X, Z>(|| Z(7));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_2() {
+        // Same as `runtime_required_components_override_1` test but with different registration order
+
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        // - Y requires Z with custom constructor
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<X, Z>(|| Z(7));
+        world.register_required_components_with::<Y, Z>(|| Z(5));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_existing_archetype() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // Registering required components after the archetype has already been created should panic.
+        // This may change in the future.
+        world.spawn(X);
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::ArchetypeExists(_))
+        ));
+    }
+
+    #[test]
+    fn runtime_required_components_fail_with_duplicate() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::DuplicateRegistration(_, _))
+        ));
+    }
+
+    #[test]
+    fn required_components_inheritance_depth() {
+        // Test that inheritance depths are computed correctly for requirements.
+        //
+        // Requirements with `require` attribute:
+        //
+        // A -> B -> C
+        //   0    1
+        //
+        // Runtime requirements:
+        //
+        // X -> A -> B -> C
+        //   0    1    2
+        //
+        // X -> Y -> Z -> B -> C
+        //   0    1    2    3
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+
+        let a = world.register_component::<A>();
+        let b = world.register_component::<B>();
+        let c = world.register_component::<C>();
+        let y = world.register_component::<Y>();
+        let z = world.register_component::<Z>();
+
+        world.register_required_components::<X, A>();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+        world.register_required_components::<Z, B>();
+
+        world.spawn(X);
+
+        let required_a = world.get_required_components::<A>().unwrap();
+        let required_b = world.get_required_components::<B>().unwrap();
+        let required_c = world.get_required_components::<C>().unwrap();
+        let required_x = world.get_required_components::<X>().unwrap();
+        let required_y = world.get_required_components::<Y>().unwrap();
+        let required_z = world.get_required_components::<Z>().unwrap();
+
+        /// Returns the component IDs and inheritance depths of the required components
+        /// in ascending order based on the component ID.
+        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+            let mut vec = required
+                .0
+                .iter()
+                .map(|(id, component)| (*id, component.inheritance_depth))
+                .collect::<Vec<_>>();
+            vec.sort_by_key(|(id, _)| *id);
+            vec
+        }
+
+        // Check that the inheritance depths are correct for each component.
+        assert_eq!(to_vec(required_a), vec![(b, 0), (c, 1)]);
+        assert_eq!(to_vec(required_b), vec![(c, 0)]);
+        assert_eq!(to_vec(required_c), vec![]);
+        assert_eq!(
+            to_vec(required_x),
+            vec![(a, 0), (b, 1), (c, 2), (y, 0), (z, 1)]
+        );
+        assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
+        assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are
@@ -2047,4 +2306,18 @@ mod tests {
         field0: Simple,
         field1: ComponentB,
     }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntities {
+        entities: Vec<Entity>,
+        another_one: Entity,
+        maybe_entity: Option<Entity>,
+        #[visit_entities(ignore)]
+        something_else: String,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

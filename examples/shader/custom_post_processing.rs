@@ -263,7 +263,7 @@ impl FromWorld for PostProcessPipeline {
 
         let pipeline_id = world
             .resource_mut::<PipelineCache>()
-            // This will add the pipeline to the cache and queue it's creation
+            // This will add the pipeline to the cache and queue its creation
             .queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("post_process_pipeline".into()),
                 layout: vec![layout.clone()],
@@ -282,7 +282,7 @@ impl FromWorld for PostProcessPipeline {
                     })],
                 }),
                 // All of the following properties are not important for this effect so just use the default values.
-                // This struct doesn't have the Default trait implemented because not all field can have a default value.
+                // This struct doesn't have the Default trait implemented because not all fields can have a default value.
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
@@ -342,11 +342,8 @@ fn setup(
         Rotates,
     ));
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 1_000.,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        illuminance: 1_000.,
         ..default()
     });
 }
@@ -365,16 +362,16 @@ fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
 // Change the intensity over time to show that the effect is controlled from the main world
 fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time>) {
     for mut setting in &mut settings {
-        let mut intensity = time.elapsed_seconds().sin();
+        let mut intensity = ops::sin(time.elapsed_seconds());
         // Make it loop periodically
-        intensity = intensity.sin();
+        intensity = ops::sin(intensity);
         // Remap it to 0..1 because the intensity can't be negative
         intensity = intensity * 0.5 + 0.5;
         // Scale it to a more reasonable level
         intensity *= 0.015;
 
         // Set the intensity.
-        // This will then be extracted to the render world and uploaded to the gpu automatically by the [`UniformComponentPlugin`]
+        // This will then be extracted to the render world and uploaded to the GPU automatically by the [`UniformComponentPlugin`]
         setting.intensity = intensity;
     }
 }

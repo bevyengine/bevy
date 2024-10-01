@@ -1,13 +1,17 @@
 mod prepass_bindings;
 
-use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
-use bevy_render::render_resource::binding_types::uniform_buffer;
-use bevy_render::view::WithMesh;
+use bevy_render::{
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    render_resource::binding_types::uniform_buffer,
+    view::WithMesh,
+    world_sync::RenderEntity,
+};
 pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
-use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, prelude::Camera3d};
-use bevy_core_pipeline::{deferred::*, prepass::*};
+use bevy_core_pipeline::{
+    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
+};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -36,7 +40,7 @@ use crate::meshlet::{
 };
 use crate::*;
 
-use std::{hash::Hash, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
@@ -577,10 +581,11 @@ where
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(&RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
+            let entity = entity.id();
             let entity = commands.get_or_spawn(entity);
 
             if let Some(previous_view_data) = maybe_previous_view_data {

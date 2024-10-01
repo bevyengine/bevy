@@ -1,5 +1,6 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
 use crate::ShadowView;
+use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{PreviousViewData, PreviousViewUniforms},
@@ -18,12 +19,8 @@ use bevy_render::{
     view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
+use core::{array, iter, sync::atomic::AtomicBool};
 use encase::internal::WriteInto;
-use std::{
-    array, iter,
-    mem::size_of,
-    sync::{atomic::AtomicBool, Arc},
-};
 
 /// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].
 #[derive(Resource)]
@@ -63,7 +60,7 @@ pub struct ResourceManager {
 impl ResourceManager {
     pub fn new(cluster_buffer_slots: u32, render_device: &RenderDevice) -> Self {
         let needs_dispatch_remap =
-            cluster_buffer_slots < render_device.limits().max_compute_workgroups_per_dimension;
+            cluster_buffer_slots > render_device.limits().max_compute_workgroups_per_dimension;
 
         Self {
             visibility_buffer_raster_clusters: render_device.create_buffer(&BufferDescriptor {
@@ -472,7 +469,7 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_hardware_raster_indirect_args_first"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 64 * 3,
+                    vertex_count: 128 * 3,
                     instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,
@@ -484,7 +481,7 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("visibility_buffer_hardware_raster_indirect_args_second"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 64 * 3,
+                    vertex_count: 128 * 3,
                     instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,

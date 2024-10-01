@@ -3,9 +3,9 @@ use crate::{
     entity::Entity,
     world::World,
 };
-use std::iter::FusedIterator;
+use core::iter::FusedIterator;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
+use core::panic::Location;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.

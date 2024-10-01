@@ -1,27 +1,25 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
     Extract,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::{
+    event::EventReader,
+    system::{Res, ResMut, Resource},
+};
 use bevy_tasks::Task;
-use bevy_utils::hashbrown::hash_map::EntryRef;
 use bevy_utils::{
     default,
+    hashbrown::hash_map::EntryRef,
     tracing::{debug, error},
     HashMap, HashSet,
 };
+use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
-use std::{
-    borrow::Cow,
-    future::Future,
-    hash::Hash,
-    mem,
-    ops::Deref,
-    sync::{Arc, Mutex, PoisonError},
-};
+use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
@@ -29,11 +27,6 @@ use wgpu::{
     DownlevelFlags, Features, PipelineCompilationOptions,
     VertexBufferLayout as RawVertexBufferLayout,
 };
-
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedShaderModule, ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -129,7 +122,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -228,7 +221,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<ErasedShaderModule, PipelineCacheError> {
+    ) -> Result<Arc<WgpuWrapper<ShaderModule>>, PipelineCacheError> {
         let shader = self
             .shaders
             .get(&id)
@@ -341,7 +334,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(ErasedShaderModule::new(shader_module))
+                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
             }
         };
 
@@ -413,7 +406,7 @@ impl ShaderCache {
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
 }
 
 impl LayoutCache {
@@ -422,7 +415,7 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         push_constant_ranges: Vec<PushConstantRange>,
-    ) -> ErasedPipelineLayout {
+    ) -> Arc<WgpuWrapper<PipelineLayout>> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, push_constant_ranges))
@@ -431,13 +424,13 @@ impl LayoutCache {
                     .iter()
                     .map(BindGroupLayout::value)
                     .collect::<Vec<_>>();
-                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
                         ..default()
                     },
-                ))
+                )))
             })
             .clone()
     }
@@ -749,7 +742,7 @@ impl PipelineCache {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     multisample: descriptor.multisample,
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
@@ -817,7 +810,7 @@ impl PipelineCache {
 
                 let descriptor = RawComputePipelineDescriptor {
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: &descriptor.entry_point,
                     // TODO: Expose this somehow

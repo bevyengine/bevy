@@ -27,13 +27,17 @@
 //! }
 //! ```
 
+extern crate alloc;
+
 mod audio;
 mod audio_output;
 mod audio_source;
 mod pitch;
 mod sinks;
 
-#[allow(missing_docs)]
+/// The audio prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[allow(deprecated)]
@@ -48,9 +52,7 @@ pub use audio::*;
 pub use audio_source::*;
 pub use pitch::*;
 
-pub use rodio::cpal::Sample as CpalSample;
-pub use rodio::source::Source;
-pub use rodio::Sample;
+pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;
 
 use bevy_app::prelude::*;

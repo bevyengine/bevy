@@ -23,10 +23,10 @@
 #![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
-use crate::{prelude::*, UiStack};
+use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::hashbrown::HashMap;
@@ -36,8 +36,8 @@ use bevy_picking::backend::prelude::*;
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
-pub struct UiPickingBackend;
-impl Plugin for UiPickingBackend {
+pub struct UiPickingBackendPlugin;
+impl Plugin for UiPickingBackendPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
     }
@@ -139,7 +139,10 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = node.node.logical_rect(node.global_transform);
+        let node_rect = Rect::from_center_size(
+            node.global_transform.translation().truncate(),
+            node.node.size(),
+        );
 
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
         if node_rect.size() == Vec2::ZERO {
@@ -163,6 +166,11 @@ pub fn ui_picking(
             if visible_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
+                && pick_rounded_rect(
+                    *cursor_position - node_rect.center(),
+                    node_rect.size(),
+                    node.node.border_radius,
+                )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))

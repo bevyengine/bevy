@@ -17,10 +17,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     let first_window_camera = commands
         .spawn(Camera3dBundle {
