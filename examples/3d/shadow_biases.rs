@@ -54,25 +54,19 @@ fn setup(
             Lights,
         ))
         .with_children(|builder| {
-            builder.spawn(PointLightBundle {
-                point_light: PointLight {
-                    intensity: 0.0,
-                    range: spawn_plane_depth,
-                    color: Color::WHITE,
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(PointLight {
+                intensity: 0.0,
+                range: spawn_plane_depth,
+                color: Color::WHITE,
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
-            builder.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(DirectionalLight {
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
         });

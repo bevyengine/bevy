@@ -282,7 +282,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_and_type_id_handle(
         &self,
-        path: &AssetPath,
+        path: &AssetPath<'_>,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
         let id = self.path_to_id.get(path)?.get(&type_id)?;
@@ -291,7 +291,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_ids<'a>(
         &'a self,
-        path: &'a AssetPath<'a>,
+        path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedAssetId> + 'a {
         /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
         enum HandlesByPathIterator<T> {
@@ -322,7 +322,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_handles<'a>(
         &'a self,
-        path: &'a AssetPath<'a>,
+        path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedHandle> + 'a {
         self.get_path_ids(path)
             .filter_map(|id| self.get_id_handle(id))

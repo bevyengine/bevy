@@ -93,11 +93,11 @@ impl AssetSaver for MeshletMeshSaverLoader {
     type OutputLoader = Self;
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, MeshletMesh>,
-        _settings: &'a (),
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, MeshletMesh>,
+        _settings: &(),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer
@@ -127,11 +127,11 @@ impl AssetLoader for MeshletMeshSaverLoader {
     type Settings = ();
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
         // Load and check magic number
         let magic = async_read_u64(reader).await?;
