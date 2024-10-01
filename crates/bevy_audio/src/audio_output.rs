@@ -89,8 +89,7 @@ impl<'w, 's> EarPositions<'w, 's> {
 
 /// Plays "queued" audio through the [`AudioOutput`] resource.
 ///
-/// "Queued" audio is any audio entity (with the components from
-/// [`AudioBundle`][crate::AudioBundle] that does not have an
+/// "Queued" audio is any audio entity (with an [`AudioPlayer`] component) that does not have an
 /// [`AudioSink`]/[`SpatialAudioSink`] component.
 ///
 /// This system detects such entities, checks if their source asset
@@ -141,7 +140,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             let emitter_translation = if let Some(emitter_transform) = maybe_emitter_transform {
                 (emitter_transform.translation() * scale).into()
             } else {
-                warn!("Spatial AudioBundle with no GlobalTransform component. Using zero.");
+                warn!("Spatial AudioPlayer with no GlobalTransform component. Using zero.");
                 Vec3::ZERO.into()
             };
 

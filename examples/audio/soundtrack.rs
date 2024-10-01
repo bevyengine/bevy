@@ -72,7 +72,7 @@ fn change_track(
             commands.entity(track).insert(FadeOut);
         }
 
-        // Spawn a new `AudioBundle` with the appropriate soundtrack based on
+        // Spawn a new `AudioPlayer` with the appropriate soundtrack based on
         // the game state.
         //
         // Volume is set to start at zero and is then increased by the fade_in system.
