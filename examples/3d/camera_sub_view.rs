@@ -97,10 +97,16 @@ fn setup(
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to the left half of the full image
-                full_size: UVec2::new(500, 500),
-                offset: IVec2::new(0, 0),
-                size: UVec2::new(250, 500),
+                // Set the sub view camera to the right half of the full image
+                //
+                // The values of `full_size` and `size` do not have to be the
+                // exact values of your physical viewport. The important part is
+                // the ratio between them.
+                full_size: UVec2::new(10, 10),
+                // The `offset` is also relative to the values in `full_size`
+                // and `size`
+                offset: IVec2::new(5, 0),
+                size: UVec2::new(5, 10),
             }),
             order: 1,
             ..default()
@@ -190,10 +196,14 @@ fn setup(
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to the left half of the full image
-                full_size: UVec2::new(500, 500),
+                // Set the sub view camera to the left half of the full image.
+                //
+                // The values of `full_size` and `size` do not have to be the
+                // exact values of your physical viewport. The important part is
+                // the ratio between them.
+                full_size: UVec2::new(2, 2),
                 offset: IVec2::new(0, 0),
-                size: UVec2::new(250, 500),
+                size: UVec2::new(1, 2),
             }),
             order: 5,
             ..default()
