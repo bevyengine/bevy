@@ -573,9 +573,12 @@ impl MeshAllocator {
                     usage: buffer_usages | BufferUsages::COPY_DST,
                     mapped_at_creation: true,
                 });
-                let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
-                fill_data(slice);
-                buffer.unmap();
+                {
+                    let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
+                    fill_data(slice);
+                    buffer.unmap();
+                }
+                large_object_slab.buffer = Some(buffer);
             }
         }
     }
