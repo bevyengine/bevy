@@ -337,11 +337,9 @@ impl World {
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RegisteredSystemError::InvalidParams(id))
-        };
+        let result = system
+            .try_run(input, self)
+            .map_err(|_| RegisteredSystemError::InvalidParams(id));
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.entity) {

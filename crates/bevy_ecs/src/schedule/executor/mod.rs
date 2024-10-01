@@ -140,43 +140,71 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        system::{ReadOnlySystem, System},
+        system::{ReadOnlySystem, RunSystemError, System},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
+    /// Run system without validating params.
+    /// Does not apply deferred parameters.
+    ///
     /// # Safety
-    /// See `System::run_unsafe`.
+    ///
+    /// - System params were validated and no changes in accessed world happened since.
+    /// - Same as [`System::run_unsafe`].
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(
         system: &mut dyn System<In = (), Out = ()>,
         world: UnsafeWorldCell,
     ) {
-        system.run_unsafe((), world);
-        black_box(());
+        black_box(system.run_unsafe((), world));
     }
 
+    /// Run system with param validation.
+    /// Does not apply deferred parameters.
+    /// Returns whether system was executed.
+    ///
     /// # Safety
-    /// See `ReadOnlySystem::run_unsafe`.
+    ///
+    /// - Same as [`System::run_unsafe`].
     #[inline(never)]
-    pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
+    pub(super) unsafe fn try_run_unsafe(
+        system: &mut dyn System<In = (), Out = ()>,
+        world: UnsafeWorldCell,
+    ) {
+        _ = black_box(system.try_run_unsafe((), world));
+    }
+
+    /// Run system with param validation.
+    /// Applies deferred parameters.
+    #[inline(never)]
+    pub(super) fn try_run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
+        _ = black_box(system.try_run((), world));
+    }
+
+    /// Run readonly system with param validation.
+    /// Does not apply deferred parameters.
+    /// Returns [`Some`] if system was executed and [`None`] otherwise.
+    ///
+    /// # Safety
+    ///
+    /// - Same as [`System::run_unsafe`].
+    #[inline(never)]
+    pub(super) unsafe fn try_readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
-    ) -> O {
-        black_box(system.run_unsafe((), world))
+    ) -> Result<O, RunSystemError> {
+        black_box(system.try_run_unsafe((), world))
     }
 
+    /// Run readonly system with param validation.
+    /// Applies deferred parameters.
+    /// Returns [`Some`] if system was executed and [`None`] otherwise.
     #[inline(never)]
-    pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
-        system.run((), world);
-        black_box(());
-    }
-
-    #[inline(never)]
-    pub(super) fn readonly_run<O: 'static>(
+    pub(super) fn try_readonly_run<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
-    ) -> O {
-        black_box(system.run((), world))
+    ) -> Result<O, RunSystemError> {
+        black_box(system.try_run((), world))
     }
 }
 

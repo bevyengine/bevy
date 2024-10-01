@@ -567,6 +567,7 @@ impl ExecutorState {
 
         should_run &= system_conditions_met;
 
+        // Check param validity here to prevent system task from spawning.
         if should_run {
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
@@ -646,11 +647,16 @@ impl ExecutorState {
             context.scope.spawn_on_scope(task);
         } else {
             let task = async move {
-                // SAFETY: `can_run` returned true for this system, which means
-                // that no other systems currently have access to the world.
-                let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    // SAFETY:
+                    // - The caller ensures that we have permission to access the entire world.
+                    // - `update_archetype_component_access` has been called.
+                    unsafe {
+                        __rust_begin_short_backtrace::run_unsafe(
+                            &mut **system,
+                            context.environment.world_cell,
+                        )
+                    };
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -748,14 +754,10 @@ unsafe fn evaluate_and_fold_conditions(
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
-            if !unsafe { condition.validate_param_unsafe(world) } {
-                return false;
+            unsafe {
+                __rust_begin_short_backtrace::try_readonly_run_unsafe(&mut **condition, world)
             }
-            // SAFETY:
-            // - The caller ensures that `world` has permission to read any data
-            //   required by the condition.
-            // - `update_archetype_component_access` has been called for condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
+            .unwrap_or(false)
         })
         .fold(true, |acc, res| acc && res)
 }
