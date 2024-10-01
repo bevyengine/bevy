@@ -147,14 +147,13 @@ fn spawn_coated_glass_bubble_sphere(
 /// This object is in glTF format, using the `KHR_materials_clearcoat`
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
-            transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
-        .insert(ExampleSphere);
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
+        ),
+        Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ExampleSphere,
+    ));
 }
 
 /// Spawns an object with only a clearcoat normal map (a scratch pattern) and no

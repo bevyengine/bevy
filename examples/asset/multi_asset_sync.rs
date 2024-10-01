@@ -265,11 +265,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn(SceneBundle {
-                scene,
-                transform: Transform::from_translation(position),
-                ..Default::default()
-            });
+            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
         }
     }
 }

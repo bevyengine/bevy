@@ -227,10 +227,7 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
-    commands.spawn(SceneBundle {
-        scene: assets.main_scene.clone(),
-        ..SceneBundle::default()
-    });
+    commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
@@ -292,14 +289,12 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SceneBundle {
-            scene: assets.fox.clone(),
-            visibility: Visibility::Hidden,
-            transform: Transform::from_scale(Vec3::splat(FOX_SCALE)),
-            ..default()
-        })
-        .insert(MainObject);
+    commands.spawn((
+        SceneRoot(assets.fox.clone()),
+        Visibility::Hidden,
+        Transform::from_scale(Vec3::splat(FOX_SCALE)),
+        MainObject,
+    ));
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
@@ -390,9 +385,9 @@ fn change_main_object(
     mut app_status: ResMut<AppStatus>,
     mut sphere_query: Query<
         &mut Visibility,
-        (With<MainObject>, With<Handle<Mesh>>, Without<Handle<Scene>>),
+        (With<MainObject>, With<Handle<Mesh>>, Without<SceneRoot>),
     >,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;

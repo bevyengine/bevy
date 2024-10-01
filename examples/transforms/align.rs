@@ -82,11 +82,10 @@ fn setup(
 
     // Finally, our ship that is going to rotate
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
-            ..default()
-        },
+        ),
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()

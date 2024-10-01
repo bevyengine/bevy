@@ -172,13 +172,12 @@ fn setup(
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn(SceneBundle {
-                    scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x, 0.0, z)
+                builder.spawn((
+                    SceneRoot(fox_handle.clone()),
+                    Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                    ..default()
-                });
+                ));
             });
         }
 

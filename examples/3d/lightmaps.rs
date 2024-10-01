@@ -12,11 +12,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+    )));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-278.0, 273.0, 800.0),

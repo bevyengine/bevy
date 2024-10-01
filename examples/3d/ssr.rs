@@ -164,15 +164,15 @@ fn spawn_cube(
 
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
+    commands.spawn((
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            transform: Transform::from_scale(Vec3::splat(2.5)),
-            ..default()
-        })
-        .insert(FlightHelmetModel)
-        .insert(Visibility::Hidden);
+        ),
+        Transform::from_scale(Vec3::splat(2.5)),
+        FlightHelmetModel,
+        Visibility::Hidden,
+    ));
 }
 
 // Spawns the water plane.

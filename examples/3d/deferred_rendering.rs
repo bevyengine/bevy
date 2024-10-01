@@ -85,15 +85,11 @@ fn setup(
     let helmet_scene = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneBundle {
-        scene: helmet_scene.clone(),
-        ..default()
-    });
-    commands.spawn(SceneBundle {
-        scene: helmet_scene,
-        transform: Transform::from_xyz(-4.0, 0.0, -3.0),
-        ..default()
-    });
+    commands.spawn(SceneRoot(helmet_scene.clone()));
+    commands.spawn((
+        SceneRoot(helmet_scene),
+        Transform::from_xyz(-4.0, 0.0, -3.0),
+    ));
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;

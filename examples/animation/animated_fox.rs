@@ -81,10 +81,9 @@ fn setup(
     ));
 
     // Fox
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");

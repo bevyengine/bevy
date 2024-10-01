@@ -19,10 +19,7 @@ use serde::Serialize;
 /// Each dynamic entity in the collection contains its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
-/// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
-/// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
-///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
-///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+/// * adding the [`DynamicSceneRoot`](crate::components::DynamicSceneRoot) component to an entity.
 /// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {

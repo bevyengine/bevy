@@ -83,13 +83,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         .build(),
     ));
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),
-        transform: Transform {
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb"),
+        )),
+        Transform {
             rotation: Quat::from_rotation_y(-90.0 / 180.0 * PI),
             ..default()
         },
-        ..default()
-    });
+    ));
 }

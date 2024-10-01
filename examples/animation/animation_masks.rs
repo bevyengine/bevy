@@ -118,11 +118,12 @@ fn setup_scene(
     ));
 
     // Spawn the fox.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_scale(Vec3::splat(0.07)),
+    ));
 
     // Spawn the ground.
     commands.spawn(PbrBundle {
