@@ -7,7 +7,6 @@
 //!   camera
 //! - Rapidly change the sub view offset to get a screen shake effect
 use bevy::{
-    math::{ivec2, uvec2},
     prelude::*,
     render::camera::{ScalingMode, SubCameraView, Viewport},
 };
@@ -93,15 +92,15 @@ fn setup(
     commands.spawn(Camera3dBundle {
         camera: Camera {
             viewport: Option::from(Viewport {
-                physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                physical_position: uvec2(PADDING, PADDING),
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING, PADDING),
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
                 // Set the sub view camera to the left half of the full image
-                full_size: uvec2(500, 500),
-                offset: ivec2(0, 0),
-                size: uvec2(250, 500),
+                full_size: UVec2::new(500, 500),
+                offset: IVec2::new(0, 0),
+                size: UVec2::new(250, 500),
             }),
             order: 1,
             ..default()
@@ -115,16 +114,16 @@ fn setup(
         Camera3dBundle {
             camera: Camera {
                 viewport: Option::from(Viewport {
-                    physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                    physical_position: uvec2(PADDING * 2 + SMALL_SIZE, PADDING),
+                    physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                    physical_position: UVec2::new(PADDING * 2 + SMALL_SIZE, PADDING),
                     ..default()
                 }),
                 sub_camera_view: Some(SubCameraView {
                     // Set the sub view camera to a fifth of the full view and
                     // move it in another system
-                    full_size: uvec2(500, 500),
-                    offset: ivec2(0, 0),
-                    size: uvec2(100, 100),
+                    full_size: UVec2::new(500, 500),
+                    offset: IVec2::new(0, 0),
+                    size: UVec2::new(100, 100),
                 }),
                 order: 2,
                 ..default()
@@ -139,16 +138,16 @@ fn setup(
     commands.spawn(Camera3dBundle {
         camera: Camera {
             viewport: Option::from(Viewport {
-                physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                physical_position: uvec2(PADDING * 3 + SMALL_SIZE * 2, PADDING),
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING * 3 + SMALL_SIZE * 2, PADDING),
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
                 // Set the sub view to the full image, to ensure that it matches
                 // the projection without sub view
-                full_size: uvec2(450, 450),
-                offset: ivec2(0, 0),
-                size: uvec2(450, 450),
+                full_size: UVec2::new(450, 450),
+                offset: IVec2::new(0, 0),
+                size: UVec2::new(450, 450),
             }),
             order: 3,
             ..default()
@@ -186,15 +185,15 @@ fn setup(
         .into(),
         camera: Camera {
             viewport: Option::from(Viewport {
-                physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                physical_position: uvec2(PADDING * 5 + SMALL_SIZE * 4, PADDING),
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING * 5 + SMALL_SIZE * 4, PADDING),
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
                 // Set the sub view camera to the left half of the full image
-                full_size: uvec2(500, 500),
-                offset: ivec2(0, 0),
-                size: uvec2(250, 500),
+                full_size: UVec2::new(500, 500),
+                offset: IVec2::new(0, 0),
+                size: UVec2::new(250, 500),
             }),
             order: 5,
             ..default()
@@ -213,16 +212,16 @@ fn setup(
             .into(),
             camera: Camera {
                 viewport: Option::from(Viewport {
-                    physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                    physical_position: uvec2(PADDING * 6 + SMALL_SIZE * 5, PADDING),
+                    physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                    physical_position: UVec2::new(PADDING * 6 + SMALL_SIZE * 5, PADDING),
                     ..default()
                 }),
                 sub_camera_view: Some(SubCameraView {
                     // Set the sub view camera to a fifth of the full view and
                     // move it in another system
-                    full_size: uvec2(500, 500),
-                    offset: ivec2(0, 0),
-                    size: uvec2(100, 100),
+                    full_size: UVec2::new(500, 500),
+                    offset: IVec2::new(0, 0),
+                    size: UVec2::new(100, 100),
                 }),
                 order: 6,
                 ..default()
@@ -242,16 +241,16 @@ fn setup(
         .into(),
         camera: Camera {
             viewport: Option::from(Viewport {
-                physical_size: uvec2(SMALL_SIZE, SMALL_SIZE),
-                physical_position: uvec2(PADDING * 7 + SMALL_SIZE * 6, PADDING),
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING * 7 + SMALL_SIZE * 6, PADDING),
                 ..default()
             }),
             sub_camera_view: Some(SubCameraView {
                 // Set the sub view to the full image, to ensure that it matches
                 // the projection without sub view
-                full_size: uvec2(450, 450),
-                offset: ivec2(0, 0),
-                size: uvec2(450, 450),
+                full_size: UVec2::new(450, 450),
+                offset: IVec2::new(0, 0),
+                size: UVec2::new(450, 450),
             }),
             order: 7,
             ..default()
