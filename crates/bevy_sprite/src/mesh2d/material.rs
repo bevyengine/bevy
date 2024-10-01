@@ -57,10 +57,10 @@ use super::ColorMaterial;
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::{Material2d, Mesh2d, MeshMaterial2d};
+/// # use bevy_sprite::{Material2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{mesh::Mesh, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
