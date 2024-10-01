@@ -1,7 +1,7 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::{prelude::*, text::BreakLineOn, window::WindowResolution, winit::WinitSettings};
+use bevy::{prelude::*, text::LineBreak, window::WindowResolution, winit::WinitSettings};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
@@ -64,11 +64,11 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .id();
 
-    for linebreak_behavior in [
-        BreakLineOn::AnyCharacter,
-        BreakLineOn::WordBoundary,
-        BreakLineOn::WordOrCharacter,
-        BreakLineOn::NoWrap,
+    for linebreak in [
+        LineBreak::AnyCharacter,
+        LineBreak::WordBoundary,
+        LineBreak::WordOrCharacter,
+        LineBreak::NoWrap,
     ] {
         let row_id = commands
             .spawn(NodeBundle {
@@ -112,7 +112,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             let messages = [
                 format!("JustifyContent::{justification:?}"),
-                format!("LineBreakOn::{linebreak_behavior:?}"),
+                format!("LineBreakOn::{linebreak:?}"),
                 "Line 1\nLine 2".to_string(),
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(),
                 "pneumonoultramicroscopicsilicovolcanoconiosis".to_string()
@@ -125,7 +125,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         style: text_style.clone(),
                     }],
                     justify: JustifyText::Left,
-                    linebreak_behavior,
+                    linebreak,
                     ..default()
                 };
                 let text_id = commands
