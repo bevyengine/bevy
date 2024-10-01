@@ -18,7 +18,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 #[derive(Bundle, Clone, Debug, Default)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `SpriteImage` component instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `SpriteTexture` component instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
