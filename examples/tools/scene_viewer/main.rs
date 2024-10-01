@@ -153,10 +153,10 @@ fn setup_scene_after_load(
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
             info!("Spawning a directional light");
-            commands.spawn(DirectionalLightBundle {
-                transform: Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-                ..default()
-            });
+            commands.spawn((
+                DirectionalLight::default(),
+                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ));
 
             scene_handle.has_light = true;
         }

@@ -314,33 +314,29 @@ fn setup(
 
         // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
-            PointLightBundle {
-                point_light: PointLight {
-                    range: 4.0,
-                    radius: 0.6,
-                    intensity: 1.0,
-                    shadows_enabled: false,
-                    color: Color::LinearRgba(INSIDE_POINT_COLOR),
-                    ..default()
-                },
-                transform: Transform::from_translation(*translation),
+            PointLight {
+                range: 4.0,
+                radius: 0.6,
+                intensity: 1.0,
+                shadows_enabled: false,
+                color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
+            Transform::from_translation(*translation),
             FireflyLights,
         ));
     }
 
     // Global light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             color: SKY_COLOR,
             intensity: 2_000.0,
             shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
     commands.spawn((

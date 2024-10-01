@@ -31,7 +31,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Tick,
+        Components, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -287,6 +287,245 @@ impl World {
         self.components.get_hooks_mut(id)
     }
 
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
+    ///
+    /// For the non-panicking version, see [`World::try_register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B as required by A and C as required by B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components::<B, C>();
+    ///
+    /// // This will implicitly also insert B and C with their Default constructors.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn register_required_components<T: Component, R: Component + Default>(&mut self) {
+        self.try_register_required_components::<T, R>().unwrap();
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    ///
+    /// For the non-panicking version, see [`World::try_register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components_with::<B, C>(|| C(1));
+    /// world.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// // This will implicitly also insert B with its Default constructor and C
+    /// // with the custom constructor defined by A.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) {
+        self.try_register_required_components_with::<T, R>(constructor)
+            .unwrap();
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
+    ///
+    /// For the panicking version, see [`World::register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B as required by A and C as required by B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components::<B, C>();
+    ///
+    /// // Duplicate registration! This will fail.
+    /// assert!(world.try_register_required_components::<A, B>().is_err());
+    ///
+    /// // This will implicitly also insert B and C with their Default constructors.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn try_register_required_components<T: Component, R: Component + Default>(
+        &mut self,
+    ) -> Result<(), RequiredComponentsError> {
+        self.try_register_required_components_with::<T, R>(R::default)
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    ///
+    /// For the panicking version, see [`World::register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut world = World::default();
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// world.register_required_components::<A, B>();
+    /// world.register_required_components_with::<B, C>(|| C(1));
+    /// world.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// // Duplicate registration! Even if the constructors were different, this would fail.
+    /// assert!(world.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    ///
+    /// // This will implicitly also insert B with its Default constructor and C
+    /// // with the custom constructor defined by A.
+    /// let id = world.spawn(A).id();
+    /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+    /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
+    /// ```
+    pub fn try_register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        let requiree = self.register_component::<T>();
+
+        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        if self.archetypes().component_index().contains_key(&requiree) {
+            return Err(RequiredComponentsError::ArchetypeExists(requiree));
+        }
+
+        let required = self.register_component::<R>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components
+                .register_required_components::<R>(required, requiree, constructor)
+        }
+    }
+
+    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
+    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+        let id = self.components().component_id::<C>()?;
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
+    }
+
+    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
+        let component_info = self.components().get_info(id)?;
+        Some(component_info.required_components())
+    }
+
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     ///
     /// This method differs from [`World::register_component`] in that it uses a [`ComponentDescriptor`]
@@ -332,6 +571,26 @@ impl World {
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.components.component_id::<T>()
+    }
+
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// The [`Resource`] doesn't have a value in the [`World`], it's only registered. If you want
+    /// to insert the [`Resource`] in the [`World`], use [`World::init_resource`] or
+    /// [`World::insert_resource`] instead.
+    pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
+        self.components.register_resource::<R>()
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned [`ComponentId`] is specific to the [`World`] instance it was retrieved from
+    /// and should not be used with another [`World`] instance.
+    ///
+    /// Returns [`None`] if the [`Resource`] type has not yet been initialized within the
+    /// [`World`] using [`World::register_resource`], [`World::init_resource`] or [`World::insert_resource`].
+    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.components.get_resource_id(TypeId::of::<T>())
     }
 
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
@@ -921,7 +1180,8 @@ impl World {
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
     /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
-    /// retrieve its id.
+    /// retrieve its id. In case large batches of entities need to be spawned, consider using
+    /// [`World::spawn_batch`] instead.
     ///
     /// ```
     /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
@@ -1018,9 +1278,9 @@ impl World {
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
     /// [`Bundle`] iterator and returns a corresponding [`Entity`] iterator.
-    /// This is more efficient than spawning entities and adding components to them individually,
-    /// but it is limited to spawning entities with the same [`Bundle`] type, whereas spawning
-    /// individually is more flexible.
+    /// This is more efficient than spawning entities and adding components to them individually
+    /// using [`World::spawn`], but it is limited to spawning entities with the same [`Bundle`]
+    /// type, whereas spawning individually is more flexible.
     ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
@@ -1316,6 +1576,23 @@ impl World {
             .into_iter()
             .flatten()
             .map(Into::into)
+    }
+
+    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// advanced use cases.
+    ///
+    /// # Note
+    ///
+    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_resource_by_id`].
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.components
+            .register_resource_with_descriptor(descriptor)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -2215,16 +2492,13 @@ impl World {
         }
     }
 
-    /// Flushes queued entities and calls [`World::flush_commands`].
-    #[inline]
-    pub fn flush(&mut self) {
-        self.flush_entities();
-        self.flush_commands();
-    }
-
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
-    pub fn flush_commands(&mut self) {
+    ///
+    /// # Panics
+    /// This will panic if any of the queued commands are [`spawn`](Commands::spawn).
+    /// If this is possible, you should instead use [`flush`](Self::flush).
+    pub(crate) fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
             // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
@@ -2234,6 +2508,15 @@ impl World {
                     .apply_or_drop_queued(Some(self.into()));
             };
         }
+    }
+
+    /// Flushes queued entities and commands.
+    ///
+    /// Queued entities will be spawned, and then commands will be applied.
+    #[inline]
+    pub fn flush(&mut self) {
+        self.flush_entities();
+        self.flush_commands();
     }
 
     /// Increments the world's current change tick and returns the old value.
@@ -3244,6 +3527,39 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_resource() {
+        let mut world = World::new();
+
+        let descriptor = ComponentDescriptor::new_resource::<TestResource>();
+
+        let component_id = world.register_resource_with_descriptor(descriptor);
+
+        let value = 0;
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: value is valid for the layout of `TestResource`
+            unsafe {
+                world.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    panic::Location::caller(),
+                );
+            }
+        });
+
+        // SAFETY: We know that the resource is of type `TestResource`
+        let resource = unsafe {
+            world
+                .get_resource_by_id(component_id)
+                .unwrap()
+                .deref::<TestResource>()
+        };
+        assert_eq!(resource.0, 0);
+
+        assert!(world.remove_resource_by_id(component_id).is_some());
+    }
+
+    #[test]
     fn custom_resource_with_layout() {
         static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
 
@@ -3263,7 +3579,7 @@ mod tests {
             )
         };
 
-        let component_id = world.register_component_with_descriptor(descriptor);
+        let component_id = world.register_resource_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {

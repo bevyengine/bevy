@@ -18,6 +18,7 @@ mod entity_commands;
 mod from_world;
 mod map_entities;
 mod resource;
+mod visit_entities;
 
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
@@ -25,6 +26,7 @@ pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::{ReflectMapEntities, ReflectMapEntitiesResource};
 pub use resource::{ReflectResource, ReflectResourceFns};
+pub use visit_entities::{ReflectVisitEntities, ReflectVisitEntitiesMut};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

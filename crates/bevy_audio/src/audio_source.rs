@@ -42,11 +42,11 @@ impl AssetLoader for AudioLoader {
     type Settings = ();
     type Error = std::io::Error;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<AudioSource, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -111,7 +111,7 @@ pub trait AddAudioSource {
     /// so that it can be converted to a [`rodio::Source`] type,
     /// and [`Asset`], so that it can be registered as an asset.
     /// To use this method on [`App`][bevy_app::App],
-    /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.    
+    /// the [audio][super::AudioPlugin] and [asset][bevy_asset::AssetPlugin] plugins must be added first.
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
         T: Decodable + Asset,
