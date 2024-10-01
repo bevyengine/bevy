@@ -13,8 +13,11 @@ use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
-use rand::Rng;
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
+const INTENSITY: f32 = 10.0;
+const DURATION: f32 = 1.0;
 
 #[derive(Component)]
 struct Player;
@@ -114,7 +117,7 @@ fn trigger_shake_on_space(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         // Start the screen shake with intensity 10.0 for 1 second
-        screen_shake.start_shake(10.0, 1.0);
+        screen_shake.start_shake(INTENSITY, DURATION);
     }
 }
 
@@ -135,8 +138,7 @@ fn screen_shake(
     let total_duration = screen_shake.timer.duration().as_secs_f32();
     let shake_progress = elapsed / total_duration;
 
-    // Apply random offset for shaking effect, scaled by remaining shake intensity
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha8Rng::from_entropy();
     let shake_amount = screen_shake.intensity * (1.0 - shake_progress);
 
     // Check if shake_amount is greater than zero to prevent invalid range error
