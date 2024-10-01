@@ -25,7 +25,7 @@ use smallvec::SmallVec;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug, VisitEntitiesMut)]
+#[derive(Component, Debug, VisitEntitiesMut, Clone)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "reflect",
