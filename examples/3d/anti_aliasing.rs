@@ -148,7 +148,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .insert(TaaComponents::default());
+            .insert(TemporalAntiAliasing::default());
     }
 }
 

@@ -26,8 +26,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             camera: Camera {
                 hdr: true,
                 ..default()
@@ -35,9 +35,10 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
             msaa: Msaa::Off,
             ..default()
-        })
-        .insert(ScreenSpaceAmbientOcclusion::default())
-        .insert(TemporalAntiAliasing::default());
+        },
+        ScreenSpaceAmbientOcclusion::default(),
+        TemporalAntiAliasing::default(),
+    ));
 
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.5, 0.5, 0.5),
