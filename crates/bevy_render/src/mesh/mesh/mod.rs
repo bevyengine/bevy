@@ -467,7 +467,7 @@ impl Mesh {
     /// the length of the smallest.
     ///
     /// This is a convenience method which allocates a Vec.
-    /// Prefer pre-allocating and using [`write_packed_vertex_buffer_data`] when possible.
+    /// Prefer pre-allocating and using [`Mesh::write_packed_vertex_buffer_data`] when possible.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
         let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
         self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
