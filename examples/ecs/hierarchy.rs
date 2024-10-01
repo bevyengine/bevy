@@ -2,7 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{color::palettes::css::*, prelude::*, sprite::SpriteTexture};
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -14,27 +14,25 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    let texture: SpriteTexture = asset_server.load("branding/icon.png").into();
+    let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent
     let parent = commands
-        .spawn(SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(0.75)),
-            texture: texture.clone(),
-            ..default()
-        })
+        .spawn((
+            SpriteTexture(texture.clone()),
+            Transform::from_scale(Vec3::splat(0.75)),
+        ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
-            parent.spawn(SpriteBundle {
-                transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
-                texture: texture.clone(),
-                sprite: Sprite {
+            parent.spawn((
+                SpriteTexture(texture.clone()),
+                Sprite {
                     color: BLUE.into(),
                     ..default()
                 },
-                ..default()
-            });
+                Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
+            ));
         })
         // Store parent entity for next sections
         .id();
@@ -42,15 +40,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Another way is to use the add_child function to add children after the parent
     // entity has already been spawned.
     let child = commands
-        .spawn(SpriteBundle {
-            transform: Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
-            texture,
-            sprite: Sprite {
+        .spawn((
+            SpriteTexture(texture),
+            Sprite {
                 color: LIME.into(),
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
+        ))
         .id();
 
     // Add child to the parent.

@@ -191,7 +191,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite
     ///     commands.spawn((
-    ///         SpriteBundle { texture, ..Default::default() },
+    ///         SpriteTexture(texture),
     ///         TextureAtlas::from(layout),
     ///     ));
     /// }

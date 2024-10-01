@@ -57,35 +57,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                 // spawn black square behind sprite to show anchor point
                 commands
-                    .spawn(SpriteBundle {
-                        sprite: Sprite {
+                    .spawn((
+                        SpriteTexture::default(),
+                        Sprite {
                             custom_size: sprite_size,
                             color: Color::BLACK,
                             ..default()
                         },
-                        transform: Transform::from_xyz(i * len - len, j * len - len, -1.0),
-                        ..default()
-                    })
+                        Transform::from_xyz(i * len - len, j * len - len, -1.0),
+                    ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
                     .observe(recolor_on::<Pointer<Down>>(Color::srgb(1.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Up>>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
-                    .spawn(SpriteBundle {
-                        sprite: Sprite {
+                    .spawn((
+                        SpriteTexture(asset_server.load("branding/bevy_bird_dark.png")),
+                        Sprite {
                             custom_size: sprite_size,
                             color: Color::srgb(1.0, 0.0, 0.0),
                             anchor: anchor.to_owned(),
                             ..default()
                         },
-                        texture: asset_server.load("branding/bevy_bird_dark.png").into(),
-                        // 3x3 grid of anchor examples by changing transform
-                        transform: Transform::from_xyz(i * len - len, j * len - len, 0.0)
+                        Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
                             .with_rotation(Quat::from_rotation_z((j - 1.0) * 0.2)),
-                        ..default()
-                    })
+                    ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
                     .observe(recolor_on::<Pointer<Down>>(Color::srgb(0.0, 0.0, 1.0)))
@@ -135,11 +133,8 @@ fn setup_atlas(
                 layout: texture_atlas_layout_handle,
                 index: animation_indices.first,
             },
-            SpriteBundle {
-                texture: texture_handle.into(),
-                transform: Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
-                ..default()
-            },
+            SpriteTexture(texture_handle),
+            Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
             animation_indices,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         ))

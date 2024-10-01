@@ -82,18 +82,15 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
-                SpriteBundle {
-                    texture: texture_handle.clone().into(),
-                    transform: Transform {
-                        translation,
-                        rotation,
-                        scale,
-                    },
-                    sprite: Sprite {
-                        custom_size: Some(tile_size),
-                        ..default()
-                    },
+                SpriteTexture(texture_handle.clone()),
+                Sprite {
+                    custom_size: Some(tile_size),
                     ..default()
+                },
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
                 },
                 TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),

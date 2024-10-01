@@ -16,11 +16,8 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..128 {
         commands.spawn((
-            SpriteBundle {
-                texture: texture.clone().into(),
-                transform: Transform::from_scale(Vec3::splat(0.1)),
-                ..default()
-            },
+            SpriteTexture(texture.clone()),
+            Transform::from_scale(Vec3::splat(0.1)),
             Velocity(20.0 * Vec2::new(rng.gen::<f32>() - 0.5, rng.gen::<f32>() - 0.5)),
         ));
     }

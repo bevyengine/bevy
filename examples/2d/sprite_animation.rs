@@ -104,12 +104,8 @@ fn setup(
 
     // create the first (left-hand) sprite
     commands.spawn((
-        SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(6.0))
-                .with_translation(Vec3::new(-50.0, 0.0, 0.0)),
-            texture: texture.clone().into(),
-            ..default()
-        },
+        SpriteTexture(texture.clone()),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-50.0, 0.0, 0.0)),
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
             index: animation_config_1.first_sprite_index,
@@ -123,12 +119,8 @@ fn setup(
 
     // create the second (right-hand) sprite
     commands.spawn((
-        SpriteBundle {
-            transform: Transform::from_scale(Vec3::splat(6.0))
-                .with_translation(Vec3::new(50.0, 0.0, 0.0)),
-            texture: texture.clone().into(),
-            ..default()
-        },
+        SpriteTexture(texture),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(50.0, 0.0, 0.0)),
         TextureAtlas {
             layout: texture_atlas_layout.clone(),
             index: animation_config_2.first_sprite_index,

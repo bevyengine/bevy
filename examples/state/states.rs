@@ -120,10 +120,7 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(SpriteTexture(asset_server.load("branding/icon.png")));
 }
 
 const SPEED: f32 = 100.0;
