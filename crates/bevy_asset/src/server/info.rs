@@ -181,12 +181,12 @@ impl AssetInfos {
             loading_mode,
             meta_transform,
         );
-        // it is ok to unwrap because TypeId was specified above
         let type_info = match type_name {
             Some(type_name) => Either::Left(type_name),
             None => Either::Right(type_id),
         };
-        unwrap_with_context(result, type_info).unwrap()
+        unwrap_with_context(result, type_info)
+            .expect("type should be correct since the `TypeId` is specified above")
     }
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.

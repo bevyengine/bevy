@@ -29,7 +29,7 @@ impl ReaderRef<'_> {
 ///
 /// # Loader state
 ///
-/// The type parameters `T` and `M` determine how this loader will load assets:
+/// The type parameters `T` and `M` determine how this will load assets:
 /// - `T`: the typing of this loader. How do we know what type of asset to load?
 ///
 ///   See [`StaticTyped`] (the default), [`DynamicTyped`], and [`UnknownTyped`].
@@ -132,9 +132,7 @@ mod sealed {
 /// [`load`].
 ///
 /// [`load`]: NestedLoader::load
-pub struct StaticTyped {
-    _priv: (),
-}
+pub struct StaticTyped(());
 
 impl sealed::Typing for StaticTyped {}
 
@@ -147,17 +145,13 @@ pub struct DynamicTyped {
 impl sealed::Typing for DynamicTyped {}
 
 /// [`NestedLoader`] does not know what type of asset it will be loading.
-pub struct UnknownTyped {
-    _priv: (),
-}
+pub struct UnknownTyped(());
 
 impl sealed::Typing for UnknownTyped {}
 
 /// [`NestedLoader`] will create and return asset handles immediately, but only
 /// actually load the asset later.
-pub struct Deferred {
-    _priv: (),
-}
+pub struct Deferred(());
 
 impl sealed::Mode for Deferred {}
 
@@ -175,8 +169,8 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder, StaticTyped, Deferred> {
         NestedLoader {
             load_context,
             meta_transform: None,
-            typing: StaticTyped { _priv: () },
-            mode: Deferred { _priv: () },
+            typing: StaticTyped(()),
+            mode: Deferred(()),
         }
     }
 }
@@ -225,7 +219,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: StaticTyped { _priv: () },
+            typing: StaticTyped(()),
             mode: self.mode,
         }
     }
@@ -256,14 +250,14 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
         NestedLoader {
             load_context: self.load_context,
             meta_transform: self.meta_transform,
-            typing: UnknownTyped { _priv: () },
+            typing: UnknownTyped(()),
             mode: self.mode,
         }
     }
 
     // convert between `M`s
 
-    /// When [`load`]ing, create only asset handles, rather than loading the
+    /// When [`load`]ing, create only asset handles, rather than returning the
     /// actual asset.
     ///
     /// [`load`]: Self::load
@@ -272,7 +266,7 @@ impl<'ctx, 'builder, T: sealed::Typing, M: sealed::Mode> NestedLoader<'ctx, 'bui
             load_context: self.load_context,
             meta_transform: self.meta_transform,
             typing: self.typing,
-            mode: Deferred { _priv: () },
+            mode: Deferred(()),
         }
     }
 
