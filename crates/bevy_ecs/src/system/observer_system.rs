@@ -1,7 +1,6 @@
-use std::{
-    marker::PhantomData,
-    sync::{Arc, Mutex},
-};
+use alloc::sync::Arc;
+use core::marker::PhantomData;
+use std::sync::Mutex;
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -93,7 +92,7 @@ impl<E: Event, B: Bundle, S: System<In = (), Out = ()>> System
     type In = Trigger<'static, E, B>;
     type Out = ();
 
-    fn name(&self) -> std::borrow::Cow<'static, str> {
+    fn name(&self) -> alloc::borrow::Cow<'static, str> {
         self.system.lock().unwrap().name()
     }
 
