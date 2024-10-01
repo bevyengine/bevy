@@ -30,8 +30,8 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        extract_mesh2d, DrawMesh2d, HasMaterial2d, Material2dBindGroupId, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup,
     },
 };
@@ -118,8 +118,10 @@ fn star(
     commands.spawn(Camera2dBundle::default());
 }
 
+// Require `HasMaterial2d` to indicate that no placeholder material should be rendeed.
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
+#[require(HasMaterial2d)]
 pub struct ColoredMesh2d;
 
 /// Custom pipeline for 2d meshes with vertex colors
