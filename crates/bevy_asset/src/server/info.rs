@@ -10,6 +10,7 @@ use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
 use core::any::TypeId;
 use crossbeam_channel::Sender;
+use either::Either;
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -103,7 +104,7 @@ impl AssetInfos {
                 None,
                 true,
             ),
-            type_name,
+            Either::Left(type_name),
         )
         .unwrap()
     }
@@ -162,15 +163,15 @@ impl AssetInfos {
         );
         // it is ok to unwrap because TypeId was specified above
         let (handle, should_load) =
-            unwrap_with_context(result, core::any::type_name::<A>()).unwrap();
+            unwrap_with_context(result, Either::Left(core::any::type_name::<A>())).unwrap();
         (handle.typed_unchecked(), should_load)
     }
 
-    pub(crate) fn get_or_create_path_handle_untyped(
+    pub(crate) fn get_or_create_path_handle_erased(
         &mut self,
         path: AssetPath<'static>,
         type_id: TypeId,
-        type_name: &'static str,
+        type_name: Option<&str>,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
@@ -180,8 +181,12 @@ impl AssetInfos {
             loading_mode,
             meta_transform,
         );
-        // it is ok to unwrap because TypeId was specified above
-        unwrap_with_context(result, type_name).unwrap()
+        let type_info = match type_name {
+            Some(type_name) => Either::Left(type_name),
+            None => Either::Right(type_id),
+        };
+        unwrap_with_context(result, type_info)
+            .expect("type should be correct since the `TypeId` is specified above")
     }
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.
@@ -765,14 +770,20 @@ pub(crate) enum GetOrCreateHandleInternalError {
 
 pub(crate) fn unwrap_with_context<T>(
     result: Result<T, GetOrCreateHandleInternalError>,
-    type_name: &'static str,
+    type_info: Either<&str, TypeId>,
 ) -> Option<T> {
     match result {
         Ok(value) => Some(value),
         Err(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified) => None,
-        Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => {
-            panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
-                    Make sure you have called app.init_asset::<{type_name}>()")
-        }
+        Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => match type_info {
+            Either::Left(type_name) => {
+                panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<{type_name}>()`");
+            }
+            Either::Right(type_id) => {
+                panic!("Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<(actual asset type)>()`")
+            }
+        },
     }
 }
