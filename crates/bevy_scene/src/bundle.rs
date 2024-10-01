@@ -19,7 +19,7 @@ use crate::{DynamicSceneRoot, InstanceId, SceneRoot, SceneSpawner};
 #[derive(Component, Deref, DerefMut)]
 pub struct SceneInstance(pub(crate) InstanceId);
 
-/// A component bundle for a [`Scene`] root.
+/// A component bundle for a [`Scene`](crate::Scene) root.
 ///
 /// The scene from `scene` will be spawned as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
@@ -47,7 +47,7 @@ pub struct SceneBundle {
     pub view_visibility: ViewVisibility,
 }
 
-/// A component bundle for a [`DynamicScene`] root.
+/// A component bundle for a [`DynamicScene`](crate::DynamicScene) root.
 ///
 /// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.

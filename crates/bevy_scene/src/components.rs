@@ -10,7 +10,7 @@ use bevy_render::view::visibility::Visibility;
 use crate::{DynamicScene, Scene};
 
 /// Adding this component will spawn the scene as a child of that entity.
-/// Once it's spawned, the entity will have a [`SceneInstance`] component.
+/// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[require(Transform)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
@@ -23,7 +23,7 @@ impl From<Handle<Scene>> for SceneRoot {
 }
 
 /// Adding this component will spawn the scene as a child of that entity.
-/// Once it's spawned, the entity will have a [`SceneInstance`] component.
+/// Once it's spawned, the entity will have a [`SceneInstance`](crate::SceneInstance) component.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
 #[require(Transform)]
 #[cfg_attr(feature = "bevy_render", require(Visibility))]
