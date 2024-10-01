@@ -465,12 +465,21 @@ impl Mesh {
     ///
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
+    ///
+    /// This is a convenience method which allocates a Vec.
+    /// Prefer pre-allocating and using [`write_packed_vertex_buffer_data`] when possible.
     pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
         let mut attributes_interleaved_buffer = vec![0; self.get_vertex_buffer_size()];
         self.write_packed_vertex_buffer_data(&mut attributes_interleaved_buffer);
         attributes_interleaved_buffer
     }
 
+    /// Computes and write the vertex data of the mesh into a mutable byte slice.
+    /// The attributes are located in the order of their [`MeshVertexAttribute::id`].
+    /// This is used to transform the vertex data into a GPU friendly format.
+    ///
+    /// If the vertex attributes have different lengths, they are all truncated to
+    /// the length of the smallest.
     pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
