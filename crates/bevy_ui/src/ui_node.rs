@@ -1058,16 +1058,16 @@ impl Default for OverflowAxis {
 )]
 pub struct OverflowClipMargin {
     /// Visible unclipped area
-    pub clip_box: OverflowClipBox,
-    /// Margin around the `clip_box` on all edges, can be negative
-    /// Percentage values are based on the width of the UI node
-    pub margin: Val,
+    pub visual_box: OverflowClipBox,
+    /// Width of the margin on each edge of the visual box in logical pixels.
+    /// Negative values are ignored and the width of the margin will be zero.
+    pub margin: f32,
 }
 
 impl OverflowClipMargin {
     pub const DEFAULT: Self = Self {
-        clip_box: OverflowClipBox::ContentBox,
-        margin: Val::ZERO,
+        visual_box: OverflowClipBox::ContentBox,
+        margin: 0.,
     };
 }
 
