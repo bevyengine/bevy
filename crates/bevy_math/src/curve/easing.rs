@@ -72,7 +72,7 @@ where
     ///
     /// [`Curve<f32>`]: `Curve`
     /// [unit interval]: `Interval::UNIT`
-    /// [reparametrizing]: `Curve::reparametrize`
+    /// [reparametrizing]: `Curve::reparametrize_linear`
     pub fn new(start: T, end: T, easing: E) -> Result<Self, EasingCurveError> {
         easing
             .domain()
