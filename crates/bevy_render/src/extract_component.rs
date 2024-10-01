@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    world_sync::{RenderEntity, SyncToRenderWorld},
+    world_sync::{EntityRecord, PendingSyncEntity, RenderEntity, SyncToRenderWorld},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -12,7 +12,6 @@ use bevy_ecs::{
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
     system::lifetimeless::Read,
-    world::OnAdd,
 };
 use core::{marker::PhantomData, ops::Deref};
 
@@ -194,10 +193,15 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        // TODO: use required components
-        app.observe(|trigger: Trigger<OnAdd, C>, mut commands: Commands| {
-            commands.entity(trigger.entity()).insert(SyncToRenderWorld);
-        });
+        app.register_required_components::<C, SyncToRenderWorld>();
+
+        app.world_mut().register_component_hooks::<C>().on_remove(
+            |mut world, entity, _component_id| {
+                let mut pending = world.resource_mut::<PendingSyncEntity>();
+                pending.push(EntityRecord::ComponentRemoved(entity));
+            },
+        );
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);

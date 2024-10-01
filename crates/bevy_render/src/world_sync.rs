@@ -127,18 +127,22 @@ impl MainEntity {
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
-pub(crate) enum EntityRecord {
+#[derive(Debug)]
+pub enum EntityRecord {
     /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
     /// entity. This contains the main world entity.
     Added(Entity),
     /// When an entity is despawned on the main world, notify the render world so that the corresponding entity can be
     /// despawned. This contains the render world entity.
     Removed(Entity),
+    /// When a component is removed from an entity, notify the render world so that the corresponding component can be
+    /// removed. This contains the main world entity.
+    ComponentRemoved(Entity),
 }
 
 // Entity Record in MainWorld pending to Sync
 #[derive(Resource, Default, Deref, DerefMut)]
-pub(crate) struct PendingSyncEntity {
+pub struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
 
@@ -161,11 +165,22 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         };
                     }
                 }
-                EntityRecord::Removed(e) => {
-                    if let Some(ec) = render_world.get_entity_mut(e) {
+                EntityRecord::Removed(entity) => {
+                    if let Some(ec) = render_world.get_entity_mut(entity) {
                         ec.despawn();
                     };
                 }
+                EntityRecord::ComponentRemoved(entity) => {
+                    // It's difficult to remove only the relevant component because component ids aren't stable across worlds,
+                    // so we just clear the entire render world entity.
+                    let mut render_entity = world.get_mut::<RenderEntity>(entity).unwrap();
+                    if let Some(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
+                        render_world_entity.despawn();
+
+                        let id = render_world.spawn(MainEntity(entity)).id();
+                        render_entity.0 = id;
+                    }
+                },
             }
         }
     });
