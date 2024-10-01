@@ -947,7 +947,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node);
+            world.run_system_once_with(new_pos, move_ui_node).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
@@ -998,7 +998,7 @@ mod tests {
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
-        world.run_system_once(update_camera_viewports);
+        world.run_system_once(update_camera_viewports).unwrap();
 
         ui_schedule.run(&mut world);
 

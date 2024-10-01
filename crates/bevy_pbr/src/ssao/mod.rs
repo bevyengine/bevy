@@ -30,6 +30,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
@@ -488,7 +489,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (Entity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -501,9 +502,10 @@ fn extract_ssao_settings(
             );
             return;
         }
-
         if camera.is_active {
-            commands.get_or_spawn(entity).insert(ssao_settings.clone());
+            commands
+                .get_or_spawn(entity.id())
+                .insert(ssao_settings.clone());
         }
     }
 }

@@ -22,11 +22,11 @@ impl AssetLoader for FontLoader {
     type Asset = Font;
     type Settings = ();
     type Error = FontLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Font, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;

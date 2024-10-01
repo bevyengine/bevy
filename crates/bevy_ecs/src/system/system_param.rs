@@ -10,7 +10,7 @@ use crate::{
         QuerySingleError, QueryState, ReadOnlyQueryData,
     },
     storage::{ResourceData, SparseSetIndex},
-    system::{Query, QuerySingle, SystemMeta},
+    system::{Query, Single, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -25,6 +25,8 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+use super::Populated;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -367,11 +369,9 @@ fn assert_component_access_compatibility(
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QuerySingle<'a, D, F>
-{
+unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Single<'a, D, F> {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = QuerySingle<'w, D, F>;
+    type Item<'w, 's> = Single<'w, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Query::init_state(world, system_meta)
@@ -399,7 +399,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         let single =
             result.expect("The query was expected to contain exactly one matching entity.");
-        QuerySingle {
+        Single {
             item: single,
             _filter: PhantomData,
         }
@@ -428,13 +428,13 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for Option<QuerySingle<'a, D, F>>
+    for Option<Single<'a, D, F>>
 {
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Option<QuerySingle<'w, D, F>>;
+    type Item<'w, 's> = Option<Single<'w, D, F>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        QuerySingle::init_state(world, system_meta)
+        Single::init_state(world, system_meta)
     }
 
     unsafe fn new_archetype(
@@ -443,7 +443,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &mut SystemMeta,
     ) {
         // SAFETY: Delegate to existing `SystemParam` implementations.
-        unsafe { QuerySingle::new_archetype(state, archetype, system_meta) };
+        unsafe { Single::new_archetype(state, archetype, system_meta) };
     }
 
     #[inline]
@@ -458,7 +458,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         let result =
             unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
         match result {
-            Ok(single) => Some(QuerySingle {
+            Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
             }),
@@ -489,13 +489,68 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for QuerySingle<'a, D, F>
+    for Single<'a, D, F>
 {
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Option<QuerySingle<'a, D, F>>
+    for Option<Single<'a, D, F>>
+{
+}
+
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Populated<'_, '_, D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = Populated<'w, 's, D, F>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Query::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        unsafe { Query::new_archetype(state, archetype, system_meta) };
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        // SAFETY: Delegate to existing `SystemParam` implementations.
+        let query = unsafe { Query::get_param(state, system_meta, world, change_tick) };
+        Populated(query)
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        state.validate_world(world.id());
+        // SAFETY:
+        // - We have read-only access to the components accessed by query.
+        // - The world has been validated.
+        !unsafe {
+            state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
+        }
+    }
+}
+
+// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Populated<'w, 's, D, F>
 {
 }
 
@@ -607,46 +662,6 @@ unsafe impl<'a, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOn
 ///     # let _entities = entities;
 /// }
 /// # bevy_ecs::system::assert_is_system(event_system);
-/// ```
-///
-/// If you want to use `ParamSet` with a [`SystemParamBuilder`](crate::system::SystemParamBuilder), use [`ParamSetBuilder`](crate::system::ParamSetBuilder) and pass a builder for each param.
-/// ```
-/// # use bevy_ecs::{prelude::*, system::*};
-/// #
-/// # #[derive(Component)]
-/// # struct Health;
-/// #
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// # #[derive(Component)]
-/// # struct Ally;
-/// #
-/// let mut world = World::new();
-///
-/// let system = (ParamSetBuilder((
-///     QueryParamBuilder::new(|builder| {
-///         builder.with::<Enemy>();
-///     }),
-///     QueryParamBuilder::new(|builder| {
-///         builder.with::<Ally>();
-///     }),
-///     ParamBuilder,
-/// )),)
-///     .build_state(&mut world)
-///     .build_system(buildable_system);
-/// world.run_system_once(system);
-///
-/// fn buildable_system(mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>) {
-///     // The first parameter is built from the first builder,
-///     // so this will iterate over enemies.
-///     for mut health in set.p0().iter_mut() {}
-///     // And the second parameter is built from the second builder,
-///     // so this will iterate over allies.
-///     for mut health in set.p1().iter_mut() {}
-///     // Parameters that don't need special building can use `ParamBuilder`.
-///     let entities = set.p2().entities();
-/// }
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
@@ -2126,22 +2141,22 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 /// # #[derive(Default, Resource)]
 /// # struct B;
 /// #
-/// let mut world = World::new();
-/// world.init_resource::<A>();
-/// world.init_resource::<B>();
-///
+/// # let mut world = World::new();
+/// # world.init_resource::<A>();
+/// # world.init_resource::<B>();
+/// #
 /// // If the inner parameter doesn't require any special building, use `ParamBuilder`.
 /// // Either specify the type parameter on `DynParamBuilder::new()` ...
 /// let system = (DynParamBuilder::new::<Res<A>>(ParamBuilder),)
 ///     .build_state(&mut world)
 ///     .build_system(expects_res_a);
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 ///
 /// // ... or use a factory method on `ParamBuilder` that returns a specific type.
 /// let system = (DynParamBuilder::new(ParamBuilder::resource::<A>()),)
 ///     .build_state(&mut world)
 ///     .build_system(expects_res_a);
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 ///
 /// fn expects_res_a(mut param: DynSystemParam) {
 ///     // Use the `downcast` methods to retrieve the inner parameter.
@@ -2167,7 +2182,7 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///         let local: Local<usize> = param.downcast::<Local<usize>>().unwrap();
 ///         assert_eq!(*local, 10);
 ///     });
-/// world.run_system_once(system);
+/// # world.run_system_once(system);
 /// ```
 pub struct DynSystemParam<'w, 's> {
     /// A `ParamState<T>` wrapping the state for the underlying system param.

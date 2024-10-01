@@ -20,6 +20,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::*,
+    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -354,13 +355,13 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 }
 
 pub fn extract_ui_material_nodes<M: UiMaterial>(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
             (
-                Entity,
                 &Node,
                 &GlobalTransform,
                 &Handle<M>,
@@ -371,12 +372,17 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Without<BackgroundColor>,
         >,
     >,
+    render_entity_lookup: Extract<Query<&RenderEntity>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
+    for (uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+            continue;
+        };
+
+        let Ok(&camera_entity) = render_entity_lookup.get(camera_entity) else {
             continue;
         };
 
@@ -398,7 +404,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         ];
 
         extracted_uinodes.uinodes.insert(
-            entity,
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiMaterialNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -409,7 +415,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                camera_entity: camera_entity.id(),
             },
         );
     }

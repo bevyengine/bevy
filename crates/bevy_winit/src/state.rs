@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_input::{
     gestures::*,
-    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
@@ -267,18 +266,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 .send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput {
                 ref event,
-                is_synthetic,
+                // On some platforms, winit sends "synthetic" key press events when the window
+                // gains or loses focus. These should not be handled, so we only process key
+                // events if they are not synthetic key presses.
+                is_synthetic: false,
                 ..
             } => {
-                // Winit sends "synthetic" key press events when the window gains focus. These
-                // should not be handled, so we only process key events if they are not synthetic
-                // key presses. "synthetic" key release events should still be handled though, for
-                // properly releasing keys when the window loses focus.
-                if !(is_synthetic && event.state.is_pressed()) {
-                    // Process the keyboard input event, as long as it's not a synthetic key press.
-                    self.bevy_window_events
-                        .send(converters::convert_keyboard_input(event, window));
-                }
+                self.bevy_window_events
+                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -354,9 +349,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 win.focused = focused;
                 self.bevy_window_events
                     .send(WindowFocused { window, focused });
-                if !focused {
-                    self.bevy_window_events.send(KeyboardFocusLost);
-                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.bevy_window_events
