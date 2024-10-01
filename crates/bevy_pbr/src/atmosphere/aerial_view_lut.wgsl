@@ -5,7 +5,7 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,
-            ray_intersects_ground
+            ray_intersects_ground, AtmosphereSample,
         },
     }
 }
@@ -35,10 +35,10 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let ndc_xy = uv_to_ndc(uv);
     let view_dir = uv_to_ray_direction(uv);
 
-    var inscattered_illuminance = vec3(0.0);
     var prev_depth = 0.0;
-    for (var slice_i: i32 = settings.aerial_view_lut_size.z - 1; slice_i >= 0; slice_i--) { //reversed loop to iterate depth near->far 
-        for (var step_i: i32 = settings.aerial_view_lut_samples - 1; step_i >= 0; step_i--) { //same here
+    var total_inscattering = vec3(0.0);
+    for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate depth near->far 
+        for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) { //same here
             let ndc_z = (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
             let ndc_pos = vec3(ndc_xy, ndc_z);
             let world_pos = position_ndc_to_world(ndc_pos);
@@ -47,7 +47,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
             //subtraction is flipped because z values in front of the camera are negative
             //see uv_to_ray_direction regarding view_dir.w
-            let step_length = (prev_depth - depth) / view_dir.w;
+            let step_length = (prev_depth - depth) / view_dir.w / 1000.0;
             prev_depth = depth;
 
             let altitude = world_pos.y;
@@ -56,11 +56,11 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
             let transmittance_to_sample = exp(-optical_depth);
 
-            var local_illuminance = sample_local_illuminance(view_dir.xyz, altitude);
-            inscattered_illuminance += local_atmosphere.scattering * local_illuminance * step_length;
+            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir.xyz, altitude);
+            total_inscattering += local_inscattering * step_length;
             let mean_transmittance = (transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b) / 3.0;
 
-            textureStore(aerial_view_lut, vec3(idx.xy, slice_i), vec4(inscattered_illuminance, mean_transmittance));
+            textureStore(aerial_view_lut, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
             //textureStore(aerial_view_lut, vec3(idx.xy, slice_i), vec4(vec3<f32>(vec3(idx.xy)) / vec3<f32>(settings.aerial_view_lut_size), 1.0));
         }
     }
@@ -104,7 +104,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     // the translations from the view matrix.
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
-    return vec4(normalize(ray_direction), view_ray_direction.z);
+    return vec4(normalize(ray_direction), -view_ray_direction.z);
 }
 
 
@@ -116,21 +116,24 @@ fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
 }
 
 
-fn sample_local_illuminance(view_dir: vec3<f32>, altitude: f32) -> vec3<f32> {
-    var local_illuminance = vec3(0.0);
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, view_dir: vec3<f32>, altitude: f32) -> vec3<f32> {
+    //TODO: storing these outside the loop saves several multiplications, but at the cost of an extra vector register
+    var rayleigh_scattering = vec3(0.0);
+    var mie_scattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
-        let mu_light = (*light).direction_to_light.y;
+        let light_cos_azimuth = (*light).direction_to_light.y;
         let neg_LdotV = dot(view_dir, (*light).direction_to_light);
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg_LdotV, atmosphere.mie_asymmetry);
-        let phase = rayleigh_phase + mie_phase; //TODO: check this
 
-        let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, altitude, mu_light);
-        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(atmosphere, altitude, mu_light));
+        let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, altitude, light_cos_azimuth);
+        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(atmosphere, altitude, light_cos_azimuth));
 
-        let psi_ms = sample_multiscattering_lut(atmosphere, multiscattering_lut, multiscattering_lut_sampler, altitude, mu_light);
+        let psi_ms = sample_multiscattering_lut(atmosphere, multiscattering_lut, multiscattering_lut_sampler, altitude, light_cos_azimuth);
 
-        local_illuminance += (transmittance_to_sample * shadow_factor * phase + psi_ms) * (*light).color.rgb; //TODO: what is color.a?
+        rayleigh_scattering += (transmittance_to_sample * shadow_factor * rayleigh_phase + psi_ms) * (*light).color.rgb; //TODO: what is color.a?
+        mie_scattering += (transmittance_to_sample * shadow_factor * mie_phase + psi_ms) * (*light).color.rgb;
     }
+    return local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering;
 }

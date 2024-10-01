@@ -13,6 +13,7 @@ use bevy::{
     pbr::{Atmosphere, CascadeShadowConfigBuilder},
     prelude::*,
 };
+use bevy_internal::core_pipeline::tonemapping::Tonemapping;
 
 fn main() {
     App::new()
@@ -34,6 +35,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 ..default()
             },
             msaa: Msaa::Off,
+            tonemapping: Tonemapping::AcesFitted,
             ..default()
         },
         Atmosphere::EARTH,

@@ -25,8 +25,8 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 /// Compute the optical depth of the atmosphere from the ground to the top atmosphere boundary
 /// at a given view height (r) and zenith cos angle (mu)
 fn compute_optical_depth_to_top_atmosphere_boundary(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32, sample_count: u32) -> vec3<f32> {
-    let t_bottom = distance_to_bottom_atmosphere_boundary(atmosphere, r, mu);
-    let t_top = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
+    let t_bottom = distance_to_bottom_atmosphere_boundary(atmosphere, altitude, cos_azimuth);
+    let t_top = distance_to_top_atmosphere_boundary(atmosphere, altitude, cos_azimuth);
     let t_max = max(t_bottom, t_top); //TODO: max? why not min?
 
     var optical_depth = vec3<f32>(0.0f);
@@ -41,7 +41,7 @@ fn compute_optical_depth_to_top_atmosphere_boundary(atmosphere: Atmosphere, alti
         prev_t = t_i;
 
     // distance r from current sample point to planet center
-        let r_i = sqrt(t_i * t_i + 2.0 * r * mu * t_i + r * r); //?????
+        let r_i = sqrt(t_i * t_i + 2.0 * altitude * cos_azimuth * t_i + altitude * altitude); //?????
         let altitude = r_i - atmosphere.bottom_radius;
 
         let atmosphere_sample = sample_atmosphere(atmosphere, altitude);

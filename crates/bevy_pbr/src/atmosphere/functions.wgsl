@@ -1,9 +1,6 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_pbr::{
-    atmosphere::types::Atmosphere,
-    mesh_view_types::Lights,
-}
+#import bevy_pbr::atmosphere::types::Atmosphere
 
 // Mapping from view height (r) and zenith cos angle (mu) to UV coordinates in the transmittance LUT
 // Assuming r between ground and top atmosphere boundary, and cos_azimuth= cos(zenith_angle)
@@ -15,13 +12,13 @@ fn transmittance_lut_r_mu_to_uv(atmosphere: Atmosphere, altitude: f32, cos_azimu
 
   // Distance from a point at height r to the horizon
   // ignore the case where r <= atmosphere.bottom_radius
-    let rho = sqrt(max(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius, 0.0));
+    let rho = sqrt(max(altitude * altitude - atmosphere.bottom_radius * atmosphere.bottom_radius, 0.0));
 
   // Distance from a point at height r to the top atmosphere boundary at zenith angle mu
-    let d = distance_to_top_atmosphere_boundary(atmosphere, r, mu);
+    let d = distance_to_top_atmosphere_boundary(atmosphere, altitude, cos_azimuth);
 
   // Minimum and maximum distance to the top atmosphere boundary from a point at height r
-    let d_min = atmosphere.top_radius - r; // length of the ray straight up to the top atmosphere boundary
+    let d_min = atmosphere.top_radius - altitude; // length of the ray straight up to the top atmosphere boundary
     let d_max = rho + H; // length of the ray to the top atmosphere boundary and grazing the horizon
 
     let u = (d - d_min) / (d_max - d_min);
@@ -52,40 +49,44 @@ fn transmittance_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f
         cos_azimuth = (H * H - rho * rho - d * d) / (2.0 * r * d);
     }
 
-    cos_azimuth = clamp(mu, -1.0, 1.0);
+    cos_azimuth = clamp(cos_azimuth, -1.0, 1.0);
 
-    return vec2<f32>(r, mu);
+    return vec2<f32>(r, cos_azimuth);
 }
 
 fn multiscattering_lut_r_mu_to_uv(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32) -> vec2<f32> {
-    let u = 0.5 + 0.5 * mu;
-    let v = saturate(r / (atmosphere.top_radius - atmosphere.bottom_radius));
+    let u = 0.5 + 0.5 * cos_azimuth;
+    let v = saturate(altitude / (atmosphere.top_radius - atmosphere.bottom_radius));
     return vec2(u, v);
 }
 
 fn multiscattering_lut_uv_to_r_mu(atmosphere: Atmosphere, uv: vec2<f32>) -> vec2<f32> {
-    let r = (atmosphere.top_radius - atmosphere.bottom_radius) * uv.y;
+    let altitude = (atmosphere.top_radius - atmosphere.bottom_radius) * uv.y;
     let cos_azimuth = uv.x * 2 - 1;
-    return vec2(r, mu);
+    return vec2(altitude, cos_azimuth);
 }
 
 fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
     let u = long * FRAC_PI + 0.5;
     let v = sqrt(2 * abs(lat) * FRAC_PI) * sign(lat) * 0.5 + 0.5;
+    return vec2(u, v);
 }
 
 //TODO:
 fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
-    return vec2(0.0);
+    let long = (uv.x - 0.5) * PI;
+    let v_minus_half = uv.y - 0.5;
+    let lat = TAU * (v_minus_half * v_minus_half) * sign(v_minus_half);
+    return vec2(lat, long);
 }
 
 fn sample_transmittance_lut(atmosphere: Atmosphere, transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler, altitude: f32, cos_azimuth: f32) -> vec3<f32> {
-    let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere, altitude, cos_azimuth);
     return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
 }
 
 fn sample_multiscattering_lut(atmosphere: Atmosphere, multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler, altitude: f32, cos_azimuth: f32) -> vec3<f32> {
-    let uv = multiscattering_lut_r_mu_to_uv(atmosphere, r, mu);
+    let uv = multiscattering_lut_r_mu_to_uv(atmosphere, altitude, cos_azimuth);
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -104,7 +105,7 @@ fn sample_multiscattering_lut(atmosphere: Atmosphere, multiscattering_lut: textu
 fn distance_to_top_atmosphere_boundary(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32) -> f32 {
   // ignore the case where r > atmosphere.top_radius
     let positive_discriminant = max(altitude * altitude * (cos_azimuth * cos_azimuth - 1.0) + atmosphere.top_radius * atmosphere.top_radius, 0.0);
-    return max(-r * cos_azimuth + sqrt(positive_discriminant), 0.0);
+    return max(-altitude * cos_azimuth + sqrt(positive_discriminant), 0.0);
 }
 
 /// Simplified ray-sphere intersection
@@ -114,19 +115,19 @@ fn distance_to_bottom_atmosphere_boundary(atmosphere: Atmosphere, altitude: f32,
     return max(-altitude * cos_azimuth - sqrt(positive_discriminant), 0.0);
 }
 
-fn ray_intersects_ground(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32) -> f32 {
-    return cos_azimuth < 0.0 && altitude * altitude * (mu * mu - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0 * m2;
+//TODO: What is m2??? is it just there to catch copyright? (from paper)
+fn ray_intersects_ground(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32) -> bool {
+    return cos_azimuth < 0.0 && altitude * altitude * (cos_azimuth * cos_azimuth - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0;// * m2;
 }
 
 struct AtmosphereSample {
-    scattering: vec3<f32>,
-    absorption: vec3<f32>,
+    rayleigh_scattering: vec3<f32>,
+    mie_scattering: f32,
     extinction: vec3<f32>
 }
 
 //prob fine to return big struct because of inlining
 fn sample_atmosphere(atmosphere: Atmosphere, altitude: f32) -> AtmosphereSample {
-    var result: AtmosphereSample;
 
     // atmosphere values at altitude
     let mie_density = exp(atmosphere.mie_density_exp_scale * altitude); //TODO: zero-out when above atmosphere boundary? i mean the raycast will stop anyway
@@ -143,14 +144,18 @@ fn sample_atmosphere(atmosphere: Atmosphere, altitude: f32) -> AtmosphereSample 
 
     // ozone doesn't contribute to scattering
     let ozone_absorption = ozone_density * atmosphere.ozone_absorption;
-    // ozone extinction is the sum of scattering and absorption
 
-    result.scattering = mie_scattering + rayleigh_scattering;
-    result.absorption = mie_absorption + ozone_absorption;
-    result.extinction = mie_extinction + rayleigh_scattering + ozone_absorption;
+    var sample: AtmosphereSample;
+    sample.rayleigh_scattering = rayleigh_scattering;
+    sample.mie_scattering = mie_scattering;
+    sample.extinction = rayleigh_scattering + mie_extinction + ozone_absorption;
 
-    return result;
+    return sample;
 }
+
+const PI: f32 = 3.141592653589793238462;
+
+const TAU: f32 = 6.283185307179586476925;
 
 // 1 / π
 const FRAC_PI: f32 = 0.31830988618379067153;
@@ -168,12 +173,4 @@ fn rayleigh(neg_LdotV: f32) -> f32 {
 fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
-}
-
-fn sample_local_inscattering(
-    atmosphere: Atmosphere, lights: Lights,
-    transmittance_lut: texture_2d<f32>, transmittance_lut_sampler: sampler,
-    multiscattering_lut: texture_2d<f32>, multiscattering_lut_sampler: sampler,
-    transmittance_to_sample: vec3<f32>, altitude: f32, view_dir: vec3<f32>
-) -> vec3<f32> {
 }
