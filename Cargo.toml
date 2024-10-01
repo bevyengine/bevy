@@ -3453,6 +3453,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "camera_sub_view"
+path = "examples/3d/camera_sub_view.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_sub_view]
+name = "Camera sub view"
+description = "Demonstrates using different sub view effects on a camera"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "color_grading"
 path = "examples/3d/color_grading.rs"
 doc-scrape-examples = true
