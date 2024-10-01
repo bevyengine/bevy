@@ -27,10 +27,27 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-/// The bundle of components needed to draw text in a 2D scene via a `Camera2d`.
+
+/// The top-level 2D text component.
+///
+/// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
+/// a [`TextBlock`]. See [`TextSpan2d`] for the component used by children of entities with [`Text2d`].
+#[derive(Component, Clone, Debug, Default)]
+#[require(TextBlock, TextStyle, TextBounds, Anchor, SpriteSource, Visibility, Transform)]
+pub struct Text2d(pub String);
+
+/// A span of text in a tree of spans under an entity with [`Text2d`].
+///
+/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+#[derive(Component, Clone, Debug, Default)]
+#[require(TextStyle, Visibility = Visibility::Hidden, Transform)]
+pub struct TextSpan2d(pub String);
+
+
+/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
-pub struct Text2dBundle {
+pub struct Text2dBundleOLD {
     /// Contains the text.
     ///
     /// With `Text2dBundle` the alignment field of `Text` only affects the internal alignment of a block of text and not its

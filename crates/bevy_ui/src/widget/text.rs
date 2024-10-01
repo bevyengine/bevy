@@ -23,27 +23,162 @@ use bevy_text::{
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
-/// Text system flags
+/// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct TextFlags {
-    /// If set a new measure function for the text node will be created
-    needs_new_measure_func: bool,
+pub struct TextNodeFlags
+{
+    /// If set a new measure function for the text node will be created.
+    needs_measure_fn: bool,
     /// If set the text will be recomputed
     needs_recompute: bool,
 }
 
-impl Default for TextFlags {
+impl Default for TextNodeFlags {
     fn default() -> Self {
         Self {
-            needs_new_measure_func: true,
+            needs_measure_fn: true,
             needs_recompute: true,
         }
     }
 }
 
+/// The top-level UI text component.
+///
+/// If a string is specified, it behaves as if it has a "first" TextSpan child.
+#[derive(Component)]
+#[require(
+    TextBlock,
+    TextStyle,
+    Node,
+    Style, // TODO: Remove when Node uses required components.
+    ContentSize, // TODO: Remove when Node uses required components.
+    FocusPolicy, // TODO: Remove when Node uses required components.
+    ZIndex, // TODO: Remove when Node uses required components.
+    BackgroundColor, // TODO: Remove when Node uses required components.
+    TextNodeFlags,
+    Visibility, // TODO: Remove when Node uses required components.
+    Transform // TODO: Remove when Node uses required components.
+)]
+pub struct TextNEW(pub String);
+
+/// A span of text in a tree of spans under an entity with [`Text`].
+///
+/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+#[derive(Component)]
+#[require(TextStyle, GhostNode, Visibility = Visibility::Hidden)]
+pub struct TextSpan(pub String);
+
+
+
+#[cfg(feature = "bevy_text")]
+/// A UI node that is text
+///
+/// The positioning of this node is controlled by the UI layout system. If you need manual control,
+/// use [`Text2dBundle`](bevy_text::Text2dBundle).
+#[derive(Bundle, Debug, Default)]
+pub struct TextBundle {
+    /// Describes the logical size of the node
+    pub node: Node,
+    /// Styles which control the layout (size and position) of the node and its children
+    /// In some cases these styles also affect how the node drawn/painted.
+    pub style: Style,
+    /// Contains the text of the node
+    pub text: Text,
+    /// Cached cosmic buffer for layout
+    pub buffer: CosmicBuffer,
+    /// Text layout information
+    pub text_layout_info: TextLayoutInfo,
+    /// Text system flags
+    pub text_flags: TextFlags,
+    /// The calculated size based on the given image
+    pub calculated_size: ContentSize,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This component is automatically managed by the UI layout system.
+    /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
+}
+
+#[cfg(feature = "bevy_text")]
+impl TextBundle {
+    /// Create a [`TextBundle`] from a single section.
+    ///
+    /// See [`Text::from_section`] for usage.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            text: Text::from_section(value, style),
+            ..Default::default()
+        }
+    }
+
+    /// Create a [`TextBundle`] from a list of sections.
+    ///
+    /// See [`Text::from_sections`] for usage.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            text: Text::from_sections(sections),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
+    pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`Style`].
+    pub fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`BackgroundColor`].
+    pub const fn with_background_color(mut self, color: Color) -> Self {
+        self.background_color = BackgroundColor(color);
+        self
+    }
+
+    /// Returns this [`TextBundle`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.text.linebreak_behavior = LineBreak::NoWrap;
+        self
+    }
+}
+
+#[cfg(feature = "bevy_text")]
+impl<I> From<I> for TextBundle
+where
+    I: Into<TextSection>,
+{
+    fn from(value: I) -> Self {
+        Self::from_sections(vec![value.into()])
+    }
+}
+
+
+
+/// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
@@ -133,12 +268,12 @@ fn create_text_measure(
             }
 
             // Text measure func created successfully, so set `TextFlags` to schedule a recompute
-            text_flags.needs_new_measure_func = false;
+            text_flags.needs_measure_fn = false;
             text_flags.needs_recompute = true;
         }
         Err(TextError::NoSuchFont) => {
             // Try again next frame
-            text_flags.needs_new_measure_func = true;
+            text_flags.needs_measure_fn = true;
         }
         Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
             panic!("Fatal error when processing text: {e}.");
@@ -197,8 +332,8 @@ pub fn measure_text_system(
             ),
         };
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || text.is_changed()
-            || text_flags.needs_new_measure_func
+            || text.is_changed()  // TODO: get needs_recompute from ComputedTextBlock
+            || text_flags.needs_measure_fn
             || content_size.is_added()
         {
             let text_alignment = text.justify;

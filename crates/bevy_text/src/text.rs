@@ -14,7 +14,7 @@ pub use cosmic_text::{
 };
 
 /// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Component, Deref, DerefMut, Debug, Clone)]
+#[derive(Deref, DerefMut, Debug, Clone)]
 pub struct CosmicBuffer(pub Buffer);
 
 impl Default for CosmicBuffer {
@@ -23,12 +23,63 @@ impl Default for CosmicBuffer {
     }
 }
 
+/// Computed information for a [`TextBlock`].
+///
+/// Automatically updated.
+#[derive(Component, Debug, Clone)]
+pub struct ComputedTextBlock {
+    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
+    pub(crate) buffer: CosmicBuffer,
+    /// Entities for all text spans in the block, including the root-level text.
+    pub(crate) entities: SmallVec<[TextEntity; 1]>,
+    /// Flag set when any spans in this block have changed.
+    pub(crate) is_changed: bool,
+}
+
+impl ComputedTextBlock {
+    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+        self.entities.iter()
+    }
+}
+
+impl Default for ComputedTextBlock {
+    fn default() -> Self {
+        Self {
+            buffer: CosmicBuffer::default(),
+            entities: SmallVec::default(),
+            is_changed: true,
+        }
+    }
+}
+
+/// Component with text format settings for a block of text.
+///
+/// A block of text is composed of text spans, which each have a separate [`TextStyle`]. Text spans associated
+/// with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted to [`TextLayoutInfo`]
+/// for rendering.
+///
+/// See [`Text2d`] for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+#[derive(Component)]
+#[requires(ComputedTextBlock, TextLayoutInfo)]
+pub struct TextBlock
+{
+    /// The text's internal alignment.
+    /// Should not affect its position within a container.
+    pub justify: JustifyText,
+    /// How the text should linebreak when running out of the bounds determined by `max_size`.
+    pub line_break: LineBreak,
+    /// The antialiasing method to use when rendering text.
+    pub font_smoothing: FontSmoothing,
+}
+
+
+
 /// A component that is the entry point for rendering text.
 ///
 /// It contains all of the text value and styling information.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Text {
+pub struct OldText {
     /// The text's sections
     pub sections: Vec<TextSection>,
     /// The text's internal alignment.
@@ -40,7 +91,7 @@ pub struct Text {
     pub font_smoothing: FontSmoothing,
 }
 
-impl Text {
+impl OldText {
     /// Constructs a [`Text`] with a single section.
     ///
     /// ```
@@ -137,15 +188,15 @@ impl Text {
 /// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
 #[reflect(Default)]
-pub struct TextSection {
+pub struct OldTextSection {
     /// The content (in `String` form) of the text in the section.
     pub value: String,
     /// The style of the text in the section, including the font face, font size, and color.
     pub style: TextStyle,
 }
 
-impl TextSection {
-    /// Create a new [`TextSection`].
+impl OldTextSection {
+    /// Create a new [`OldTextSection`].
     pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             value: value.into(),
@@ -153,7 +204,7 @@ impl TextSection {
         }
     }
 
-    /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
+    /// Create an empty [`OldTextSection`] from a style. Useful when the value will be set dynamically.
     pub const fn from_style(style: TextStyle) -> Self {
         Self {
             value: String::new(),
@@ -162,7 +213,7 @@ impl TextSection {
     }
 }
 
-impl From<&str> for TextSection {
+impl From<&str> for OldTextSection {
     fn from(value: &str) -> Self {
         Self {
             value: value.into(),
@@ -171,7 +222,7 @@ impl From<&str> for TextSection {
     }
 }
 
-impl From<String> for TextSection {
+impl From<String> for OldTextSection {
     fn from(value: String) -> Self {
         Self {
             value,
@@ -216,9 +267,9 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-#[derive(Clone, Debug, Reflect)]
-/// `TextStyle` determines the style of the text in a section, specifically
+/// `TextStyle` determines the style of a text span within a [`TextBlock`], specifically
 /// the font face, the font size, and the color.
+#[derive(Component, Clone, Debug, Reflect)]
 pub struct TextStyle {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
