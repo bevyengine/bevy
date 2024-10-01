@@ -2,6 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::hash::BuildHasherDefault;
+use smallvec::SmallVec;
 
 use bevy_utils::{AHasher, HashMap, HashSet};
 use fixedbitset::FixedBitSet;
@@ -222,7 +223,7 @@ pub(crate) fn check_graph(graph: &DiGraph, topological_order: &[NodeId]) -> Chec
 /// [1]: https://doi.org/10.1137/0204007
 pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<NodeId>> {
     let mut cycles = vec![];
-    let mut sccs = vec![scc.to_vec()];
+    let mut sccs = vec![SmallVec::from_slice(scc)];
 
     while let Some(mut scc) = sccs.pop() {
         // only look at nodes and edges in this strongly-connected component
@@ -315,11 +316,7 @@ pub fn simple_cycles_in_component(graph: &DiGraph, scc: &[NodeId]) -> Vec<Vec<No
         subgraph.remove_node(root);
 
         // divide remainder into smaller SCCs
-        subgraph.for_each_scc(|scc| {
-            if scc.len() > 1 {
-                sccs.push(scc.to_vec());
-            }
-        });
+        sccs.extend(subgraph.iter_sccs().filter(|scc| scc.len() > 1));
     }
 
     cycles

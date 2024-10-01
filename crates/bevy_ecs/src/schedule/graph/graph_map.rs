@@ -10,8 +10,9 @@ use core::{
     hash::{BuildHasher, BuildHasherDefault, Hash},
 };
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 
-use super::{tarjan_scc::TarjanScc, NodeId};
+use super::NodeId;
 
 use Direction::{Incoming, Outgoing};
 
@@ -274,9 +275,9 @@ where
 }
 
 impl<S: BuildHasher> Graph<true, S> {
-    pub(crate) fn for_each_scc(&self, f: impl FnMut(&[NodeId])) {
-        let mut tarjan_scc = TarjanScc::new();
-        tarjan_scc.run(self, f);
+    /// Iterate over all *Strongly Connected Components* in this graph.
+    pub(crate) fn iter_sccs(&self) -> impl Iterator<Item = SmallVec<[NodeId; 4]>> + '_ {
+        super::tarjan_scc::new_tarjan_scc(self)
     }
 }
 
@@ -462,9 +463,10 @@ mod tests {
 
         graph.add_edge(System(6), System(2));
 
-        let mut sccs = Vec::new();
-
-        graph.for_each_scc(|scc| sccs.push(scc.to_vec()));
+        let sccs = graph
+            .iter_sccs()
+            .map(|scc| scc.to_vec())
+            .collect::<Vec<_>>();
 
         assert_eq!(
             sccs,
