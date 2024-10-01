@@ -479,7 +479,6 @@ impl MeshAllocator {
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            mesh,
             &vertex_data,
             BufferUsages::VERTEX,
             slab_id,
@@ -507,7 +506,6 @@ impl MeshAllocator {
         // Call the generic function.
         self.copy_element_data(
             mesh_id,
-            mesh,
             index_data,
             BufferUsages::INDEX,
             slab_id,
@@ -521,7 +519,6 @@ impl MeshAllocator {
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
-        mesh: &Mesh,
         data: &[u8],
         buffer_usages: BufferUsages,
         slab_id: SlabId,
@@ -567,7 +564,7 @@ impl MeshAllocator {
                             slab_id,
                             buffer_usages_to_str(buffer_usages)
                         )),
-                        contents: &data,
+                        contents: data,
                         usage: buffer_usages | BufferUsages::COPY_DST,
                     },
                 ));
