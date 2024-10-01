@@ -30,7 +30,7 @@ impl MeshletMesh {
         let indices = validate_input_mesh(mesh)?;
 
         // Split the mesh into an initial list of meshlets (LOD 0)
-        let vertex_buffer = mesh.get_vertex_buffer_data();
+        let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
         let mut meshlets = compute_meshlets(&indices, &vertices);
