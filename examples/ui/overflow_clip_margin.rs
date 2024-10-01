@@ -1,4 +1,4 @@
-//! Simple example demonstrating overflow behavior.
+//! Simple example demonstrating the `OverflowClipMargin` style property.
 
 use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
@@ -23,7 +23,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                column_gap: Val::Px(100.),
+                row_gap: Val::Px(40.),
+                flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
             background_color: ANTIQUE_WHITE.into(),
@@ -31,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for overflow_clip_margin in [
-                OverflowClipMargin::border_box(30.),
+                OverflowClipMargin::border_box(25.),
                 OverflowClipMargin::border_box(0.),
                 OverflowClipMargin::padding_box(0.),
                 OverflowClipMargin::content_box(0.),
@@ -39,23 +40,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent
                     .spawn(NodeBundle {
                         style: Style {
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(10.),
+                            flex_direction: FlexDirection::Row,
+                            column_gap: Val::Px(20.),
                             ..Default::default()
                         },
                         ..Default::default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            format!("{overflow_clip_margin:#?}"),
-                            TextStyle::default(),
-                        ));
                         parent
                             .spawn(NodeBundle {
                                 style: Style {
+                                    padding: UiRect::all(Val::Px(10.)),
+                                    margin: UiRect::bottom(Val::Px(25.)),
+                                    ..Default::default()
+                                },
+                                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+                                ..Default::default()
+                            })
+                            .with_child(TextBundle::from_section(
+                                format!("{overflow_clip_margin:#?}"),
+                                TextStyle::default(),
+                            ));
+
+                        parent
+                            .spawn(NodeBundle {
+                                style: Style {
+                                    margin: UiRect::top(Val::Px(10.)),
                                     width: Val::Px(100.),
                                     height: Val::Px(100.),
-                                    padding: UiRect::all(Val::Px(25.)),
+                                    padding: UiRect::all(Val::Px(20.)),
                                     border: UiRect::all(Val::Px(5.)),
                                     overflow: Overflow::clip(),
                                     overflow_clip_margin,
@@ -65,22 +78,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 background_color: GRAY.into(),
                                 ..Default::default()
                             })
-                            .with_child(NodeBundle {
-                                style: Style {
-                                    flex_basis: Val::Percent(100.),
-                                    ..Default::default()
-                                },
-                                background_color: LIGHT_CYAN.into(),
-                                ..Default::default()
-                            })
-                            .with_child(ImageBundle {
-                                image: UiImage::new(image.clone()),
-                                style: Style {
-                                    min_width: Val::Px(100.),
-                                    min_height: Val::Px(100.),
-                                    ..Default::default()
-                                },
-                                ..Default::default()
+                            .with_children(|parent| {
+                                parent
+                                    .spawn(NodeBundle {
+                                        style: Style {
+                                            min_width: Val::Px(50.),
+                                            min_height: Val::Px(50.),
+                                            ..Default::default()
+                                        },
+                                        background_color: LIGHT_CYAN.into(),
+                                        ..Default::default()
+                                    })
+                                    .with_child(ImageBundle {
+                                        image: UiImage::new(image.clone()),
+                                        style: Style {
+                                            min_width: Val::Px(100.),
+                                            min_height: Val::Px(100.),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    });
                             });
                     });
             }
