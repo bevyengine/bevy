@@ -1,4 +1,4 @@
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use crate::{AudioSource, Decodable};
 use bevy_asset::{Asset, Handle};
