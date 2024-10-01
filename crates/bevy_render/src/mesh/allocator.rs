@@ -427,7 +427,7 @@ impl MeshAllocator {
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_buffer_data().len() as u64,
+                    mesh.get_vertex_size() * mesh.count_vertices() as u64,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
@@ -474,7 +474,7 @@ impl MeshAllocator {
         let Some(&slab_id) = self.mesh_id_to_vertex_slab.get(mesh_id) else {
             return;
         };
-        let vertex_data = mesh.get_vertex_buffer_data();
+        let vertex_data = mesh.create_packed_vertex_buffer_data();
 
         // Call the generic function.
         self.copy_element_data(
@@ -567,7 +567,7 @@ impl MeshAllocator {
                             slab_id,
                             buffer_usages_to_str(buffer_usages)
                         )),
-                        contents: &mesh.get_vertex_buffer_data(),
+                        contents: &data,
                         usage: buffer_usages | BufferUsages::COPY_DST,
                     },
                 ));
