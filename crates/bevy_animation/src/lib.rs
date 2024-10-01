@@ -981,48 +981,58 @@ pub fn advance_animations(
         });
 }
 
-/// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w> = EntityMutExcept<
-    'w,
-    (
-        AnimationTarget,
-        Transform,
-        AnimationPlayer,
-        Handle<AnimationGraph>,
-    ),
->;
+struct AnimationTriggersIter<'a, 'b> {
+    triggers: core::slice::Iter<'a, AnimationTrigger>,
+    animation: &'b ActiveAnimation,
+}
 
-fn for_each_animation_event(
-    target_id: Option<AnimationTargetId>,
-    clip: &AnimationClip,
-    animation: &ActiveAnimation,
-    mut f: impl FnMut(&AnimationTrigger),
-) {
-    let Some(triggers) = clip.triggers.get(&target_id) else {
-        return;
-    };
+impl<'a, 'b> AnimationTriggersIter<'a, 'b> {
+    fn new(
+        target_id: Option<AnimationTargetId>,
+        clip: &'a AnimationClip,
+        animation: &'b ActiveAnimation,
+    ) -> Option<Self> {
+        Some(Self {
+            triggers: clip.triggers.get(&target_id)?.iter(),
+            animation,
+        })
+    }
+}
 
-    for trigger in triggers.iter().filter(|t| {
-        match (animation.is_playback_reversed(), animation.just_completed) {
-            // forward, trigger if `last_seek_time < trigger_time <= seek_time`
-            (false, false) => {
-                Some(t.time) >= animation.last_seek_time && t.time <= animation.seek_time
-            }
-            // forward, completed this tick
-            (false, true) => {
-                Some(t.time) >= animation.last_seek_time || t.time <= animation.seek_time
-            }
-            // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
-            (true, false) => {
-                Some(t.time) <= animation.last_seek_time && t.time >= animation.seek_time
-            }
-            // reverse, completed this tick
-            (true, true) => {
-                Some(t.time) <= animation.last_seek_time || t.time >= animation.seek_time
+impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
+    type Item = &'a AnimationTrigger;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let trigger = self.triggers.next()?;
+            if match (
+                self.animation.is_playback_reversed(),
+                self.animation.just_completed,
+            ) {
+                // forward, trigger if `last_seek_time < trigger_time <= seek_time`
+                (false, false) => {
+                    Some(trigger.time) >= self.animation.last_seek_time
+                        && trigger.time <= self.animation.seek_time
+                }
+                // forward, completed this tick
+                (false, true) => {
+                    Some(trigger.time) >= self.animation.last_seek_time
+                        || trigger.time <= self.animation.seek_time
+                }
+                // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
+                (true, false) => {
+                    Some(trigger.time) <= self.animation.last_seek_time
+                        && trigger.time >= self.animation.seek_time
+                }
+                // reverse, completed this tick
+                (true, true) => {
+                    Some(trigger.time) <= self.animation.last_seek_time
+                        || trigger.time >= self.animation.seek_time
+                }
+            } {
+                return Some(trigger);
             }
         }
-    }) {
-        f(trigger);
     }
 }
 
@@ -1039,17 +1049,28 @@ fn trigger_untargeted_animation_events(
             return;
         };
 
-        for (index, animation) in player.active_animations.iter() {
+        for (index, active_animation) in player.active_animations.iter() {
             let Some(clip_id) = graph.get(*index).unwrap().clip.as_ref() else {
                 continue;
             };
             let clip = clips.get(clip_id).unwrap();
-            for_each_animation_event(None, clip, animation, |trigger| {
+            for trigger in AnimationTriggersIter::new(None, clip, active_animation).unwrap() {
                 commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
-            });
+            }
         }
     }
 }
+
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type AnimationEntityMut<'w> = EntityMutExcept<
+    'w,
+    (
+        AnimationTarget,
+        Transform,
+        AnimationPlayer,
+        Handle<AnimationGraph>,
+    ),
+>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1138,11 +1159,13 @@ pub fn animate_targets_and_trigger_events(
                     continue;
                 };
 
-                for_each_animation_event(Some(target_id), clip, active_animation, |trigger| {
+                for trigger in
+                    AnimationTriggersIter::new(Some(target_id), clip, active_animation).unwrap()
+                {
                     par_commands.command_scope(|mut commands| {
                         commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
                     });
-                });
+                }
 
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
