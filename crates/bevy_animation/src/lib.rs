@@ -278,17 +278,17 @@ impl Typed for VariableCurve {
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
     curves: AnimationCurves,
-    triggers: AnimationTriggers,
+    events: AnimationEvents,
     duration: f32,
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub(crate) struct AnimationTrigger {
+pub(crate) struct AnimationEventKey {
     time: f32,
     event: AnimationEventData,
 }
 
-pub(crate) type AnimationTriggers = HashMap<Option<AnimationTargetId>, Vec<AnimationTrigger>>;
+pub(crate) type AnimationEvents = HashMap<Option<AnimationTargetId>, Vec<AnimationEventKey>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -478,8 +478,8 @@ impl AnimationClip {
         event: impl AnimationEvent,
     ) {
         self.duration = self.duration.max(time);
-        let triggers = self.triggers.entry(target_id).or_default();
-        triggers.push(AnimationTrigger {
+        let triggers = self.events.entry(target_id).or_default();
+        triggers.push(AnimationEventKey {
             time,
             event: AnimationEventData::new(event),
         });
@@ -982,7 +982,7 @@ pub fn advance_animations(
 }
 
 struct AnimationTriggersIter<'a, 'b> {
-    triggers: Option<core::slice::Iter<'a, AnimationTrigger>>,
+    triggers: Option<core::slice::Iter<'a, AnimationEventKey>>,
     animation: &'b ActiveAnimation,
 }
 
@@ -993,14 +993,14 @@ impl<'a, 'b> AnimationTriggersIter<'a, 'b> {
         animation: &'b ActiveAnimation,
     ) -> Self {
         Self {
-            triggers: clip.triggers.get(&target_id).map(|v| v.iter()),
+            triggers: clip.events.get(&target_id).map(|v| v.iter()),
             animation,
         }
     }
 }
 
 impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
-    type Item = &'a AnimationTrigger;
+    type Item = &'a AnimationEventKey;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
