@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -88,6 +90,10 @@ impl Plugin for TemporalAntiAliasPlugin {
 
 /// Bundle to apply temporal anti-aliasing.
 #[derive(Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `TemporalAntiAlias` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct TemporalAntiAliasBundle {
     pub settings: TemporalAntiAliasing,
     pub jitter: TemporalJitter,
@@ -119,25 +125,24 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// # Usage Notes
 ///
+/// The [`TemporalAntiAliasPlugin`] must be added to your app.
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
-/// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
-/// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
-/// components to your camera.
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
-///
-/// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
+/// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
 /// Failure to do so will lead to ghosting artifacts. For instance, if particle effects
 /// are added using a third party library, the library must either:
+///
 /// 1. Write particle motion vectors to the motion vectors prepass texture
 /// 2. Render particles after TAA
 ///
-/// If no [`MipBias`] component is attached to the camera, TAA will add a MipBias(-1.0) component.
+/// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
+#[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {
     /// Set to true to delete the saved temporal history (past frames).
