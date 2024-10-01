@@ -13,12 +13,12 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
-use bevy_render::camera::TemporalJitter;
 
 fn main() {
     App::new()
