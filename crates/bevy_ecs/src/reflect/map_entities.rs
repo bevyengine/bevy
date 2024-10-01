@@ -1,4 +1,4 @@
-use crate::entity::{DynEntityMapper, MapEntities};
+use crate::entity::{EntityMapper, MapEntities};
 use bevy_reflect::{FromReflect, FromType, PartialReflect};
 
 /// For a specific type of value, this maps any fields with values of type [`Entity`] to a new world.
@@ -12,19 +12,15 @@ use bevy_reflect::{FromReflect, FromType, PartialReflect};
 /// [`EntityMapper`]: crate::entity::EntityMapper
 #[derive(Clone)]
 pub struct ReflectMapEntities {
-    map_entities: fn(&mut dyn PartialReflect, &mut dyn DynEntityMapper),
+    map_entities: fn(&mut dyn PartialReflect, &mut dyn EntityMapper),
 }
 
 impl ReflectMapEntities {
-    /// A general method for remapping entities in a reflected value via a [`DynEntityMapper`].
+    /// A general method for remapping entities in a reflected value via an [`EntityMapper`].
     ///
     /// # Panics
     /// Panics if the the type of the reflected value doesn't match.
-    pub fn map_entities(
-        &self,
-        reflected: &mut dyn PartialReflect,
-        mapper: &mut dyn DynEntityMapper,
-    ) {
+    pub fn map_entities(&self, reflected: &mut dyn PartialReflect, mapper: &mut dyn EntityMapper) {
         (self.map_entities)(reflected, mapper);
     }
 }
