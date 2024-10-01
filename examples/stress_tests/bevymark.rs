@@ -440,7 +440,8 @@ fn spawn_birds(
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
                                 .unwrap()
-                                .clone(),
+                                .clone()
+                                .into(),
                             transform,
                             sprite: Sprite { color, ..default() },
                             ..default()

@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
             sprites.push(SpriteBundle {
-                texture: sprite_handle.clone(),
+                texture: sprite_handle.clone().into(),
                 transform: Transform {
                     translation,
                     rotation,

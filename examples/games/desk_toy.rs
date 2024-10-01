@@ -137,7 +137,7 @@ fn setup(
     commands
         .spawn((
             SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
+                texture: asset_server.load("branding/icon.png").into(),
                 ..default()
             },
             BevyLogo,

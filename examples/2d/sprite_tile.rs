@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            texture: asset_server.load("branding/icon.png").into(),
             ..default()
         },
         ImageScaleMode::Tiled {

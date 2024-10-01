@@ -2,7 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, prelude::*, sprite::SpriteTexture};
 
 fn main() {
     App::new()
@@ -14,7 +14,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    let texture = asset_server.load("branding/icon.png");
+    let texture: SpriteTexture = asset_server.load("branding/icon.png").into();
 
     // Spawn a root entity with no parent
     let parent = commands

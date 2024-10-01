@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             anchor: anchor.to_owned(),
                             ..default()
                         },
-                        texture: asset_server.load("branding/bevy_bird_dark.png"),
+                        texture: asset_server.load("branding/bevy_bird_dark.png").into(),
                         // 3x3 grid of anchor examples by changing transform
                         transform: Transform::from_xyz(i * len - len, j * len - len, 0.0)
                             .with_scale(Vec3::splat(1.0 + (i - 1.0) * 0.2))
@@ -136,7 +136,7 @@ fn setup_atlas(
                 index: animation_indices.first,
             },
             SpriteBundle {
-                texture: texture_handle,
+                texture: texture_handle.into(),
                 transform: Transform::from_xyz(300.0, 0.0, 0.0).with_scale(Vec3::splat(6.0)),
                 ..default()
             },

@@ -41,7 +41,9 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
+    let texture = asset_server
+        .load("textures/rpg/chars/gabe/gabe-idle-run.png")
+        .into();
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation

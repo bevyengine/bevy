@@ -75,7 +75,7 @@ fn spawn_sprites(
         position.x += 0.5 * size.x;
         let mut cmd = commands.spawn(SpriteBundle {
             transform: Transform::from_translation(position),
-            texture: texture_handle.clone(),
+            texture: texture_handle.clone().into(),
             sprite: Sprite {
                 custom_size: Some(size),
                 ..default()

@@ -107,7 +107,7 @@ fn setup(
         SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(6.0))
                 .with_translation(Vec3::new(-50.0, 0.0, 0.0)),
-            texture: texture.clone(),
+            texture: texture.clone().into(),
             ..default()
         },
         TextureAtlas {
@@ -126,7 +126,7 @@ fn setup(
         SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(6.0))
                 .with_translation(Vec3::new(50.0, 0.0, 0.0)),
-            texture: texture.clone(),
+            texture: texture.clone().into(),
             ..default()
         },
         TextureAtlas {

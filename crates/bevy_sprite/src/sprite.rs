@@ -1,7 +1,11 @@
+use bevy_asset::{AssetId, Handle};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::{texture::Image, view::Visibility, world_sync::SyncToRenderWorld};
+use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
 
@@ -93,5 +97,51 @@ impl Anchor {
             Anchor::TopRight => Vec2::new(0.5, 0.5),
             Anchor::Custom(point) => *point,
         }
+    }
+}
+
+/// A component for rendering sprites.
+///
+/// # Example
+///
+/// ```ignore
+/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_asset::{AssetServer, Assets};
+/// # use bevy_math::primitives::Capsule3d;
+/// #
+/// // Spawn an entity with a sprite.
+/// fn setup(
+///     mut commands: Commands,
+///     mut images: ResMut<Assets<Image>>,
+///     asset_server: Res<AssetServer>
+/// ) {
+///     commands.spawn((
+///         SpriteTexture(images.add(Image::default())),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+#[require(Transform, Visibility, Sprite, SyncToRenderWorld)]
+pub struct SpriteTexture(pub Handle<Image>);
+
+impl From<Handle<Image>> for SpriteTexture {
+    fn from(handle: Handle<Image>) -> Self {
+        Self(handle)
+    }
+}
+
+impl From<SpriteTexture> for AssetId<Image> {
+    fn from(texture: SpriteTexture) -> Self {
+        texture.id()
+    }
+}
+
+impl From<&SpriteTexture> for AssetId<Image> {
+    fn from(texture: &SpriteTexture) -> Self {
+        texture.id()
     }
 }

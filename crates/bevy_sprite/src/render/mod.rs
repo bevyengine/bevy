@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
+    ComputedTextureSlices, Sprite, SpriteTexture, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -377,15 +377,23 @@ pub fn extract_sprites(
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
-            &Handle<Image>,
+            &SpriteTexture,
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (original_entity, entity, view_visibility, sprite, transform, handle, sheet, slices) in
-        sprite_query.iter()
+    for (
+        original_entity,
+        entity,
+        view_visibility,
+        sprite,
+        transform,
+        sprite_texture,
+        sheet,
+        slices,
+    ) in sprite_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -394,7 +402,7 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, original_entity, sprite, handle)
+                    .extract_sprites(transform, original_entity, sprite, sprite_texture)
                     .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
             );
         } else {
@@ -423,7 +431,7 @@ pub fn extract_sprites(
                     custom_size: sprite.custom_size,
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
-                    image_handle_id: handle.id(),
+                    image_handle_id: sprite_texture.id(),
                     anchor: sprite.anchor.as_vec(),
                     original_entity: Some(original_entity),
                 },

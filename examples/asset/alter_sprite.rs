@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Without query filters.
         Left,
         SpriteBundle {
-            texture: texture_left,
+            texture: texture_left.into(),
             transform: Transform::from_xyz(-200.0, 0.0, 0.0),
             ..default()
         },
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         SpriteBundle {
             // In contrast to the above, here we rely on the default `RenderAssetUsages` loader
             // setting.
-            texture: asset_server.load(bird_right.get_texture_path()),
+            texture: asset_server.load(bird_right.get_texture_path()).into(),
             transform: Transform::from_xyz(200.0, 0.0, 0.0),
             ..default()
         },

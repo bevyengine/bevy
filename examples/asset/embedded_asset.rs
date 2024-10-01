@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
 
     commands.spawn(SpriteBundle {
-        texture: asset_server.load(asset_path),
+        texture: asset_server.load(asset_path).into(),
         ..default()
     });
 }

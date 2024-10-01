@@ -1,8 +1,8 @@
-use crate::Sprite;
-use bevy_asset::Handle;
+#![expect(deprecated)]
+
+use crate::{Sprite, SpriteTexture};
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     world_sync::SyncToRenderWorld,
 };
@@ -16,6 +16,10 @@ use bevy_transform::components::{GlobalTransform, Transform};
 /// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](crate::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `SpriteImage` component instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
@@ -24,7 +28,7 @@ pub struct SpriteBundle {
     /// The absolute transform of the sprite. This should generally not be written to directly.
     pub global_transform: GlobalTransform,
     /// A reference-counted handle to the image asset to be drawn.
-    pub texture: Handle<Image>,
+    pub texture: SpriteTexture,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.

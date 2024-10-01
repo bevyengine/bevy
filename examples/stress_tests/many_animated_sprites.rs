@@ -83,7 +83,7 @@ fn setup(
 
             commands.spawn((
                 SpriteBundle {
-                    texture: texture_handle.clone(),
+                    texture: texture_handle.clone().into(),
                     transform: Transform {
                         translation,
                         rotation,

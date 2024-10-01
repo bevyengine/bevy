@@ -134,7 +134,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Name::new("Player"),
         SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
+            texture: asset_server.load("branding/icon.png").into(),
             transform: Transform::from_scale(Vec3::splat(0.3)),
             ..default()
         },
