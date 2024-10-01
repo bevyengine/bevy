@@ -185,6 +185,9 @@ fn setup(
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(DETECTIVE_PATH)),
         ..default()
     });
+
+    println!("Controls:");
+    println!("  - spacebar: jump");
 }
 
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
