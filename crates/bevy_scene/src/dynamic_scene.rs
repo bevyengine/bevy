@@ -202,7 +202,9 @@ where
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        entity::{
+            Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
+        },
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
         world::{Command, World},
@@ -213,18 +215,11 @@ mod tests {
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, Debug)]
+    #[derive(Resource, Reflect, Debug, VisitEntities, VisitEntitiesMut)]
     #[reflect(Resource, MapEntities)]
     struct TestResource {
         entity_a: Entity,
         entity_b: Entity,
-    }
-
-    impl MapEntities for TestResource {
-        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-            self.entity_a = entity_mapper.map_entity(self.entity_a);
-            self.entity_b = entity_mapper.map_entity(self.entity_b);
-        }
     }
 
     #[test]
@@ -351,7 +346,7 @@ mod tests {
         #[reflect(Component)]
         struct A;
 
-        #[derive(Component, Reflect)]
+        #[derive(Component, Reflect, VisitEntities)]
         #[reflect(Component, MapEntities)]
         struct B(pub Entity);
 

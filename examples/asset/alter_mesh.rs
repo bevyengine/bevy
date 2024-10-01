@@ -126,10 +126,8 @@ fn setup(
 
     commands.spawn((
         Name::new("Point Light"),
-        PointLightBundle {
-            transform: Transform::from_xyz(4.0, 5.0, 4.0),
-            ..default()
-        },
+        PointLight::default(),
+        Transform::from_xyz(4.0, 5.0, 4.0),
     ));
 
     commands.spawn((

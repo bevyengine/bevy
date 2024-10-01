@@ -132,9 +132,9 @@ impl AssetServer {
 
     /// Retrieves the [`AssetSource`] for the given `source`.
     pub fn get_source<'a>(
-        &'a self,
+        &self,
         source: impl Into<AssetSourceId<'a>>,
-    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+    ) -> Result<&AssetSource, MissingAssetSourceError> {
         self.data.sources.get(source.into())
     }
 
@@ -245,7 +245,7 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] [`TypeId`], if one can be found.
-    pub async fn get_asset_loader_with_asset_type_id<'a>(
+    pub async fn get_asset_loader_with_asset_type_id(
         &self,
         type_id: TypeId,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
@@ -257,7 +257,7 @@ impl AssetServer {
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
-    pub async fn get_asset_loader_with_asset_type<'a, A: Asset>(
+    pub async fn get_asset_loader_with_asset_type<A: Asset>(
         &self,
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
         self.get_asset_loader_with_asset_type_id(TypeId::of::<A>())

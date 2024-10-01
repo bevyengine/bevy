@@ -22,7 +22,9 @@ use thiserror::Error;
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
+use bevy_text::CosmicBuffer;
+#[cfg(feature = "bevy_text")]
+use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
@@ -124,7 +126,7 @@ pub fn ui_layout_system(
         Option<&ScrollPosition>,
     )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
-    #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
+    #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
@@ -250,8 +252,6 @@ pub fn ui_layout_system(
 
     #[cfg(feature = "bevy_text")]
     let text_buffers = &mut buffer_query;
-    #[cfg(feature = "bevy_text")]
-    let font_system = text_pipeline.font_system_mut();
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
@@ -271,7 +271,7 @@ pub fn ui_layout_system(
             #[cfg(feature = "bevy_text")]
             text_buffers,
             #[cfg(feature = "bevy_text")]
-            font_system,
+            &mut font_system.0,
         );
 
         for root in &camera.root_nodes {
@@ -523,6 +523,10 @@ mod tests {
         world.init_resource::<ManualTextureViews>();
         #[cfg(feature = "bevy_text")]
         world.init_resource::<bevy_text::TextPipeline>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::CosmicFontSystem>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
         world.spawn((
@@ -940,7 +944,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node);
+            world.run_system_once_with(new_pos, move_ui_node).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
@@ -991,7 +995,7 @@ mod tests {
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
-        world.run_system_once(update_camera_viewports);
+        world.run_system_once(update_camera_viewports).unwrap();
 
         ui_schedule.run(&mut world);
 
@@ -1160,6 +1164,10 @@ mod tests {
         world.init_resource::<ManualTextureViews>();
         #[cfg(feature = "bevy_text")]
         world.init_resource::<bevy_text::TextPipeline>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::CosmicFontSystem>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
         world.spawn((

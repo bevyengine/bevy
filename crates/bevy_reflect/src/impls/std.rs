@@ -8,10 +8,10 @@ use crate::{
     set_apply, set_partial_eq, set_try_apply,
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
     ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
-    FromType, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
-    OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo,
-    TypePath, TypeRegistration, TypeRegistry, Typed,
+    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
+    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
+    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
 };
 use alloc::{borrow::Cow, collections::VecDeque};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
@@ -442,8 +442,8 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-                self.into_iter()
+            fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+                self.drain(..)
                     .map(|value| Box::new(value) as Box<dyn PartialReflect>)
                     .collect()
             }
@@ -525,7 +525,13 @@ macro_rules! impl_reflect_for_veclike {
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> Typed for $ty {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-                CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+                CELL.get_or_insert::<Self, _>(|| {
+                    TypeInfo::List(
+                        ListInfo::new::<Self, T>().with_generics(Generics::from_iter([
+                            TypeParamInfo::new::<T>("T")
+                        ]))
+                    )
+                })
             }
         }
 
@@ -619,8 +625,8 @@ macro_rules! impl_reflect_for_hashmap {
                 MapIter::new(self)
             }
 
-            fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-                self.into_iter()
+            fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
+                self.drain()
                     .map(|(key, value)| {
                         (
                             Box::new(key) as Box<dyn PartialReflect>,
@@ -764,7 +770,14 @@ macro_rules! impl_reflect_for_hashmap {
         {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-                CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
+                CELL.get_or_insert::<Self, _>(|| {
+                    TypeInfo::Map(
+                        MapInfo::new::<Self, K, V>().with_generics(Generics::from_iter([
+                            TypeParamInfo::new::<K>("K"),
+                            TypeParamInfo::new::<V>("V"),
+                        ])),
+                    )
+                })
             }
         }
 
@@ -856,8 +869,8 @@ macro_rules! impl_reflect_for_hashset {
                 Box::new(iter)
             }
 
-            fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-                self.into_iter()
+            fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+                self.drain()
                     .map(|value| Box::new(value) as Box<dyn PartialReflect>)
                     .collect()
             }
@@ -981,7 +994,13 @@ macro_rules! impl_reflect_for_hashset {
         {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-                CELL.get_or_insert::<Self, _>(|| TypeInfo::Set(SetInfo::new::<Self, V>()))
+                CELL.get_or_insert::<Self, _>(|| {
+                    TypeInfo::Set(
+                        SetInfo::new::<Self, V>().with_generics(Generics::from_iter([
+                            TypeParamInfo::new::<V>("V")
+                        ]))
+                    )
+                })
             }
         }
 
@@ -1092,15 +1111,18 @@ where
         MapIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-        self.into_iter()
-            .map(|(key, value)| {
-                (
-                    Box::new(key) as Box<dyn PartialReflect>,
-                    Box::new(value) as Box<dyn PartialReflect>,
-                )
-            })
-            .collect()
+    fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
+        // BTreeMap doesn't have a `drain` function. See
+        // https://github.com/rust-lang/rust/issues/81074. So we have to fake one by popping
+        // elements off one at a time.
+        let mut result = Vec::with_capacity(self.len());
+        while let Some((k, v)) = self.pop_first() {
+            result.push((
+                Box::new(k) as Box<dyn PartialReflect>,
+                Box::new(v) as Box<dyn PartialReflect>,
+            ));
+        }
+        result
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
@@ -1230,7 +1252,14 @@ where
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
+        CELL.get_or_insert::<Self, _>(|| {
+            TypeInfo::Map(
+                MapInfo::new::<Self, K, V>().with_generics(Generics::from_iter([
+                    TypeParamInfo::new::<K>("K"),
+                    TypeParamInfo::new::<V>("V"),
+                ])),
+            )
+        })
     }
 }
 
@@ -1686,12 +1715,10 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         ListIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        // into_owned() is not unnecessary here because it avoids cloning whenever you have a Cow::Owned already
-        #[allow(clippy::unnecessary_to_owned)]
-        self.into_owned()
-            .into_iter()
-            .map(|value| value.clone_value())
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.to_mut()
+            .drain(..)
+            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             .collect()
     }
 }
