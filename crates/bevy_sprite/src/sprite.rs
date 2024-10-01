@@ -61,7 +61,7 @@ pub enum ImageScaleMode {
     },
 }
 
-/// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
+/// How a sprite is positioned relative to its [`Transform`].
 /// It defaults to `Anchor::Center`.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]

@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     // Spawn player.
-    let texture = asset_server.load("textures/simplespace/ship_C.png").into();
+    let texture = asset_server.load("textures/simplespace/ship_C.png");
     commands.spawn((
         Player {
             speed: 100.0,
@@ -75,7 +75,7 @@ fn user_input(
 ) {
     let mut rng = rand::thread_rng();
     if keyboard_input.just_pressed(KeyCode::KeyA) {
-        let texture = asset_server.load("textures/simplespace/enemy_A.png").into();
+        let texture = asset_server.load("textures/simplespace/enemy_A.png");
         commands.spawn((
             Enemy {
                 origin: Vec2::new(rng.gen_range(-200.0..200.0), rng.gen_range(-200.0..200.0)),

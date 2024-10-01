@@ -43,7 +43,7 @@ struct Bird {
 /// `bevymark` sprite / 2D mesh stress test
 struct Args {
     /// whether to use sprite or mesh2d
-    #[argh(option, default = "Mode::SpriteProperties")]
+    #[argh(option, default = "Mode::Sprite")]
     mode: Mode,
 
     /// whether to step animations by a fixed amount such that each frame is the same across runs.
@@ -80,7 +80,7 @@ struct Args {
 #[derive(Default, Clone)]
 enum Mode {
     #[default]
-    SpriteProperties,
+    Sprite,
     Mesh2d,
 }
 
@@ -89,7 +89,7 @@ impl FromStr for Mode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "sprite" => Ok(Self::SpriteProperties),
+            "sprite" => Ok(Self::Sprite),
             "mesh2d" => Ok(Self::Mesh2d),
             _ => Err(format!(
                 "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d'"
@@ -235,7 +235,7 @@ fn setup(
     let images = images.into_inner();
 
     let mut textures = Vec::with_capacity(args.material_texture_count.max(1));
-    if matches!(args.mode, Mode::SpriteProperties) || args.material_texture_count > 0 {
+    if matches!(args.mode, Mode::Sprite) || args.material_texture_count > 0 {
         textures.push(asset_server.load("branding/icon.png"));
     }
     init_textures(&mut textures, args, images);
@@ -408,7 +408,7 @@ fn spawn_birds(
     let current_count = counter.count;
 
     match args.mode {
-        Mode::SpriteProperties => {
+        Mode::Sprite => {
             let batch = (0..spawn_count)
                 .map(|count| {
                     let bird_z = if args.ordered_z {

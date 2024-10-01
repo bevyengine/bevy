@@ -1,4 +1,4 @@
-//! Displays a single [`SpriteProperties`] tiled in a grid, with a scaling animation
+//! Displays a single [`Sprite`] tiled in a grid, with a scaling animation
 
 use bevy::prelude::*;
 

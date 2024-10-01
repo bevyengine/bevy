@@ -132,7 +132,7 @@ fn setup(
     // create a minimal UI explaining how to interact with the example
     commands.spawn(TextBundle {
         text: Text::from_section(
-            "Left Arrow Key: Animate Left SpriteProperties\nRight Arrow Key: Animate Right SpriteProperties",
+            "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
             TextStyle::default(),
         ),
         style: Style {
