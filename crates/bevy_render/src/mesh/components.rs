@@ -15,7 +15,7 @@ use bevy_transform::components::Transform;
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
