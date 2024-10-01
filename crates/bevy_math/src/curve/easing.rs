@@ -154,7 +154,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
         Self {
             start: 0.0,
             end: 1.0,
-            easing: FunctionCurve::new(Interval::UNIT, std::convert::identity),
+            easing: FunctionCurve::new(Interval::UNIT, core::convert::identity),
         }
     }
 }
