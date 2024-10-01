@@ -60,7 +60,7 @@ pub fn try_despawn_with_children_recursive(world: &mut World, entity: Entity) {
     despawn_with_children_recursive_inner(world, entity, false);
 }
 
-// Should only be called by `despawn_with_children_recursive`!
+// Should only be called by `despawn_with_children_recursive` and `try_despawn_with_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn: bool) {
     if let Some(mut children) = world.get_mut::<Children>(entity) {
         for e in core::mem::take(&mut children.0) {
