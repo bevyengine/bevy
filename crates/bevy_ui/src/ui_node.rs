@@ -1042,6 +1042,39 @@ impl Default for OverflowAxis {
     }
 }
 
+/// The bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OverflipClipMargin {
+    /// Visible unclipped area
+    pub clip_box: OverflowClipBox,
+    /// Margin around the `clip_box` on all edges, can be negative
+    pub margin: Val,
+}
+
+/// Used to determine the bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum OverflowClipBox {
+    /// Clip any overflow outside the content box
+    #[default]
+    ContentBox,
+    /// Clip overflow outside the border
+    BorderBox,
+    /// Clip overflow outside the padding
+    PaddingBox,
+}
+
 /// The strategy used to position this node
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]
