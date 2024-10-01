@@ -1069,6 +1069,30 @@ impl OverflowClipMargin {
         visual_box: OverflowClipBox::ContentBox,
         margin: 0.,
     };
+
+    /// Clip any content that overflows outside the content box
+    pub const fn content_box(margin: f32) -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            margin,
+        }
+    }
+
+    /// Clip any content that overflows outside the padding box
+    pub const fn padding_box(margin: f32) -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            margin,
+        }
+    }
+
+    /// Clip any content that overflows outside the border box
+    pub const fn border_box(margin: f32) -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            margin,
+        }
+    }
 }
 
 /// Used to determine the bounds of the visible area when a UI node is clipped.
@@ -1080,13 +1104,13 @@ impl OverflowClipMargin {
     reflect(Serialize, Deserialize)
 )]
 pub enum OverflowClipBox {
-    /// Clip any overflow outside the content box
+    /// Clip any content that overflows outside the content box
     #[default]
     ContentBox,
-    /// Clip overflow outside the border
-    BorderBox,
-    /// Clip overflow outside the padding
+    /// Clip any content that overflows outside the padding box
     PaddingBox,
+    /// Clip any content that overflows outside the border box
+    BorderBox,
 }
 
 /// The strategy used to position this node
