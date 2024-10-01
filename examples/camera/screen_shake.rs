@@ -134,7 +134,7 @@ fn screen_shake(
     let total_duration = screen_shake.timer.duration().as_secs_f32();
     let shake_progress = elapsed / total_duration;
 
-    let mut rng = ChaCha8Rng::from_entropy();
+    let mut rng = ChaCha8Rng::from_seed(42);
     let shake_amount = screen_shake.intensity * (1.0 - shake_progress);
 
     // Check if shake_amount is greater than zero to prevent invalid range error
