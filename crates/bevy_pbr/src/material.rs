@@ -563,11 +563,9 @@ pub(super) fn extract_default_materials(
     mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
     query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
 ) {
-    let default_material: AssetId<StandardMaterial> = Handle::<StandardMaterial>::default().id();
-
     for (entity, view_visibility) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, default_material);
+            material_instances.insert(entity, AssetId::default());
         }
     }
 }
