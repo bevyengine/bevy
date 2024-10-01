@@ -56,29 +56,22 @@ fn setup(
 ) {
     // Red cube: Never renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(RED)),
-            transform: Transform::from_xyz(-1.0, 0.5, -1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, 0.5, -1.0),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(Color::from(ORANGE)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(ORANGE))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // Green cube: Always renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(1.0, 0.5, 1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
@@ -87,11 +80,8 @@ fn setup(
 
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(Color::from(BLUE)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
         WireframeColor {

@@ -104,8 +104,11 @@ fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     new_meshes: Query<
-        (Entity, &Handle<StandardMaterial>),
-        (Added<Handle<StandardMaterial>>, Without<MaterialVariants>),
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (
+            Added<MeshMaterial3d<StandardMaterial>>,
+            Without<MaterialVariants>,
+        ),
     >,
 ) {
     for (entity, anisotropic_material_handle) in new_meshes.iter() {
@@ -114,7 +117,7 @@ fn create_material_variants(
         };
 
         commands.entity(entity).insert(MaterialVariants {
-            anisotropic: anisotropic_material_handle.clone(),
+            anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
                 anisotropy_texture: None,
                 anisotropy_strength: 0.0,
@@ -163,7 +166,7 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut Handle<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -213,7 +216,7 @@ fn handle_input(
 
         // Go through each mesh and alter its material.
         for (mut material_handle, material_variants) in meshes.iter_mut() {
-            *material_handle = if app_status.anisotropy_enabled {
+            material_handle.0 = if app_status.anisotropy_enabled {
                 material_variants.anisotropic.clone()
             } else {
                 material_variants.isotropic.clone()

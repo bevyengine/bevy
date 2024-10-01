@@ -432,6 +432,6 @@ jobs:
               echo -e "$errors"
               echo " Avoid importing internal Bevy crates, they should not be used directly"
               echo " Fix the issue by replacing 'bevy_*' with 'bevy'"
-              echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
+              echo " Example: 'use bevy::sprite::Mesh2d;' instead of 'bevy_internal::sprite::Mesh2d;'"
               exit 1
           fi

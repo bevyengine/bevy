@@ -53,12 +53,11 @@ fn setup(
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_scale(Vec3::NEG_ONE),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_scale(Vec3::NEG_ONE),
+    ));
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
@@ -104,16 +103,15 @@ fn setup(
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn(PbrBundle {
-        mesh,
-        material,
-        transform: Transform {
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average

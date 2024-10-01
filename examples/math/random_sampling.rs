@@ -58,28 +58,26 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     // Store the shape we sample from in a resource:
     let shape = Cuboid::from_length(2.9);
     commands.insert_resource(SampledShape(shape));
 
     // The sampled shape shown transparently:
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(shape)),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+    ));
 
     // A light:
     commands.spawn((
@@ -167,12 +165,9 @@ fn handle_keypress(
 
         // Spawn a sphere at the random location:
         commands.spawn((
-            PbrBundle {
-                mesh: sample_mesh.0.clone(),
-                material: sample_material.0.clone(),
-                transform: Transform::from_translation(sample),
-                ..default()
-            },
+            Mesh3d(sample_mesh.0.clone()),
+            MeshMaterial3d(sample_material.0.clone()),
+            Transform::from_translation(sample),
             SamplePoint,
         ));
 
@@ -204,12 +199,9 @@ fn handle_keypress(
         // For each sample point, spawn a sphere:
         for sample in samples {
             commands.spawn((
-                PbrBundle {
-                    mesh: sample_mesh.0.clone(),
-                    material: sample_material.0.clone(),
-                    transform: Transform::from_translation(sample),
-                    ..default()
-                },
+                Mesh3d(sample_mesh.0.clone()),
+                MeshMaterial3d(sample_material.0.clone()),
+                Transform::from_translation(sample),
                 SamplePoint,
             ));
         }

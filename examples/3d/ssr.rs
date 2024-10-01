@@ -149,16 +149,15 @@ fn spawn_cube(
     standard_materials: &mut Assets<StandardMaterial>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: standard_materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
                 ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(0.0, 0.5, 0.0),
+        ))
         .insert(CubeModel);
 }
 
@@ -182,9 +181,9 @@ fn spawn_water(
     meshes: &mut Assets<Mesh>,
     water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
 ) {
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0))),
-        material: water_materials.add(ExtendedMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
+        MeshMaterial3d(water_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,
@@ -215,10 +214,9 @@ fn spawn_water(
                     octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
                 },
             },
-        }),
-        transform: Transform::from_scale(Vec3::splat(100.0)),
-        ..default()
-    });
+        })),
+        Transform::from_scale(Vec3::splat(100.0)),
+    ));
 }
 
 // Spawns the camera.
