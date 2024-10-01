@@ -124,17 +124,15 @@ fn spawn_sphere(
     let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
 
     // Create a sphere.
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
-        }),
-        transform: Transform::default(),
-        ..PbrBundle::default()
-    });
+        })),
+    ));
 }
 
 // Spawns the reflection probe.
