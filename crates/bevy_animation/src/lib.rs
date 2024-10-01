@@ -1005,31 +1005,33 @@ impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let trigger = self.triggers.as_mut()?.next()?;
-            if match (
-                self.animation.is_playback_reversed(),
-                self.animation.just_completed,
-            ) {
-                // forward, trigger if `last_seek_time < trigger_time <= seek_time`
-                (false, false) => {
-                    Some(trigger.time) >= self.animation.last_seek_time
-                        && trigger.time <= self.animation.seek_time
+            if !self.animation.is_finished()
+                && match (
+                    self.animation.is_playback_reversed(),
+                    self.animation.just_completed,
+                ) {
+                    // forward, trigger if `last_seek_time < trigger_time <= seek_time`
+                    (false, false) => {
+                        Some(trigger.time) >= self.animation.last_seek_time
+                            && trigger.time <= self.animation.seek_time
+                    }
+                    // forward, completed this tick
+                    (false, true) => {
+                        Some(trigger.time) >= self.animation.last_seek_time
+                            || trigger.time <= self.animation.seek_time
+                    }
+                    // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
+                    (true, false) => {
+                        Some(trigger.time) <= self.animation.last_seek_time
+                            && trigger.time >= self.animation.seek_time
+                    }
+                    // reverse, completed this tick
+                    (true, true) => {
+                        Some(trigger.time) <= self.animation.last_seek_time
+                            || trigger.time >= self.animation.seek_time
+                    }
                 }
-                // forward, completed this tick
-                (false, true) => {
-                    Some(trigger.time) >= self.animation.last_seek_time
-                        || trigger.time <= self.animation.seek_time
-                }
-                // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
-                (true, false) => {
-                    Some(trigger.time) <= self.animation.last_seek_time
-                        && trigger.time >= self.animation.seek_time
-                }
-                // reverse, completed this tick
-                (true, true) => {
-                    Some(trigger.time) <= self.animation.last_seek_time
-                        || trigger.time >= self.animation.seek_time
-                }
-            } {
+            {
                 return Some(trigger);
             }
         }
@@ -1219,7 +1221,6 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    trigger_untargeted_animation_events,
                     // TODO: `animate_targets` can animate anything, so
                     // ambiguity testing currently considers it ambiguous with
                     // every other system in `PostUpdate`. We may want to move
@@ -1229,6 +1230,7 @@ impl Plugin for AnimationPlugin {
                     animate_targets_and_trigger_events
                         .after(bevy_render::mesh::morph::inherit_weights)
                         .ambiguous_with_all(),
+                    trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
                     .chain()
