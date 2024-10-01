@@ -66,12 +66,9 @@ fn setup(
 
     // The cube that will be rendered to the texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: cube_material_handle,
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(cube_material_handle),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
         FirstPassCube,
         first_pass_layer.clone(),
     ));
@@ -113,13 +110,9 @@ fn setup(
 
     // Main pass cube, with material containing the rendered first pass texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         MainPassCube,
     ));
 

@@ -59,12 +59,11 @@ fn setup(
     });
 
     // A plane that we can sit on top of
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0., -2., 0.),
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     // A light source
     commands.spawn((

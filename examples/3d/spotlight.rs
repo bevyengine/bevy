@@ -41,11 +41,8 @@ fn setup(
 ) {
     // ground plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-            material: materials.add(Color::WHITE),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
         Movable,
     ));
 
@@ -64,12 +61,9 @@ fn setup(
             let z = rng.gen_range(-5.0..5.0);
 
             (
-                PbrBundle {
-                    mesh: cube_mesh.clone(),
-                    material: blue.clone(),
-                    transform: Transform::from_xyz(x, y, z),
-                    ..default()
-                },
+                Mesh3d(cube_mesh.clone()),
+                MeshMaterial3d(blue.clone()),
+                Transform::from_xyz(x, y, z),
                 Movable,
             )
         })
@@ -108,18 +102,14 @@ fn setup(
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
                 ))
                 .with_children(|builder| {
-                    builder.spawn(PbrBundle {
-                        mesh: sphere_mesh.clone(),
-                        material: red_emissive.clone(),
-                        ..default()
-                    });
                     builder.spawn((
-                        PbrBundle {
-                            transform: Transform::from_translation(Vec3::Z * -0.1),
-                            mesh: sphere_mesh_direction.clone(),
-                            material: maroon_emissive.clone(),
-                            ..default()
-                        },
+                        Mesh3d(sphere_mesh.clone()),
+                        MeshMaterial3d(red_emissive.clone()),
+                    ));
+                    builder.spawn((
+                        Mesh3d(sphere_mesh_direction.clone()),
+                        MeshMaterial3d(maroon_emissive.clone()),
+                        Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));
                 });

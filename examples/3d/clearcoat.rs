@@ -97,9 +97,9 @@ fn spawn_car_paint_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -111,9 +111,8 @@ fn spawn_car_paint_sphere(
                 base_color: BLUE.into(),
                 ..default()
             }),
-            transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -124,9 +123,9 @@ fn spawn_coated_glass_bubble_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 metallic: 0.5,
@@ -134,10 +133,9 @@ fn spawn_coated_glass_bubble_sphere(
                 base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -165,9 +163,9 @@ fn spawn_scratched_gold_ball(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(
@@ -178,10 +176,9 @@ fn spawn_scratched_gold_ball(
                 perceptual_roughness: 0.1,
                 base_color: GOLD.into(),
                 ..default()
-            }),
-            transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 

@@ -35,8 +35,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 ///
 /// ```text
 /// <Parent entity>
-///   + Mesh node (without `PbrBundle` or `SkinnedMesh` component)
-///     + Skinned mesh entity (with `PbrBundle` and `SkinnedMesh` component, created by glTF loader)
+///   + Mesh node (without `Mesh3d` or `SkinnedMesh` component)
+///     + Skinned mesh entity (with `Mesh3d` and `SkinnedMesh` component, created by glTF loader)
 ///     + First joint
 ///       + Second joint
 /// ```

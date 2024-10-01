@@ -190,8 +190,8 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     // Turn on shadows.
