@@ -8,19 +8,14 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         self as bevy_reflect,
-        serde::{
-            DeserializeReflect, ReflectDeserializeReflect, ReflectDeserializer, ReflectSerializer,
-            TypedReflectDeserializer,
-        },
+        serde::{ReflectDeserializer, ReflectSerializer},
         type_registry::TypeRegistry,
-        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect,
-        ReflectDeserialize, Struct,
+        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, Struct,
     };
-    use core::fmt::Formatter;
-    use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-    use serde::{Deserialize, Deserializer};
+    use serde::de::DeserializeSeed;
 
     #[test]
     fn test_serialization_struct() {
@@ -190,142 +185,194 @@ mod tests {
             .unwrap());
     }
 
-    #[test]
-    fn should_deserialize_using_deserialize_reflect() {
-        #[derive(Reflect, PartialEq, Debug, Deserialize)]
-        #[reflect(Deserialize)]
-        enum AnimalType {
-            Dog,
-            Cat,
+    mod type_data {
+        use super::*;
+        use crate::{ReflectFromReflect, TypePath};
+        use alloc::sync::Arc;
+        use bevy_reflect_derive::reflect_trait;
+        use core::fmt::{Debug, Formatter};
+        use serde::de::{SeqAccess, Visitor};
+        use serde::ser::SerializeSeq;
+        use serde::{Deserializer, Serializer};
+
+        #[reflect_trait]
+        trait Enemy: Reflect + Debug {
+            #[allow(dead_code, reason = "this method is purely for testing purposes")]
+            fn hp(&self) -> u8;
         }
 
-        #[derive(Reflect)]
-        struct Dog {
-            name: DogName,
+        // This is needed to support Arc<dyn Enemy>
+        impl TypePath for dyn Enemy {
+            fn type_path() -> &'static str {
+                "dyn bevy_reflect::serde::tests::type_data::Enemy"
+            }
+
+            fn short_type_path() -> &'static str {
+                "dyn Enemy"
+            }
         }
 
-        #[derive(Reflect)]
-        enum DogName {
-            Spot,
-            Fido,
-            Rex,
+        #[derive(Reflect, Debug)]
+        #[reflect(Enemy)]
+        struct Skeleton(u8);
+
+        impl Enemy for Skeleton {
+            fn hp(&self) -> u8 {
+                self.0
+            }
         }
 
-        #[derive(Reflect)]
-        struct Cat {
-            name: CatName,
+        #[derive(Reflect, Debug)]
+        #[reflect(Enemy)]
+        struct Zombie(u8);
+
+        impl Enemy for Zombie {
+            fn hp(&self) -> u8 {
+                self.0
+            }
         }
 
-        #[derive(Reflect)]
-        enum CatName {
-            Fluffy,
-            Snowball,
-            Luna,
+        #[derive(Reflect, Debug)]
+        struct Level {
+            name: String,
+            enemies: EnemyList,
         }
 
-        /// Pet is made up of two fields: the type of animal and the animal itself.
-        ///
-        /// This allows us to store a type-erased version of our pet,
-        /// rather than having to define one like this:
-        ///
-        /// ```
-        /// # use bevy_reflect::prelude::Reflect;
-        /// #[derive(Reflect)]
-        /// struct Pet<T: Reflect>(T);
-        /// ```
-        ///
-        /// If we wanted to allow for deserialization of any type,
-        /// we could replace `AnimalType` with a `String` containing the type name of the animal.
-        #[derive(Reflect)]
-        #[reflect(DeserializeReflect)]
-        #[reflect(from_reflect = false)]
-        struct Pet(AnimalType, DynamicStruct);
+        #[derive(Reflect, Debug)]
+        #[reflect(SerializeReflect, DeserializeReflect)]
+        struct EnemyList(Vec<Arc<dyn Enemy>>);
 
-        impl<'de> DeserializeReflect<'de> for Pet {
+        impl SerializeReflect for EnemyList {
+            fn serialize<S>(
+                &self,
+                serializer: S,
+                registry: &TypeRegistry,
+            ) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                let mut state = serializer.serialize_seq(Some(self.0.len()))?;
+                for enemy in &self.0 {
+                    state.serialize_element(&ReflectSerializer::new(
+                        (**enemy).as_partial_reflect(),
+                        registry,
+                    ))?;
+                }
+                state.end()
+            }
+        }
+
+        impl<'de> DeserializeReflect<'de> for EnemyList {
             fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
             where
                 D: Deserializer<'de>,
             {
-                struct PetVisitor<'a> {
+                struct EnemyListVisitor<'a> {
                     registry: &'a TypeRegistry,
                 }
-                impl<'a, 'de> Visitor<'de> for PetVisitor<'a> {
-                    type Value = Pet;
+
+                impl<'a, 'de> Visitor<'de> for EnemyListVisitor<'a> {
+                    type Value = Vec<Arc<dyn Enemy>>;
 
                     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
-                        write!(formatter, "a pet tuple struct")
+                        write!(formatter, "a list of enemies")
                     }
 
                     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
                     where
                         A: SeqAccess<'de>,
                     {
-                        let kind = seq.next_element::<AnimalType>()?.unwrap();
-                        match kind {
-                            AnimalType::Cat => {
-                                let cat = seq
-                                    .next_element_seed(TypedReflectDeserializer::of::<Cat>(
-                                        self.registry,
-                                    ))?
-                                    .unwrap()
-                                    .reflect_owned()
-                                    .into_struct()
-                                    .unwrap()
-                                    .clone_dynamic();
-                                Ok(Pet(kind, cat))
-                            }
-                            AnimalType::Dog => {
-                                let dog = seq
-                                    .next_element_seed(TypedReflectDeserializer::of::<Dog>(
-                                        self.registry,
-                                    ))?
-                                    .unwrap()
-                                    .reflect_owned()
-                                    .into_struct()
-                                    .unwrap()
-                                    .clone_dynamic();
-                                Ok(Pet(kind, dog))
-                            }
+                        let mut enemies = Vec::new();
+                        while let Some(enemy) =
+                            seq.next_element_seed(ReflectDeserializer::new(self.registry))?
+                        {
+                            let registration = self
+                                .registry
+                                .get_with_type_path(
+                                    enemy.get_represented_type_info().unwrap().type_path(),
+                                )
+                                .unwrap();
+
+                            // 1. Convert any possible dynamic values to concrete ones
+                            let enemy = registration
+                                .data::<ReflectFromReflect>()
+                                .unwrap()
+                                .from_reflect(&*enemy)
+                                .unwrap();
+
+                            // 2. Convert the concrete value to a boxed trait object
+                            let enemy = registration
+                                .data::<ReflectEnemy>()
+                                .unwrap()
+                                .get_boxed(enemy)
+                                .unwrap();
+
+                            enemies.push(enemy.into());
                         }
+
+                        Ok(enemies)
                     }
                 }
 
-                deserializer.deserialize_tuple_struct("Pet", 1, PetVisitor { registry })
+                deserializer
+                    .deserialize_seq(EnemyListVisitor { registry })
+                    .map(EnemyList)
             }
         }
 
-        let mut registry = TypeRegistry::default();
-        registry.register::<Pet>();
-        registry.register::<AnimalType>();
-        registry.register::<Dog>();
-        registry.register::<DogName>();
-        registry.register::<Cat>();
-        registry.register::<CatName>();
+        fn create_registry() -> TypeRegistry {
+            let mut registry = TypeRegistry::default();
+            registry.register::<Level>();
+            registry.register::<EnemyList>();
+            registry.register::<Skeleton>();
+            registry.register::<Zombie>();
+            registry
+        }
 
-        let pet = Pet(
-            AnimalType::Cat,
-            Cat {
-                name: CatName::Fluffy,
-            }
-            .clone_dynamic(),
-        );
+        #[test]
+        fn should_serialize_with_serialize_reflect() {
+            let registry = create_registry();
 
-        let serializer = ReflectSerializer::new(&pet, &registry);
-        let serialized = ron::ser::to_string(&serializer).unwrap();
+            let level = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![Arc::new(Skeleton(10)), Arc::new(Zombie(20))]),
+            };
 
-        let expected = r#"{"bevy_reflect::serde::tests::Pet":(Cat,(name:Fluffy))}"#;
+            let serializer = ReflectSerializer::new(&level, &registry);
+            let serialized = ron::ser::to_string(&serializer).unwrap();
 
-        assert_eq!(expected, serialized);
+            let expected = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(20)}])}"#;
 
-        let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.try_take::<Pet>().unwrap();
+            assert_eq!(expected, serialized);
+        }
 
-        assert_eq!(pet.0, deserialized.0);
-        assert!(pet
-            .1
-            .reflect_partial_eq(&deserialized.1)
-            .unwrap_or_default());
+        #[test]
+        fn should_deserialize_with_deserialize_reflect() {
+            let registry = create_registry();
+
+            let input = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(20)}])}"#;
+
+            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+            let output = Level::from_reflect(&*value).unwrap();
+
+            let expected = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![Arc::new(Skeleton(10)), Arc::new(Zombie(20))]),
+            };
+
+            // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
+            assert_eq!(format!("{:?}", expected), format!("{:?}", output));
+
+            let unexpected = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![Arc::new(Skeleton(20)), Arc::new(Zombie(10))]),
+            };
+
+            // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
+            assert_ne!(format!("{:?}", unexpected), format!("{:?}", output));
+        }
     }
 }
