@@ -27,6 +27,7 @@ pub struct UiSurface {
     pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::NodeId>>,
     pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,
     pub(super) taffy: TaffyTree<NodeMeasure>,
+    taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -54,6 +55,7 @@ impl Default for UiSurface {
             camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
+            taffy_children_scratch: Vec::new(),
         }
     }
 }
@@ -114,10 +116,11 @@ impl UiSurface {
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
     pub fn update_children(&mut self, entity: Entity, children: impl Iterator<Item = Entity>) {
-        let mut taffy_children = Vec::new();
+        self.taffy_children_scratch.clear();
+
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
-                taffy_children.push(*taffy_node);
+                self.taffy_children_scratch.push(*taffy_node);
             } else {
                 warn!(
                     "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
@@ -129,7 +132,7 @@ If this is intentional, consider adding a GhostNode component to this entity."
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
-            .set_children(*taffy_node, &taffy_children)
+            .set_children(*taffy_node, &self.taffy_children_scratch)
             .unwrap();
     }
 
