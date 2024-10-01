@@ -147,12 +147,9 @@ fn spawn_view_model(
 
             // Spawn the player's right arm.
             parent.spawn((
-                MaterialMeshBundle {
-                    mesh: arm,
-                    material: arm_material,
-                    transform: Transform::from_xyz(0.2, -0.1, -0.25),
-                    ..default()
-                },
+                Mesh3d(arm),
+                MeshMaterial3d(arm_material),
+                Transform::from_xyz(0.2, -0.1, -0.25),
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
@@ -173,25 +170,19 @@ fn spawn_world_model(
     // The world model camera will render the floor and the cubes spawned in this system.
     // Assigning no `RenderLayers` component defaults to layer 0.
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: floor,
-        material: material.clone(),
-        ..default()
-    });
+    commands.spawn((Mesh3d(floor), MeshMaterial3d(material.clone())));
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: cube.clone(),
-        material: material.clone(),
-        transform: Transform::from_xyz(0.0, 0.25, -3.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(cube.clone()),
+        MeshMaterial3d(material.clone()),
+        Transform::from_xyz(0.0, 0.25, -3.0),
+    ));
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: cube,
-        material,
-        transform: Transform::from_xyz(0.75, 1.75, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(cube),
+        MeshMaterial3d(material),
+        Transform::from_xyz(0.75, 1.75, 0.0),
+    ));
 }
 
 fn spawn_lights(mut commands: Commands) {

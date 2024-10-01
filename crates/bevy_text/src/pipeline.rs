@@ -16,7 +16,7 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText,
+    error::TextError, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText, LineBreak,
     PositionedGlyph, TextBounds, TextSection, YAxisOrientation,
 };
 
@@ -73,7 +73,7 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        linebreak_behavior: BreakLineOn,
+        linebreak: LineBreak,
         bounds: TextBounds,
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
@@ -144,11 +144,11 @@ impl TextPipeline {
 
         buffer.set_wrap(
             font_system,
-            match linebreak_behavior {
-                BreakLineOn::WordBoundary => Wrap::Word,
-                BreakLineOn::AnyCharacter => Wrap::Glyph,
-                BreakLineOn::WordOrCharacter => Wrap::WordOrGlyph,
-                BreakLineOn::NoWrap => Wrap::None,
+            match linebreak {
+                LineBreak::WordBoundary => Wrap::Word,
+                LineBreak::AnyCharacter => Wrap::Glyph,
+                LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
+                LineBreak::NoWrap => Wrap::None,
             },
         );
 
@@ -183,7 +183,7 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: JustifyText,
-        linebreak_behavior: BreakLineOn,
+        linebreak: LineBreak,
         font_smoothing: FontSmoothing,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
@@ -204,7 +204,7 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             sections,
-            linebreak_behavior,
+            linebreak,
             bounds,
             scale_factor,
             buffer,
@@ -301,7 +301,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        linebreak_behavior: BreakLineOn,
+        linebreak: LineBreak,
         buffer: &mut CosmicBuffer,
         text_alignment: JustifyText,
         font_system: &mut CosmicFontSystem,
@@ -311,7 +311,7 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             sections,
-            linebreak_behavior,
+            linebreak,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
             buffer,

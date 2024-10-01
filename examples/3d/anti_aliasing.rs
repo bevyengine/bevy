@@ -252,11 +252,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -265,20 +264,17 @@ fn setup(
 
     // Cubes
     for i in 0..5 {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
+            MeshMaterial3d(cube_material.clone()),
+            Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+        ));
     }
 
     // Flight Helmet
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+    )));
 
     // Light
     commands.spawn((

@@ -37,22 +37,18 @@ fn setup(
     // parent cube
     commands
         .spawn((
-            PbrBundle {
-                mesh: cube_handle.clone(),
-                material: cube_material_handle.clone(),
-                transform: Transform::from_xyz(0.0, 0.0, 1.0),
-                ..default()
-            },
+            Mesh3d(cube_handle.clone()),
+            MeshMaterial3d(cube_material_handle.clone()),
+            Transform::from_xyz(0.0, 0.0, 1.0),
             Rotator,
         ))
         .with_children(|parent| {
             // child cube
-            parent.spawn(PbrBundle {
-                mesh: cube_handle,
-                material: cube_material_handle,
-                transform: Transform::from_xyz(0.0, 0.0, 3.0),
-                ..default()
-            });
+            parent.spawn((
+                Mesh3d(cube_handle),
+                MeshMaterial3d(cube_material_handle),
+                Transform::from_xyz(0.0, 0.0, 3.0),
+            ));
         });
     // light
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, -4.0)));

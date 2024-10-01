@@ -54,7 +54,10 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
+        mesh::{
+            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
+            Mesh3d,
+        },
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
