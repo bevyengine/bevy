@@ -335,7 +335,7 @@ mod test {
             .expect("Could not find entity");
         let mut sprite = binding
             .get_mut::<SpriteProperties>()
-            .expect("Could not find sprite component of entity");
+            .expect("Could not find sprite property component of entity");
         sprite.custom_size = Some(Vec2::ONE);
 
         // Re-run the `calculate_bounds_2d` system to get the new AABB

@@ -110,15 +110,10 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn((
-        Compressed::<Image, Sprite> {
-            compressed: asset_server.load("data/compressed_image.png.gz"),
-            ..default()
-        },
-        SpriteProperties::default(),
-        Transform::default(),
-        Visibility::default(),
-    ));
+    commands.spawn((Compressed::<Image, Sprite> {
+        compressed: asset_server.load("data/compressed_image.png.gz"),
+        ..default()
+    },));
 }
 
 fn decompress<A: Asset, C: Component>(
