@@ -29,7 +29,7 @@ impl<C: FromReflect + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
         ReflectMapEntities {
             map_entities: |reflected, mut mapper| {
-                let mut concrete = C::from_reflect(reflected).expect("mismatched reflected type");
+                let mut concrete = C::from_reflect(reflected).expect("reflected type should match");
                 concrete.map_entities(&mut mapper);
                 reflected.apply(&concrete);
             },
