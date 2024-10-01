@@ -81,7 +81,8 @@ impl Command for DespawnRecursive {
         let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity)
+            entity = bevy_utils::tracing::field::debug(self.entity),
+            warn = bevy_utils::tracing::field::debug(self.warn)
         )
         .entered();
         despawn_with_children_recursive(world, self.entity, self.warn);
@@ -94,7 +95,8 @@ impl Command for DespawnChildrenRecursive {
         let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnChildrenRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity)
+            entity = bevy_utils::tracing::field::debug(self.entity),
+            warn = bevy_utils::tracing::field::debug(self.warn)
         )
         .entered();
         despawn_children_recursive(world, self.entity, self.warn);
