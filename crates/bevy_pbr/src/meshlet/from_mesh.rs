@@ -17,8 +17,11 @@ use meshopt::{
 use metis::Graph;
 use smallvec::SmallVec;
 
-const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 14;
+// Snap vertices to the nearest 1/16th of a centimeter (1/2^4).
+const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
+
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
+const CENTIMETERS_PER_METER: f32 = 100.0;
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -344,7 +347,7 @@ fn split_simplified_group_into_new_meshlets(
     new_meshlets_count
 }
 
-// TODO: Per-mesh VERTEX_POSITION_QUANTIZATION_FACTOR
+// TODO: User-configurable VERTEX_POSITION_QUANTIZATION_FACTOR
 fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
@@ -357,6 +360,9 @@ fn build_and_compress_meshlet_vertex_data(
 ) {
     let start_vertex_position_bit = vertex_positions.len() as u32;
     let start_vertex_attribute_id = vertex_normals.len() as u32;
+
+    let quantization_factor =
+        (1 << VERTEX_POSITION_QUANTIZATION_FACTOR) as f32 * CENTIMETERS_PER_METER;
 
     let mut min_quantized_position_channels = IVec3::MAX;
     let mut max_quantized_position_channels = IVec3::MIN;
@@ -378,7 +384,6 @@ fn build_and_compress_meshlet_vertex_data(
         vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
 
         // Quantize position to a fixed-point IVec3
-        let quantization_factor = (1 << VERTEX_POSITION_QUANTIZATION_FACTOR) as f32;
         let quantized_position = (position * quantization_factor + 0.5).as_ivec3();
         quantized_positions.push(quantized_position);
 

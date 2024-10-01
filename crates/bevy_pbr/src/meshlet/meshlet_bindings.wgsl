@@ -48,6 +48,8 @@ struct DrawIndirectArgs {
     first_instance: u32,
 }
 
+const CENTIMETERS_PER_METER = 100.0;
+
 #ifdef MESHLET_FILL_CLUSTER_BUFFERS_PASS
 var<push_constant> cluster_count: u32;
 @group(0) @binding(0) var<storage, read> meshlet_instance_meshlet_counts_prefix_sum: array<u32>; // Per entity instance
@@ -136,7 +138,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 
     // Reverse vertex quantization
     let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
-    vertex_position /= f32(1u << meshlet_quantization_factor);
+    vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;
 }
@@ -188,7 +190,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 
     // Reverse vertex quantization
     let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
-    vertex_position /= f32(1u << meshlet_quantization_factor);
+    vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;
 }
