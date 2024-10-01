@@ -60,10 +60,7 @@ fn setup(
     });
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((PointLight::default(), camera_and_light_transform));
 
     // Text to describe the controls.
     commands.spawn(

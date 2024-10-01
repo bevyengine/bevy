@@ -59,15 +59,10 @@ fn setup(
                     .with_scale(Vec3::splat(radius)),
                 ..default()
             })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        radius,
-                        color: Color::srgb(0.2, 0.2, 1.0),
-                        ..default()
-                    },
-                    ..default()
-                });
+            .with_child(PointLight {
+                radius,
+                color: Color::srgb(0.2, 0.2, 1.0),
+                ..default()
             });
     }
 }

@@ -90,42 +90,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         });
 
     // Add the point light
-    commands
-        .spawn((
-            PointLightBundle {
-                point_light: PointLight {
-                    shadows_enabled: true,
-                    range: 150.0,
-                    color: RED.into(),
-                    intensity: 1000.0,
-                    ..default()
-                },
-                transform: Transform::from_xyz(-0.4, 1.9, 1.0),
-                ..default()
-            },
-            MoveBackAndForthHorizontally {
-                min_x: -1.93,
-                max_x: -0.4,
-                speed: -0.2,
-            },
-        ))
-        .insert(VolumetricLight);
+    commands.spawn((
+        Transform::from_xyz(-0.4, 1.9, 1.0),
+        PointLight {
+            shadows_enabled: true,
+            range: 150.0,
+            color: RED.into(),
+            intensity: 1000.0,
+            ..default()
+        },
+        VolumetricLight,
+        MoveBackAndForthHorizontally {
+            min_x: -1.93,
+            max_x: -0.4,
+            speed: -0.2,
+        },
+    ));
 
     // Add the spot light
-    commands
-        .spawn(SpotLightBundle {
-            transform: Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
-            spot_light: SpotLight {
-                intensity: 5000.0, // lumens
-                color: Color::WHITE,
-                shadows_enabled: true,
-                inner_angle: 0.76,
-                outer_angle: 0.94,
-                ..default()
-            },
+    commands.spawn((
+        Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
+        SpotLight {
+            intensity: 5000.0, // lumens
+            color: Color::WHITE,
+            shadows_enabled: true,
+            inner_angle: 0.76,
+            outer_angle: 0.94,
             ..default()
-        })
-        .insert(VolumetricLight);
+        },
+        VolumetricLight,
+    ));
 
     // Add the fog volume.
     commands.spawn(FogVolumeBundle {
