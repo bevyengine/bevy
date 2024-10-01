@@ -492,6 +492,7 @@ mod tests {
             max_height: Val::ZERO,
             aspect_ratio: None,
             overflow: crate::Overflow::clip(),
+            overflow_clip_margin: crate::OverflowClipMargin::default(),
             column_gap: Val::ZERO,
             row_gap: Val::ZERO,
             grid_auto_flow: GridAutoFlow::ColumnDense,
