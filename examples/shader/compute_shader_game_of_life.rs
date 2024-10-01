@@ -84,12 +84,12 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 // Switch texture to display every frame to show the one that was written to most recently.
-fn switch_textures(images: Res<GameOfLifeImages>, mut displayed: Query<&mut Handle<Image>>) {
+fn switch_textures(images: Res<GameOfLifeImages>, mut displayed: Query<&mut SpriteTexture>) {
     let mut displayed = displayed.single_mut();
-    if *displayed == images.texture_a {
-        *displayed = images.texture_b.clone_weak();
+    if displayed.0 == images.texture_a {
+        displayed.0 = images.texture_b.clone_weak();
     } else {
-        *displayed = images.texture_a.clone_weak();
+        displayed.0 = images.texture_a.clone_weak();
     }
 }
 

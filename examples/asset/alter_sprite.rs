@@ -117,11 +117,11 @@ fn spawn_text(mut commands: Commands) {
 
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_bird: Query<(&mut Bird, &mut Handle<Image>), Without<Left>>,
+    mut right_bird: Query<(&mut Bird, &mut SpriteTexture), Without<Left>>,
 ) {
     // Image handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one bird without the `Left` marker component.
-    let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
+    let Ok((mut bird, mut sprite_texture)) = right_bird.get_single_mut() else {
         return;
     };
 
@@ -131,18 +131,18 @@ fn alter_handle(
     // Modify the handle associated with the Bird on the right side. Note that we will only
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
-    *handle = asset_server.load(bird.get_texture_path());
+    sprite_texture.0 = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Handle<Image>, With<Left>>) {
+fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&SpriteTexture, With<Left>>) {
     // It's convenient to retrieve the asset handle stored with the bird on the left. However,
     // we could just as easily have retained this in a resource or a dedicated component.
-    let Ok(handle) = left_bird.get_single() else {
+    let Ok(sprite_texture) = left_bird.get_single() else {
         return;
     };
 
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(handle) else {
+    let Some(image) = images.get_mut(sprite_texture) else {
         return;
     };
 
