@@ -205,10 +205,9 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
+    ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.
