@@ -1,3 +1,4 @@
+use crate::serde::de::error_utils::make_custom_error;
 use crate::{FromType, PartialReflect, TypeRegistry};
 use serde::Deserializer;
 
@@ -65,8 +66,7 @@ impl ReflectDeserializeWithRegistry {
         D: Deserializer<'de>,
     {
         let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
-        (self.deserialize)(&mut erased, registry)
-            .map_err(<<D as Deserializer<'de>>::Error as serde::de::Error>::custom)
+        (self.deserialize)(&mut erased, registry).map_err(make_custom_error)
     }
 }
 
