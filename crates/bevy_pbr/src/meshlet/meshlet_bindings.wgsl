@@ -120,7 +120,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
         let lower_word_index = start_bit / 32u;
         let lower_word_bit_offset = start_bit & 31u;
         var next_32_bits = meshlet_vertex_positions[lower_word_index] >> lower_word_bit_offset;
-        if start_bit & 31u != 0u {
+        if lower_word_bit_offset + bits_per_channel[i] > 32u {
             next_32_bits |= meshlet_vertex_positions[lower_word_index + 1u] << (32u - lower_word_bit_offset);
         }
         vertex_position_packed[i] = extractBits(next_32_bits, 0u, bits_per_channel[i]);
@@ -172,7 +172,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
         let lower_word_index = start_bit / 32u;
         let lower_word_bit_offset = start_bit & 31u;
         var next_32_bits = meshlet_vertex_positions[lower_word_index] >> lower_word_bit_offset;
-        if start_bit & 31u != 0u {
+        if lower_word_bit_offset + bits_per_channel[i] > 32u {
             next_32_bits |= meshlet_vertex_positions[lower_word_index + 1u] << (32u - lower_word_bit_offset);
         }
         vertex_position_packed[i] = extractBits(next_32_bits, 0u, bits_per_channel[i]);
