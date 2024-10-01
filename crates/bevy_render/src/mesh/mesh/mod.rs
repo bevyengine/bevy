@@ -458,13 +458,8 @@ impl Mesh {
     ///
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
-    pub fn get_vertex_buffer_data(&self) -> Vec<u8> {
-        let mut vertex_size = 0;
-        for attribute_data in self.attributes.values() {
-            let vertex_format = attribute_data.attribute.format;
-            vertex_size += vertex_format.get_size() as usize;
-        }
-
+    pub fn create_packed_vertex_buffer_data(&self) -> Vec<u8> {
+        let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
         let mut attributes_interleaved_buffer = vec![0; vertex_count * vertex_size];
         // bundle into interleaved buffers
