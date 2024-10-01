@@ -263,7 +263,7 @@ fn move_player(
         if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
             game.score += 2;
             game.cake_eaten += 1;
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn_recursive(true);
             game.bonus.entity = None;
         }
     }
@@ -327,7 +327,7 @@ fn spawn_bonus(
 
     if let Some(entity) = game.bonus.entity {
         game.score -= 3;
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn_recursive(true);
         game.bonus.entity = None;
         if game.score <= -5 {
             next_state.set(GameState::GameOver);

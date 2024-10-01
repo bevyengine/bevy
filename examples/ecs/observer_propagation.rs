@@ -117,7 +117,7 @@ fn take_damage(
         info!("{} has {:.1} HP", name, hp.0);
     } else {
         warn!("💀 {} has died a gruesome death", name);
-        commands.entity(trigger.entity()).despawn_recursive();
+        commands.entity(trigger.entity()).despawn_recursive(true);
         app_exit.send(AppExit::Success);
     }
 

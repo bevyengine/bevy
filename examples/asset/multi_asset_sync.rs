@@ -296,7 +296,7 @@ fn get_async_loading_state(
 fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn_recursive(true);
     }
 
     // Despawn resources used in the loading phase.
