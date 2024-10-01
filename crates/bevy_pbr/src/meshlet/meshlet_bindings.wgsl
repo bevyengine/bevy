@@ -112,45 +112,20 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     // Get bitstream start for the vertex
     let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
     let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
-    let start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
+    var start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
 
-    // Setup bitstream decoder
-    var word_i = start_bit / 32u;
-    var bit_i = start_bit % 32u;
-    var word = meshlet_vertex_positions[word_i];
-
+    // Read each vertex channel from the bitstream
     var vertex_position_packed = vec3(0u);
-
-    // Read bits for X
-    vertex_position_packed.x = extractBits(word, bit_i, bits_per_channel.x);
-    bit_i += bits_per_channel.x;
-
-    // Refill from the bitstream if needed
-    if bit_i + bits_per_channel.y > 32u {
-        word_i += 1u;
-        let new_word = meshlet_vertex_positions[word_i];
-
-        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
-
-        bit_i = 0u;
+    for (var i = 0u; i < 3u; i++) {
+        let lower_word_index = start_bit / 32u;
+        let lower_word_bit_offset = start_bit & 31u;
+        var next_32_bits = meshlet_vertex_positions[lower_word_index] >> lower_word_bit_offset;
+        if start_bit & 31u != 0u {
+            next_32_bits |= meshlet_vertex_positions[lower_word_index + 1u] << (32u - lower_word_bit_offset);
+        }
+        vertex_position_packed[i] = extractBits(next_32_bits, 0u, bits_per_channel[i]);
+        start_bit += bits_per_channel[i];
     }
-
-    // Read bits for Y
-    vertex_position_packed.y = extractBits(word, bit_i, bits_per_channel.y);
-    bit_i += bits_per_channel.y;
-
-    // Refill from the bitstream if needed
-    if bit_i + bits_per_channel.z > 32u {
-        word_i += 1u;
-        let new_word = meshlet_vertex_positions[word_i];
-
-        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
-
-        bit_i = 0u;
-    }
-
-    // Read bits for Z
-    vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
 
     // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
     var vertex_position = vec3<f32>(vertex_position_packed) + vec3(
@@ -189,45 +164,20 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     // Get bitstream start for the vertex
     let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
     let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
-    let start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
+    var start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
 
-    // Setup bitstream decoder
-    var word_i = start_bit / 32u;
-    var bit_i = start_bit % 32u;
-    var word = meshlet_vertex_positions[word_i];
-
+    // Read each vertex channel from the bitstream
     var vertex_position_packed = vec3(0u);
-
-    // Read bits for X
-    vertex_position_packed.x = extractBits(word, bit_i, bits_per_channel.x);
-    bit_i += bits_per_channel.x;
-
-    // Refill from the bitstream if needed
-    if bit_i + bits_per_channel.y > 32u {
-        word_i += 1u;
-        let new_word = meshlet_vertex_positions[word_i];
-
-        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
-
-        bit_i = 0u;
+    for (var i = 0u; i < 3u; i++) {
+        let lower_word_index = start_bit / 32u;
+        let lower_word_bit_offset = start_bit & 31u;
+        var next_32_bits = meshlet_vertex_positions[lower_word_index] >> lower_word_bit_offset;
+        if start_bit & 31u != 0u {
+            next_32_bits |= meshlet_vertex_positions[lower_word_index + 1u] << (32u - lower_word_bit_offset);
+        }
+        vertex_position_packed[i] = extractBits(next_32_bits, 0u, bits_per_channel[i]);
+        start_bit += bits_per_channel[i];
     }
-
-    // Read bits for Y
-    vertex_position_packed.y = extractBits(word, bit_i, bits_per_channel.y);
-    bit_i += bits_per_channel.y;
-
-    // Refill from the bitstream if needed
-    if bit_i + bits_per_channel.z > 32u {
-        word_i += 1u;
-        let new_word = meshlet_vertex_positions[word_i];
-
-        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
-
-        bit_i = 0u;
-    }
-
-    // Read bits for Z
-    vertex_position_packed.z = extractBits(word, bit_i, bits_per_channel.z);
 
     // Remap [0, range_max - range_min] vec3<u32> to [range_min, range_max] vec3<f32>
     var vertex_position = vec3<f32>(vertex_position_packed) + vec3(
