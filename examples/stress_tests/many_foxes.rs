@@ -208,20 +208,19 @@ fn setup(
     });
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");

@@ -255,14 +255,13 @@ fn setup(
         }
     }
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: args.shadows,
             ..default()
         },
-        transform: Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
-        ..default()
-    });
+        Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
+    ));
 }
 
 fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> {

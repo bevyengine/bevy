@@ -36,10 +36,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {
