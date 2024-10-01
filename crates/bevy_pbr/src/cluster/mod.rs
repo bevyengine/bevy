@@ -1,6 +1,6 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
-use std::num::NonZeroU64;
+use core::num::NonZero;
 
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
@@ -20,6 +20,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -80,7 +81,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,
@@ -152,6 +153,10 @@ pub struct GpuClusterableObject {
     pub(crate) shadow_depth_bias: f32,
     pub(crate) shadow_normal_bias: f32,
     pub(crate) spot_light_tan_angle: f32,
+    pub(crate) soft_shadow_size: f32,
+    pub(crate) shadow_map_near_z: f32,
+    pub(crate) pad_a: f32,
+    pub(crate) pad_b: f32,
 }
 
 pub enum GpuClusterableObjects {
@@ -257,8 +262,9 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio: f32 =
-                    AspectRatio::from_pixels(screen_size.x, screen_size.y).into();
+                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y)
+                    .expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values")
+                    .ratio();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");
@@ -468,7 +474,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZeroU64 {
+    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectsUniform::min_size(),
@@ -486,6 +492,13 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
+pub(crate) struct ClusterableObjectOrderData<'a> {
+    pub(crate) entity: &'a Entity,
+    pub(crate) shadows_enabled: &'a bool,
+    pub(crate) is_volumetric_light: &'a bool,
+    pub(crate) is_spot_light: &'a bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 // Sort clusterable objects by:
 //
@@ -500,19 +513,21 @@ impl Default for GpuClusterableObjectsUniform {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
-    (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
-    is_spot_light_1
-        .cmp(is_spot_light_2) // pointlights before spot lights
-        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
-        .then_with(|| entity_1.cmp(entity_2)) // stable
+    a: ClusterableObjectOrderData,
+    b: ClusterableObjectOrderData,
+) -> core::cmp::Ordering {
+    a.is_spot_light
+        .cmp(b.is_spot_light) // pointlights before spot lights
+        .then_with(|| b.shadows_enabled.cmp(a.shadows_enabled)) // shadow casters before non-casters
+        .then_with(|| b.is_volumetric_light.cmp(a.is_volumetric_light)) // volumetric lights before non-volumetric lights
+        .then_with(|| a.entity.cmp(b.entity)) // stable
 }
 
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
+    views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -531,13 +546,15 @@ pub fn extract_clusters(
                 cluster_objects.spot_light_count as u32,
             ));
             for clusterable_entity in &cluster_objects.entities {
-                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                    *clusterable_entity,
-                ));
+                if let Ok(entity) = mapper.get(*clusterable_entity) {
+                    data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                        entity.id(),
+                    ));
+                }
             }
         }
 
-        commands.get_or_spawn(entity).insert((
+        commands.get_or_spawn(entity.id()).insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
@@ -749,7 +766,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_clusterable_object_index_lists(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectIndexListsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectIndexListsUniform::min_size(),
@@ -758,7 +775,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_cluster_offsets_and_counts(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterOffsetsAndCountsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterOffsetsAndCountsUniform::min_size(),

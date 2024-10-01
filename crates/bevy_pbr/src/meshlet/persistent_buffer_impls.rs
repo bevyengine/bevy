@@ -2,9 +2,9 @@ use super::{
     asset::{Meshlet, MeshletBoundingSpheres},
     persistent_buffer::PersistentGpuBufferable,
 };
-use std::{mem::size_of, sync::Arc};
+use alloc::sync::Arc;
 
-const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 48;
+const MESHLET_VERTEX_SIZE_IN_BYTES: u32 = 32;
 
 impl PersistentGpuBufferable for Arc<[u8]> {
     type Metadata = ();

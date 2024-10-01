@@ -1,10 +1,10 @@
 //! The [`Interval`] type for nonempty intervals used by the [`Curve`](super::Curve) trait.
 
-use itertools::Either;
-use std::{
+use core::{
     cmp::{max_by, min_by},
     ops::RangeInclusive,
 };
+use itertools::Either;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]

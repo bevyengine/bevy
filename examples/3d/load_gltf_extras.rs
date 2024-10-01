@@ -22,11 +22,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        shadows_enabled: true,
         ..default()
     });
 
@@ -42,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextBundle::from_section(
             "",
             TextStyle {
-                font_size: 18.,
+                font_size: 15.,
                 ..default()
             },
         )

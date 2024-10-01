@@ -78,7 +78,7 @@ fn setup(mut commands: Commands) {
 
     // Spawns the UI that will show the user prompts.
     let text_style = TextStyle {
-        font_size: 50.0,
+        font_size: 42.0,
         ..default()
     };
     commands
@@ -164,14 +164,11 @@ fn load_level_1(
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -207,14 +204,11 @@ fn load_level_2(
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -266,7 +260,7 @@ struct LoadingScreen;
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextStyle {
-        font_size: 80.0,
+        font_size: 67.0,
         ..default()
     };
 
@@ -320,7 +314,10 @@ fn display_loading_screen(
 }
 
 mod pipelines_ready {
-    use bevy::{prelude::*, render::render_resource::*, render::*};
+    use bevy::{
+        prelude::*,
+        render::{render_resource::*, *},
+    };
 
     pub struct PipelinesReadyPlugin;
     impl Plugin for PipelinesReadyPlugin {

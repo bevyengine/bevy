@@ -4,6 +4,7 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    math::ops,
     pbr::NotShadowCaster,
     prelude::*,
 };
@@ -94,10 +95,8 @@ fn setup(
             let z = z as f32 - 2.0;
             // red spot_light
             commands
-                .spawn(SpotLightBundle {
-                    transform: Transform::from_xyz(1.0 + x, 2.0, z)
-                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
-                    spot_light: SpotLight {
+                .spawn((
+                    SpotLight {
                         intensity: 40_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
@@ -105,8 +104,9 @@ fn setup(
                         outer_angle: PI / 4.0,
                         ..default()
                     },
-                    ..default()
-                })
+                    Transform::from_xyz(1.0 + x, 2.0, z)
+                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
+                ))
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
                         mesh: sphere_mesh.clone(),
@@ -150,11 +150,11 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            -FRAC_PI_2 + (time.elapsed_seconds() * 0.67 * 3.0).sin() * 0.5,
-            (time.elapsed_seconds() * 3.0).sin() * 0.5,
+            -FRAC_PI_2 + ops::sin(time.elapsed_seconds() * 0.67 * 3.0) * 0.5,
+            ops::sin(time.elapsed_seconds() * 3.0) * 0.5,
             0.0,
         );
-        let angle = ((time.elapsed_seconds() * 1.2).sin() + 1.0) * (FRAC_PI_4 - 0.1);
+        let angle = (ops::sin(time.elapsed_seconds() * 1.2) + 1.0) * (FRAC_PI_4 - 0.1);
         angles.inner_angle = angle * 0.8;
         angles.outer_angle = angle;
     }

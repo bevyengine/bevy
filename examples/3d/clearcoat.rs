@@ -188,21 +188,19 @@ fn spawn_scratched_gold_ball(
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    // Add the cascades objects used by the `DirectionalLightBundle`, since the
-    // user can toggle between a point light and a directional light.
-    commands
-        .spawn(PointLightBundle {
-            point_light: PointLight {
-                color: WHITE.into(),
-                intensity: 100000.0,
-                ..default()
-            },
+    commands.spawn((
+        PointLight {
+            color: WHITE.into(),
+            intensity: 100000.0,
             ..default()
-        })
-        .insert(CascadesFrusta::default())
-        .insert(Cascades::default())
-        .insert(CascadeShadowConfig::default())
-        .insert(CascadesVisibleEntities::default());
+        },
+        // Add the cascades objects used by the `DirectionalLight`, since the
+        // user can toggle between a point light and a directional light.
+        CascadesFrusta::default(),
+        Cascades::default(),
+        CascadeShadowConfig::default(),
+        CascadesVisibleEntities::default(),
+    ));
 }
 
 /// Spawns a camera with associated skybox and environment map.
@@ -258,9 +256,9 @@ fn animate_light(
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
-            f32::sin(now * 1.4),
-            f32::cos(now * 1.0),
-            f32::cos(now * 0.6),
+            ops::sin(now * 1.4),
+            ops::cos(now * 1.0),
+            ops::cos(now * 0.6),
         ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }

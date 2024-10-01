@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -536,7 +536,7 @@ impl CircularSegment {
 
 #[cfg(test)]
 mod arc_tests {
-    use std::f32::consts::FRAC_PI_4;
+    use core::f32::consts::FRAC_PI_4;
 
     use approx::assert_abs_diff_eq;
 
@@ -1041,7 +1041,7 @@ impl Rhombus {
     /// Create a new `Rhombus` from a given inradius with all inner angles equal.
     #[inline(always)]
     pub fn from_inradius(inradius: f32) -> Self {
-        let half_diagonal = inradius * 2.0 / std::f32::consts::SQRT_2;
+        let half_diagonal = inradius * 2.0 / core::f32::consts::SQRT_2;
         Self {
             half_diagonals: Vec2::new(half_diagonal, half_diagonal),
         }
@@ -1749,7 +1749,7 @@ impl RegularPolygon {
     pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
         // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
         let start_angle = rotation + FRAC_PI_2;
-        let step = std::f32::consts::TAU / self.sides as f32;
+        let step = core::f32::consts::TAU / self.sides as f32;
 
         (0..self.sides).map(move |i| {
             let theta = start_angle + i as f32 * step;
@@ -1816,6 +1816,28 @@ impl Capsule2d {
             radius,
             half_length: length / 2.0,
         }
+    }
+
+    /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
+    #[inline]
+    pub fn to_inner_rectangle(&self) -> Rectangle {
+        Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
+    }
+}
+
+impl Measured2d for Capsule2d {
+    /// Get the area of the capsule
+    #[inline]
+    fn area(&self) -> f32 {
+        // pi*r^2 + (2r)*l
+        PI * self.radius.squared() + self.to_inner_rectangle().area()
+    }
+
+    /// Get the perimeter of the capsule
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        // 2pi*r + 2l
+        2.0 * PI * self.radius + 4.0 * self.half_length
     }
 }
 
@@ -1893,6 +1915,18 @@ mod tests {
     }
 
     #[test]
+    fn capsule_math() {
+        let capsule = Capsule2d::new(2.0, 9.0);
+        assert_eq!(
+            capsule.to_inner_rectangle(),
+            Rectangle::new(4.0, 9.0),
+            "rectangle wasn't created correctly from a capsule"
+        );
+        assert_eq!(capsule.area(), 48.566371, "incorrect area");
+        assert_eq!(capsule.perimeter(), 30.566371, "incorrect perimeter");
+    }
+
+    #[test]
     fn annulus_math() {
         let annulus = Annulus::new(2.5, 3.5);
         assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
@@ -1915,7 +1949,7 @@ mod tests {
         assert_eq!(rhombus.side(), 0.0, "incorrect side");
         assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
-        let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
+        let rhombus = Rhombus::from_side(core::f32::consts::SQRT_2);
         assert_abs_diff_eq!(rhombus.half_diagonals, Vec2::new(1.0, 1.0));
         assert_abs_diff_eq!(
             rhombus.half_diagonals,
@@ -2069,7 +2103,7 @@ mod tests {
         assert!((vertices.next().unwrap() - Vec2::Y).length() < 1e-7);
 
         // Rotate by 45 degrees, forming an axis-aligned square
-        let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
+        let mut rotated_vertices = polygon.vertices(core::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
         let side_sistance = FRAC_1_SQRT_2;

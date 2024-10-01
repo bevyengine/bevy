@@ -1,7 +1,9 @@
 //! This example demonstrates how to use interpolation to make one entity smoothly follow another.
 
-use bevy::math::{prelude::*, vec3, NormedVectorSpace};
-use bevy::prelude::*;
+use bevy::{
+    math::{prelude::*, vec3, NormedVectorSpace},
+    prelude::*,
+};
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
@@ -72,15 +74,14 @@ fn setup(
     ));
 
     // A light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 15_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
     commands.spawn(Camera3dBundle {

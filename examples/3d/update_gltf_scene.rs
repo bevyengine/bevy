@@ -16,14 +16,13 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+    ));
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-0.5, 0.9, 1.5)
@@ -69,9 +68,9 @@ fn move_scene_entities(
         for entity in children.iter_descendants(moved_scene_entity) {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
-                    offset * time.elapsed_seconds().sin() / 20.,
+                    offset * ops::sin(time.elapsed_seconds()) / 20.,
                     0.,
-                    time.elapsed_seconds().cos() / 20.,
+                    ops::cos(time.elapsed_seconds()) / 20.,
                 );
                 offset += 0.5;
             }

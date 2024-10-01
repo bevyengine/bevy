@@ -90,8 +90,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -132,7 +132,7 @@ fn animate_light(
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
-        transform.translation = vec3(f32::cos(now), 1.0, f32::sin(now)) * vec3(3.0, 4.0, 3.0);
+        transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 }
@@ -252,24 +252,18 @@ fn add_skybox_and_environment_map(
 
 /// Spawns a rotating directional light.
 fn spawn_directional_light(commands: &mut Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: WHITE.into(),
-            illuminance: 3000.0,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        color: WHITE.into(),
+        illuminance: 3000.0,
         ..default()
     });
 }
 
 /// Spawns a rotating point light.
 fn spawn_point_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 200000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 200000.0,
         ..default()
     });
 }

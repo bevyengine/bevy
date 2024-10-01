@@ -7,189 +7,264 @@
 
 //! Animation for the game engine Bevy
 
-mod animatable;
-mod graph;
-mod transition;
+extern crate alloc;
+
+pub mod animatable;
+pub mod animation_curves;
+pub mod gltf_curves;
+pub mod graph;
+pub mod transition;
 mod util;
 
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
-use std::iter;
-use std::ops::{Add, Mul};
+use alloc::collections::BTreeMap;
+use core::{
+    any::{Any, TypeId},
+    cell::RefCell,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    iter,
+};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
-use bevy_math::{FloatExt, Quat, Vec3};
-use bevy_reflect::Reflect;
-use bevy_render::mesh::morph::MorphWeights;
+use bevy_ecs::{
+    entity::{VisitEntities, VisitEntitiesMut},
+    prelude::*,
+    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
+    world::EntityMutExcept,
+};
+use bevy_reflect::{
+    prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicTupleStruct,
+    FromReflect, FromType, GetTypeRegistration, PartialReflect, Reflect, ReflectFromPtr,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TupleStruct, TupleStructFieldIter,
+    TupleStructInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnnamedField,
+};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::hashbrown::HashMap;
+use bevy_ui::UiSystem;
 use bevy_utils::{
-    tracing::{error, trace},
+    hashbrown::HashMap,
+    tracing::{trace, warn},
     NoOpHash,
 };
 use fixedbitset::FixedBitSet;
-use graph::{AnimationGraph, AnimationNodeIndex};
-use petgraph::graph::NodeIndex;
-use petgraph::Direction;
-use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
+use graph::AnimationMask;
+use petgraph::{graph::NodeIndex, Direction};
+use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+/// The animation prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, graph::*, transition::*, AnimationClip, AnimationPlayer, AnimationPlugin,
-        Interpolation, Keyframes, VariableCurve,
+        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
+        AnimationPlayer, AnimationPlugin, VariableCurve,
     };
 }
 
-use crate::transition::{advance_transitions, expire_completed_transitions};
+use crate::{
+    animation_curves::AnimationCurve,
+    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+};
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
-/// List of keyframes for one of the attribute of a [`Transform`].
-#[derive(Reflect, Clone, Debug)]
-pub enum Keyframes {
-    /// Keyframes for rotation.
-    Rotation(Vec<Quat>),
-    /// Keyframes for translation.
-    Translation(Vec<Vec3>),
-    /// Keyframes for scale.
-    Scale(Vec<Vec3>),
-    /// Keyframes for morph target weights.
-    ///
-    /// Note that in `.0`, each contiguous `target_count` values is a single
-    /// keyframe representing the weight values at given keyframe.
-    ///
-    /// This follows the [glTF design].
-    ///
-    /// [glTF design]: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations
-    Weights(Vec<f32>),
-}
-
-impl Keyframes {
-    /// Returns the number of keyframes.
-    pub fn len(&self) -> usize {
-        match self {
-            Keyframes::Weights(vec) => vec.len(),
-            Keyframes::Translation(vec) | Keyframes::Scale(vec) => vec.len(),
-            Keyframes::Rotation(vec) => vec.len(),
-        }
-    }
-
-    /// Returns true if the number of keyframes is zero.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-/// Describes how an attribute of a [`Transform`] or [`MorphWeights`] should be animated.
+/// Contains an [animation curve] which is used to animate entities.
 ///
-/// `keyframe_timestamps` and `keyframes` should have the same length.
-#[derive(Reflect, Clone, Debug)]
-pub struct VariableCurve {
-    /// Timestamp for each of the keyframes.
-    pub keyframe_timestamps: Vec<f32>,
-    /// List of the keyframes.
-    ///
-    /// The representation will depend on the interpolation type of this curve:
-    ///
-    /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
-    /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    ///     `keyframe_value` and `tangent_out`
-    pub keyframes: Keyframes,
-    /// Interpolation method to use between keyframes.
-    pub interpolation: Interpolation,
+/// [animation curve]: AnimationCurve
+#[derive(Debug, TypePath)]
+pub struct VariableCurve(pub Box<dyn AnimationCurve>);
+
+impl Clone for VariableCurve {
+    fn clone(&self) -> Self {
+        Self(AnimationCurve::clone_value(&*self.0))
+    }
 }
 
 impl VariableCurve {
-    /// Find the index of the keyframe at or before the current time.
+    /// Create a new [`VariableCurve`] from an [animation curve].
     ///
-    /// Returns [`None`] if the curve is finished or not yet started.
-    /// To be more precise, this returns [`None`] if the frame is at or past the last keyframe:
-    /// we cannot get the *next* keyframe to interpolate to in that case.
-    pub fn find_current_keyframe(&self, seek_time: f32) -> Option<usize> {
-        // An Ok(keyframe_index) result means an exact result was found by binary search
-        // An Err result means the keyframe was not found, and the index is the keyframe
-        // PERF: finding the current keyframe can be optimised
-        let search_result = self
-            .keyframe_timestamps
-            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
-
-        // Subtract one for zero indexing!
-        let last_keyframe = self.keyframe_timestamps.len() - 1;
-
-        // We want to find the index of the keyframe before the current time
-        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
-        let step_start = match search_result {
-            // An exact match was found, and it is the last keyframe (or something has gone terribly wrong).
-            // This means that the curve is finished.
-            Ok(n) if n >= last_keyframe => return None,
-            // An exact match was found, and it is not the last keyframe.
-            Ok(i) => i,
-            // No exact match was found, and the seek_time is before the start of the animation.
-            // This occurs because the binary search returns the index of where we could insert a value
-            // without disrupting the order of the vector.
-            // If the value is less than the first element, the index will be 0.
-            Err(0) => return None,
-            // No exact match was found, and it was after the last keyframe.
-            // The curve is finished.
-            Err(n) if n > last_keyframe => return None,
-            // No exact match was found, so return the previous keyframe to interpolate from.
-            Err(i) => i - 1,
-        };
-
-        // Consumers need to be able to interpolate between the return keyframe and the next
-        assert!(step_start < self.keyframe_timestamps.len());
-
-        Some(step_start)
-    }
-
-    /// Find the index of the keyframe at or before the current time.
-    ///
-    /// Returns the first keyframe if the `seek_time` is before the first keyframe, and
-    /// the second-to-last keyframe if the `seek_time` is after the last keyframe.
-    /// Panics if there are less than 2 keyframes.
-    pub fn find_interpolation_start_keyframe(&self, seek_time: f32) -> usize {
-        // An Ok(keyframe_index) result means an exact result was found by binary search
-        // An Err result means the keyframe was not found, and the index is the keyframe
-        // PERF: finding the current keyframe can be optimised
-        let search_result = self
-            .keyframe_timestamps
-            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
-
-        // We want to find the index of the keyframe before the current time
-        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
-        match search_result {
-            // An exact match was found
-            Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
-            // No exact match was found, so return the previous keyframe to interpolate from.
-            Err(i) => (i.saturating_sub(1)).clamp(0, self.keyframe_timestamps.len() - 2),
-        }
+    /// [animation curve]: AnimationCurve
+    pub fn new(animation_curve: impl AnimationCurve) -> Self {
+        Self(Box::new(animation_curve))
     }
 }
 
-/// Interpolation method to use between keyframes.
-#[derive(Reflect, Clone, Debug)]
-pub enum Interpolation {
-    /// Linear interpolation between the two closest keyframes.
-    Linear,
-    /// Step interpolation, the value of the start keyframe is used.
-    Step,
-    /// Cubic spline interpolation. The value of the two closest keyframes is used, with the out
-    /// tangent of the start keyframe and the in tangent of the end keyframe.
-    CubicSpline,
+// We have to implement `PartialReflect` manually because of the embedded
+// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
+impl PartialReflect for VariableCurve {
+    #[inline]
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    #[inline]
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    #[inline]
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    #[inline]
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Ok(self)
+    }
+
+    #[inline]
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        Some(self)
+    }
+
+    #[inline]
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        Some(self)
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let ReflectRef::TupleStruct(tuple_value) = value.reflect_ref() {
+            for (i, value) in tuple_value.iter_fields().enumerate() {
+                if let Some(v) = self.field_mut(i) {
+                    v.try_apply(value)?;
+                }
+            }
+        } else {
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::TupleStruct,
+            });
+        }
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::TupleStruct(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::TupleStruct(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::TupleStruct(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new((*self).clone())
+    }
+}
+
+// We have to implement `Reflect` manually because of the embedded `Box<dyn
+// AnimationCurve>`, which can't be automatically derived yet.
+impl Reflect for VariableCurve {
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    #[inline]
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+}
+
+// We have to implement `TupleStruct` manually because of the embedded `Box<dyn
+// AnimationCurve>`, which can't be automatically derived yet.
+impl TupleStruct for VariableCurve {
+    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
+        match index {
+            0 => Some(self.0.as_partial_reflect()),
+            _ => None,
+        }
+    }
+
+    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+        match index {
+            0 => Some(self.0.as_partial_reflect_mut()),
+            _ => None,
+        }
+    }
+
+    fn field_len(&self) -> usize {
+        1
+    }
+
+    fn iter_fields(&self) -> TupleStructFieldIter {
+        TupleStructFieldIter::new(self)
+    }
+
+    fn clone_dynamic(&self) -> DynamicTupleStruct {
+        DynamicTupleStruct::from_iter([PartialReflect::clone_value(&*self.0)])
+    }
+}
+
+// We have to implement `FromReflect` manually because of the embedded `Box<dyn
+// AnimationCurve>`, which can't be automatically derived yet.
+impl FromReflect for VariableCurve {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+        Some(reflect.try_downcast_ref::<VariableCurve>()?.clone())
+    }
+}
+
+// We have to implement `GetTypeRegistration` manually because of the embedded
+// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
+impl GetTypeRegistration for VariableCurve {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+// We have to implement `Typed` manually because of the embedded `Box<dyn
+// AnimationCurve>`, which can't be automatically derived yet.
+impl Typed for VariableCurve {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| {
+            TypeInfo::TupleStruct(TupleStructInfo::new::<Self>(&[UnnamedField::new::<()>(0)]))
+        })
+    }
 }
 
 /// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
@@ -228,7 +303,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -259,12 +334,13 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, MapEntities)]
+#[derive(Clone, Copy, Component, Reflect, VisitEntities, VisitEntitiesMut)]
+#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
+    #[visit_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
@@ -318,18 +394,46 @@ impl AnimationClip {
         self.duration = duration_sec;
     }
 
-    /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an
+    /// Adds an [`AnimationCurve`] to an [`AnimationTarget`] named by an
     /// [`AnimationTargetId`].
     ///
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
     /// curve covers.
-    pub fn add_curve_to_target(&mut self, target_id: AnimationTargetId, curve: VariableCurve) {
+    pub fn add_curve_to_target(
+        &mut self,
+        target_id: AnimationTargetId,
+        curve: impl AnimationCurve,
+    ) {
         // Update the duration of the animation by this curve duration if it's longer
-        self.duration = self
-            .duration
-            .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
-        self.curves.entry(target_id).or_default().push(curve);
+        let end = curve.domain().end();
+        if end.is_finite() {
+            self.duration = self.duration.max(end);
+        }
+        self.curves
+            .entry(target_id)
+            .or_default()
+            .push(VariableCurve::new(curve));
+    }
+
+    /// Like [`add_curve_to_target`], but adding a [`VariableCurve`] directly.
+    ///
+    /// Under normal circumstances, that method is generally more convenient.
+    ///
+    /// [`add_curve_to_target`]: AnimationClip::add_curve_to_target
+    pub fn add_variable_curve_to_target(
+        &mut self,
+        target_id: AnimationTargetId,
+        variable_curve: VariableCurve,
+    ) {
+        let end = variable_curve.0.domain().end();
+        if end.is_finite() {
+            self.duration = self.duration.max(end);
+        }
+        self.curves
+            .entry(target_id)
+            .or_default()
+            .push(variable_curve);
     }
 }
 
@@ -345,6 +449,20 @@ pub enum RepeatAnimation {
     Forever,
 }
 
+/// Why Bevy failed to evaluate an animation.
+#[derive(Clone, Debug)]
+pub enum AnimationEvaluationError {
+    /// The component to be animated isn't present on the animation target.
+    ///
+    /// To fix this error, make sure the entity to be animated contains all
+    /// components that have animation curves.
+    ComponentNotPresent(TypeId),
+
+    /// The component to be animated was present, but the property on the
+    /// component wasn't present.
+    PropertyNotPresent(TypeId),
+}
+
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
@@ -356,6 +474,9 @@ pub struct ActiveAnimation {
     /// The actual weight of this animation this frame, taking the
     /// [`AnimationGraph`] into account.
     computed_weight: f32,
+    /// The mask groups that are masked out (i.e. won't be animated) this frame,
+    /// taking the `AnimationGraph` into account.
+    computed_mask: AnimationMask,
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -377,6 +498,7 @@ impl Default for ActiveAnimation {
         Self {
             weight: 1.0,
             computed_weight: 1.0,
+            computed_mask: 0,
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
@@ -534,7 +656,7 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a `SceneBundle` when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct AnimationPlayer {
     /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
     /// ordering when applying the animations.
@@ -557,16 +679,6 @@ impl Clone for AnimationPlayer {
     }
 }
 
-/// The components that we might need to read or write during animation of each
-/// animation target.
-struct AnimationTargetContext<'a> {
-    entity: Entity,
-    target: &'a AnimationTarget,
-    name: Option<&'a Name>,
-    transform: Option<Mut<'a, Transform>>,
-    morph_weights: Option<Mut<'a, MorphWeights>>,
-}
-
 /// Information needed during the traversal of the animation graph in
 /// [`advance_animations`].
 #[derive(Default)]
@@ -575,17 +687,19 @@ pub struct AnimationGraphEvaluator {
     dfs_stack: Vec<NodeIndex>,
     /// The list of visited nodes during the depth-first traversal.
     dfs_visited: FixedBitSet,
-    /// Accumulated weights for each node.
-    weights: Vec<f32>,
+    /// Accumulated weights and masks for each node.
+    nodes: Vec<EvaluatedAnimationGraphNode>,
 }
 
-thread_local! {
-    /// A cached per-thread copy of the graph evaluator.
-    ///
-    /// Caching the evaluator lets us save allocation traffic from frame to
-    /// frame.
-    static ANIMATION_GRAPH_EVALUATOR: RefCell<AnimationGraphEvaluator> =
-        RefCell::new(AnimationGraphEvaluator::default());
+/// The accumulated weight and computed mask for a single node.
+#[derive(Clone, Copy, Default, Debug)]
+struct EvaluatedAnimationGraphNode {
+    /// The weight that has been accumulated for this node, taking its
+    /// ancestors' weights into account.
+    weight: f32,
+    /// The mask that has been computed for this node, taking its ancestors'
+    /// masks into account.
+    mask: AnimationMask,
 }
 
 impl AnimationPlayer {
@@ -764,15 +878,17 @@ pub fn advance_animations(
 
                 let node = &animation_graph[node_index];
 
-                // Calculate weight from the graph.
-                let mut weight = node.weight;
+                // Calculate weight and mask from the graph.
+                let (mut weight, mut mask) = (node.weight, node.mask);
                 for parent_index in animation_graph
                     .graph
                     .neighbors_directed(node_index, Direction::Incoming)
                 {
-                    weight *= animation_graph[parent_index].weight;
+                    let evaluated_parent = &evaluator.nodes[parent_index.index()];
+                    weight *= evaluated_parent.weight;
+                    mask |= evaluated_parent.mask;
                 }
-                evaluator.weights[node_index.index()] = weight;
+                evaluator.nodes[node_index.index()] = EvaluatedAnimationGraphNode { weight, mask };
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
@@ -789,9 +905,10 @@ pub fn advance_animations(
                     weight *= blend_weight;
                 }
 
-                // Write in the computed weight.
+                // Write in the computed weight and mask for this node.
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     active_animation.computed_weight = weight;
+                    active_animation.computed_mask = mask;
                 }
 
                 // Push children.
@@ -804,51 +921,59 @@ pub fn advance_animations(
         });
 }
 
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type AnimationEntityMut<'w> = EntityMutExcept<
+    'w,
+    (
+        AnimationTarget,
+        Transform,
+        AnimationPlayer,
+        Handle<AnimationGraph>,
+    ),
+>;
+
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
-/// according to the currently-playing animation.
+/// according to the currently-playing animations.
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTarget,
-        Option<&Name>,
-        AnyOf<(&mut Transform, &mut MorphWeights)>,
-    )>,
+    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
 ) {
-    // We use two queries here: one read-only query for animation players and
-    // one read-write query for animation targets (e.g. bones). The
-    // `AnimationPlayer` query is read-only shared memory accessible from all
-    // animation targets, which are evaluated in parallel.
-
-    // Iterate over all animation targets in parallel.
+    // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(id, target, name, (transform, morph_weights))| {
-            let Ok((animation_player, animation_graph_handle)) = players.get(target.player) else {
-                trace!(
-                    "Either an animation player {:?} or a graph was missing for the target \
-                     entity {:?} ({:?}); no animations will play this frame",
-                    target.player,
-                    id,
-                    name,
-                );
-                return;
-            };
+        .for_each(|(target, mut transform, mut entity_mut)| {
+            let &AnimationTarget {
+                id: target_id,
+                player: player_id,
+            } = target;
+
+            let (animation_player, animation_graph_id) =
+                if let Ok((player, graph_handle)) = players.get(player_id) {
+                    (player, graph_handle.id())
+                } else {
+                    trace!(
+                        "Either an animation player {:?} or a graph was missing for the target \
+                                 entity {:?} ({:?}); no animations will play this frame",
+                        player_id,
+                        entity_mut.id(),
+                        entity_mut.get::<Name>(),
+                    );
+                    return;
+                };
 
             // The graph might not have loaded yet. Safely bail.
-            let Some(animation_graph) = graphs.get(animation_graph_handle) else {
+            let Some(animation_graph) = graphs.get(animation_graph_id) else {
                 return;
             };
 
-            let mut target_context = AnimationTargetContext {
-                entity: id,
-                target,
-                name,
-                transform,
-                morph_weights,
-            };
+            // Determine which mask groups this animation target belongs to.
+            let target_mask = animation_graph
+                .mask_groups
+                .get(&target_id)
+                .cloned()
+                .unwrap_or_default();
 
             // Apply the animations one after another. The way we accumulate
             // weights ensures that the order we apply them in doesn't matter.
@@ -870,7 +995,11 @@ pub fn animate_targets(
             for (&animation_graph_node_index, active_animation) in
                 animation_player.active_animations.iter()
             {
-                if active_animation.weight == 0.0 {
+                // If the weight is zero or the current animation target is
+                // masked out, stop here.
+                if active_animation.weight == 0.0
+                    || (target_mask & active_animation.computed_mask) != 0
+                {
                     continue;
                 }
 
@@ -882,307 +1011,28 @@ pub fn animate_targets(
                     continue;
                 };
 
-                let Some(curves) = clip.curves_for_target(target_context.target.id) else {
+                let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
                 };
 
                 let weight = active_animation.computed_weight;
                 total_weight += weight;
 
-                target_context.apply(curves, weight / total_weight, active_animation.seek_time);
+                let weight = weight / total_weight;
+                let seek_time = active_animation.seek_time;
+
+                for curve in curves {
+                    if let Err(err) = curve.0.apply(
+                        seek_time,
+                        transform.as_mut().map(|transform| transform.reborrow()),
+                        entity_mut.reborrow(),
+                        weight,
+                    ) {
+                        warn!("Animation application failed: {:?}", err);
+                    }
+                }
             }
         });
-}
-
-impl AnimationTargetContext<'_> {
-    /// Applies a clip to a single animation target according to the
-    /// [`AnimationTargetContext`].
-    fn apply(&mut self, curves: &[VariableCurve], weight: f32, seek_time: f32) {
-        for curve in curves {
-            // Some curves have only one keyframe used to set a transform
-            if curve.keyframe_timestamps.len() == 1 {
-                self.apply_single_keyframe(curve, weight);
-                continue;
-            }
-
-            // Find the best keyframe to interpolate from
-            let step_start = curve.find_interpolation_start_keyframe(seek_time);
-
-            let timestamp_start = curve.keyframe_timestamps[step_start];
-            let timestamp_end = curve.keyframe_timestamps[step_start + 1];
-            // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time).clamp(0.0, 1.0);
-
-            self.apply_tweened_keyframe(
-                curve,
-                step_start,
-                lerp,
-                weight,
-                timestamp_end - timestamp_start,
-            );
-        }
-    }
-
-    fn apply_single_keyframe(&mut self, curve: &VariableCurve, weight: f32) {
-        match &curve.keyframes {
-            Keyframes::Rotation(keyframes) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.rotation = transform.rotation.slerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Translation(keyframes) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.translation = transform.translation.lerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Scale(keyframes) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.scale = transform.scale.lerp(keyframes[0], weight);
-                }
-            }
-
-            Keyframes::Weights(keyframes) => {
-                let Some(ref mut morphs) = self.morph_weights else {
-                    error!(
-                        "Tried to animate morphs on {:?} ({:?}), but no `MorphWeights` was found",
-                        self.entity, self.name,
-                    );
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                lerp_morph_weights(
-                    morphs.weights_mut(),
-                    get_keyframe(target_count, keyframes, 0).iter().copied(),
-                    weight,
-                );
-            }
-        }
-    }
-
-    fn apply_tweened_keyframe(
-        &mut self,
-        curve: &VariableCurve,
-        step_start: usize,
-        lerp: f32,
-        weight: f32,
-        duration: f32,
-    ) {
-        match (&curve.interpolation, &curve.keyframes) {
-            (Interpolation::Step, Keyframes::Rotation(keyframes)) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.rotation = transform.rotation.slerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Rotation(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let rot_start = keyframes[step_start];
-                let rot_end = keyframes[step_start + 1];
-
-                // Rotations are using a spherical linear interpolation
-                let rot = rot_start.slerp(rot_end, lerp);
-                transform.rotation = transform.rotation.slerp(rot, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Rotation(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.rotation = transform.rotation.slerp(result.normalize(), weight);
-            }
-
-            (Interpolation::Step, Keyframes::Translation(keyframes)) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.translation =
-                        transform.translation.lerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Translation(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let translation_start = keyframes[step_start];
-                let translation_end = keyframes[step_start + 1];
-                let result = translation_start.lerp(translation_end, lerp);
-                transform.translation = transform.translation.lerp(result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Translation(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.translation = transform.translation.lerp(result, weight);
-            }
-
-            (Interpolation::Step, Keyframes::Scale(keyframes)) => {
-                if let Some(ref mut transform) = self.transform {
-                    transform.scale = transform.scale.lerp(keyframes[step_start], weight);
-                }
-            }
-
-            (Interpolation::Linear, Keyframes::Scale(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let scale_start = keyframes[step_start];
-                let scale_end = keyframes[step_start + 1];
-                let result = scale_start.lerp(scale_end, lerp);
-                transform.scale = transform.scale.lerp(result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Scale(keyframes)) => {
-                let Some(ref mut transform) = self.transform else {
-                    return;
-                };
-
-                let value_start = keyframes[step_start * 3 + 1];
-                let tangent_out_start = keyframes[step_start * 3 + 2];
-                let tangent_in_end = keyframes[(step_start + 1) * 3];
-                let value_end = keyframes[(step_start + 1) * 3 + 1];
-                let result = cubic_spline_interpolation(
-                    value_start,
-                    tangent_out_start,
-                    tangent_in_end,
-                    value_end,
-                    lerp,
-                    duration,
-                );
-                transform.scale = transform.scale.lerp(result, weight);
-            }
-
-            (Interpolation::Step, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = self.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start);
-                lerp_morph_weights(morphs.weights_mut(), morph_start.iter().copied(), weight);
-            }
-
-            (Interpolation::Linear, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = self.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start);
-                let morph_end = get_keyframe(target_count, keyframes, step_start + 1);
-                let result = morph_start
-                    .iter()
-                    .zip(morph_end)
-                    .map(|(a, b)| a.lerp(*b, lerp));
-                lerp_morph_weights(morphs.weights_mut(), result, weight);
-            }
-
-            (Interpolation::CubicSpline, Keyframes::Weights(keyframes)) => {
-                let Some(ref mut morphs) = self.morph_weights else {
-                    return;
-                };
-
-                let target_count = morphs.weights().len();
-                let morph_start = get_keyframe(target_count, keyframes, step_start * 3 + 1);
-                let tangents_out_start = get_keyframe(target_count, keyframes, step_start * 3 + 2);
-                let tangents_in_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3);
-                let morph_end = get_keyframe(target_count, keyframes, (step_start + 1) * 3 + 1);
-                let result = morph_start
-                    .iter()
-                    .zip(tangents_out_start)
-                    .zip(tangents_in_end)
-                    .zip(morph_end)
-                    .map(
-                        |(((&value_start, &tangent_out_start), &tangent_in_end), &value_end)| {
-                            cubic_spline_interpolation(
-                                value_start,
-                                tangent_out_start,
-                                tangent_in_end,
-                                value_end,
-                                lerp,
-                                duration,
-                            )
-                        },
-                    );
-                lerp_morph_weights(morphs.weights_mut(), result, weight);
-            }
-        }
-    }
-}
-
-/// Update `weights` based on weights in `keyframe` with a linear interpolation
-/// on `key_lerp`.
-fn lerp_morph_weights(weights: &mut [f32], keyframe: impl Iterator<Item = f32>, key_lerp: f32) {
-    let zipped = weights.iter_mut().zip(keyframe);
-    for (morph_weight, keyframe) in zipped {
-        *morph_weight = morph_weight.lerp(keyframe, key_lerp);
-    }
-}
-
-/// Extract a keyframe from a list of keyframes by index.
-///
-/// # Panics
-///
-/// When `key_index * target_count` is larger than `keyframes`
-///
-/// This happens when `keyframes` is not formatted as described in
-/// [`Keyframes::Weights`]. A possible cause is [`AnimationClip`] not being
-/// meant to be used for the [`MorphWeights`] of the entity it's being applied to.
-fn get_keyframe(target_count: usize, keyframes: &[f32], key_index: usize) -> &[f32] {
-    let start = target_count * key_index;
-    let end = target_count * (key_index + 1);
-    &keyframes[start..end]
-}
-
-/// Helper function for cubic spline interpolation.
-fn cubic_spline_interpolation<T>(
-    value_start: T,
-    tangent_out_start: T,
-    tangent_in_end: T,
-    value_end: T,
-    lerp: f32,
-    step_duration: f32,
-) -> T
-where
-    T: Mul<f32, Output = T> + Add<Output = T>,
-{
-    value_start * (2.0 * lerp.powi(3) - 3.0 * lerp.powi(2) + 1.0)
-        + tangent_out_start * (step_duration) * (lerp.powi(3) - 2.0 * lerp.powi(2) + lerp)
-        + value_end * (-2.0 * lerp.powi(3) + 3.0 * lerp.powi(2))
-        + tangent_in_end * step_duration * (lerp.powi(3) - lerp.powi(2))
 }
 
 /// Adds animation support to an app
@@ -1205,11 +1055,20 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets,
+                    // TODO: `animate_targets` can animate anything, so
+                    // ambiguity testing currently considers it ambiguous with
+                    // every other system in `PostUpdate`. We may want to move
+                    // it to its own system set after `Update` but before
+                    // `PostUpdate`. For now, we just disable ambiguity testing
+                    // for this system.
+                    animate_targets
+                        .after(bevy_render::mesh::morph::inherit_weights)
+                        .ambiguous_with_all(),
                     expire_completed_transitions,
                 )
                     .chain()
-                    .before(TransformSystem::TransformPropagate),
+                    .before(TransformSystem::TransformPropagate)
+                    .before(UiSystem::Prepare),
             );
     }
 }
@@ -1241,12 +1100,6 @@ impl From<&Name> for AnimationTargetId {
     }
 }
 
-impl MapEntities for AnimationTarget {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        self.player = entity_mapper.map_entity(self.player);
-    }
-}
-
 impl AnimationGraphEvaluator {
     // Starts a new depth-first search.
     fn reset(&mut self, root: AnimationNodeIndex, node_count: usize) {
@@ -1256,156 +1109,8 @@ impl AnimationGraphEvaluator {
         self.dfs_visited.grow(node_count);
         self.dfs_visited.clear();
 
-        self.weights.clear();
-        self.weights.extend(iter::repeat(0.0).take(node_count));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::VariableCurve;
-    use bevy_math::Vec3;
-
-    fn test_variable_curve() -> VariableCurve {
-        let keyframe_timestamps = vec![1.0, 2.0, 3.0, 4.0];
-        let keyframes = vec![
-            Vec3::ONE * 0.0,
-            Vec3::ONE * 3.0,
-            Vec3::ONE * 6.0,
-            Vec3::ONE * 9.0,
-        ];
-        let interpolation = crate::Interpolation::Linear;
-
-        let variable_curve = VariableCurve {
-            keyframe_timestamps,
-            keyframes: crate::Keyframes::Translation(keyframes),
-            interpolation,
-        };
-
-        assert!(variable_curve.keyframe_timestamps.len() == variable_curve.keyframes.len());
-
-        // f32 doesn't impl Ord so we can't easily sort it
-        let mut maybe_last_timestamp = None;
-        for current_timestamp in &variable_curve.keyframe_timestamps {
-            assert!(current_timestamp.is_finite());
-
-            if let Some(last_timestamp) = maybe_last_timestamp {
-                assert!(current_timestamp > last_timestamp);
-            }
-            maybe_last_timestamp = Some(current_timestamp);
-        }
-
-        variable_curve
-    }
-
-    #[test]
-    fn find_current_keyframe_is_in_bounds() {
-        let curve = test_variable_curve();
-        let min_time = *curve.keyframe_timestamps.first().unwrap();
-        // We will always get none at times at or past the second last keyframe
-        let second_last_keyframe = curve.keyframe_timestamps.len() - 2;
-        let max_time = curve.keyframe_timestamps[second_last_keyframe];
-        let elapsed_time = max_time - min_time;
-
-        let n_keyframes = curve.keyframe_timestamps.len();
-        let n_test_points = 5;
-
-        for i in 0..=n_test_points {
-            // Get a value between 0 and 1
-            let normalized_time = i as f32 / n_test_points as f32;
-            let seek_time = min_time + normalized_time * elapsed_time;
-            assert!(seek_time >= min_time);
-            assert!(seek_time <= max_time);
-
-            let maybe_current_keyframe = curve.find_current_keyframe(seek_time);
-            assert!(
-                maybe_current_keyframe.is_some(),
-                "Seek time: {seek_time}, Min time: {min_time}, Max time: {max_time}"
-            );
-
-            // We cannot return the last keyframe,
-            // because we want to interpolate between the current and next keyframe
-            assert!(maybe_current_keyframe.unwrap() < n_keyframes);
-        }
-    }
-
-    #[test]
-    fn find_current_keyframe_returns_none_on_unstarted_animations() {
-        let curve = test_variable_curve();
-        let min_time = *curve.keyframe_timestamps.first().unwrap();
-        let seek_time = 0.0;
-        assert!(seek_time < min_time);
-
-        let maybe_keyframe = curve.find_current_keyframe(seek_time);
-        assert!(
-            maybe_keyframe.is_none(),
-            "Seek time: {seek_time}, Minimum time: {min_time}"
-        );
-    }
-
-    #[test]
-    fn find_current_keyframe_returns_none_on_finished_animation() {
-        let curve = test_variable_curve();
-        let max_time = *curve.keyframe_timestamps.last().unwrap();
-
-        assert!(max_time < f32::INFINITY);
-        let maybe_keyframe = curve.find_current_keyframe(f32::INFINITY);
-        assert!(maybe_keyframe.is_none());
-
-        let maybe_keyframe = curve.find_current_keyframe(max_time);
-        assert!(maybe_keyframe.is_none());
-    }
-
-    #[test]
-    fn second_last_keyframe_is_found_correctly() {
-        let curve = test_variable_curve();
-
-        // Exact time match
-        let second_last_keyframe = curve.keyframe_timestamps.len() - 2;
-        let second_last_time = curve.keyframe_timestamps[second_last_keyframe];
-        let maybe_keyframe = curve.find_current_keyframe(second_last_time);
-        assert!(maybe_keyframe.unwrap() == second_last_keyframe);
-
-        // Inexact match, between the last and second last frames
-        let seek_time = second_last_time + 0.001;
-        let last_time = curve.keyframe_timestamps[second_last_keyframe + 1];
-        assert!(seek_time < last_time);
-
-        let maybe_keyframe = curve.find_current_keyframe(seek_time);
-        assert!(maybe_keyframe.unwrap() == second_last_keyframe);
-    }
-
-    #[test]
-    fn exact_keyframe_matches_are_found_correctly() {
-        let curve = test_variable_curve();
-        let second_last_keyframe = curve.keyframes.len() - 2;
-
-        for i in 0..=second_last_keyframe {
-            let seek_time = curve.keyframe_timestamps[i];
-
-            let keyframe = curve.find_current_keyframe(seek_time).unwrap();
-            assert!(keyframe == i);
-        }
-    }
-
-    #[test]
-    fn exact_and_inexact_keyframes_correspond() {
-        let curve = test_variable_curve();
-
-        let second_last_keyframe = curve.keyframes.len() - 2;
-
-        for i in 0..=second_last_keyframe {
-            let seek_time = curve.keyframe_timestamps[i];
-
-            let exact_keyframe = curve.find_current_keyframe(seek_time).unwrap();
-
-            let inexact_seek_time = seek_time + 0.0001;
-            let final_time = *curve.keyframe_timestamps.last().unwrap();
-            assert!(inexact_seek_time < final_time);
-
-            let inexact_keyframe = curve.find_current_keyframe(inexact_seek_time).unwrap();
-
-            assert!(exact_keyframe == inexact_keyframe);
-        }
+        self.nodes.clear();
+        self.nodes
+            .extend(iter::repeat(EvaluatedAnimationGraphNode::default()).take(node_count));
     }
 }

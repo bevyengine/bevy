@@ -19,10 +19,7 @@ fn setup(
     // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
     // where "ROOT" is the directory of the Application.
     //
-    // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see
-    // https://doc.rust-lang.org/cargo/reference/environment-variables.html)
-    // to another directory. When the Application is run through Cargo, "CARGO_MANIFEST_DIR" is
-    // automatically set to your crate (workspace) root directory.
+    // This can be overridden by setting [`AssetPlugin.file_path`].
     let cube_handle = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
@@ -97,10 +94,7 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, 4.0)));
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),

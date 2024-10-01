@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use crate::{
     mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment},
@@ -7,6 +7,7 @@ use crate::{
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
+    ops,
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Rectangle,
         RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
@@ -217,7 +218,7 @@ impl MeshBuilder for CircularSectorMeshBuilder {
 
 impl Extrudable for CircularSectorMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let (sin, cos) = self.sector.arc.half_angle.sin_cos();
+        let (sin, cos) = ops::sin_cos(self.sector.arc.half_angle);
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
@@ -363,7 +364,7 @@ impl MeshBuilder for CircularSegmentMeshBuilder {
 
 impl Extrudable for CircularSegmentMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
-        let (sin, cos) = self.segment.arc.half_angle.sin_cos();
+        let (sin, cos) = ops::sin_cos(self.segment.arc.half_angle);
         let first_normal = Vec2::new(sin, cos);
         let last_normal = Vec2::new(-sin, cos);
         vec![
@@ -488,12 +489,12 @@ impl MeshBuilder for EllipseMeshBuilder {
 
         // Add pi/2 so that there is a vertex at the top (sin is 1.0 and cos is 0.0)
         let start_angle = FRAC_PI_2;
-        let step = std::f32::consts::TAU / self.resolution as f32;
+        let step = core::f32::consts::TAU / self.resolution as f32;
 
         for i in 0..self.resolution {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let x = cos * self.ellipse.half_size.x;
             let y = sin * self.ellipse.half_size.y;
 
@@ -596,10 +597,10 @@ impl MeshBuilder for AnnulusMeshBuilder {
         // mapping. Here, each iteration places a pair of vertices at a fixed
         // angle from the center of the annulus.
         let start_angle = FRAC_PI_2;
-        let step = std::f32::consts::TAU / self.resolution as f32;
+        let step = core::f32::consts::TAU / self.resolution as f32;
         for i in 0..=self.resolution {
             let theta = start_angle + (i % self.resolution) as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
             let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
             positions.push(inner_pos);
@@ -897,7 +898,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         let mut uvs = Vec::with_capacity(vertex_count as usize);
 
         let radius = self.capsule.radius;
-        let step = std::f32::consts::TAU / vertex_count as f32;
+        let step = core::f32::consts::TAU / vertex_count as f32;
 
         // If the vertex count is even, offset starting angle of top semicircle by half a step
         // to position the vertices evenly.
@@ -915,7 +916,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         for i in 0..resolution {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let (x, y) = (cos * radius, sin * radius + self.capsule.half_length);
 
             positions.push([x, y, 0.0]);
@@ -934,7 +935,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         for i in resolution..vertex_count {
             // Compute vertex position at angle theta
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             let (x, y) = (cos * radius, sin * radius - self.capsule.half_length);
 
             positions.push([x, y, 0.0]);

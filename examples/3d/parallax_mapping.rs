@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
@@ -139,7 +139,7 @@ fn update_parallax_layers(
     } else {
         return;
     }
-    let layer_count = target_layers.0.exp2();
+    let layer_count = ops::exp2(target_layers.0);
     let mut text = text.single_mut();
     text.sections[1].value = format!("Layers: {layer_count:.0}\n");
 
@@ -221,14 +221,13 @@ fn setup(
 
     // light
     commands
-        .spawn(PointLightBundle {
-            transform: Transform::from_xyz(2.0, 1.0, -1.1),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(2.0, 1.0, -1.1),
+        ))
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
@@ -250,7 +249,7 @@ fn setup(
     });
 
     let parallax_depth_scale = TargetDepth::default().0;
-    let max_parallax_layer_count = TargetLayers::default().0.exp2();
+    let max_parallax_layer_count = ops::exp2(TargetLayers::default().0);
     let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,

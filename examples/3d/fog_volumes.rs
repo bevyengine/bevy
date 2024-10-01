@@ -7,8 +7,9 @@
 
 use bevy::{
     math::vec3,
-    pbr::{FogVolume, VolumetricFogSettings, VolumetricLight},
+    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
+    render::world_sync::SyncToRenderWorld,
 };
 
 /// Entry point.
@@ -43,21 +44,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // up.
             scattering: 1.0,
             ..default()
-        });
+        })
+        // indicates that this fog volume needs to be Synchronized to the render world
+        .insert(SyncToRenderWorld);
 
     // Spawn a bright directional light that illuminates the fog well.
-    commands
-        .spawn(DirectionalLightBundle {
-            transform: Transform::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                illuminance: 32000.0,
-                ..default()
-            },
+    commands.spawn((
+        Transform::from_xyz(1.0, 1.0, -0.3).looking_at(vec3(0.0, 0.5, 0.0), Vec3::Y),
+        DirectionalLight {
+            shadows_enabled: true,
+            illuminance: 32000.0,
             ..default()
-        })
+        },
         // Make sure to add this for the light to interact with the fog.
-        .insert(VolumetricLight);
+        VolumetricLight,
+    ));
 
     // Spawn a camera.
     commands
@@ -70,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(VolumetricFogSettings {
+        .insert(VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.

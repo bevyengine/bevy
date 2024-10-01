@@ -7,6 +7,7 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
+    math::ops,
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
@@ -45,7 +46,7 @@ fn setup(
             msaa: Msaa::Off,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -65,21 +66,20 @@ fn setup(
         Fxaa::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
             ..default()
         }
-        .into(),
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
-        ..default()
-    });
+        .build(),
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
+    ));
 
     // FlightHelmet
     let helmet_scene = asset_server
@@ -138,17 +138,16 @@ fn setup(
         NotShadowCaster,
     ));
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
             ..default()
         },
-        transform: sphere_pos,
-        ..default()
-    });
+        sphere_pos,
+    ));
 
     // Spheres
     for i in 0..6 {
@@ -263,7 +262,7 @@ fn setup_parallax(
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
-        max_parallax_layer_count: 5.0f32.exp2(),
+        max_parallax_layer_count: ops::exp2(5.0f32),
         ..default()
     });
     commands.spawn((

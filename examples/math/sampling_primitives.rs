@@ -3,13 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
     prelude::*,
 };
-use rand::seq::SliceRandom;
-use rand::{Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
@@ -315,33 +314,29 @@ fn setup(
 
         // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
-            PointLightBundle {
-                point_light: PointLight {
-                    range: 4.0,
-                    radius: 0.6,
-                    intensity: 1.0,
-                    shadows_enabled: false,
-                    color: Color::LinearRgba(INSIDE_POINT_COLOR),
-                    ..default()
-                },
-                transform: Transform::from_translation(*translation),
+            PointLight {
+                range: 4.0,
+                radius: 0.6,
+                intensity: 1.0,
+                shadows_enabled: false,
+                color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
+            Transform::from_translation(*translation),
             FireflyLights,
         ));
     }
 
     // Global light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             color: SKY_COLOR,
             intensity: 2_000.0,
             shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
     commands.spawn((
@@ -355,7 +350,7 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        BloomSettings::NATURAL,
+        Bloom::NATURAL,
         CameraRig {
             yaw: 0.56,
             pitch: 0.45,

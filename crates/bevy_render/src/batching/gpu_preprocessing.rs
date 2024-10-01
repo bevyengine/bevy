@@ -3,14 +3,13 @@
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     query::{Has, With},
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::EntityHashMap;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use smallvec::smallvec;
@@ -99,7 +98,7 @@ where
     /// corresponds to each instance.
     ///
     /// This is keyed off each view. Each view has a separate buffer.
-    pub work_item_buffers: EntityHashMap<Entity, PreprocessWorkItemBuffer>,
+    pub work_item_buffers: EntityHashMap<PreprocessWorkItemBuffer>,
 
     /// The uniform data inputs for the current frame.
     ///

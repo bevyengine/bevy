@@ -2,8 +2,7 @@
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
-    ecs::system::SystemState,
-    ecs::world::CommandQueue,
+    ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
@@ -129,10 +128,7 @@ fn setup_env(mut commands: Commands) {
     };
 
     // lights
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 12.0, 15.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 12.0, 15.0)));
 
     // camera
     commands.spawn(Camera3dBundle {

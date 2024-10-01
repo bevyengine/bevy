@@ -78,25 +78,23 @@ fn setup(
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
 
-        PointLightBundle {
-            point_light: PointLight {
+        (
+            PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
-            transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
-            ..default()
-        }
+            Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
+        )
     }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
         Some("orthographic") => commands.spawn(Camera3dBundle {
             projection: OrthographicProjection {
-                scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
+                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             ..default()
@@ -126,7 +124,8 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        ops::acos((1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)) as f32)
+            as f64,
     )
 }
 
