@@ -149,7 +149,7 @@ impl FoxStep {
 }
 
 impl AnimationEvent for FoxStep {
-    fn trigger(&self, entity: Entity, world: &mut World) {
+    fn trigger(&self, _time: f32, entity: Entity, world: &mut World) {
         world.entity_mut(entity).trigger(self.clone());
     }
 
