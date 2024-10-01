@@ -11,7 +11,7 @@ fn main() {
 }
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioHandle::<AudioSource>(
+    commands.spawn(AudioPlayer::<AudioSource>(
         asset_server.load("sounds/Windless Slopes.ogg"),
     ));
 }

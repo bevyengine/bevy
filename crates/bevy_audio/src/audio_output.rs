@@ -1,5 +1,5 @@
 use crate::{
-    AudioHandle, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode, PlaybackSettings,
+    AudioPlayer, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode, PlaybackSettings,
     SpatialAudioSink, SpatialListener,
 };
 use bevy_asset::{Asset, Assets, Handle};
@@ -265,7 +265,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     for (entity, sink) in &query_nonspatial_remove {
         if sink.sink.empty() {
             commands.entity(entity).remove::<(
-                AudioHandle<T>,
+                AudioPlayer<T>,
                 AudioSink,
                 PlaybackSettings,
                 PlaybackRemoveMarker,
@@ -275,7 +275,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.empty() {
             commands.entity(entity).remove::<(
-                AudioHandle<T>,
+                AudioPlayer<T>,
                 SpatialAudioSink,
                 PlaybackSettings,
                 PlaybackRemoveMarker,

@@ -38,7 +38,7 @@ impl Decodable for Pitch {
 /// Bundle for playing a bevy note sound
 #[deprecated(
     since = "0.15.0",
-    note = "Use `AudioHandle<Pitch>` instead. This bundle will be removed in a future release."
+    note = "Use the `AudioPlayer<Pitch>` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
 #[allow(deprecated)]
 pub type PitchBundle = AudioSourceBundle<Pitch>;

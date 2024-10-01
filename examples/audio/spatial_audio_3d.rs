@@ -31,7 +31,7 @@ fn setup(
             ..default()
         },
         Emitter::default(),
-        AudioHandle::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP.with_spatial(true),
     ));
 

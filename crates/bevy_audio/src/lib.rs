@@ -42,7 +42,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[allow(deprecated)]
     pub use crate::{
-        AudioBundle, AudioHandle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
+        AudioBundle, AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
         Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink,
         SpatialListener,
     };

@@ -232,7 +232,7 @@ pub struct DefaultSpatialScale(pub SpatialScale);
 /// Bundle for playing a standard bevy audio asset
 #[deprecated(
     since = "0.15.0",
-    note = "Use `AudioHandle` instead. This bundle will be removed in a future release."
+    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
 pub type AudioBundle = AudioSourceBundle<AudioSource>;
 
@@ -248,12 +248,21 @@ pub type AudioBundle = AudioSourceBundle<AudioSource>;
 ///
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// `PlaybackSettings` component will *not* affect already-playing audio.
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 #[require(PlaybackSettings)]
-pub struct AudioHandle<Source = AudioSource>(pub Handle<Source>)
+pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
 where
     Source: Asset + Decodable;
+
+impl<Source> Clone for AudioPlayer<Source>
+where
+    Source: Asset + Decodable,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 /// Bundle for playing a sound.
 ///
@@ -267,14 +276,14 @@ where
 #[derive(Bundle)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `AudioHandle` instead. This bundle will be removed in a future release."
+    note = "Use the `AudioPlayer` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
 )]
 pub struct AudioSourceBundle<Source = AudioSource>
 where
     Source: Asset + Decodable,
 {
     /// Asset containing the audio data to play.
-    pub source: Handle<Source>,
+    pub source: AudioPlayer<Source>,
     /// Initial settings that the audio starts playing with.
     /// If you would like to control the audio while it is playing,
     /// query for the [`AudioSink`][crate::AudioSink] component.
@@ -294,7 +303,7 @@ impl<T: Asset + Decodable> Clone for AudioSourceBundle<T> {
 impl<T: Decodable + Asset> Default for AudioSourceBundle<T> {
     fn default() -> Self {
         Self {
-            source: Default::default(),
+            source: AudioPlayer(Handle::default()),
             settings: Default::default(),
         }
     }
