@@ -141,7 +141,7 @@ mod tests {
         let mut world = World::default();
         let system =
             IntoSystem::into_system(|name: SystemName| name.name().to_owned()).with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 
@@ -151,7 +151,7 @@ mod tests {
         let system =
             IntoSystem::into_system(|_world: &mut World, name: SystemName| name.name().to_owned())
                 .with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 }

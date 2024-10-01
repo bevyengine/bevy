@@ -16,11 +16,11 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
-    PositionType, Style, ZIndex,
+    GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
 
-/// Global [`ZIndex`] used to render the fps overlay.
+/// [`GlobalZIndex`] used to render the fps overlay.
 ///
 /// We use a number slightly under `i32::MAX` so you can render on top of it if you really need to.
 pub const FPS_OVERLAY_ZINDEX: i32 = i32::MAX - 32;
@@ -83,16 +83,18 @@ struct FpsText;
 
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                // We need to make sure the overlay doesn't affect the position of other UI nodes
-                position_type: PositionType::Absolute,
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    // We need to make sure the overlay doesn't affect the position of other UI nodes
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                // Render overlay on top of everything
                 ..default()
             },
-            // Render overlay on top of everything
-            z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
-            ..default()
-        })
+            GlobalZIndex(FPS_OVERLAY_ZINDEX),
+        ))
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([

@@ -54,25 +54,19 @@ fn setup(
             Lights,
         ))
         .with_children(|builder| {
-            builder.spawn(PointLightBundle {
-                point_light: PointLight {
-                    intensity: 0.0,
-                    range: spawn_plane_depth,
-                    color: Color::WHITE,
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(PointLight {
+                intensity: 0.0,
+                range: spawn_plane_depth,
+                color: Color::WHITE,
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
-            builder.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(DirectionalLight {
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
         });
@@ -116,16 +110,18 @@ fn setup(
     let style = TextStyle::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    padding: UiRect::all(Val::Px(5.0)),
+                    ..default()
+                },
+                background_color: Color::BLACK.with_alpha(0.75).into(),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
+            GlobalZIndex(i32::MAX),
+        ))
         .with_children(|c| {
             c.spawn(TextBundle::from_sections([
                 TextSection::new("Controls:\n", style.clone()),

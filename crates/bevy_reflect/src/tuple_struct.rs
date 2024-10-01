@@ -1,11 +1,12 @@
 use bevy_reflect_derive::impl_type_path;
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
-    ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
+    ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
 use alloc::sync::Arc;
 use core::{
@@ -62,6 +63,7 @@ pub trait TupleStruct: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
     ty: Type,
+    generics: Generics,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
@@ -77,6 +79,7 @@ impl TupleStructInfo {
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
@@ -122,6 +125,8 @@ impl TupleStructInfo {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "struct");
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An iterator over the field values of a tuple struct.
