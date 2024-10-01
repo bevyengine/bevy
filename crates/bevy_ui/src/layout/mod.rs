@@ -786,7 +786,7 @@ mod tests {
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
+        despawn_with_children_recursive(&mut world, ui_parent_entity);
 
         ui_schedule.run(&mut world);
 

@@ -35,7 +35,7 @@ pub struct TryDespawnChildrenRecursive {
 }
 
 /// Function for despawning an entity and all its children
-pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: bool) {
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
     // first, make the entity's own parent forget about it
     if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
         if let Some(mut children) = world.get_mut::<Children>(parent) {
@@ -44,7 +44,20 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: 
     }
 
     // then despawn the entity and all of its children
-    despawn_with_children_recursive_inner(world, entity, warn);
+    despawn_with_children_recursive_inner(world, entity, true);
+}
+
+/// Function for despawning an entity and all its children. Does not emit warnings
+pub fn try_despawn_with_children_recursive(world: &mut World, entity: Entity) {
+    // first, make the entity's own parent forget about it
+    if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
+        if let Some(mut children) = world.get_mut::<Children>(parent) {
+            children.0.retain(|c| *c != entity);
+        }
+    }
+
+    // then despawn the entity and all of its children
+    despawn_with_children_recursive_inner(world, entity, false);
 }
 
 // Should only be called by `despawn_with_children_recursive`!
@@ -81,7 +94,7 @@ impl Command for DespawnRecursive {
             entity = bevy_utils::tracing::field::debug(self.entity)
         )
         .entered();
-        despawn_with_children_recursive(world, self.entity, true);
+        despawn_with_children_recursive(world, self.entity);
     }
 }
 
@@ -107,7 +120,7 @@ impl Command for TryDespawnRecursive {
             entity = bevy_utils::tracing::field::debug(self.entity)
         )
         .entered();
-        despawn_with_children_recursive(world, self.entity, false);
+        try_despawn_with_children_recursive(world, self.entity);
     }
 }
 
@@ -181,7 +194,7 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
         )
         .entered();
 
-        despawn_with_children_recursive(self.into_world_mut(), entity, true);
+        despawn_with_children_recursive(self.into_world_mut(), entity);
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
@@ -212,7 +225,7 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
         )
         .entered();
 
-        despawn_with_children_recursive(self.into_world_mut(), entity, false);
+        despawn_with_children_recursive(self.into_world_mut(), entity);
     }
 
     fn try_despawn_descendants(&mut self) -> &mut Self {
