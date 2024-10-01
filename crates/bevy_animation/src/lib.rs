@@ -982,7 +982,7 @@ pub fn advance_animations(
 }
 
 struct AnimationTriggersIter<'a, 'b> {
-    triggers: core::slice::Iter<'a, AnimationTrigger>,
+    triggers: Option<core::slice::Iter<'a, AnimationTrigger>>,
     animation: &'b ActiveAnimation,
 }
 
@@ -991,11 +991,11 @@ impl<'a, 'b> AnimationTriggersIter<'a, 'b> {
         target_id: Option<AnimationTargetId>,
         clip: &'a AnimationClip,
         animation: &'b ActiveAnimation,
-    ) -> Option<Self> {
-        Some(Self {
-            triggers: clip.triggers.get(&target_id)?.iter(),
+    ) -> Self {
+        Self {
+            triggers: clip.triggers.get(&target_id).map(|v| v.iter()),
             animation,
-        })
+        }
     }
 }
 
@@ -1004,7 +1004,7 @@ impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let trigger = self.triggers.next()?;
+            let trigger = self.triggers.as_mut()?.next()?;
             if match (
                 self.animation.is_playback_reversed(),
                 self.animation.just_completed,
@@ -1054,7 +1054,7 @@ fn trigger_untargeted_animation_events(
                 continue;
             };
             let clip = clips.get(clip_id).unwrap();
-            for trigger in AnimationTriggersIter::new(None, clip, active_animation).unwrap() {
+            for trigger in AnimationTriggersIter::new(None, clip, active_animation) {
                 commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
             }
         }
@@ -1159,9 +1159,7 @@ pub fn animate_targets_and_trigger_events(
                     continue;
                 };
 
-                for trigger in
-                    AnimationTriggersIter::new(Some(target_id), clip, active_animation).unwrap()
-                {
+                for trigger in AnimationTriggersIter::new(Some(target_id), clip, active_animation) {
                     par_commands.command_scope(|mut commands| {
                         commands.queue(trigger_animation_event(trigger.event.clone().0, entity));
                     });
