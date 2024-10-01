@@ -126,10 +126,13 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     bit_i += bits_per_channel.x;
 
     // Refill from the bitstream if needed
-    if bit_i >= 32u {
+    if bit_i + bits_per_channel.y > 32u {
         word_i += 1u;
-        bit_i -= 32u;
-        word = meshlet_vertex_positions[word_i];
+        let new_word = meshlet_vertex_positions[word_i];
+
+        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
+
+        bit_i = 0u;
     }
 
     // Read bits for Y
@@ -137,10 +140,13 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     bit_i += bits_per_channel.y;
 
     // Refill from the bitstream if needed
-    if bit_i >= 32u {
+    if bit_i + bits_per_channel.z > 32u {
         word_i += 1u;
-        bit_i -= 32u;
-        word = meshlet_vertex_positions[word_i];
+        let new_word = meshlet_vertex_positions[word_i];
+
+        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
+
+        bit_i = 0u;
     }
 
     // Read bits for Z
@@ -197,10 +203,13 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     bit_i += bits_per_channel.x;
 
     // Refill from the bitstream if needed
-    if bit_i >= 32u {
+    if bit_i + bits_per_channel.y > 32u {
         word_i += 1u;
-        bit_i -= 32u;
-        word = meshlet_vertex_positions[word_i];
+        let new_word = meshlet_vertex_positions[word_i];
+
+        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
+
+        bit_i = 0u;
     }
 
     // Read bits for Y
@@ -208,10 +217,13 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     bit_i += bits_per_channel.y;
 
     // Refill from the bitstream if needed
-    if bit_i >= 32u {
+    if bit_i + bits_per_channel.z > 32u {
         word_i += 1u;
-        bit_i -= 32u;
-        word = meshlet_vertex_positions[word_i];
+        let new_word = meshlet_vertex_positions[word_i];
+
+        word = (word << bit_i) | extractBits(new_word, 0u, bit_i);
+
+        bit_i = 0u;
     }
 
     // Read bits for Z
