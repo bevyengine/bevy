@@ -23,7 +23,7 @@ impl<'w, 's, T: TextSpanReader> TextSpans<'w, 's, T> {
         root_text: &str,
         root_style: &TextStyle,
         root_children: Option<&Children>
-    ) -> TextSpanIter<'w, 's> {
+    ) -> TextSpanIter<'w, 's, T> {
         let mut stack = core::mem::take(&mut self.scratch.stack)
             .into_iter()
             .map(|_| -> (&Children, usize) { unreachable!() })
@@ -39,7 +39,7 @@ impl<'w, 's, T: TextSpanReader> TextSpans<'w, 's, T> {
 }
 
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
-pub struct TextSpanIter<'w, 's> {
+pub struct TextSpanIter<'w, 's, T: TextSpanReader> {
     scratch: &'s mut TextSpansScratch,
     root: Option<(Entity, &'s str, &'s TextStyle, Option<&'s Children>)>,
     /// Stack of (children, next index into children).
@@ -47,7 +47,7 @@ pub struct TextSpanIter<'w, 's> {
     spans: &'s Query<'w, 's, (Entity, &'static T, &'static TextStyle, Option<&'static Children>)>,
 }
 
-impl<'w, 's> Iterator for TextSpanIter<'w, 's> {
+impl<'w, 's, T: TextSpanReader> Iterator for TextSpanIter<'w, 's, T> {
     /// Item = (entity in text block, depth in the block, span text, span style).
     type Item = (Entity, usize, &str, &TextStyle>);
     fn next(&mut self) -> Option<Self::Item> {
@@ -103,31 +103,22 @@ impl<'w, 's> Drop for TextSpanIter {
 pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     changed_roots: Query<Entity, (
         Or<(Changed<Root>, Changed<TextStyle>, Changed<TextBlock>, Changed<Children>)>,
-    )>,
-    changed_roots_leaf: Query<Entity, (
-        Or<(Changed<Root>, Changed<TextStyle>, Changed<TextBlock>)>,
-        Without<Children>
+        With<Root>, With<TextStyle>, With<TextBlock>,
     )>,
     changed_spans: Query<
         &Parent,
         Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>)>,
-    >,
-    changed_spans_leaf: Query<
-        &Parent,
-        (
-            Or<(Changed<Span>, Changed<TextStyle>)>,
-            Without<Children>
-        )
+        With<Span>, With<TextStyle>,
     >,
     mut computed: Query<(Option<&Parent>, Option<&mut ComputedTextBlock>)>,
 )
 {
     // Root entity:
-    // - TextBlock changed.
-    // - TextStyle on root changed.
     // - Root component changed.
+    // - TextStyle on root changed.
+    // - TextBlock changed.
     // - Root children changed (can include additions and removals).
-    for root in changed_roots.iter().chain(changed_roots_leaf.iter()) {
+    for root in changed_roots.iter() {
         // TODO: ComputedTextBlock *should* be here, log a warning?
         let Ok((_, Some(mut computed))) = computed.get_mut(root) else { continue };
         computed.needs_rerender = true;
@@ -137,8 +128,8 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     // - Span component changed.
     // - Span TextStyle changed.
     // - Span children changed (can include additions and removals).
-    for span_parent in changed_spans.iter().chain(changed_spans_leaf.iter()) {
-        let mut parent = span_parent;
+    for span_parent in changed_spans.iter() {
+        let mut parent: Entity = **span_parent;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
@@ -152,7 +143,7 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
             }
             // TODO: If there is no parent then a span is floating without an owning TextBlock. Log a warning?
             let Some(next_parent) = maybe_parent else { break };
-            parent = next_parent;
+            parent = **next_parent;
         }
     }
 }

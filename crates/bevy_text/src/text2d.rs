@@ -36,8 +36,25 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// a [`TextBlock`]. See [`TextSpan2d`] for the component used by children of entities with [`Text2d`].
 ///
 /// With `Text2d` the `justify` field of [`TextBlock`] only affects the internal alignment of a block of text and not its
-/// relative position which is controlled by the [`Anchor`] component.
+/// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+/*
+```
+# use bevy_ecs::World;
+# use bevy_text::{Text2d, TextBlock, JustifyText};
+#
+# let mut world = World::default();
+#
+// Basic usage.
+world.spawn(Text2d::new("hello world!"));
+
+// With text justification.
+world.spawn((
+    Text2d::new("hello world\nand bevy!"),
+    TextBlock::new_with_justify(JustifyText::Center)
+));
+```
+*/
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
@@ -50,6 +67,13 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
     Transform
 )]
 pub struct Text2d(pub String);
+
+impl Text2d {
+    /// Makes a new 2d text component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
 
 impl From<&str> for Text2d {
     fn from(value: &str) -> Self {
@@ -66,6 +90,35 @@ impl From<String> for Text2d {
 /// A span of 2d text in a tree of spans under an entity with [`Text2d`].
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+/*
+```
+# use bevy_asset::Handle;
+# use bevy_color::Color;
+# use bevy_color::palettes::basic::{RED, BLUE};
+# use bevy_ecs::World;
+# use bevy_text::{Font, Text2d, TextSpan2d, TextStyle, TextSection};
+#
+# let font_handle: Handle<Font> = Default::default();
+# let mut world = World::default();
+#
+world.spawn((
+    Text2d::new("Hello, "),
+    TextStyle {
+        font: font_handle.clone().into(),
+        font_size: 60.0,
+        color: BLUE.into(),
+    }
+))
+.with_child((
+    TextSpan2d::new("World!"),
+    TextStyle {
+        font: font_handle.into(),
+        font_size: 60.0,
+        color: RED.into(),
+    }
+));
+```
+*/
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(TextStyle, Visibility = Visibility::Hidden, Transform)]
