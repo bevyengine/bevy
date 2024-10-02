@@ -34,9 +34,12 @@ pub fn button_hover_observer(
 }
 
 /// An observer that watches for [`Pointer<Out>`] events and sets the [`Button::hovered`] field to `false`.
+///
+/// [`Button::pressed`] is also set to `false`, to ensure that the button.
 pub fn button_out_observer(trigger: Trigger<Pointer<Out>>, mut button_query: Query<&mut Button>) {
     if let Ok(mut button) = button_query.get_mut(trigger.entity()) {
         button.hovered = false;
+        button.pressed = false;
     }
 }
 
