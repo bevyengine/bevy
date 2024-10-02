@@ -47,7 +47,7 @@ thiserror = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_winit = { path = "../bevy_winit", version = "0.15.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

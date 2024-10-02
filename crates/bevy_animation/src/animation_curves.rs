@@ -65,7 +65,6 @@
 //!     - [`TranslationCurve`], which uses `Vec3` output to animate [`Transform::translation`]
 //!     - [`RotationCurve`], which uses `Quat` output to animate [`Transform::rotation`]
 //!     - [`ScaleCurve`], which uses `Vec3` output to animate [`Transform::scale`]
-//!     - [`TransformCurve`], which uses `Transform` output to animate the entire `Transform`
 //!
 //! ## Animatable properties
 //!
@@ -366,45 +365,6 @@ where
         })?;
         let new_value = self.0.sample_clamped(t);
         component.scale = <Vec3 as Animatable>::interpolate(&component.scale, &new_value, weight);
-        Ok(())
-    }
-}
-
-/// This type allows a [curve] valued in `Transform` to become an [`AnimationCurve`] that animates
-/// a transform.
-///
-/// This exists primarily as a convenience to animate entities using the entire transform at once
-/// instead of splitting it into pieces and animating each part (translation, rotation, scale).
-///
-/// [curve]: Curve
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
-pub struct TransformCurve<C>(pub C);
-
-impl<C> AnimationCurve for TransformCurve<C>
-where
-    C: AnimationCompatibleCurve<Transform>,
-{
-    fn clone_value(&self) -> Box<dyn AnimationCurve> {
-        Box::new(self.clone())
-    }
-
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn apply<'a>(
-        &self,
-        t: f32,
-        transform: Option<Mut<'a, Transform>>,
-        _entity: AnimationEntityMut<'a>,
-        weight: f32,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        let new_value = self.0.sample_clamped(t);
-        *component = <Transform as Animatable>::interpolate(&component, &new_value, weight);
         Ok(())
     }
 }
