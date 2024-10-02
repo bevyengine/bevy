@@ -3031,7 +3031,6 @@ pub(crate) unsafe fn take_component<'a>(
 #[cfg(test)]
 mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
-    use bevy_utils::HashSet;
     use core::panic::AssertUnwindSafe;
 
     use crate::{
