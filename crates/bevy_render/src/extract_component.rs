@@ -1,8 +1,9 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     view::ViewVisibility,
-    world_sync::{EntityRecord, PendingSyncEntity, RenderEntity, SyncToRenderWorld},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -159,15 +160,6 @@ fn prepare_uniform_components<C>(
 /// This plugin extracts the components into the render world for synced entities.
 ///
 /// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
-///
-/// # Warning
-///
-/// Be careful when removing the [`ExtractComponent`] from an entity. When an [`ExtractComponent`]
-/// is added to an entity, that entity is automatically synced with the render world (see also
-/// [`WorldSyncPlugin`](crate::world_sync::WorldSyncPlugin)). When removing the entity in the main
-/// world, the synced entity also gets removed. However, if only the [`ExtractComponent`] is removed
-/// this *doesn't* happen, and the synced entity stays around with the old extracted data.
-/// We recommend despawning the entire entity, instead of only removing [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
@@ -193,14 +185,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<C, SyncToRenderWorld>();
-
-        app.world_mut().register_component_hooks::<C>().on_remove(
-            |mut world, entity, _component_id| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
-                pending.push(EntityRecord::ComponentRemoved(entity));
-            },
-        );
+        app.add_plugins(SyncComponentPlugin::<C>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {

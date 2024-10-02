@@ -124,9 +124,9 @@ use bevy_render::{
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
+    sync_component::SyncComponentPlugin,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
-    world_sync::{EntityRecord, PendingSyncEntity},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -341,6 +341,10 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
+            .add_plugins((
+                SyncComponentPlugin::<DirectionalLight>::default(),
+                SyncComponentPlugin::<PointLight>::default(),
+            ))
             .configure_sets(
                 PostUpdate,
                 (
@@ -422,20 +426,6 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
             );
-
-        app.world_mut()
-            .register_component_hooks::<PointLight>()
-            .on_remove(|mut world, entity, _component_id| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
-                pending.push(EntityRecord::ComponentRemoved(entity));
-            });
-
-        app.world_mut()
-            .register_component_hooks::<DirectionalLight>()
-            .on_remove(|mut world, entity, _component_id| {
-                let mut pending = world.resource_mut::<PendingSyncEntity>();
-                pending.push(EntityRecord::ComponentRemoved(entity));
-            });
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

@@ -128,7 +128,7 @@ pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
 #[derive(Debug)]
-pub enum EntityRecord {
+pub(crate) enum EntityRecord {
     /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
     /// entity. This contains the main world entity.
     Added(Entity),
@@ -142,7 +142,7 @@ pub enum EntityRecord {
 
 // Entity Record in MainWorld pending to Sync
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct PendingSyncEntity {
+pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
 

@@ -38,6 +38,7 @@ pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
 pub mod storage;
+pub mod sync_component;
 pub mod texture;
 pub mod view;
 pub mod world_sync;
