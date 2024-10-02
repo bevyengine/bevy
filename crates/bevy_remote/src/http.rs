@@ -235,24 +235,16 @@ async fn process_single_request(
         ));
     }
 
-    let stream = request.method.ends_with("+stream");
-    let size = if stream { 16 } else { 1 };
-    let (result_sender, result_receiver) = async_channel::bounded(size);
+    let (result_sender, result_receiver) = async_channel::bounded(1);
 
     let _ = request_sender
         .send(BrpMessage {
             method: request.method,
             params: request.params,
             sender: result_sender,
-            stream,
+            stream: false,
         })
         .await;
-
-    if size == 16 {
-        while let Ok(result) = result_receiver.recv().await {
-            let _ = dbg!(result);
-        }
-    }
 
     let result = result_receiver.recv().await?;
     Ok(BrpResponse::new(request.id, result))
