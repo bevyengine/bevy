@@ -1,5 +1,10 @@
 use crate::{IRect, Rect, UVec2};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A rectangle defined by two opposite corners.
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,
@@ -11,6 +16,15 @@ use crate::{IRect, Rect, UVec2};
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct URect {
     /// The minimum corner point of the rect.
     pub min: UVec2,
@@ -20,9 +34,12 @@ pub struct URect {
 
 impl URect {
     /// An empty `URect`, represented by maximum and minimum corner points
-    /// with all `u32::MAX` values.
+    /// with `max == UVec2::MIN` and `min == UVec2::MAX`, so the
+    /// rect has an extremely large negative size.
+    /// This is useful, because when taking a union B of a non-empty `URect` A and
+    /// this empty `URect`, B will simply equal A.
     pub const EMPTY: Self = Self {
-        max: UVec2::MAX,
+        max: UVec2::MIN,
         min: UVec2::MAX,
     };
     /// Create a new rectangle from two corner points.

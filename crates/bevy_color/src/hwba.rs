@@ -2,8 +2,11 @@
 //! in [_HWB - A More Intuitive Hue-Based Color Model_] by _Smith et al_.
 //!
 //! [_HWB - A More Intuitive Hue-Based Color Model_]: https://web.archive.org/web/20240226005220/http://alvyray.com/Papers/CG/HWB_JGTv208.pdf
-use crate::{Alpha, ColorToComponents, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza};
+use crate::{
+    Alpha, ColorToComponents, Gray, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
+};
 use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Hue-Whiteness-Blackness (HWB) color space with alpha.
@@ -12,11 +15,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Hwba {
@@ -89,6 +92,11 @@ impl Mix for Hwba {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Hwba {
+    const BLACK: Self = Self::new(0., 0., 1., 1.);
+    const WHITE: Self = Self::new(0., 1., 0., 1.);
 }
 
 impl Alpha for Hwba {

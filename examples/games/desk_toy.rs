@@ -10,7 +10,6 @@ use bevy::{
     app::AppExit,
     input::common_conditions::{input_just_pressed, input_just_released},
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::{PrimaryWindow, WindowLevel},
 };
 
@@ -110,8 +109,8 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
         font: font.clone(),
-        font_size: 30.0,
-        color: Color::WHITE,
+        font_size: 25.0,
+        ..default()
     };
     commands.spawn((
         Text2dBundle {
@@ -126,7 +125,7 @@ fn setup(
     ));
 
     // Create a circle mesh. We will reuse this mesh for all our circles.
-    let circle = Mesh2dHandle(meshes.add(Circle { radius: 1.0 }));
+    let circle = meshes.add(Circle { radius: 1.0 });
     // Create the different materials we will use for each part of the eyes. For this demo they are basic [`ColorMaterial`]s.
     let outline_material = materials.add(Color::BLACK);
     let sclera_material = materials.add(Color::WHITE);
@@ -146,13 +145,12 @@ fn setup(
             // For each bird eye
             for (x, y, radius) in BIRDS_EYES {
                 // eye outline
-                commands.spawn(MaterialMesh2dBundle {
-                    mesh: circle.clone(),
-                    material: outline_material.clone(),
-                    transform: Transform::from_xyz(x, y - 1.0, 1.0)
+                commands.spawn((
+                    Mesh2d(circle.clone()),
+                    MeshMaterial2d(outline_material.clone()),
+                    Transform::from_xyz(x, y - 1.0, 1.0)
                         .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
-                    ..default()
-                });
+                ));
 
                 // sclera
                 commands
@@ -161,12 +159,11 @@ fn setup(
                     )))
                     .with_children(|commands| {
                         // sclera
-                        commands.spawn(MaterialMesh2dBundle {
-                            mesh: circle.clone(),
-                            material: sclera_material.clone(),
-                            transform: Transform::from_scale(Vec3::new(radius, radius, 0.0)),
-                            ..default()
-                        });
+                        commands.spawn((
+                            Mesh2d(circle.clone()),
+                            MeshMaterial2d(sclera_material.clone()),
+                            Transform::from_scale(Vec3::new(radius, radius, 0.0)),
+                        ));
 
                         let pupil_radius = radius * 0.6;
                         let pupil_highlight_radius = radius * 0.3;
@@ -183,19 +180,21 @@ fn setup(
                             ))
                             .with_children(|commands| {
                                 // pupil main
-                                commands.spawn(MaterialMesh2dBundle {
-                                    mesh: circle.clone(),
-                                    material: pupil_material.clone(),
-                                    transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                                        .with_scale(Vec3::new(pupil_radius, pupil_radius, 1.0)),
-                                    ..default()
-                                });
+                                commands.spawn((
+                                    Mesh2d(circle.clone()),
+                                    MeshMaterial2d(pupil_material.clone()),
+                                    Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
+                                        pupil_radius,
+                                        pupil_radius,
+                                        1.0,
+                                    )),
+                                ));
 
                                 // pupil highlight
-                                commands.spawn(MaterialMesh2dBundle {
-                                    mesh: circle.clone(),
-                                    material: pupil_highlight_material.clone(),
-                                    transform: Transform::from_xyz(
+                                commands.spawn((
+                                    Mesh2d(circle.clone()),
+                                    MeshMaterial2d(pupil_highlight_material.clone()),
+                                    Transform::from_xyz(
                                         -pupil_highlight_offset,
                                         pupil_highlight_offset,
                                         1.0,
@@ -205,8 +204,7 @@ fn setup(
                                         pupil_highlight_radius,
                                         1.0,
                                     )),
-                                    ..default()
-                                });
+                                ));
                             });
                     });
             }
@@ -222,9 +220,11 @@ fn get_cursor_world_pos(
     let primary_window = q_primary_window.single();
     let (main_camera, main_camera_transform) = q_camera.single();
     // Get the cursor position in the world
-    cursor_world_pos.0 = primary_window
-        .cursor_position()
-        .and_then(|cursor_pos| main_camera.viewport_to_world_2d(main_camera_transform, cursor_pos));
+    cursor_world_pos.0 = primary_window.cursor_position().and_then(|cursor_pos| {
+        main_camera
+            .viewport_to_world_2d(main_camera_transform, cursor_pos)
+            .ok()
+    });
 }
 
 /// Update whether the window is clickable or not
@@ -237,7 +237,7 @@ fn update_cursor_hit_test(
 
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
-        primary_window.cursor.hit_test = true;
+        primary_window.cursor_options.hit_test = true;
         return;
     }
 
@@ -248,7 +248,7 @@ fn update_cursor_hit_test(
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
     let bevy_logo_transform = q_bevy_logo.single();
-    primary_window.cursor.hit_test = bevy_logo_transform
+    primary_window.cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
         .distance(cursor_world_pos)
@@ -381,7 +381,7 @@ fn move_pupils(time: Res<Time>, mut q_pupils: Query<(&mut Pupil, &mut Transform)
         // Truncate the Z component to make the calculations be on [`Vec2`]
         let mut translation = transform.translation.truncate();
         // Decay the pupil velocity
-        pupil.velocity *= (0.04f32).powf(time.delta_seconds());
+        pupil.velocity *= ops::powf(0.04f32, time.delta_seconds());
         // Move the pupil
         translation += pupil.velocity * time.delta_seconds();
         // If the pupil hit the outside border of the eye, limit the translation to be within the wiggle radius and invert the velocity.

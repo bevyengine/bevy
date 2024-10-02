@@ -1,10 +1,10 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
+use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::tracing::error;
-use futures_lite::AsyncReadExt;
-use std::{borrow::Cow, marker::Copy};
+use core::marker::Copy;
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -252,18 +252,18 @@ pub enum ShaderLoaderError {
     #[error("Could not load shader: {0}")]
     Io(#[from] std::io::Error),
     #[error("Could not parse shader: {0}")]
-    Parse(#[from] std::string::FromUtf8Error),
+    Parse(#[from] alloc::string::FromUtf8Error),
 }
 
 impl AssetLoader for ShaderLoader {
     type Asset = Shader;
     type Settings = ();
     type Error = ShaderLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let ext = load_context.path().extension().unwrap().to_str().unwrap();
         let path = load_context.asset_path().to_string();

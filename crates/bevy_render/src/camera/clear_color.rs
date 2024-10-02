@@ -6,7 +6,7 @@ use bevy_reflect::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// For a camera, specifies the color used to clear the viewport before rendering.
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Reflect, Serialize, Deserialize, Copy, Clone, Debug, Default)]
 #[reflect(Serialize, Deserialize, Default)]
 pub enum ClearColorConfig {
     /// The clear color is taken from the world's [`ClearColor`] resource.
@@ -31,7 +31,7 @@ impl From<Color> for ClearColorConfig {
 /// This color appears as the "background" color for simple apps,
 /// when there are portions of the screen with nothing rendered.
 #[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Debug)]
 pub struct ClearColor(pub Color);
 
 /// Match the dark gray bevy website code block color by default.

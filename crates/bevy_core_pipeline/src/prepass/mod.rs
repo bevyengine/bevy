@@ -27,41 +27,66 @@
 
 pub mod node;
 
-use std::ops::Range;
+use core::ops::Range;
 
-use bevy_asset::AssetId;
+use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
+use bevy_math::Mat4;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::Mesh,
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
         PhaseItemExtraIndex,
     },
-    render_resource::{BindGroupId, CachedRenderPipelineId, Extent3d, TextureFormat, TextureView},
+    render_resource::{
+        BindGroupId, CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer,
+        Extent3d, ShaderType, TextureFormat, TextureView,
+    },
     texture::ColorAttachment,
 };
+
+use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space motion vectors will be copied to a separate texture available to the main pass.
 #[derive(Component, Default, Reflect, Clone)]
+#[reflect(Component, Default)]
 pub struct MotionVectorPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
 #[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct DeferredPrepass;
+
+#[derive(Component, ShaderType, Clone)]
+pub struct PreviousViewData {
+    pub view_from_world: Mat4,
+    pub clip_from_world: Mat4,
+}
+
+#[derive(Resource, Default)]
+pub struct PreviousViewUniforms {
+    pub uniforms: DynamicUniformBuffer<PreviousViewData>,
+}
+
+#[derive(Component)]
+pub struct PreviousViewUniformOffset {
+    pub offset: u32,
+}
 
 /// Textures that are written to by the prepass.
 ///
@@ -125,7 +150,7 @@ pub struct Opaque3dPrepass {
 }
 
 // TODO: Try interning these.
-/// The data used to bin each opaque 3D mesh in the prepass and deferred pass.
+/// The data used to bin each opaque 3D object in the prepass and deferred pass.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpaqueNoLightmap3dBinKey {
     /// The ID of the GPU pipeline.
@@ -134,8 +159,8 @@ pub struct OpaqueNoLightmap3dBinKey {
     /// The function used to draw the mesh.
     pub draw_function: DrawFunctionId,
 
-    /// The ID of the mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The ID of the asset.
+    pub asset_id: UntypedAssetId,
 
     /// The ID of a bind group specific to the material.
     ///
@@ -269,4 +294,33 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3dPrepass {
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.key.pipeline
     }
+}
+
+pub fn prepass_target_descriptors(
+    normal_prepass: bool,
+    motion_vector_prepass: bool,
+    deferred_prepass: bool,
+) -> Vec<Option<ColorTargetState>> {
+    vec![
+        normal_prepass.then_some(ColorTargetState {
+            format: NORMAL_PREPASS_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        motion_vector_prepass.then_some(ColorTargetState {
+            format: MOTION_VECTOR_PREPASS_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        deferred_prepass.then_some(ColorTargetState {
+            format: DEFERRED_PREPASS_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+        deferred_prepass.then_some(ColorTargetState {
+            format: DEFERRED_LIGHTING_PASS_ID_FORMAT,
+            blend: None,
+            write_mask: ColorWrites::ALL,
+        }),
+    ]
 }

@@ -1,11 +1,26 @@
-use std::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
+use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
 
-/// A sphere primitive
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use glam::Quat;
+
+/// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -40,7 +55,7 @@ impl Sphere {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let distance_squared = point.length_squared();
 
-        if distance_squared <= self.radius.powi(2) {
+        if distance_squared <= self.radius.squared() {
             // The point is inside the sphere.
             point
         } else {
@@ -56,19 +71,28 @@ impl Measured3d for Sphere {
     /// Get the surface area of the sphere
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
+        4.0 * PI * self.radius.squared()
     }
 
     /// Get the volume of the sphere
     #[inline(always)]
     fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
+        4.0 * FRAC_PI_3 * self.radius.cubed()
     }
 }
 
 /// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -132,6 +156,15 @@ impl Plane3d {
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -154,7 +187,7 @@ impl InfinitePlane3d {
     #[inline(always)]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
-        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+        <T as TryInto<Dir3>>::Error: core::fmt::Debug,
     {
         Self {
             normal: normal
@@ -182,23 +215,142 @@ impl InfinitePlane3d {
 
         (Self { normal }, translation)
     }
+
+    /// Computes the shortest distance between a plane transformed with the given `isometry` and a
+    /// `point`. The result is a signed value; it's positive if the point lies in the half-space
+    /// that the plane's normal vector points towards.
+    #[inline]
+    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+        self.normal.dot(isometry.inverse() * point)
+    }
+
+    /// Injects the `point` into this plane transformed with the given `isometry`.
+    ///
+    /// This projects the point orthogonally along the shortest path onto the plane.
+    #[inline]
+    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+        point - self.normal * self.signed_distance(isometry, point)
+    }
+
+    /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space with the given
+    /// `origin` to the XY-plane.
+    ///
+    /// ## Guarantees
+    ///
+    /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
+    ///   the transformed geometry
+    /// * uses the least rotation possible to transform the geometry
+    /// * if two geometries are transformed with the same isometry, then the relations between
+    ///   them, like distances, are also preserved
+    /// * compared to projections, the transformation is lossless (up to floating point errors)
+    ///   reversible
+    ///
+    /// ## Non-Guarantees
+    ///
+    /// * the rotation used is generally not unique
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
+    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   one
+    ///
+    /// See [`isometries_xy`] for example usescases.
+    ///
+    /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
+    /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
+    #[inline]
+    pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
+        let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
+        let transformed_origin = rotation * origin;
+        Isometry3d::new(-Vec3::Z * transformed_origin.z, rotation)
+    }
+
+    /// Computes an [`Isometry3d`] which transforms points from the XY-plane to this plane with the
+    /// given `origin`.
+    ///
+    /// ## Guarantees
+    ///
+    /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
+    ///   the transformed geometry
+    /// * uses the least rotation possible to transform the geometry
+    /// * if two geometries are transformed with the same isometry, then the relations between
+    ///   them, like distances, are also preserved
+    /// * compared to projections, the transformation is lossless (up to floating point errors)
+    ///   reversible
+    ///
+    /// ## Non-Guarantees
+    ///
+    /// * the rotation used is generally not unique
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
+    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   one
+    ///
+    /// See [`isometries_xy`] for example usescases.
+    ///
+    /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
+    /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
+    #[inline]
+    pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
+        self.isometry_into_xy(origin).inverse()
+    }
+
+    /// Computes both [isometries] which transforms points from the plane in 3D space with the
+    /// given `origin` to the XY-plane and back.
+    ///
+    /// [isometries]: `Isometry3d`
+    ///
+    /// # Example
+    ///
+    /// The projection and its inverse can be used to run 2D algorithms on flat shapes in 3D. The
+    /// workflow would usually look like this:
+    ///
+    /// ```
+    /// # use bevy_math::{Vec3, Dir3};
+    /// # use bevy_math::primitives::InfinitePlane3d;
+    ///
+    /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
+    /// let center = (a + b + c) / 3.0;
+    ///
+    /// let plane = InfinitePlane3d::new(Vec3::ONE);
+    ///
+    /// let (to_xy, from_xy) = plane.isometries_xy(center);
+    ///
+    /// let triangle_2d = triangle_3d.map(|vec3| to_xy * vec3).map(|vec3| vec3.truncate());
+    ///
+    /// // apply some algorithm to `triangle_2d`
+    ///
+    /// let triangle_3d = triangle_2d.map(|vec2| vec2.extend(0.0)).map(|vec3| from_xy * vec3);
+    /// ```
+    #[inline]
+    pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
+        let projection = self.isometry_into_xy(origin);
+        (projection, projection.inverse())
+    }
 }
 
-/// An infinite line along a direction in 3D space.
+/// An infinite line going through the origin along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
 }
 impl Primitive3d for Line3d {}
 
-/// A segment of a line along a direction in 3D space.
+/// A segment of a line going through the origin along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -253,6 +405,11 @@ impl Segment3d {
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -306,9 +463,19 @@ impl BoxedPolyline3d {
     }
 }
 
-/// A cuboid primitive, more commonly known as a box.
+/// A cuboid primitive, which is like a cube, except that the x, y, and z dimensions are not
+/// required to be the same.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -389,9 +556,18 @@ impl Measured3d for Cuboid {
     }
 }
 
-/// A cylinder primitive
+/// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -439,7 +615,7 @@ impl Cylinder {
     /// Get the surface area of one base of the cylinder
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -457,10 +633,19 @@ impl Measured3d for Cylinder {
     }
 }
 
-/// A 3D capsule primitive.
+/// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Capsule3d {
     /// The radius of the capsule
     pub radius: f32,
@@ -517,9 +702,20 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+///
+/// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -539,6 +735,10 @@ impl Default for Cone {
 }
 
 impl Cone {
+    /// Create a new [`Cone`] from a radius and height.
+    pub fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
     pub fn base(&self) -> Circle {
@@ -552,7 +752,7 @@ impl Cone {
     #[inline(always)]
     #[doc(alias = "side_length")]
     pub fn slant_height(&self) -> f32 {
-        self.radius.hypot(self.height)
+        ops::hypot(self.radius, self.height)
     }
 
     /// Get the surface area of the side of the cone,
@@ -566,7 +766,7 @@ impl Cone {
     /// Get the surface area of the base of the cone
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -589,6 +789,15 @@ impl Measured3d for Cone {
 /// by slicing off a section of a cone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -598,6 +807,17 @@ pub struct ConicalFrustum {
     pub height: f32,
 }
 impl Primitive3d for ConicalFrustum {}
+
+impl Default for ConicalFrustum {
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    fn default() -> Self {
+        Self {
+            radius_top: 0.25,
+            radius_bottom: 0.5,
+            height: 0.5,
+        }
+    }
+}
 
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -618,8 +838,18 @@ pub enum TorusKind {
 }
 
 /// A torus primitive, often representing a ring or donut shape
+/// The set of points some distance from a circle centered at the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(
@@ -696,9 +926,9 @@ impl Torus {
         }
 
         match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
-            std::cmp::Ordering::Greater => TorusKind::Ring,
-            std::cmp::Ordering::Equal => TorusKind::Horn,
-            std::cmp::Ordering::Less => TorusKind::Spindle,
+            core::cmp::Ordering::Greater => TorusKind::Ring,
+            core::cmp::Ordering::Equal => TorusKind::Horn,
+            core::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
 }
@@ -708,20 +938,29 @@ impl Measured3d for Torus {
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
+        4.0 * PI.squared() * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn volume(&self) -> f32 {
-        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+        2.0 * PI.squared() * self.major_radius * self.minor_radius.squared()
     }
 }
 
 /// A 3D triangle primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Triangle3d {
     /// The vertices of the triangle.
     pub vertices: [Vec3; 3],
@@ -778,6 +1017,42 @@ impl Triangle3d {
         let ab = b - a;
         let ac = c - a;
         ab.cross(ac).length() < 10e-7
+    }
+
+    /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
+    #[inline(always)]
+    pub fn is_acute(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 < c^2 for an acute triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] > side_lengths[2]
+    }
+
+    /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
+    #[inline(always)]
+    pub fn is_obtuse(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 > c^2 for an obtuse triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] < side_lengths[2]
     }
 
     /// Reverse the triangle by swapping the first and last vertices.
@@ -870,6 +1145,15 @@ impl Measured2d for Triangle3d {
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],
@@ -1010,7 +1294,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::Quat;
+    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -1036,7 +1320,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
@@ -1083,10 +1367,58 @@ mod tests {
     }
 
     #[test]
-    fn infinite_plane_from_points() {
-        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+    fn infinite_plane_math() {
+        let (plane, origin) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
-        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+        assert_eq!(origin, Vec3::Z * 0.33333334, "incorrect translation");
+
+        let point_in_plane = Vec3::X + Vec3::Z;
+        assert_eq!(
+            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
+            0.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
+            point_in_plane,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::Y;
+        assert_eq!(
+            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            -1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::NEG_Y;
+        assert_eq!(
+            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let area_f = |[a, b, c]: [Vec3; 3]| (a - b).cross(a - c).length() * 0.5;
+        let (proj, inj) = plane.isometries_xy(origin);
+
+        let triangle = [Vec3::X, Vec3::Y, Vec3::ZERO];
+        assert_eq!(area_f(triangle), 0.5, "incorrect area");
+
+        let triangle_proj = triangle.map(|vec3| proj * vec3);
+        assert_relative_eq!(area_f(triangle_proj), 0.5);
+
+        let triangle_proj_inj = triangle_proj.map(|vec3| inj * vec3);
+        assert_relative_eq!(area_f(triangle_proj_inj), 0.5);
     }
 
     #[test]
@@ -1211,7 +1543,90 @@ mod tests {
     }
 
     #[test]
+    fn extrusion_math() {
+        let circle = Circle::new(0.75);
+        let cylinder = Extrusion::new(circle, 2.5);
+        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
+        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+
+        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
+        let tube = Extrusion::new(annulus, 0.333);
+        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
+        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
+
+        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
+        let regular_prism = Extrusion::new(polygon, 1.25);
+        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
+        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+    }
+
+    #[test]
     fn triangle_math() {
+        // Default triangle tests
+        let mut default_triangle = Triangle3d::default();
+        let reverse_default_triangle = Triangle3d::new(
+            Vec3::new(0.5, -0.5, 0.0),
+            Vec3::new(-0.5, -0.5, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        );
+        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
+        assert_relative_eq!(
+            default_triangle.perimeter(),
+            1.0 + 2.0 * 1.25_f32.sqrt(),
+            epsilon = 10e-9
+        );
+        assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
+        assert!(
+            !default_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            default_triangle.centroid(),
+            Vec3::new(0.0, -0.16666667, 0.0),
+            "incorrect centroid"
+        );
+        assert_eq!(
+            default_triangle.largest_side(),
+            (Vec3::new(0.0, 0.5, 0.0), Vec3::new(-0.5, -0.5, 0.0))
+        );
+        default_triangle.reverse();
+        assert_eq!(
+            default_triangle, reverse_default_triangle,
+            "incorrect reverse"
+        );
+        assert_eq!(
+            default_triangle.circumcenter(),
+            Vec3::new(0.0, -0.125, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Custom triangle tests
+        let right_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::Y);
+        let obtuse_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::X, Vec3::new(0.0, 0.1, 0.0));
+        let acute_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::new(0.5, 5.0, 0.0));
+
+        assert_eq!(
+            right_triangle.circumcenter(),
+            Vec3::new(0.5, 0.5, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            obtuse_triangle.circumcenter(),
+            Vec3::new(0.0, -4.95, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            acute_triangle.circumcenter(),
+            Vec3::new(0.5, 2.475, 0.0),
+            "incorrect circumcenter"
+        );
+
+        assert!(acute_triangle.is_acute());
+        assert!(!acute_triangle.is_obtuse());
+        assert!(!obtuse_triangle.is_acute());
+        assert!(obtuse_triangle.is_obtuse());
+
+        // Arbitrary triangle tests
         let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
         let triangle = Triangle3d::new(a, b, c);
 
@@ -1233,25 +1648,53 @@ mod tests {
             "incorrect normal"
         );
 
-        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
-        assert!(degenerate.is_degenerate(), "did not find degenerate");
-    }
+        // Degenerate triangle tests
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        assert!(
+            zero_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::ZERO),
+            "incorrect largest side"
+        );
 
-    #[test]
-    fn extrusion_math() {
-        let circle = Circle::new(0.75);
-        let cylinder = Extrusion::new(circle, 2.5);
-        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
-        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        assert!(
+            dup_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::X),
+            "incorrect largest side"
+        );
 
-        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
-        let tube = Extrusion::new(annulus, 0.333);
-        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
-        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
-
-        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
-        let regular_prism = Extrusion::new(polygon, 1.25);
-        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
-        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        assert!(
+            collinear_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.largest_side(),
+            (Vec3::NEG_X, Vec3::X),
+            "incorrect largest side"
+        );
     }
 }

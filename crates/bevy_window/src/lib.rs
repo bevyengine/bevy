@@ -11,29 +11,39 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+extern crate alloc;
+
+use alloc::sync::Arc;
+use std::sync::Mutex;
+
 use bevy_a11y::Focus;
 
-mod cursor;
 mod event;
+mod monitor;
 mod raw_handle;
 mod system;
+mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
-pub use cursor::*;
+#[cfg(target_os = "android")]
+pub use android_activity;
+
 pub use event::*;
+pub use monitor::*;
 pub use system::*;
+pub use system_cursor::*;
 pub use window::*;
 
-#[allow(missing_docs)]
+/// The windowing prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
-        ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
-        WindowResizeConstraints,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection, Window,
+        WindowMoved, WindowPlugin, WindowPosition, WindowResizeConstraints,
     };
 }
 
@@ -86,8 +96,8 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
-        #[allow(deprecated)]
-        app.add_event::<WindowResized>()
+        app.add_event::<WindowEvent>()
+            .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
@@ -97,7 +107,6 @@ impl Plugin for WindowPlugin {
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
-            .add_event::<ReceivedCharacter>()
             .add_event::<Ime>()
             .add_event::<WindowFocused>()
             .add_event::<WindowOccluded>()
@@ -106,13 +115,16 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<WindowThemeChanged>()
-            .add_event::<ApplicationLifetime>();
+            .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
                 .world_mut()
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow)
+                .insert((
+                    PrimaryWindow,
+                    RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+                ))
                 .id();
             if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
@@ -135,8 +147,8 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
-        #[allow(deprecated)]
-        app.register_type::<WindowResized>()
+        app.register_type::<WindowEvent>()
+            .register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
@@ -145,7 +157,6 @@ impl Plugin for WindowPlugin {
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()
             .register_type::<CursorLeft>()
-            .register_type::<ReceivedCharacter>()
             .register_type::<WindowFocused>()
             .register_type::<WindowOccluded>()
             .register_type::<WindowScaleFactorChanged>()
@@ -153,7 +164,7 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<ApplicationLifetime>();
+            .register_type::<AppLifecycle>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()
@@ -180,3 +191,9 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
+
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
+/// (for example lifecycle and input events).
+#[cfg(target_os = "android")]
+pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
+    std::sync::OnceLock::new();

@@ -7,6 +7,7 @@ use std::{
 pub use ui_test;
 
 use ui_test::{
+    color_eyre::eyre::eyre,
     default_file_filter, default_per_file_config,
     dependencies::DependencyBuilder,
     run_tests_generic,
@@ -18,9 +19,21 @@ use ui_test::{
 /// Use this instead of hand rolling configs.
 ///
 /// `root_dir` is the directory your tests are contained in. Needs to be a path from crate root.
-/// This config will build dependencies and will assume that the cargo manifest is placed at the 
+/// This config will build dependencies and will assume that the cargo manifest is placed at the
 /// current working directory.
-fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
+fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Config> {
+    let root_dir = root_dir.into();
+
+    match root_dir.try_exists() {
+        Ok(true) => { /* success */ }
+        Ok(false) => {
+            return Err(eyre!("path does not exist: {:?}", root_dir));
+        }
+        Err(error) => {
+            return Err(eyre!("failed to read path: {:?} ({:?})", root_dir, error));
+        }
+    }
+
     let mut config = Config {
         bless_command: Some(
             "`cargo test` with the BLESS environment variable set to any non empty value"
@@ -52,7 +65,7 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
         "$HOME",
     );
 
-    // Manually insert @aux-build:<dep> comments into test files. This needs to 
+    // Manually insert @aux-build:<dep> comments into test files. This needs to
     // be done to build and link dependencies. Dependencies will be pulled from a
     // Cargo.toml file.
     config.comment_defaults.base().custom.insert(
@@ -60,49 +73,46 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> Config {
         Spanned::dummy(vec![Box::new(DependencyBuilder::default())]),
     );
 
-    config
+    Ok(config)
 }
 
 /// Runs ui tests for a single directory.
 ///
 /// `root_dir` is the directory your tests are contained in. Needs to be a path from crate root.
-pub fn test(test_root: impl Into<PathBuf>) -> ui_test::Result<()> {
-    test_multiple([test_root])
+pub fn test(test_name: impl Into<String>, test_root: impl Into<PathBuf>) -> ui_test::Result<()> {
+    test_multiple(test_name, [test_root])
 }
 
 /// Run ui tests with the given config
-pub fn test_with_config(config: Config) -> ui_test::Result<()> {
-    test_with_multiple_configs([config])
+pub fn test_with_config(test_name: impl Into<String>, config: Config) -> ui_test::Result<()> {
+    test_with_multiple_configs(test_name, [Ok(config)])
 }
 
 /// Runs ui tests for a multiple directories.
 ///
 /// `root_dirs` paths need to come from crate root.
 pub fn test_multiple(
+    test_name: impl Into<String>,
     test_roots: impl IntoIterator<Item = impl Into<PathBuf>>,
 ) -> ui_test::Result<()> {
     let args = Args::test()?;
 
     let configs = test_roots.into_iter().map(|root| basic_config(root, &args));
 
-    test_with_multiple_configs(configs)
+    test_with_multiple_configs(test_name, configs)
 }
 
 /// Run ui test with the given configs.
 ///
 /// Tests for configs are run in parallel.
 pub fn test_with_multiple_configs(
-    configs: impl IntoIterator<Item = Config>,
+    test_name: impl Into<String>,
+    configs: impl IntoIterator<Item = ui_test::Result<Config>>,
 ) -> ui_test::Result<()> {
-    let configs = configs.into_iter().collect();
+    let configs = configs.into_iter().collect::<ui_test::Result<Vec<Config>>>()?;
 
     let emitter: Box<dyn StatusEmitter + Send> = if env::var_os("CI").is_some() {
-        Box::new((
-            Text::verbose(),
-            Gha::<true> {
-                name: env!("CARGO_PKG_NAME").to_string(),
-            },
-        ))
+        Box::new((Text::verbose(), Gha::<true> { name: test_name.into() }))
     } else {
         Box::new(Text::quiet())
     };

@@ -1,5 +1,7 @@
-use std::sync::Arc;
-use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
+use alloc::{rc::Rc, sync::Arc};
+use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
+
+use crate::Task;
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
@@ -66,7 +68,6 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    #[allow(unused_variables)]
     fn new_internal() -> Self {
         Self {}
     }
@@ -94,7 +95,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    #[allow(unsafe_code)]
+    #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
@@ -145,34 +146,33 @@ impl TaskPool {
             .collect()
     }
 
-    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
-    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
+    /// to retrieve the output of the original future. Dropping the task will attempt to cancel it.
+    /// It can also be "detached", allowing it to continue running without having to be polled by the
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
     {
         #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(async move {
-            future.await;
-        });
+        return Task::wrap_future(future);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
             LOCAL_EXECUTOR.with(|executor| {
-                let _task = executor.spawn(future);
+                let task = executor.spawn(future);
                 // Loop until all tasks are done
                 while executor.try_tick() {}
-            });
-        }
 
-        FakeTask
+                Task::new(task)
+            })
+        }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
-    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
     {
@@ -196,17 +196,6 @@ impl TaskPool {
     {
         LOCAL_EXECUTOR.with(f)
     }
-}
-
-/// An empty task used in single-threaded contexts.
-///
-/// This does nothing and is therefore safe, and recommended, to ignore.
-#[derive(Debug)]
-pub struct FakeTask;
-
-impl FakeTask {
-    /// No op on the single threaded task pool
-    pub fn detach(self) {}
 }
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.

@@ -10,6 +10,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -30,8 +34,6 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
-        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -48,6 +50,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+            msaa: Msaa::Off,
             ..default()
         },
         // To enable the prepass you need to add the components associated with the ones you need
@@ -60,82 +64,68 @@ fn setup(
     ));
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
-            material: depth_materials.add(PrepassOutputMaterial {
-                settings: ShowPrepassSettings::default(),
-            }),
-            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
-                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
+        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+            settings: ShowPrepassSettings::default(),
+        })),
+        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
     // Opaque cube
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(CustomMaterial {
-                color: LinearRgba::WHITE,
-                color_texture: Some(asset_server.load("branding/icon.png")),
-                alpha_mode: AlphaMode::Opaque,
-            }),
-            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Opaque,
+        })),
+        Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: std_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
-    let style = TextStyle {
-        font_size: 18.0,
-        ..default()
-    };
+    let style = TextStyle::default();
 
     commands.spawn(
         TextBundle::from_sections(vec![
@@ -147,8 +137,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -169,7 +159,7 @@ struct CustomMaterial {
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        MATERIAL_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -188,7 +178,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (time.elapsed_seconds().sin() * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
+        let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }
@@ -211,7 +201,7 @@ struct PrepassOutputMaterial {
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_prepass.wgsl".into()
+        PREPASS_SHADER_ASSET_PATH.into()
     }
 
     // This needs to be transparent in order to show the scene behind the mesh

@@ -4,6 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
+    math::ops,
     prelude::*,
     render::{
         mesh::{
@@ -129,33 +130,24 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn(TransformBundle::from(Transform::from_xyz(
-                i as f32 * 1.5,
-                0.0,
-                i as f32 * 0.1,
-            )))
+            .spawn(Transform::from_xyz(i as f32 * 1.5, 0.0, i as f32 * 0.1))
             .id();
-        let joint_1 = commands
-            .spawn((AnimatedJoint, TransformBundle::IDENTITY))
-            .id();
+        let joint_1 = commands.spawn((AnimatedJoint, Transform::IDENTITY)).id();
 
         // Set joint_1 as a child of joint_0.
-        commands.entity(joint_0).push_children(&[joint_1]);
+        commands.entity(joint_0).add_children(&[joint_1]);
 
         // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];
 
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands.spawn((
-            PbrBundle {
-                mesh: mesh.clone(),
-                material: materials.add(Color::srgb(
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
-                )),
-                ..default()
-            },
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(materials.add(Color::srgb(
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+                rng.gen_range(0.0..1.0),
+            ))),
             SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
@@ -167,6 +159,6 @@ fn setup(
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

@@ -21,7 +21,7 @@ fn main() {
         .add_systems(Update, example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
-    // Since this example uses HDR, we must disable MSAA for WASM builds, at least
+    // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
     app.insert_resource(Msaa::Off);
@@ -42,16 +42,13 @@ fn setup(
     // Opaque
     let opaque = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Opaque,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(-4.0, 0.0, 0.0),
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Opaque,
                 ..default()
-            },
+            })),
+            Transform::from_xyz(-4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -62,16 +59,13 @@ fn setup(
     // Blend
     let blend = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Blend,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(-2.0, 0.0, 0.0),
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Blend,
                 ..default()
-            },
+            })),
+            Transform::from_xyz(-2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -82,16 +76,13 @@ fn setup(
     // Premultiplied
     let premultiplied = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Premultiplied,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Premultiplied,
                 ..default()
-            },
+            })),
+            Transform::from_xyz(0.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -102,16 +93,13 @@ fn setup(
     // Add
     let add = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Add,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(2.0, 0.0, 0.0),
+            Mesh3d(icosphere_mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Add,
                 ..default()
-            },
+            })),
+            Transform::from_xyz(2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -122,16 +110,13 @@ fn setup(
     // Multiply
     let multiply = commands
         .spawn((
-            PbrBundle {
-                mesh: icosphere_mesh,
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Multiply,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(4.0, 0.0, 0.0),
+            Mesh3d(icosphere_mesh),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color,
+                alpha_mode: AlphaMode::Multiply,
                 ..default()
-            },
+            })),
+            Transform::from_xyz(4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -148,16 +133,13 @@ fn setup(
     for x in -3..4 {
         for z in -3..4 {
             commands.spawn((
-                PbrBundle {
-                    mesh: plane_mesh.clone(),
-                    material: if (x + z) % 2 == 0 {
-                        black_material.clone()
-                    } else {
-                        white_material.clone()
-                    },
-                    transform: Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(plane_mesh.clone()),
+                MeshMaterial3d(if (x + z) % 2 == 0 {
+                    black_material.clone()
+                } else {
+                    white_material.clone()
+                }),
+                Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     unlit: false,
                     color: true,
@@ -167,10 +149,7 @@ fn setup(
     }
 
     // Light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     // Camera
     commands.spawn(Camera3dBundle {
@@ -179,16 +158,19 @@ fn setup(
     });
 
     // Controls Text
+
+    // We need the full version of this font so we can use box drawing characters.
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
+        font: font.clone(),
         ..default()
     };
 
     let label_text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 25.0,
+        font,
         color: ORANGE.into(),
+        ..default()
     };
 
     commands.spawn(
@@ -198,8 +180,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -207,8 +189,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,
@@ -277,7 +259,7 @@ impl Default for ExampleState {
 #[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
+    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,

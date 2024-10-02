@@ -14,6 +14,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<LineMaterial>::default()))
@@ -27,35 +30,33 @@ fn setup(
     mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     // Spawn a list of lines with start and end points for each lines
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineList {
+    commands.spawn((
+        Mesh3d(meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        }),
-        transform: Transform::from_xyz(-1.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
             color: LinearRgba::GREEN,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-1.5, 0.0, 0.0),
+    ));
 
     // Spawn a line strip that goes from point to point
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineStrip {
+    commands.spawn((
+        Mesh3d(meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        }),
-        transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
             color: LinearRgba::BLUE,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.5, 0.0, 0.0),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {
@@ -72,7 +73,7 @@ struct LineMaterial {
 
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/line_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(

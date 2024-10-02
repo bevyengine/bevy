@@ -4,8 +4,7 @@
 
 use std::time::Duration;
 
-use bevy::input::common_conditions::input_just_pressed;
-use bevy::prelude::*;
+use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
 fn main() {
     App::new()
@@ -142,10 +141,7 @@ fn setup(
     commands.spawn(TextBundle {
         text: Text::from_section(
             "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         ),
         style: Style {
             position_type: PositionType::Absolute,

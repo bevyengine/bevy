@@ -16,7 +16,8 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
-const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh";
+const ASSET_URL: &str =
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
@@ -28,7 +29,9 @@ fn main() -> ExitCode {
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
             DefaultPlugins,
-            MeshletPlugin,
+            MeshletPlugin {
+                cluster_buffer_slots: 8192,
+            },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
         ))
@@ -49,36 +52,32 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
                 .looking_at(Vec3::ZERO, Vec3::Y),
+            msaa: Msaa::Off,
             ..default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
         CameraController::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 15.0,
             ..default()
         }
         .build(),
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+    ));
 
     // A custom file format storing a [`bevy_render::mesh::Mesh`]
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
@@ -120,15 +119,14 @@ fn setup(
         });
     }
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: standard_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+    ));
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]

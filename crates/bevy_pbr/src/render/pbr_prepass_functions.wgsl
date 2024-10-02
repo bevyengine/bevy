@@ -53,9 +53,9 @@ fn prepass_alpha_discard(in: VertexOutput) {
 
 #ifdef MOTION_VECTOR_PREPASS
 fn calculate_motion_vector(world_position: vec4<f32>, previous_world_position: vec4<f32>) -> vec2<f32> {
-    let clip_position_t = view.unjittered_view_proj * world_position;
+    let clip_position_t = view.unjittered_clip_from_world * world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = previous_view_uniforms.view_proj * previous_world_position;
+    let previous_clip_position_t = previous_view_uniforms.clip_from_world * previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

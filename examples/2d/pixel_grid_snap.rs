@@ -3,13 +3,12 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{RenderTarget, ScalingMode},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         view::RenderLayers,
     },
-    sprite::MaterialMesh2dBundle,
     window::WindowResized,
 };
 
@@ -29,7 +28,6 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();
@@ -82,12 +80,9 @@ fn setup_mesh(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Capsule2d::default()).into(),
-            transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
-            material: materials.add(Color::BLACK),
-            ..default()
-        },
+        Mesh2d(meshes.add(Capsule2d::default())),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -131,6 +126,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
+            msaa: Msaa::Off,
             ..default()
         },
         InGameCamera,
@@ -149,7 +145,14 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
+    commands.spawn((
+        Camera2dBundle {
+            msaa: Msaa::Off,
+            ..default()
+        },
+        OuterCamera,
+        HIGH_RES_LAYERS,
+    ));
 }
 
 /// Rotates entities to demonstrate grid snapping.
@@ -169,6 +172,6 @@ fn fit_canvas(
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
         let mut projection = projections.single_mut();
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scaling_mode = ScalingMode::WindowSize(h_scale.min(v_scale).round());
     }
 }

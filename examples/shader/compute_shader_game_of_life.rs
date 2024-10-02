@@ -17,6 +17,9 @@ use bevy::{
 };
 use std::borrow::Cow;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/game_of_life.wgsl";
+
 const DISPLAY_FACTOR: u32 = 4;
 const SIZE: (u32, u32) = (1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);
 const WORKGROUP_SIZE: u32 = 8;
@@ -169,7 +172,7 @@ impl FromWorld for GameOfLifePipeline {
                 ),
             ),
         );
-        let shader = world.load_asset("shaders/game_of_life.wgsl");
+        let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
@@ -222,10 +225,14 @@ impl render_graph::Node for GameOfLifeNode {
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
             GameOfLifeState::Loading => {
-                if let CachedPipelineState::Ok(_) =
-                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
-                {
-                    self.state = GameOfLifeState::Init;
+                match pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline) {
+                    CachedPipelineState::Ok(_) => {
+                        self.state = GameOfLifeState::Init;
+                    }
+                    CachedPipelineState::Err(err) => {
+                        panic!("Initializing assets/{SHADER_ASSET_PATH}:\n{err}")
+                    }
+                    _ => {}
                 }
             }
             GameOfLifeState::Init => {

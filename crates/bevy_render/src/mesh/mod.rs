@@ -1,15 +1,18 @@
 #[allow(clippy::module_inception)]
 mod mesh;
+
+pub mod allocator;
+mod components;
 pub mod morph;
 pub mod primitives;
 
+use alloc::sync::Arc;
+use allocator::MeshAllocatorPlugin;
 use bevy_utils::HashSet;
+pub use components::{Mesh2d, Mesh3d};
+use core::hash::{Hash, Hasher};
 pub use mesh::*;
 pub use primitives::*;
-use std::{
-    hash::{Hash, Hasher},
-    sync::Arc,
-};
 
 use crate::{render_asset::RenderAssetPlugin, texture::GpuImage, RenderApp};
 use bevy_app::{App, Plugin};
@@ -24,10 +27,12 @@ impl Plugin for MeshPlugin {
         app.init_asset::<Mesh>()
             .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
+            .register_type::<Mesh3d>()
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
+            .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
+            .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

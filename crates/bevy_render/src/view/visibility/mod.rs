@@ -1,13 +1,15 @@
+#![expect(deprecated)]
+
 mod range;
 mod render_layers;
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
@@ -17,7 +19,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
     camera::{Camera, CameraProjection},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh3d},
     primitives::{Aabb, Frustum, Sphere},
 };
 
@@ -31,7 +33,8 @@ use super::NoCpuCulling;
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
+#[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
     ///
@@ -45,6 +48,39 @@ pub enum Visibility {
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
     /// [`Parent`] entity is hidden.
     Visible,
+}
+
+impl Visibility {
+    /// Toggles between `Visibility::Inherited` and `Visibility::Visible`.
+    /// If the value is `Visibility::Hidden`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_visible(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Visible,
+            Visibility::Visible => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Inherited` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Visible`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Visible` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Inherited`, it remains unaffected.
+    #[inline]
+    pub fn toggle_visible_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Visible,
+            _ => *self,
+        };
+    }
 }
 
 // Allows `&Visibility == Visibility`
@@ -72,7 +108,7 @@ impl PartialEq<&Visibility> for Visibility {
 ///
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -100,7 +136,7 @@ impl InheritedVisibility {
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 /// [`CheckVisibility`]: VisibilitySystems::CheckVisibility
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct ViewVisibility(bool);
 
 impl ViewVisibility {
@@ -138,8 +174,13 @@ impl ViewVisibility {
 /// * To show or hide an entity, you should set its [`Visibility`].
 /// * To get the inherited visibility of an entity, you should get its [`InheritedVisibility`].
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
-///   * You may use the [`VisibilityBundle`] to guarantee this.
+///   * ~~You may use the [`VisibilityBundle`] to guarantee this.~~ [`VisibilityBundle`] is now deprecated.
+///     [`InheritedVisibility`] and [`ViewVisibility`] are automatically inserted whenever [`Visibility`] is inserted.
 #[derive(Bundle, Debug, Clone, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Visibility` component instead. Inserting it will now also insert `InheritedVisibility` and `ViewVisibility` automatically."
+)]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
@@ -155,9 +196,9 @@ pub struct VisibilityBundle {
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-/// to appear in the reflection of a [`Mesh`] within.
-#[derive(Component, Default, Reflect)]
-#[reflect(Component, Default)]
+///     to appear in the reflection of a [`Mesh`] within.
+#[derive(Debug, Component, Default, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub struct NoFrustumCulling;
 
 /// Collection of entities visible from the current view.
@@ -170,7 +211,7 @@ pub struct NoFrustumCulling;
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct VisibleEntities {
     #[reflect(ignore)]
     pub entities: TypeIdMap<Vec<Entity>>,
@@ -230,10 +271,6 @@ impl VisibleEntities {
     }
 }
 
-/// A convenient alias for `With<Handle<Mesh>>`, for use with
-/// [`VisibleEntities`].
-pub type WithMesh = With<Handle<Mesh>>;
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
@@ -245,7 +282,11 @@ pub enum VisibilitySystems {
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.
+    /// of each entity and the [`VisibleEntities`] of each view.\
+    ///
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as [`check_visibility`]
+    /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
 }
 
@@ -261,25 +302,26 @@ impl Plugin for VisibilityPlugin {
                 .before(CheckVisibility)
                 .after(TransformSystem::TransformPropagate),
         )
+        .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
         .add_systems(
             PostUpdate,
             (
                 calculate_bounds.in_set(CalculateBounds),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<WithMesh>.in_set(CheckVisibility),
+                check_visibility::<With<Mesh3d>>.in_set(CheckVisibility),
             ),
         );
     }
 }
 
 /// Computes and adds an [`Aabb`] component to entities with a
-/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+/// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
 ///
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
@@ -468,9 +510,9 @@ pub fn check_visibility<QF>(
                 // If we have an aabb, do frustum culling
                 if !no_frustum_culling && !no_cpu_culling {
                     if let Some(model_aabb) = maybe_model_aabb {
-                        let model = transform.affine();
+                        let world_from_local = transform.affine();
                         let model_sphere = Sphere {
-                            center: model.transform_point3a(model_aabb.center),
+                            center: world_from_local.transform_point3a(model_aabb.center),
                             radius: transform.radius_vec3a(model_aabb.half_extents),
                         };
                         // Do quick sphere-based frustum culling
@@ -478,7 +520,7 @@ pub fn check_visibility<QF>(
                             return;
                         }
                         // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
                             return;
                         }
                     }
@@ -496,65 +538,46 @@ pub fn check_visibility<QF>(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-
     use super::*;
-
-    use bevy_hierarchy::BuildWorldChildren;
-
-    fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
-        VisibilityBundle {
-            visibility,
-            ..Default::default()
-        }
-    }
+    use bevy_app::prelude::*;
+    use bevy_hierarchy::BuildChildren;
 
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root1_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root1_child2 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root1_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root1_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root1_child1 = app.world_mut().spawn(Visibility::default()).id();
+        let root1_child2 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
 
         app.world_mut()
             .entity_mut(root1)
-            .push_children(&[root1_child1, root1_child2]);
+            .add_children(&[root1_child1, root1_child2]);
         app.world_mut()
             .entity_mut(root1_child1)
-            .push_children(&[root1_child1_grandchild1]);
+            .add_children(&[root1_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root1_child2)
-            .push_children(&[root1_child2_grandchild1]);
+            .add_children(&[root1_child2_grandchild1]);
 
-        let root2 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child2 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root2_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child1 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child2 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root2_child1_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child2_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
 
         app.world_mut()
             .entity_mut(root2)
-            .push_children(&[root2_child1, root2_child2]);
+            .add_children(&[root2_child1, root2_child2]);
         app.world_mut()
             .entity_mut(root2_child1)
-            .push_children(&[root2_child1_grandchild1]);
+            .add_children(&[root2_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root2_child2)
-            .push_children(&[root2_child2_grandchild1]);
+            .add_children(&[root2_child2_grandchild1]);
 
         app.update();
 
@@ -615,24 +638,24 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
-        let root1_child1 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
-        let root1_child2 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
-        let root1_child1_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
-        let root1_child2_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1 = app.world_mut().spawn(Visible).id();
+        let root1_child1 = app.world_mut().spawn(Inherited).id();
+        let root1_child2 = app.world_mut().spawn(Hidden).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(Visible).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(Visible).id();
 
-        let root2 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
-        let root3 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
+        let root2 = app.world_mut().spawn(Inherited).id();
+        let root3 = app.world_mut().spawn(Hidden).id();
 
         app.world_mut()
             .entity_mut(root1)
-            .push_children(&[root1_child1, root1_child2]);
+            .add_children(&[root1_child1, root1_child2]);
         app.world_mut()
             .entity_mut(root1_child1)
-            .push_children(&[root1_child1_grandchild1]);
+            .add_children(&[root1_child1_grandchild1]);
         app.world_mut()
             .entity_mut(root1_child2)
-            .push_children(&[root1_child2_grandchild1]);
+            .add_children(&[root1_child2_grandchild1]);
 
         app.update();
 
@@ -675,16 +698,16 @@ mod test {
 
         // Set up an entity hierarchy.
 
-        let id1 = world.spawn(VisibilityBundle::default()).id();
+        let id1 = world.spawn(Visibility::default()).id();
 
-        let id2 = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(id1).push_children(&[id2]);
+        let id2 = world.spawn(Visibility::default()).id();
+        world.entity_mut(id1).add_children(&[id2]);
 
-        let id3 = world.spawn(visibility_bundle(Visibility::Hidden)).id();
-        world.entity_mut(id2).push_children(&[id3]);
+        let id3 = world.spawn(Visibility::Hidden).id();
+        world.entity_mut(id2).add_children(&[id3]);
 
-        let id4 = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(id3).push_children(&[id4]);
+        let id4 = world.spawn(Visibility::default()).id();
+        world.entity_mut(id3).add_children(&[id4]);
 
         // Test the hierarchy.
 
@@ -750,8 +773,8 @@ mod test {
         schedule.add_systems(visibility_propagate_system);
 
         let parent = world.spawn(()).id();
-        let child = world.spawn(VisibilityBundle::default()).id();
-        world.entity_mut(parent).push_children(&[child]);
+        let child = world.spawn(Visibility::default()).id();
+        world.entity_mut(parent).add_children(&[child]);
 
         schedule.run(&mut world);
         world.clear_trackers();
@@ -763,8 +786,7 @@ mod test {
 
     #[test]
     fn ensure_visibility_enum_size() {
-        use std::mem;
-        assert_eq!(1, mem::size_of::<Visibility>());
-        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, size_of::<Visibility>());
+        assert_eq!(1, size_of::<Option<Visibility>>());
     }
 }

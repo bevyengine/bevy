@@ -25,12 +25,9 @@ fn setup(
 ) {
     // Spawn a cube to rotate.
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
-            transform: Transform::from_translation(Vec3::ZERO),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_translation(Vec3::ZERO),
         Rotatable { speed: 0.3 },
     ));
 
@@ -41,10 +38,10 @@ fn setup(
     });
 
     // Add a light source so we can see clearly.
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This system will rotate any entity in the scene with a Rotatable component around its y-axis.

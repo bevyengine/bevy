@@ -53,6 +53,7 @@ fn fragment(
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
         let uv = (material.uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
@@ -74,15 +75,14 @@ fn fragment(
             uv,
             bias,
         ).rgb;
+        let TBN = pbr_functions::calculate_tbn_mikktspace(normal, in.world_tangent);
 
         normal = pbr_functions::apply_normal_mapping(
             material.flags,
-            world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP

@@ -1,4 +1,6 @@
-use crate::{ExtractSchedule, MainWorld, Render, RenderApp, RenderSet};
+use crate::{
+    render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+};
 use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
@@ -9,15 +11,20 @@ use bevy_ecs::{
 };
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render_macros::ExtractResource;
-use bevy_utils::{tracing::debug, HashMap, HashSet};
+use bevy_utils::{
+    tracing::{debug, error},
+    HashMap, HashSet,
+};
+use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
     #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
+    #[error("Failed to build bind group: {0}")]
+    AsBindGroupError(AsBindGroupError),
 }
 
 /// Describes how an asset gets extracted and prepared for rendering.
@@ -84,7 +91,8 @@ bitflags::bitflags! {
     /// details.
     #[repr(transparent)]
     #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
-    #[reflect_value(Serialize, Deserialize, Hash, PartialEq, Debug)]
+    #[reflect(opaque)]
+    #[reflect(Serialize, Deserialize, Hash, PartialEq, Debug)]
     pub struct RenderAssetUsages: u8 {
         const MAIN_WORLD = 1 << 0;
         const RENDER_WORLD = 1 << 1;
@@ -114,7 +122,7 @@ impl Default for RenderAssetUsages {
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
 /// prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on `RenderAssets::<GpuImage>` for morph
-/// targets, so the plugin is created as `RenderAssetPlugin::<GpuMesh, GpuImage>::default()`.
+/// targets, so the plugin is created as `RenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
 pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
@@ -168,9 +176,16 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
-    extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
-    removed: HashSet<AssetId<A::SourceAsset>>,
-    added: HashSet<AssetId<A::SourceAsset>>,
+    /// The assets extracted this frame.
+    pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+
+    /// IDs of the assets removed this frame.
+    ///
+    /// These assets will not be present in [`ExtractedAssets::extracted`].
+    pub removed: HashSet<AssetId<A::SourceAsset>>,
+
+    /// IDs of the assets added this frame.
+    pub added: HashSet<AssetId<A::SourceAsset>>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -238,7 +253,10 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
 
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
 /// into the "render world".
-fn extract_render_asset<A: RenderAsset>(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+pub(crate) fn extract_render_asset<A: RenderAsset>(
+    mut commands: Commands,
+    mut main_world: ResMut<MainWorld>,
+) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
@@ -319,7 +337,7 @@ pub fn prepare_assets<A: RenderAsset>(
     let mut wrote_asset_count = 0;
 
     let mut param = param.into_inner();
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    let queued_assets = core::mem::take(&mut prepare_next_frame.assets);
     for (id, extracted_asset) in queued_assets {
         if extracted_assets.removed.contains(&id) || extracted_assets.added.contains(&id) {
             // skip previous frame's assets that have been removed or updated
@@ -348,6 +366,12 @@ pub fn prepare_assets<A: RenderAsset>(
             }
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
                 prepare_next_frame.assets.push((id, extracted_asset));
+            }
+            Err(PrepareAssetError::AsBindGroupError(e)) => {
+                error!(
+                    "{} Bind group construction failed: {e}",
+                    core::any::type_name::<A>()
+                );
             }
         }
     }
@@ -381,13 +405,19 @@ pub fn prepare_assets<A: RenderAsset>(
             Err(PrepareAssetError::RetryNextUpdate(extracted_asset)) => {
                 prepare_next_frame.assets.push((id, extracted_asset));
             }
+            Err(PrepareAssetError::AsBindGroupError(e)) => {
+                error!(
+                    "{} Bind group construction failed: {e}",
+                    core::any::type_name::<A>()
+                );
+            }
         }
     }
 
     if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
         debug!(
             "{} write budget exhausted with {} assets remaining (wrote {})",
-            std::any::type_name::<A>(),
+            core::any::type_name::<A>(),
             prepare_next_frame.assets.len(),
             wrote_asset_count
         );

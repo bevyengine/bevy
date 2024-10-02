@@ -13,6 +13,9 @@ use bevy::{
 };
 use std::f32::consts::PI;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -63,7 +66,7 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -75,22 +78,16 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
+            ..default()
         },
     ));
 
     // ui
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 18.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -98,46 +95,37 @@ fn setup(
 
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("models/TonemappingTest/TonemappingTest.gltf#Scene0"),
-            ..default()
-        })
-        .insert(SceneNumber(1));
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+        )),
+        SceneNumber(1),
+    ));
 
     // Flight Helmet
     commands.spawn((
-        SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-            transform: Transform::from_xyz(0.5, 0.0, -0.5)
-                .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-            ..default()
-        },
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
         SceneNumber(1),
     ));
 
     // light
     commands.spawn((
-        DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                illuminance: 15_000.,
-                shadows_enabled: true,
-                ..default()
-            },
-            transform: Transform::from_rotation(Quat::from_euler(
-                EulerRot::ZYX,
-                0.0,
-                PI * -0.15,
-                PI * -0.15,
-            )),
-            cascade_shadow_config: CascadeShadowConfigBuilder {
-                maximum_distance: 3.0,
-                first_cascade_far_bound: 0.9,
-                ..default()
-            }
-            .into(),
+        DirectionalLight {
+            illuminance: 15_000.,
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
+            maximum_distance: 3.0,
+            first_cascade_far_bound: 0.9,
+            ..default()
+        }
+        .build(),
         SceneNumber(1),
     ));
 }
@@ -152,13 +140,10 @@ fn setup_color_gradient_scene(
     transform.translation += *transform.forward();
 
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(0.7, 0.7)),
-            material: materials.add(ColorGradientMaterial {}),
-            transform,
-            visibility: Visibility::Hidden,
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
+        MeshMaterial3d(materials.add(ColorGradientMaterial {})),
+        transform,
+        Visibility::Hidden,
         SceneNumber(2),
     ));
 }
@@ -174,17 +159,14 @@ fn setup_image_viewer_scene(
 
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Rectangle::default()),
-            material: materials.add(StandardMaterial {
-                base_color_texture: None,
-                unlit: true,
-                ..default()
-            }),
-            transform,
-            visibility: Visibility::Hidden,
+        Mesh3d(meshes.add(Rectangle::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: None,
+            unlit: true,
             ..default()
-        },
+        })),
+        transform,
+        Visibility::Hidden,
         SceneNumber(3),
         HDRViewer,
     ));
@@ -213,7 +195,7 @@ fn setup_image_viewer_scene(
 // ----------------------------------------------------------------------------
 
 fn drag_drop_image(
-    image_mat: Query<&Handle<StandardMaterial>, With<HDRViewer>>,
+    image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut drop_events: EventReader<FileDragAndDrop>,
@@ -242,7 +224,7 @@ fn drag_drop_image(
 }
 
 fn resize_image(
-    image_mesh: Query<(&Handle<StandardMaterial>, &Handle<Mesh>), With<HDRViewer>>,
+    image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
@@ -412,26 +394,32 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    let (method, color_grading) = settings.single();
-    let method = *method;
-
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
-    text.clear();
+
+    let old_text = &text_query.single().sections[0].value;
+
     if *hide_ui {
+        if !old_text.is_empty() {
+            // single_mut() always triggers change detection,
+            // so only access if text actually needs changing
+            text_query.single_mut().sections[0].value.clear();
+        }
         return;
     }
+
+    let (tonemapping, color_grading) = settings.single();
+    let tonemapping = *tonemapping;
+
+    let mut text = String::with_capacity(old_text.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -452,11 +440,15 @@ fn update_ui(
     text.push_str("\n\nTonemapping Method:\n");
     text.push_str(&format!(
         "(1) {} Disabled\n",
-        if method == Tonemapping::None { ">" } else { "" }
+        if tonemapping == Tonemapping::None {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(2) {} Reinhard\n",
-        if method == Tonemapping::Reinhard {
+        if tonemapping == Tonemapping::Reinhard {
             "> "
         } else {
             ""
@@ -464,7 +456,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(3) {} Reinhard Luminance\n",
-        if method == Tonemapping::ReinhardLuminance {
+        if tonemapping == Tonemapping::ReinhardLuminance {
             ">"
         } else {
             ""
@@ -472,7 +464,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(4) {} ACES Fitted\n",
-        if method == Tonemapping::AcesFitted {
+        if tonemapping == Tonemapping::AcesFitted {
             ">"
         } else {
             ""
@@ -480,11 +472,15 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(5) {} AgX\n",
-        if method == Tonemapping::AgX { ">" } else { "" }
+        if tonemapping == Tonemapping::AgX {
+            ">"
+        } else {
+            ""
+        }
     ));
     text.push_str(&format!(
         "(6) {} SomewhatBoringDisplayTransform\n",
-        if method == Tonemapping::SomewhatBoringDisplayTransform {
+        if tonemapping == Tonemapping::SomewhatBoringDisplayTransform {
             ">"
         } else {
             ""
@@ -492,7 +488,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(7) {} TonyMcMapface\n",
-        if method == Tonemapping::TonyMcMapface {
+        if tonemapping == Tonemapping::TonyMcMapface {
             ">"
         } else {
             ""
@@ -500,7 +496,7 @@ fn update_ui(
     ));
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
-        if method == Tonemapping::BlenderFilmic {
+        if tonemapping == Tonemapping::BlenderFilmic {
             ">"
         } else {
             ""
@@ -535,6 +531,12 @@ fn update_ui(
 
     if current_scene.0 == 1 {
         text.push_str("(Enter) Reset all to scene recommendation\n");
+    }
+
+    if text != old_text.as_str() {
+        // single_mut() always triggers change detection,
+        // so only access if text actually changed
+        text_query.single_mut().sections[0].value = text;
     }
 }
 
@@ -604,7 +606,7 @@ impl Default for PerMethodSettings {
 
 impl Material for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/tonemapping_test_patterns.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

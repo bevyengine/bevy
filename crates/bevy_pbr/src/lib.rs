@@ -1,11 +1,13 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![deny(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+
+extern crate alloc;
 
 #[cfg(feature = "meshlet")]
 mod meshlet;
@@ -16,12 +18,15 @@ pub mod wireframe;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
+    /// Render high-poly 3d meshes using an efficient GPU-driven method.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
 }
 
 mod bundle;
+mod cluster;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -29,30 +34,43 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod mesh_material;
 mod parallax;
 mod pbr_material;
 mod prepass;
 mod render;
 mod ssao;
+mod ssr;
 mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub use bundle::*;
+pub use cluster::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
-pub use volumetric_fog::*;
+pub use ssr::*;
+#[allow(deprecated)]
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
+    VolumetricLight,
+};
 
+/// The PBR prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -60,13 +78,14 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        fog::{FogFalloff, FogSettings},
+        fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
             LightProbe,
         },
         material::{Material, MaterialPlugin},
+        mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
@@ -87,6 +106,8 @@ pub mod graph {
         VolumetricFog,
         /// Label for the compute shader instance data building pass.
         GpuPreprocess,
+        /// Label for the screen space reflections pass.
+        ScreenSpaceReflections,
     }
 }
 
@@ -280,6 +301,7 @@ impl Plugin for PbrPlugin {
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -289,10 +311,10 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<FogSettings>()
+            .register_type::<DistanceFog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisiblePointLights>()
+            .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .register_type::<DefaultOpaqueRendererMethod>()
@@ -319,6 +341,7 @@ impl Plugin for PbrPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 VolumetricFogPlugin,
+                ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
                 PostUpdate,
@@ -328,11 +351,23 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::UpdateDirectionalLightCascades
+                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+            )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::CheckLightVisibility
+                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+            )
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    assign_lights_to_clusters
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystem),
+                    assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
@@ -360,7 +395,10 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
-                    check_light_mesh_visibility
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
@@ -376,13 +414,13 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
+        // Initialize the default material.
         app.world_mut()
             .resource_mut::<Assets<StandardMaterial>>()
             .insert(
                 &Handle::<StandardMaterial>::default(),
                 StandardMaterial {
-                    base_color: Color::srgb(1.0, 0.0, 0.5),
-                    unlit: true,
+                    base_color: Color::WHITE,
                     ..Default::default()
                 },
             );
@@ -393,7 +431,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    extract_default_materials.after(clear_material_instances::<StandardMaterial>),
+                ),
+            )
             .add_systems(
                 Render,
                 (
@@ -404,6 +449,9 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_resource::<LightMeta>();
+
+        render_app.world_mut().observe(add_light_view_entities);
+        render_app.world_mut().observe(remove_light_view_entities);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
@@ -420,7 +468,7 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>();
     }
 }
 
