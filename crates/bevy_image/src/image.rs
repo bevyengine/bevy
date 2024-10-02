@@ -29,6 +29,7 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
+    #[cfg(feature = "avif")]
     Avif,
     #[cfg(feature = "basis-universal")]
     Basis,
@@ -36,12 +37,15 @@ pub enum ImageFormat {
     Bmp,
     #[cfg(feature = "dds")]
     Dds,
+    #[cfg(feature = "ff")]
     Farbfeld,
+    #[cfg(feature = "gif")]
     Gif,
     #[cfg(feature = "exr")]
     OpenExr,
     #[cfg(feature = "hdr")]
     Hdr,
+    #[cfg(feature = "ico")]
     Ico,
     #[cfg(feature = "jpeg")]
     Jpeg,
@@ -51,8 +55,11 @@ pub enum ImageFormat {
     Png,
     #[cfg(feature = "pnm")]
     Pnm,
+    #[cfg(feature = "qoi")]
+    Qoi,
     #[cfg(feature = "tga")]
     Tga,
+    #[cfg(feature = "tiff")]
     Tiff,
     #[cfg(feature = "webp")]
     WebP,
@@ -71,24 +78,261 @@ macro_rules! feature_gate {
 }
 
 impl ImageFormat {
+    /// Number of image formats, used for computing other constants.
+    const COUNT: usize = {
+        let mut count = 0;
+        #[cfg(feature = "avif")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "basis-universal")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "bmp")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "dds")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "ff")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "gif")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "exr")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "hdr")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "ico")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "jpeg")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "ktx2")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "pnm")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "png")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "qoi")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "tga")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "tiff")]
+        {
+            count += 1;
+        }
+        #[cfg(feature = "webp")]
+        {
+            count += 1;
+        }
+        count
+    };
+
+    /// Full list of supported formats.
+    pub const SUPPORTED: &'static [ImageFormat] = &[
+        #[cfg(feature = "avif")]
+        ImageFormat::Avif,
+        #[cfg(feature = "basis-universal")]
+        ImageFormat::Basis,
+        #[cfg(feature = "bmp")]
+        ImageFormat::Bmp,
+        #[cfg(feature = "dds")]
+        ImageFormat::Dds,
+        #[cfg(feature = "ff")]
+        ImageFormat::Farbfeld,
+        #[cfg(feature = "gif")]
+        ImageFormat::Gif,
+        #[cfg(feature = "exr")]
+        ImageFormat::OpenExr,
+        #[cfg(feature = "hdr")]
+        ImageFormat::Hdr,
+        #[cfg(feature = "ico")]
+        ImageFormat::Ico,
+        #[cfg(feature = "jpeg")]
+        ImageFormat::Jpeg,
+        #[cfg(feature = "ktx2")]
+        ImageFormat::Ktx2,
+        #[cfg(feature = "png")]
+        ImageFormat::Png,
+        #[cfg(feature = "pnm")]
+        ImageFormat::Pnm,
+        #[cfg(feature = "qoi")]
+        ImageFormat::Qoi,
+        #[cfg(feature = "tga")]
+        ImageFormat::Tga,
+        #[cfg(feature = "tiff")]
+        ImageFormat::Tiff,
+        #[cfg(feature = "webp")]
+        ImageFormat::WebP,
+    ];
+
+    /// Total count of file extensions, for computing supported file extensions list.
+    const COUNT_FILE_EXTENSIONS: usize = {
+        let mut count = 0;
+        let mut idx = 0;
+        while idx < ImageFormat::COUNT {
+            count += ImageFormat::SUPPORTED[idx].to_file_extensions().len();
+            idx += 1;
+        }
+        count
+    };
+
+    /// Gets the list of file extensions for all formats.
+    pub const SUPPORTED_FILE_EXTENSIONS: &'static [&'static str] = &{
+        let mut exts = [""; ImageFormat::COUNT_FILE_EXTENSIONS];
+        let mut ext_idx = 0;
+        let mut fmt_idx = 0;
+        while fmt_idx < ImageFormat::COUNT {
+            let mut off = 0;
+            let fmt_exts = ImageFormat::SUPPORTED[fmt_idx].to_file_extensions();
+            while off < fmt_exts.len() {
+                exts[ext_idx] = fmt_exts[off];
+                off += 1;
+                ext_idx += 1;
+            }
+            fmt_idx += 1;
+        }
+        exts
+    };
+
+    /// Gets the file extensions for a given format.
+    pub const fn to_file_extensions(&self) -> &'static [&'static str] {
+        match self {
+            #[cfg(feature = "avif")]
+            ImageFormat::Avif => &["avif"],
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => &["basis"],
+            #[cfg(feature = "bmp")]
+            ImageFormat::Bmp => &["bmp"],
+            #[cfg(feature = "dds")]
+            ImageFormat::Dds => &["dds"],
+            #[cfg(feature = "ff")]
+            ImageFormat::Farbfeld => &["ff", "farbfeld"],
+            #[cfg(feature = "gif")]
+            ImageFormat::Gif => &["gif"],
+            #[cfg(feature = "exr")]
+            ImageFormat::OpenExr => &["exr"],
+            #[cfg(feature = "hdr")]
+            ImageFormat::Hdr => &["hdr"],
+            #[cfg(feature = "ico")]
+            ImageFormat::Ico => &["ico"],
+            #[cfg(feature = "jpeg")]
+            ImageFormat::Jpeg => &["jpg", "jpeg"],
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => &["ktx2"],
+            #[cfg(feature = "pnm")]
+            ImageFormat::Pnm => &["pam", "pbm", "pgm", "ppm"],
+            #[cfg(feature = "png")]
+            ImageFormat::Png => &["png"],
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => &["qoi"],
+            #[cfg(feature = "tga")]
+            ImageFormat::Tga => &["tga"],
+            #[cfg(feature = "tiff")]
+            ImageFormat::Tiff => &["tif", "tiff"],
+            #[cfg(feature = "webp")]
+            ImageFormat::WebP => &["webp"],
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[allow(unreachable_patterns)]
+            _ => &[],
+        }
+    }
+
+    /// Gets the MIME types for a given format.
+    ///
+    /// If a format doesn't have any dedicated MIME types, this list will be empty.
+    pub const fn to_mime_types(&self) -> &'static [&'static str] {
+        match self {
+            #[cfg(feature = "avif")]
+            ImageFormat::Avif => &["image/avif"],
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => &["image/basis", "image/x-basis"],
+            #[cfg(feature = "bmp")]
+            ImageFormat::Bmp => &["image/bmp", "image/x-bmp"],
+            #[cfg(feature = "dds")]
+            ImageFormat::Dds => &["image/vnd-ms.dds"],
+            #[cfg(feature = "hdr")]
+            ImageFormat::Hdr => &["image/vnd.radiance"],
+            #[cfg(feature = "gif")]
+            ImageFormat::Gif => &["image/gif"],
+            #[cfg(feature = "ff")]
+            ImageFormat::Farbfeld => &[],
+            #[cfg(feature = "ico")]
+            ImageFormat::Ico => &["image/x-icon"],
+            #[cfg(feature = "jpeg")]
+            ImageFormat::Jpeg => &["image/jpeg"],
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => &["image/ktx2"],
+            #[cfg(feature = "png")]
+            ImageFormat::Png => &["image/png"],
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => &["image/qoi", "image/x-qoi"],
+            #[cfg(feature = "exr")]
+            ImageFormat::OpenExr => &["image/x-exr"],
+            #[cfg(feature = "pnm")]
+            ImageFormat::Pnm => &[
+                "image/x-portable-bitmap",
+                "image/x-portable-graymap",
+                "image/x-portable-pixmap",
+                "image/x-portable-anymap",
+            ],
+            #[cfg(feature = "tga")]
+            ImageFormat::Tga => &["image/x-targa", "image/x-tga"],
+            #[cfg(feature = "tiff")]
+            ImageFormat::Tiff => &["image/tiff"],
+            #[cfg(feature = "webp")]
+            ImageFormat::WebP => &["image/webp"],
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[allow(unreachable_patterns)]
+            _ => &[],
+        }
+    }
+
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
-            "image/avif" => ImageFormat::Avif,
+            // note: farbfeld does not have a MIME type
+            "image/avif" => feature_gate!("avif", Avif),
+            "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
             "image/vnd.radiance" => feature_gate!("hdr", Hdr),
-            "image/gif" => ImageFormat::Gif,
-            "image/x-icon" => ImageFormat::Ico,
+            "image/gif" => feature_gate!("gif", Gif),
+            "image/x-icon" => feature_gate!("ico", Ico),
             "image/jpeg" => feature_gate!("jpeg", Jpeg),
             "image/ktx2" => feature_gate!("ktx2", Ktx2),
             "image/png" => feature_gate!("png", Png),
+            "image/qoi" | "image/x-qoi" => feature_gate!("qoi", Qoi),
             "image/x-exr" => feature_gate!("exr", OpenExr),
             "image/x-portable-bitmap"
             | "image/x-portable-graymap"
             | "image/x-portable-pixmap"
             | "image/x-portable-anymap" => feature_gate!("pnm", Pnm),
             "image/x-targa" | "image/x-tga" => feature_gate!("tga", Tga),
-            "image/tiff" => ImageFormat::Tiff,
+            "image/tiff" => feature_gate!("tiff", Tiff),
             "image/webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
@@ -96,21 +340,22 @@ impl ImageFormat {
 
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
-            "avif" => ImageFormat::Avif,
+            "avif" => feature_gate!("avif", Avif),
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
-            "ff" | "farbfeld" => ImageFormat::Farbfeld,
-            "gif" => ImageFormat::Gif,
+            "ff" | "farbfeld" => feature_gate!("ff", Farbfeld),
+            "gif" => feature_gate!("gif", Gif),
             "exr" => feature_gate!("exr", OpenExr),
             "hdr" => feature_gate!("hdr", Hdr),
-            "ico" => ImageFormat::Ico,
+            "ico" => feature_gate!("ico", Ico),
             "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
             "ktx2" => feature_gate!("ktx2", Ktx2),
-            "pbm" | "pam" | "ppm" | "pgm" => feature_gate!("pnm", Pnm),
+            "pam" | "pbm" | "pgm" | "ppm" => feature_gate!("pnm", Pnm),
             "png" => feature_gate!("png", Png),
+            "qoi" => feature_gate!("qoi", Qoi),
             "tga" => feature_gate!("tga", Tga),
-            "tif" | "tiff" => ImageFormat::Tiff,
+            "tif" | "tiff" => feature_gate!("tiff", Tiff),
             "webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
@@ -118,17 +363,21 @@ impl ImageFormat {
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
+            #[cfg(feature = "avif")]
             ImageFormat::Avif => image::ImageFormat::Avif,
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             #[cfg(feature = "dds")]
             ImageFormat::Dds => image::ImageFormat::Dds,
+            #[cfg(feature = "ff")]
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
+            #[cfg(feature = "gif")]
             ImageFormat::Gif => image::ImageFormat::Gif,
             #[cfg(feature = "exr")]
             ImageFormat::OpenExr => image::ImageFormat::OpenExr,
             #[cfg(feature = "hdr")]
             ImageFormat::Hdr => image::ImageFormat::Hdr,
+            #[cfg(feature = "ico")]
             ImageFormat::Ico => image::ImageFormat::Ico,
             #[cfg(feature = "jpeg")]
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
@@ -136,8 +385,11 @@ impl ImageFormat {
             ImageFormat::Png => image::ImageFormat::Png,
             #[cfg(feature = "pnm")]
             ImageFormat::Pnm => image::ImageFormat::Pnm,
+            #[cfg(feature = "qoi")]
+            ImageFormat::Qoi => image::ImageFormat::Qoi,
             #[cfg(feature = "tga")]
             ImageFormat::Tga => image::ImageFormat::Tga,
+            #[cfg(feature = "tiff")]
             ImageFormat::Tiff => image::ImageFormat::Tiff,
             #[cfg(feature = "webp")]
             ImageFormat::WebP => image::ImageFormat::WebP,
@@ -145,24 +397,28 @@ impl ImageFormat {
             ImageFormat::Basis => return None,
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
+            // FIXME: https://github.com/rust-lang/rust/issues/129031
+            #[allow(unreachable_patterns)]
+            _ => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         Some(match format {
-            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Avif => feature_gate!("avif", Avif),
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
-            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
-            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::Farbfeld => feature_gate!("ff", Farbfeld),
+            image::ImageFormat::Gif => feature_gate!("gif", Gif),
             image::ImageFormat::OpenExr => feature_gate!("exr", OpenExr),
             image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
-            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Ico => feature_gate!("ico", Ico),
             image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
             image::ImageFormat::Png => feature_gate!("png", Png),
             image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
+            image::ImageFormat::Qoi => feature_gate!("qoi", Qoi),
             image::ImageFormat::Tga => feature_gate!("tga", Tga),
-            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::Tiff => feature_gate!("tiff", Tiff),
             image::ImageFormat::WebP => feature_gate!("webp", WebP),
             _ => return None,
         })
