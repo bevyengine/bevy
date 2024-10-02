@@ -1831,11 +1831,7 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     }
 }
 
-/// An [`EntityCommand`] tjhat remove all components in the bundle and remove all required components for each component in the bundle
-/// that are not required by other components of this entity.
-///
-/// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components
-/// are still required by entity components outside of the [`Bundle`].
+/// An [`EntityCommand`] that remove all components in the bundle and remove all required components for each component in the bundle.
 fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
     if let Some(mut entity) = world.get_entity_mut(entity) {
         entity.remove_with_requires::<T>();
@@ -2207,7 +2203,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_bundle_with_required_components() {
+    fn remove_component_with_required_components() {
         #[derive(Component)]
         #[require(Y)]
         struct X;
