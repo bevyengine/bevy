@@ -337,7 +337,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 pub fn check_changes_remote_get_request(
     In(params): In<Option<Value>>,
     world: &World,
-) -> Result<bool, BrpError> {
+) -> BrpResult<bool> {
     let BrpGetParams {
         entity, components, ..
     } = parse_some(params)?;

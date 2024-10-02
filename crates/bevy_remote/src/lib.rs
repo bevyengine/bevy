@@ -286,7 +286,7 @@ pub struct RemotePlugin {
             String,
             (
                 Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
-                Option<Box<dyn System<In = In<Option<Value>>, Out = Result<bool, BrpError>>>>,
+                Option<Box<dyn System<In = In<Option<Value>>, Out = BrpResult<bool>>>>,
             ),
         )>,
     >,
@@ -325,7 +325,7 @@ impl RemotePlugin {
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
         streaming_handler: impl IntoSystem<
             In<Option<Value>>,
-            Result<bool, BrpError>,
+            BrpResult<bool>,
             S,
             System: ReadOnlySystem,
         >,
@@ -415,7 +415,7 @@ impl Plugin for RemotePlugin {
 #[derive(Debug, Clone)]
 pub struct RemoteMethod {
     main: SystemId<In<Option<Value>>, BrpResult>,
-    streaming: Option<SystemId<In<Option<Value>>, Result<bool, BrpError>>>,
+    streaming: Option<SystemId<In<Option<Value>>, BrpResult<bool>>>,
 }
 
 /// Holds all implementations of methods known to the server.
@@ -630,7 +630,7 @@ pub mod error_codes {
 }
 
 /// The result of a request.
-pub type BrpResult = Result<Value, BrpError>;
+pub type BrpResult<T = Value> = Result<T, BrpError>;
 
 /// The requests may occur on their own or in batches.
 /// Actual parsing is deferred for the sake of proper
@@ -790,7 +790,7 @@ fn process_single_ongoing_streaming_request(
     world: &mut World,
     message: &BrpMessage,
     handlers: &RemoteMethod,
-) -> Result<Option<Value>, BrpError> {
+) -> BrpResult<Option<Value>> {
     let should_run = world
         .run_system_with_input(
             handlers.streaming.ok_or(BrpError {
