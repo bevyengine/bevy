@@ -10,10 +10,11 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
-    world::{DeferredWorld, Mut, World},
+    world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{any::TypeId, marker::PhantomData};
+use bevy_utils::HashSet;
+use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 use thiserror::Error;
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
@@ -171,6 +172,51 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given array of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_by_id<const N: usize>(
+        &self,
+        component_ids: [ComponentId; N],
+    ) -> Result<[Ptr<'w>; N], EntityComponentError> {
+        let mut ptrs = [MaybeUninit::uninit(); N];
+        for (ptr, id) in core::iter::zip(&mut ptrs, component_ids) {
+            *ptr = MaybeUninit::new(
+                self.get_by_id(id)
+                    .ok_or(EntityComponentError::NoSuchComponent(id))?,
+            );
+        }
+
+        // SAFETY: Each ptr was initialized in the loop above.
+        let ptrs = ptrs.map(|ptr| unsafe { MaybeUninit::assume_init(ptr) });
+
+        Ok(ptrs)
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given slice of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_dynamic_by_id(
+        &self,
+        component_ids: &[ComponentId],
+    ) -> Result<Vec<Ptr<'w>>, EntityComponentError> {
+        let mut ptrs = Vec::with_capacity(component_ids.len());
+        for &id in component_ids {
+            ptrs.push(
+                self.get_by_id(id)
+                    .ok_or(EntityComponentError::NoSuchComponent(id))?,
+            );
+        }
+
+        Ok(ptrs)
     }
 }
 
@@ -381,6 +427,104 @@ impl<'w> EntityMut<'w> {
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given array of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_by_id<const N: usize>(
+        &self,
+        component_ids: [ComponentId; N],
+    ) -> Result<[Ptr<'_>; N], EntityComponentError> {
+        EntityRef::from(self).get_components_by_id(component_ids)
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given slice of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_dynamic_by_id(
+        &self,
+        component_ids: &[ComponentId],
+    ) -> Result<Vec<Ptr<'_>>, EntityComponentError> {
+        EntityRef::from(self).get_components_dynamic_by_id(component_ids)
+    }
+
+    /// Ensures that no [`ComponentId`]s are repeated in the given slice,
+    /// which would cause aliased mutability (i.e. undefined behavior).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::AliasedMutability`] if any of the given [`ComponentId`]s are repeated.
+    fn verify_unique_components(component_ids: &[ComponentId]) -> Result<(), EntityComponentError> {
+        for i in 0..component_ids.len() {
+            for j in 0..i {
+                if component_ids[i] == component_ids[j] {
+                    return Err(EntityComponentError::AliasedMutability(component_ids[i]));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given array of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::AliasedMutability`] if any of the given [`ComponentId`]s are repeated.
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_mut_by_id<const N: usize>(
+        &mut self,
+        component_ids: [ComponentId; N],
+    ) -> Result<[MutUntyped<'_>; N], EntityComponentError> {
+        Self::verify_unique_components(&component_ids)?;
+
+        // SAFETY: Each component_id is unique
+        unsafe { self.0.get_components_mut_by_id(component_ids) }
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given slice of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::AliasedMutability`] if any of the given [`ComponentId`]s are repeated.
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_dynamic_mut_by_id(
+        &mut self,
+        component_ids: &[ComponentId],
+    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
+        Self::verify_unique_components(component_ids)?;
+
+        // SAFETY: Each component_id is unique
+        unsafe {
+            self.0
+                .get_components_dynamic_mut_by_id(component_ids.iter().copied())
+        }
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given [`HashSet`] of [`ComponentId`]s. The uniqueness
+    /// of items in a [`HashSet`] allows skipping checks for duplicates.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_from_set_mut_by_id(
+        &mut self,
+        component_ids: &HashSet<ComponentId>,
+    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
+        // SAFETY: Each component_id is unique, as guaranteed by the HashSet.
+        unsafe {
+            self.0
+                .get_components_dynamic_mut_by_id(component_ids.iter().copied())
+        }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -696,6 +840,84 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         EntityRef::from(self).get_components::<Q>()
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given array of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_by_id<const N: usize>(
+        &self,
+        component_ids: [ComponentId; N],
+    ) -> Result<[Ptr<'_>; N], EntityComponentError> {
+        EntityRef::from(self).get_components_by_id(component_ids)
+    }
+
+    /// Returns multiple read-only untyped components for the current entity
+    /// based on the given slice of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_dynamic_by_id(
+        &self,
+        component_ids: &[ComponentId],
+    ) -> Result<Vec<Ptr<'_>>, EntityComponentError> {
+        EntityRef::from(self).get_components_dynamic_by_id(component_ids)
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given array of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::AliasedMutability`] if any of the given [`ComponentId`]s are repeated.
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_mut_by_id<const N: usize>(
+        &mut self,
+        component_ids: [ComponentId; N],
+    ) -> Result<[MutUntyped<'_>; N], EntityComponentError> {
+        EntityMut::verify_unique_components(&component_ids)?;
+
+        let mut cell = self.as_unsafe_entity_cell();
+        // SAFETY: Each component_id is unique
+        unsafe { cell.get_components_mut_by_id(component_ids) }
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given slice of [`ComponentId`]s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::AliasedMutability`] if any of the given [`ComponentId`]s are repeated.
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_dynamic_mut_by_id(
+        &mut self,
+        component_ids: &[ComponentId],
+    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
+        EntityMut::verify_unique_components(component_ids)?;
+
+        let mut cell = self.as_unsafe_entity_cell();
+        // SAFETY: Each component_id is unique
+        unsafe { cell.get_components_dynamic_mut_by_id(component_ids.iter().copied()) }
+    }
+
+    /// Returns multiple mutable untyped components for the current entity
+    /// based on the given [`HashSet`] of [`ComponentId`]s. The uniqueness
+    /// of items in a [`HashSet`] allows skipping checks for duplicates.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
+    pub fn get_components_from_set_mut_by_id(
+        &mut self,
+        component_ids: &HashSet<ComponentId>,
+    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
+        let mut cell = self.as_unsafe_entity_cell();
+        // SAFETY: Each component_id is unique, as guaranteed by the HashSet.
+        unsafe { cell.get_components_dynamic_mut_by_id(component_ids.iter().copied()) }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with
