@@ -87,13 +87,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     }
 
     // Spawn the scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+    )));
 
     // Spawn the help text.
     commands.spawn(
@@ -193,8 +189,8 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     // Turn on shadows.

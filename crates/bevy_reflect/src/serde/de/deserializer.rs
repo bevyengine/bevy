@@ -1,5 +1,6 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
+use crate::serde::ReflectDeserializeWithRegistry;
 use crate::{
     serde::{
         de::{
@@ -9,7 +10,7 @@ use crate::{
         },
         TypeRegistrationDeserializer,
     },
-    PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry,
+    PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
@@ -231,9 +232,26 @@ pub struct TypedReflectDeserializer<'a> {
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
+    /// Creates a new [`TypedReflectDeserializer`] for the given type registration.
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self {
+            registration,
+            registry,
+        }
+    }
+
+    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is not registered in the given [`TypeRegistry`].
+    pub fn of<T: TypePath>(registry: &'a TypeRegistry) -> Self {
+        let registration = registry
+            .get(core::any::TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("no registration found for type `{}`", T::type_path()));
 
         Self {
             registration,
@@ -267,6 +285,13 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
                 let value = deserialize_reflect.deserialize(deserializer)?;
                 return Ok(value.into_partial_reflect());
+            }
+
+            if let Some(deserialize_reflect) =
+                self.registration.data::<ReflectDeserializeWithRegistry>()
+            {
+                let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
+                return Ok(value);
             }
 
             match self.registration.type_info() {

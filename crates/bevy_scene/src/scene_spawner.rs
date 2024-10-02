@@ -482,7 +482,7 @@ mod tests {
     };
     use bevy_reflect::Reflect;
 
-    use crate::{DynamicSceneBuilder, ScenePlugin};
+    use crate::{DynamicSceneBuilder, DynamicSceneRoot, ScenePlugin};
 
     use super::*;
 
@@ -557,16 +557,18 @@ mod tests {
     }
 
     fn build_scene(app: &mut App) -> Handle<Scene> {
-        app.world_mut().run_system_once(
-            |world: &World,
-             type_registry: Res<'_, AppTypeRegistry>,
-             asset_server: Res<'_, AssetServer>| {
-                asset_server.add(
-                    Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
-                        .unwrap(),
-                )
-            },
-        )
+        app.world_mut()
+            .run_system_once(
+                |world: &World,
+                 type_registry: Res<'_, AppTypeRegistry>,
+                 asset_server: Res<'_, AssetServer>| {
+                    asset_server.add(
+                        Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
+                            .unwrap(),
+                    )
+                },
+            )
+            .expect("Failed to run scene builder system.")
     }
 
     fn build_dynamic_scene(app: &mut App) -> Handle<DynamicScene> {
@@ -574,6 +576,7 @@ mod tests {
             .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
                 asset_server.add(DynamicScene::from_world(world))
             })
+            .expect("Failed to run dynamic scene builder system.")
     }
 
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
@@ -608,7 +611,8 @@ mod tests {
                     trigger_count.0, 1,
                     "wrong number of `SceneInstanceReady` triggers"
                 );
-            });
+            })
+            .unwrap();
     }
 
     #[test]
@@ -619,11 +623,12 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -637,11 +642,12 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn_dynamic(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn_dynamic(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -655,13 +661,17 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -675,13 +685,17 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -711,20 +725,23 @@ mod tests {
 
         // Spawn scene.
         for _ in 0..count {
-            app.world_mut().spawn((ComponentA, scene.clone()));
+            app.world_mut()
+                .spawn((ComponentA, DynamicSceneRoot(scene.clone())));
         }
 
         app.update();
         check(app.world_mut(), count);
 
         // Despawn scene.
-        app.world_mut().run_system_once(
-            |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
-                for entity in query.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-            },
-        );
+        app.world_mut()
+            .run_system_once(
+                |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                    for entity in query.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                },
+            )
+            .unwrap();
 
         app.update();
         check(app.world_mut(), 0);
