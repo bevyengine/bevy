@@ -13,7 +13,6 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 bevy = { path = "../../" }
-bevy_log = { path = "../../crates/bevy_log" }
 
 [target.aarch64-apple-ios-sim.dependencies]
 bevy = { path = "../../", features = ["ios_simulator"] }

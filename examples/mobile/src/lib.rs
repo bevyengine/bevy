@@ -3,11 +3,10 @@
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
+    log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
 };
-
-use bevy_log::{Level, LogPlugin};
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
