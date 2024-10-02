@@ -1376,7 +1376,7 @@ impl Bundles {
                 };
                 // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
                 // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
-                self.init_dynamic_info(components, std::slice::from_raw_parts(ptr, len))
+                self.init_dynamic_info(components, core::slice::from_raw_parts(ptr, len))
             };
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
