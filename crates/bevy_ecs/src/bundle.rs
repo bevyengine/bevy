@@ -1365,7 +1365,7 @@ impl Bundles {
             id
         } else {
             let explicit_bundle_id = self.register_info::<T>(components, storages);
-            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap alllow this
+            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
                     // SAFETY: `explicit_bundle_id` is valid and defined above
