@@ -3181,7 +3181,7 @@ pub(crate) unsafe fn take_component<'a>(
 ///
 /// # Performance
 ///
-/// - The slice and array implementations peform an aliased mutability check in
+/// - The slice and array implementations perform an aliased mutability check in
 ///   [`DynamicComponentFetch::fetch_mut`] that is `O(N^2)`.
 /// - The [`HashSet`] implementation performs no such check as the type itself
 ///   guarantees unique IDs.
