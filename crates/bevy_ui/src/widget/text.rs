@@ -29,9 +29,9 @@ use taffy::style::AvailableSpace;
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextNodeFlags {
-    /// If set a new measure function for the text node will be created.
+    /// If set then a new measure function for the text node will be created.
     needs_measure_fn: bool,
-    /// If set the text will be recomputed.
+    /// If set then the text will be recomputed.
     needs_recompute: bool,
 }
 
@@ -52,16 +52,31 @@ impl Default for TextNodeFlags {
 /// a [`TextBlock`]. See [`TextSpan`] for the component used by children of entities with `TextNEW`.
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
+///
 /*
 ```
+# use bevy_asset::Handle;
+# use bevy_color::Color;
+# use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{JustifyText, TextBlock};
+# use bevy_text::{Font, JustifyText, TextBlock, TextStyle};
 # use bevy_ui::Text;
 #
+# let font_handle: Handle<Font> = Default::default();
 # let mut world = World::default();
 #
 // Basic usage.
 world.spawn(Text::new("hello world!"));
+
+// With non-default style.
+world.spawn((
+    Text::new("hello world!"),
+    TextStyle {
+        font: font_handle.clone().into(),
+        font_size: 60.0,
+        color: BLUE.into(),
+    }
+));
 
 // With text justification.
 world.spawn((
@@ -109,6 +124,7 @@ impl From<String> for TextNEW {
 /// A span of UI text in a tree of spans under an entity with [`Text`].
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+///
 /*
 ```
 # use bevy_asset::Handle;
@@ -214,7 +230,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<(&'a str, &'a TextStyle)>,
+    spans: impl Iterator<(Entity, usize, &'a str, &'a TextStyle)>,
     block: Ref<TextBlock>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -329,7 +345,7 @@ pub fn measure_text_system(
                 entity,
                 &fonts,
                 scale_factor.into(),
-                spans.iter_from_base(text.as_str(), text_style, maybe_children),
+                spans.iter_from_base(entity, text.as_str(), text_style, maybe_children),
                 block,
                 &mut text_pipeline,
                 content_size,
@@ -345,6 +361,7 @@ pub fn measure_text_system(
 #[allow(clippy::too_many_arguments)]
 #[inline]
 fn queue_text(
+    entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
@@ -384,7 +401,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
-        spans.iter_from_base(text.as_str(), text_style, maybe_children),
+        spans.iter_from_base(entity, text.as_str(), text_style, maybe_children),
         scale_factor.into(),
         block,
         physical_node_size,
@@ -432,6 +449,7 @@ pub fn text_system(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
+        Entity,
         Ref<Node>,
         &Text,
         &TextStyle,
@@ -449,6 +467,7 @@ pub fn text_system(
     scale_factors_buffer.clear();
 
     for (
+        entity,
         node,
         text,
         text_style,
@@ -484,6 +503,7 @@ pub fn text_system(
             || text_flags.needs_recompute
         {
             queue_text(
+                entity,
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_sets,
