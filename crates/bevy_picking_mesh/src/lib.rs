@@ -61,7 +61,7 @@ impl Default for RaycastBackendSettings {
 pub struct RaycastPickable;
 
 /// Adds the raycasting picking backend to your app.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct RaycastBackend;
 impl Plugin for RaycastBackend {
     fn build(&self, app: &mut App) {

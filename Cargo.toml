@@ -111,6 +111,7 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_picking",
+  "bevy_picking_mesh",
   "bevy_sprite_picking_backend",
   "bevy_ui_picking_backend",
   "bevy_gltf",
@@ -180,6 +181,9 @@ bevy_pbr = [
 
 # Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]
+
+# Provides a mesh picking backend for `bevy_picking`
+bevy_picking_mesh = ["bevy_picking", "bevy_internal/bevy_picking_mesh"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]

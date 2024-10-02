@@ -195,12 +195,15 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote"]
 
-# Provides a picking functionality
+# Provides picking functionality
 bevy_picking = [
   "dep:bevy_picking",
   "bevy_ui?/bevy_picking",
   "bevy_sprite?/bevy_picking",
 ]
+
+# Provides a mesh picking backend for `bevy_picking`
+bevy_picking_mesh = ["dep:bevy_picking_mesh"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
@@ -252,6 +255,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev"
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.15.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.15.0-dev" }
+bevy_picking_mesh = { path = "../bevy_picking_mesh", optional = true, version = "0.15.0-dev" }
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.15.0-dev" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.15.0-dev" }
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.15.0-dev" }

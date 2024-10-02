@@ -58,6 +58,8 @@ plugin_group! {
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_picking")]
         bevy_picking:::DefaultPickingPlugins,
+        #[cfg(feature = "bevy_picking_mesh")]
+        bevy_picking_mesh:::RaycastBackend,
         #[cfg(feature = "bevy_dev_tools")]
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]

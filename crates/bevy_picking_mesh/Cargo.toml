@@ -1,5 +1,5 @@
 [package]
-name = "bevy_mesh_picking"
+name = "bevy_picking_mesh"
 version = "0.15.0-dev"
 edition = "2021"
 description = "Provides a mesh picking backend for Bevy Engine"
