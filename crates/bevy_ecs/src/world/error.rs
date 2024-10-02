@@ -12,7 +12,7 @@ use crate::{component::ComponentId, schedule::InternedScheduleLabel};
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
 
 /// An error that occurs when dynamically retrieving components from an entity.
-#[derive(Error, Debug, Clone, Copy)]
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityComponentError {
     /// The component with the given [`ComponentId`] does not exist on the entity.
     #[error("The component with the ID {0:?} does not exist on the entity.")]

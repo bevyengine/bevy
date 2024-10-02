@@ -13,7 +13,6 @@ use crate::{
     world::{error::EntityComponentError, DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::HashSet;
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 use thiserror::Error;
 
@@ -509,24 +508,6 @@ impl<'w> EntityMut<'w> {
         }
     }
 
-    /// Returns multiple mutable untyped components for the current entity
-    /// based on the given [`HashSet`] of [`ComponentId`]s. The uniqueness
-    /// of items in a [`HashSet`] allows skipping checks for duplicates.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
-    pub fn get_components_from_set_mut_by_id(
-        &mut self,
-        component_ids: &HashSet<ComponentId>,
-    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
-        // SAFETY: Each component_id is unique, as guaranteed by the HashSet.
-        unsafe {
-            self.0
-                .get_components_dynamic_mut_by_id(component_ids.iter().copied())
-        }
-    }
-
     /// Consumes `self` and gets access to the component of type `T` with the
     /// world `'w` lifetime for the current entity.
     ///
@@ -901,22 +882,6 @@ impl<'w> EntityWorldMut<'w> {
 
         let mut cell = self.as_unsafe_entity_cell();
         // SAFETY: Each component_id is unique
-        unsafe { cell.get_components_dynamic_mut_by_id(component_ids.iter().copied()) }
-    }
-
-    /// Returns multiple mutable untyped components for the current entity
-    /// based on the given [`HashSet`] of [`ComponentId`]s. The uniqueness
-    /// of items in a [`HashSet`] allows skipping checks for duplicates.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
-    pub fn get_components_from_set_mut_by_id(
-        &mut self,
-        component_ids: &HashSet<ComponentId>,
-    ) -> Result<Vec<MutUntyped<'_>>, EntityComponentError> {
-        let mut cell = self.as_unsafe_entity_cell();
-        // SAFETY: Each component_id is unique, as guaranteed by the HashSet.
         unsafe { cell.get_components_dynamic_mut_by_id(component_ids.iter().copied()) }
     }
 
@@ -3065,15 +3030,17 @@ pub(crate) unsafe fn take_component<'a>(
 
 #[cfg(test)]
 mod tests {
-    use bevy_ptr::OwningPtr;
+    use bevy_ptr::{OwningPtr, Ptr};
+    use bevy_utils::HashSet;
     use core::panic::AssertUnwindSafe;
 
     use crate::{
         self as bevy_ecs,
+        change_detection::MutUntyped,
         component::ComponentId,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
-        world::{FilteredEntityMut, FilteredEntityRef},
+        world::{error::EntityComponentError, FilteredEntityMut, FilteredEntityRef},
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
@@ -3797,13 +3764,14 @@ mod tests {
         assert!(e.get_change_ticks_by_id(a_id).is_none());
     }
 
+    #[derive(Component, PartialEq, Eq, Debug)]
+    struct X(usize);
+
+    #[derive(Component, PartialEq, Eq, Debug)]
+    struct Y(usize);
+
     #[test]
     fn get_components() {
-        #[derive(Component, PartialEq, Eq, Debug)]
-        struct X(usize);
-
-        #[derive(Component, PartialEq, Eq, Debug)]
-        struct Y(usize);
         let mut world = World::default();
         let e1 = world.spawn((X(7), Y(10))).id();
         let e2 = world.spawn(X(8)).id();
@@ -3815,5 +3783,239 @@ mod tests {
         );
         assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
         assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
+    }
+
+    #[test]
+    fn get_components_by_id() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+
+        assert_eq!(
+            Ok((&X(7), &Y(10))),
+            world
+                .entity(e1)
+                .get_components_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(y_id)),
+            world
+                .entity(e2)
+                .get_components_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(x_id)),
+            world
+                .entity(e3)
+                .get_components_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+    }
+
+    #[test]
+    fn get_components_dynamic_by_id() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+
+        assert_eq!(
+            Ok((&X(7), &Y(10))),
+            world
+                .entity(e1)
+                .get_components_dynamic_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(y_id)),
+            world
+                .entity(e2)
+                .get_components_dynamic_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(x_id)),
+            world
+                .entity(e3)
+                .get_components_dynamic_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
+        );
+    }
+
+    #[test]
+    fn get_components_mut_by_id() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+
+        assert_eq!(
+            Ok((&mut X(7), &mut Y(10))),
+            world
+                .entity_mut(e1)
+                .get_components_mut_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(y_id)),
+            world
+                .entity_mut(e2)
+                .get_components_mut_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(x_id)),
+            world
+                .entity_mut(e3)
+                .get_components_mut_by_id([x_id, y_id])
+                .map(|[x_ptr, y_ptr]| {
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+
+        assert_eq!(
+            Err(EntityComponentError::AliasedMutability(x_id)),
+            world
+                .entity_mut(e1)
+                .get_components_mut_by_id([x_id, x_id])
+                .map(|_| { unreachable!() })
+        );
+        assert_eq!(
+            Err(EntityComponentError::AliasedMutability(x_id)),
+            world
+                .entity_mut(e3)
+                .get_components_mut_by_id([x_id, x_id])
+                .map(|_| { unreachable!() })
+        );
+    }
+
+    #[test]
+    fn get_components_mut_dynamic_by_id() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+
+        assert_eq!(
+            Ok((&mut X(7), &mut Y(10))),
+            world
+                .entity_mut(e1)
+                .get_components_dynamic_mut_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(y_id)),
+            world
+                .entity_mut(e2)
+                .get_components_dynamic_mut_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+        assert_eq!(
+            Err(EntityComponentError::NoSuchComponent(x_id)),
+            world
+                .entity_mut(e3)
+                .get_components_dynamic_mut_by_id(&[x_id, y_id])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                    };
+
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                        y_ptr.into_inner().deref_mut::<Y>()
+                    })
+                })
+        );
+
+        assert_eq!(
+            Err(EntityComponentError::AliasedMutability(x_id)),
+            world
+                .entity_mut(e1)
+                .get_components_dynamic_mut_by_id(&[x_id, x_id])
+                .map(|_| { unreachable!() })
+        );
+        assert_eq!(
+            Err(EntityComponentError::AliasedMutability(x_id)),
+            world
+                .entity_mut(e3)
+                .get_components_dynamic_mut_by_id(&[x_id, x_id])
+                .map(|_| { unreachable!() })
+        );
     }
 }
