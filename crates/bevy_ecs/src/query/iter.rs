@@ -2290,6 +2290,14 @@ where
 {
 }
 
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Debug
+    for QuerySortedManyIter<'w, 's, D, F, I>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QuerySortedManyIter").finish()
+    }
+}
+
 /// An iterator over `K`-sized combinations of query items without repetition.
 ///
 /// A combination is an arrangement of a collection of items where order does not matter.
