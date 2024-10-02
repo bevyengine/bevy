@@ -3,7 +3,6 @@
 
 use crate::{
     ops::{self, FloatPow},
-    prelude::CubicSegment,
     VectorSpace,
 };
 
@@ -19,12 +18,14 @@ use super::{Curve, FunctionCurve, Interval};
 pub trait Easing<T>: Curve<T> {}
 impl<T: VectorSpace, C: Curve<f32>> Easing<T> for EasingCurve<T, C> {}
 impl<T: VectorSpace> Easing<T> for LinearCurve<T> {}
-impl Easing<f32> for CubicBezierCurve {}
 impl Easing<f32> for StepCurve {}
 impl Easing<f32> for ElasticCurve {}
 
-/// A [`Curve`] that is defined by a `start` and an `end` point, together with an [`EasingCurve`]
-/// to interpolate between the values over the [unit interval].
+/// A [`Curve`] that is defined by
+///
+/// - an initial `start` sample value at `t = 0`
+/// - a final `end` sample value at `t = 1`
+/// - an [`EasingCurve`] to interpolate between the two values within the [unit interval].
 ///
 /// [unit interval]: `Interval::UNIT`
 #[derive(Clone, Debug)]
@@ -86,13 +87,13 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
     /// Quadratic easing functions can have exactly one critical point. This is a point on the function
-    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-    /// smooth transitions. A common choice is to place that point at `x = 0` or [`x = 1`].
+    /// such that `f′(t) = 0`. This means that there won't be any sudden jumps at this point leading to
+    /// smooth transitions. A common choice is to place that point at `t = 0` or [`t = 1`].
     ///
-    /// It uses the function `f(x) = x²`
+    /// It uses the function `f(t) = t²`
     ///
     /// [unit domain]: `Interval::UNIT`
-    /// [`x = 1`]: `Self::quadratic_ease_out`
+    /// [`t = 1`]: `Self::quadratic_ease_out`
     pub fn quadratic_ease_in() -> Self {
         Self {
             start: 0.0,
@@ -104,13 +105,13 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
     /// Quadratic easing functions can have exactly one critical point. This is a point on the function
-    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-    /// smooth transitions. A common choice is to place that point at [`x = 0`] or`x = 1`.
+    /// such that `f′(t) = 0`. This means that there won't be any sudden jumps at this point leading to
+    /// smooth transitions. A common choice is to place that point at [`t = 0`] or`t = 1`.
     ///
-    /// It uses the function `f(x) = 1 - (1 - x)²`
+    /// It uses the function `f(t) = 1 - (1 - t)²`
     ///
     /// [unit domain]: `Interval::UNIT`
-    /// [`x = 0`]: `Self::quadratic_ease_in`
+    /// [`t = 0`]: `Self::quadratic_ease_in`
     pub fn quadratic_ease_out() -> Self {
         fn f(t: f32) -> f32 {
             1.0 - (1.0 - t).squared()
@@ -125,11 +126,11 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
     /// Cubic easing functions can have up to two critical points. These are points on the function
-    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at these points leading to
-    /// smooth transitions. For this curve they are placed at `x = 0` and `x = 1` respectively and the
+    /// such that `f′(t) = 0`. This means that there won't be any sudden jumps at these points leading to
+    /// smooth transitions. For this curve they are placed at `t = 0` and `t = 1` respectively and the
     /// result is a well-known kind of [sigmoid function] called a [smoothstep function].
     ///
-    /// It uses the function `f(x) = x² * (3 - 2x)`
+    /// It uses the function `f(t) = t² * (3 - 2t)`
     ///
     /// [unit domain]: `Interval::UNIT`
     /// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
@@ -147,7 +148,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
 
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
-    /// It uses the function `f(x) = x`
+    /// It uses the function `f(t) = t`
     ///
     /// [unit domain]: `Interval::UNIT`
     pub fn identity() -> Self {
@@ -204,43 +205,12 @@ where
     }
 }
 
-/// A [`Curve`] that is defined by a [`CubicSegment`] over the [unit interval].
-///
-/// [unit interval]: `Interval::UNIT`
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct CubicBezierCurve {
-    bezier_segment: CubicSegment<f32>,
-}
-
-impl Curve<f32> for CubicBezierCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        self.bezier_segment.position(t)
-    }
-}
-
-impl CubicBezierCurve {
-    /// Create a new [`CubicBezierCurve`] over the [unit interval] from a [`CubicSegment`].
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(bezier_segment: CubicSegment<f32>) -> Self {
-        Self { bezier_segment }
-    }
-}
-
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
 /// This leads to a cruve with sudden jumps at the step points and segments with constant values
 /// everywhere else.
 ///
-/// It uses the function `f(n,x) = round(x * n) / n`
+/// It uses the function `f(n,t) = round(t * n) / n`
 ///
 /// parametrized by `n`, the number of jumps
 ///
@@ -291,7 +261,7 @@ impl StepCurve {
 /// - For `ω → 0` the curve converges to the [smoothstep function]
 /// - For `ω → ∞` the curve gets increasingly more bouncy
 ///
-/// It uses the function `f(omega,x) = 1 - (1 - x)²(2sin(omega * x) / omega + cos(omega * x))`
+/// It uses the function `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`
 ///
 /// parametrized by `omega`
 ///
