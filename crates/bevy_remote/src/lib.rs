@@ -269,6 +269,7 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+mod builtin_streaming_methods;
 pub mod http;
 
 const CHANNEL_SIZE: usize = 16;
@@ -287,6 +288,13 @@ pub struct RemotePlugin {
             Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
         )>,
     >,
+    /// The streaming verbs that the server will recognize and respond to.
+    streaming_methods: RwLock<
+        Vec<(
+            String,
+            Box<dyn System<In = In<Option<Value>>, Out = Option<BrpResult>>>,
+        )>,
+    >,
 }
 
 impl RemotePlugin {
@@ -295,6 +303,7 @@ impl RemotePlugin {
     fn empty() -> Self {
         Self {
             methods: RwLock::new(vec![]),
+            streaming_methods: RwLock::new(vec![]),
         }
     }
 
@@ -306,6 +315,20 @@ impl RemotePlugin {
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
         self.methods
+            .get_mut()
+            .unwrap()
+            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
+        self
+    }
+
+    /// Add a remote streaming method to the plugin using the given `name` and `handler`.
+    #[must_use]
+    pub fn with_streaming_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, Option<BrpResult>, M>,
+    ) -> Self {
+        self.streaming_methods
             .get_mut()
             .unwrap()
             .push((name.into(), Box::new(IntoSystem::into_system(handler))));
@@ -354,6 +377,7 @@ impl Default for RemotePlugin {
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_methods = RemoteMethods::new();
+
         let plugin_methods = &mut *self.methods.write().unwrap();
         for (name, system) in plugin_methods.drain(..) {
             remote_methods.insert(
@@ -362,7 +386,16 @@ impl Plugin for RemotePlugin {
             );
         }
 
+        let plugin_streaming_methods = &mut *self.streaming_methods.write().unwrap();
+        for (name, system) in plugin_streaming_methods.drain(..) {
+            remote_methods.insert_streaming(
+                name,
+                app.main_mut().world_mut().register_boxed_system(system),
+            );
+        }
+
         app.insert_resource(remote_methods)
+            .init_resource::<StreamingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(Update, process_remote_requests);
     }
@@ -377,11 +410,23 @@ impl Plugin for RemotePlugin {
 /// automatically populate the `id` field before sending.
 pub type RemoteMethod = SystemId<In<Option<Value>>, BrpResult>;
 
+/// The type of a function that implements a remote streaming method (`bevy/get+stream`, `bevy/query+stream`, etc.)
+///
+/// The first parameter is the JSON value of the `params`. Typically, an
+/// implementation will deserialize these as the first thing they do.
+///
+/// The returned JSON value will be returned as a response if present.
+/// Bevy will automatically populate the `id` field before sending.
+pub type RemoteStreamingMethod = SystemId<In<Option<Value>>, Option<BrpResult>>;
+
 /// Holds all implementations of methods known to the server.
 ///
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
 #[derive(Debug, Resource, Default)]
-pub struct RemoteMethods(HashMap<String, RemoteMethod>);
+pub struct RemoteMethods {
+    normal: HashMap<String, RemoteMethod>,
+    streaming: HashMap<String, RemoteStreamingMethod>,
+}
 
 impl RemoteMethods {
     /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
@@ -397,9 +442,25 @@ impl RemoteMethods {
         method_name: impl Into<String>,
         handler: RemoteMethod,
     ) -> Option<RemoteMethod> {
-        self.0.insert(method_name.into(), handler)
+        self.normal.insert(method_name.into(), handler)
+    }
+
+    /// Adds a new streaming method, replacing any existing method with that name.
+    ///
+    /// If there was an existing method with that name, returns its handler.
+    pub fn insert_streaming(
+        &mut self,
+        method_name: impl Into<String>,
+        handler: RemoteStreamingMethod,
+    ) -> Option<RemoteStreamingMethod> {
+        self.streaming.insert(method_name.into(), handler)
     }
 }
+
+/// Holds all the [`BrpMessage`]'s for ongoing streaming requests along with
+/// the [`RemoteStreamingMethod`] for its method handler.
+#[derive(Debug, Resource, Default, Deref, DerefMut)]
+pub struct StreamingRequests(pub Vec<(BrpMessage, RemoteStreamingMethod)>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -645,32 +706,85 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
-        // Fetch the handler for the method. If there's no such handler
-        // registered, return an error.
-        let methods = world.resource::<RemoteMethods>();
+        if message.method.ends_with("+stream") {
+            process_stream_request(message, world);
+        } else {
+            process_normal_request(message, world);
+        }
+    }
+}
 
-        let Some(handler) = methods.0.get(&message.method) else {
+/// Handles a single request which is completed after one response.
+fn process_normal_request(message: BrpMessage, world: &mut World) {
+    // Fetch the handler for the method. If there's no such handler
+    // registered, return an error.
+    let methods = world.resource::<RemoteMethods>();
+
+    let Some(handler) = methods.normal.get(&message.method) else {
+        let _ = message.sender.force_send(Err(BrpError {
+            code: error_codes::METHOD_NOT_FOUND,
+            message: format!("Method `{}` not found", message.method),
+            data: None,
+        }));
+        return;
+    };
+
+    // Execute the handler, and send the result back to the client.
+    let result = match world.run_system_with_input(*handler, message.params) {
+        Ok(result) => result,
+        Err(error) => {
             let _ = message.sender.force_send(Err(BrpError {
-                code: error_codes::METHOD_NOT_FOUND,
-                message: format!("Method `{}` not found", message.method),
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to run method handler: {error}"),
                 data: None,
             }));
-            continue;
-        };
+            return;
+        }
+    };
 
-        // Execute the handler, and send the result back to the client.
-        let result = match world.run_system_with_input(*handler, message.params) {
-            Ok(result) => result,
-            Err(error) => {
-                let _ = message.sender.force_send(Err(BrpError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("Failed to run method handler: {error}"),
-                    data: None,
-                }));
-                continue;
-            }
-        };
+    let _ = message.sender.force_send(result);
+}
 
-        let _ = message.sender.force_send(result);
-    }
+/// Handles a single request which sends one response at first and continues to send more as the
+/// data changes. Only the changed data is sent, not the full request like the first one.
+///
+/// For example, a `bevy/get+stream` request for multiple components will respond with all of them at first and
+/// after then will reply with only the components that have changed, not every component.
+///
+/// TODO: Make the above true and actually send the initial full response
+fn process_stream_request(message: BrpMessage, world: &mut World) {
+    // Fetch the handler for the method. If there's no such handler
+    // registered, return an error.
+    let handler =
+        world.resource_scope::<RemoteMethods, Option<RemoteStreamingMethod>>(|_world, methods| {
+            methods.streaming.get(&message.method).cloned()
+        });
+
+    let Some(handler) = handler else {
+        let _ = message.sender.force_send(Err(BrpError {
+            code: error_codes::METHOD_NOT_FOUND,
+            message: format!("Streaming method `{}` not found", message.method),
+            data: None,
+        }));
+        return;
+    };
+
+    // Execute the handler, and send the initial result back to the client.
+    let result = match world.run_system_with_input(handler, message.params.clone()) {
+        Ok(result) => result,
+        Err(error) => {
+            let _ = message.sender.force_send(Err(BrpError {
+                code: error_codes::INTERNAL_ERROR,
+                message: format!("Failed to run method handler: {error}"),
+                data: None,
+            }));
+            return;
+        }
+    };
+
+    let _ = message.sender.force_send(result);
+
+    world
+        .resource_mut::<StreamingRequests>()
+        .push((message, handler));
 }
