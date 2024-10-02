@@ -1,8 +1,8 @@
-//! A simple 3D scene showing how alpha blending can break (TODO: Can you expand on this a little more for new users?) and how order independent transparency (OIT) can fix it.
+//! A simple 3D scene showing how alpha blending can break and how order independent transparency (OIT) can fix it.
 //!
-//! If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
-//! You also need to make sure that your fragment shader doesn't output any colors.
-
+//! See [`OrderIndependtTransparencyPlugin`] for the trade-offs of using OIT.
+//!
+//! [`OrderIndependtTransparencyPlugin`]: bevy::render::pipeline::OrderIndependtTransparencyPlugin
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
@@ -43,12 +43,8 @@ fn setup(
 
     // light
     commands.spawn((
-        PointLightBundle {
-            point_light: PointLight {
-                shadows_enabled: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        PointLight {
+            shadows_enabled: false,
             ..default()
         },
         RenderLayers::layer(1),

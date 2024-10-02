@@ -26,13 +26,13 @@ use crate::{
 
 use super::OitBuffers;
 
-/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen
+/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen.
 pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7698420424769536);
 
-/// Contains the render node used to run the resolve pass
+/// Contains the render node used to run the resolve pass.
 pub mod node;
 
-/// Plugin needed to resolve the OIT buffer to the screen
+/// Plugin needed to resolve the Order Independent Transparency (OIT) buffer to the screen.
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -65,16 +65,16 @@ impl Plugin for OitResolvePlugin {
     }
 }
 
-/// Bind group for the OIT resolve pass
+/// Bind group for the OIT resolve pass.
 #[derive(Resource, Deref)]
 pub struct OitResolveBindGroup(pub BindGroup);
 
-/// Bind group layouts used for the OIT resolve pass
+/// Bind group layouts used for the OIT resolve pass.
 #[derive(Resource)]
 pub struct OitResolvePipeline {
-    /// View bind group layout
+    /// View bind group layout.
     pub view_bind_group_layout: BindGroupLayout,
-    /// Depth bind group layout
+    /// Depth bind group layout.
     pub oit_depth_bind_group_layout: BindGroupLayout,
 }
 
@@ -110,7 +110,7 @@ impl FromWorld for OitResolvePipeline {
 #[derive(Component, Deref, Clone, Copy)]
 pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 
-/// This key is used to cache the pipeline id and to specialize the render pipeline descriptor
+/// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
     hdr: bool,
@@ -122,8 +122,8 @@ pub fn queue_oit_resolve_pipeline(
     pipeline_cache: Res<PipelineCache>,
     resolve_pipeline: Res<OitResolvePipeline>,
     views: Query<(Entity, &ExtractedView), With<OrderIndependentTransparencySettings>>,
-    // Store the key with the id to make the clean up logic easier
-    // This also means it will always replace the entry if the key changes so nothing to clean up
+    // Store the key with the id to make the clean up logic easier.
+    // This also means it will always replace the entry if the key changes so nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
@@ -145,8 +145,7 @@ pub fn queue_oit_resolve_pipeline(
         cached_pipeline_id.insert(e, (key, pipeline_id));
     }
 
-    // Clear cache for views that don't exist anymore
-    // We can't rely on removal detection here because components in the render world aren't persisted
+    // Clear cache for views that don't exist anymore.
     for e in cached_pipeline_id.keys().copied().collect::<Vec<_>>() {
         if !current_view_entities.contains(&e) {
             cached_pipeline_id.remove(&e);

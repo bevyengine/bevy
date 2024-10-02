@@ -1,3 +1,5 @@
+use bevy_render::{view::Visibility, world_sync::SyncToRenderWorld};
+
 use super::*;
 
 /// A Directional light.
@@ -36,8 +38,8 @@ use super::*;
 ///
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
-/// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
+/// To modify the cascade setup, such as the number of cascades or the maximum shadow distance,
+/// change the [`CascadeShadowConfig`] component of the entity with the [`DirectionalLight`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
 ///
@@ -49,6 +51,15 @@ use super::*;
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(
+    Cascades,
+    CascadesFrusta,
+    CascadeShadowConfig,
+    CascadesVisibleEntities,
+    Transform,
+    Visibility,
+    SyncToRenderWorld
+)]
 pub struct DirectionalLight {
     /// The color of the light.
     ///

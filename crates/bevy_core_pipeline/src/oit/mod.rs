@@ -1,16 +1,4 @@
-//! # Order Independent Transparency (OIT)
-//!
-//! This implementation uses 2 passes.
-//!
-//! The first pass writes the depth and color of all the fragments to a big buffer.
-//! The buffer contains N layers for each pixel, where N can be set with [`OrderIndependentTransparencySettings::layer_count`].
-//! This pass is essentially a forward pass.
-//!
-//! The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
-//! and outputs the result to the screen.
-//!
-//! If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
-//! You also need to make sure that your fragment shader doesn't output any colors.
+//! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin``] for more details.
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -37,17 +25,17 @@ use crate::core_3d::{
     Camera3d,
 };
 
-/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen
+/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
-/// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer
+/// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
 pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4042527984320512);
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
-// This should probably be done by adding an enum to this component
+// This should probably be done by adding an enum to this component.
 #[derive(Component, Clone, Copy, ExtractComponent)]
 pub struct OrderIndependentTransparencySettings {
     /// Controls how many layers will be used to compute the blending.
@@ -62,7 +50,23 @@ impl Default for OrderIndependentTransparencySettings {
     }
 }
 
-/// Plugin needed to enable Order Independent Transparency
+/// A plugin that adds support for Order Independent Transparency (OIT).
+/// This can correctly render some scenes that would otherwise have artifacts due to alpha blending, but uses more memory.
+///
+/// To enable OIT for a camera you need to add the [`OrderIndependentTransparencySettings`] component to it.
+///
+/// If you want to use OIT for your custom material you need to call `oit_draw(position, color)` in your fragment shader.
+/// You also need to make sure that your fragment shader doesn't output any colors.
+///
+/// # Implementation details
+/// This implementation uses 2 passes.
+///
+/// The first pass writes the depth and color of all the fragments to a big buffer.
+/// The buffer contains N layers for each pixel, where N can be set with [`OrderIndependentTransparencySettings::layer_count`].
+/// This pass is essentially a forward pass.
+///
+/// The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
+/// and outputs the result to the screen.
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
     fn build(&self, app: &mut App) {
@@ -149,16 +153,16 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
     }
 }
 
-/// Holds the buffers that contain the data of all OIT layers
+/// Holds the buffers that contain the data of all OIT layers.
 /// We use one big buffer for the entire app. Each camaera will reuse it so it will
 /// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
-    /// The OIT layers containing depth and color for each fragments
+    /// The OIT layers containing depth and color for each fragments.
     /// This is essentially used as a 3d array where xy is the screen coordinate and z is
-    /// the list of fragments rendered with OIT
+    /// the list of fragments rendered with OIT.
     pub layers: BufferVec<UVec2>,
-    /// Buffer containing the index of the last layer that was written for each fragment
+    /// Buffer containing the index of the last layer that was written for each fragment.
     pub layer_ids: BufferVec<i32>,
     pub layers_count_uniforms: DynamicUniformBuffer<i32>,
 }
@@ -196,9 +200,9 @@ pub struct OitLayersCountOffset {
     pub offset: u32,
 }
 
-/// This creates or resizes the oit buffers for each camera
-/// It will always create one big buffer that's as big as the biggest buffer needed
-/// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest
+/// This creates or resizes the oit buffers for each camera.
+/// It will always create one big buffer that's as big as the biggest buffer needed.
+/// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
 #[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
     mut commands: Commands,
