@@ -653,7 +653,7 @@ impl ActiveAnimation {
 
 /// Animation controls.
 ///
-/// Automatically added to any root animations of a `SceneBundle` when it is
+/// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]

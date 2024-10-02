@@ -25,6 +25,7 @@ mod texture_slice;
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -32,7 +33,7 @@ pub mod prelude {
         sprite::{ImageScaleMode, Sprite},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
@@ -52,7 +53,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh2d},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
@@ -84,10 +85,6 @@ pub enum SpriteSystem {
 #[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
-/// A convenient alias for `With<Mesh2dHandle>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
-
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
 pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
@@ -113,7 +110,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .register_type::<SpriteSource>()
             .add_plugins((
                 Mesh2dRenderPlugin,
@@ -130,7 +127,7 @@ impl Plugin for SpritePlugin {
                     )
                         .in_set(SpriteSystem::ComputeSlices),
                     (
-                        check_visibility::<WithMesh2d>,
+                        check_visibility::<With<Mesh2d>>,
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility),
@@ -176,7 +173,7 @@ impl Plugin for SpritePlugin {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2dHandle` component,
+/// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
@@ -186,7 +183,7 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (

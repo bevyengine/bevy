@@ -45,12 +45,11 @@ fn setup(
     // Spawn cubes with the custom material
     for i in -6..=6 {
         for j in -3..=3 {
-            commands.spawn(MaterialMeshBundle {
-                mesh: meshes.add(Cuboid::from_size(Vec3::splat(0.3))),
-                material: material_handle.clone(),
-                transform: Transform::from_xyz(i as f32, j as f32, 0.0),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.3)))),
+                MeshMaterial3d(material_handle.clone()),
+                Transform::from_xyz(i as f32, j as f32, 0.0),
+            ));
         }
     }
 

@@ -35,7 +35,7 @@ pub struct Text {
     /// Should not affect its position within a container.
     pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by `max_size`
-    pub linebreak_behavior: BreakLineOn,
+    pub linebreak: LineBreak,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -123,7 +123,7 @@ impl Text {
     /// Returns this [`Text`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
-        self.linebreak_behavior = BreakLineOn::NoWrap;
+        self.linebreak = LineBreak::NoWrap;
         self
     }
 
@@ -253,7 +253,7 @@ impl Default for TextStyle {
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum BreakLineOn {
+pub enum LineBreak {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
     /// This behavior suits most cases, as it keeps words intact across linebreaks.
