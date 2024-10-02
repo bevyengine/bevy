@@ -594,7 +594,7 @@ mod tests {
         ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, root_node_entity, &style, None);
         ui_surface.upsert_node(&TEST_LAYOUT_CONTEXT, child_entity, &style, None);
 
-        ui_surface.update_children(root_node_entity, &[child_entity]);
+        ui_surface.update_children(root_node_entity, vec![child_entity].into_iter());
 
         let parent_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_node = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
