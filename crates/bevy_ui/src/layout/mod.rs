@@ -493,13 +493,7 @@ mod tests {
         WindowScaleFactorChanged,
     };
 
-    use crate::{
-        layout::{approx_round_layout_coords, ui_surface::UiSurface},
-        prelude::*,
-        ui_layout_system,
-        update::update_target_camera_system,
-        ContentSize,
-    };
+    use crate::{layout::{approx_round_layout_coords, ui_surface::UiSurface}, prelude::*, ui_layout_system, update::update_target_camera_system, ContentSize, LayoutContext};
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -1240,7 +1234,7 @@ mod tests {
             #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut bevy_text::CosmicBuffer>,
             #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
-            ui_surface.upsert_node(&crate::layout::ui_surface::TEST_LAYOUT_CONTEXT, params.root_node_entity, &Style::default(), None);
+            ui_surface.upsert_node(&LayoutContext::default(), params.root_node_entity, &Style::default(), None);
 
             ui_surface.compute_camera_layout(
                 params.camera_entity,
