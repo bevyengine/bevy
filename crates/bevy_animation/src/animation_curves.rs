@@ -982,7 +982,7 @@ where
 /// the output type of the curve is remembered only in the components that are
 /// mutated in the implementation of [`apply`].
 ///
-/// [`apply`]: AnimationCurveEvaluator::apply
+/// [`apply`]: AnimationCurve::apply
 pub trait AnimationCurve: Reflect + Debug + Send + Sync {
     /// Returns a boxed clone of this value.
     fn clone_value(&self) -> Box<dyn AnimationCurve>;
