@@ -40,42 +40,34 @@ fn setup(
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(Color::from(RED)),
-        transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, spawn_height, 0.0),
+    ));
 
     // sphere - initially not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle,
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_xyz(1.0, spawn_height, 0.0),
-            ..default()
-        },
+        Mesh3d(sphere_handle),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(0.0, 1.0, -10.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
     ));
 
     // lower ground plane - initially a shadow receiver
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(white_handle),
+    ));
 
     println!("Using DirectionalLight");
 
@@ -142,10 +134,10 @@ fn toggle_shadows(
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
     )>,
 ) {
     if input.just_pressed(KeyCode::KeyC) {

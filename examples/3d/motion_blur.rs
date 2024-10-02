@@ -1,11 +1,7 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-use bevy::{
-    core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle},
-    math::ops,
-    prelude::*,
-};
+use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -23,17 +19,14 @@ fn main() {
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle::default(),
-        // Add the MotionBlurBundle to a camera to enable motion blur.
+        // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
-        MotionBlurBundle {
-            motion_blur: MotionBlur {
-                shutter_angle: 1.0,
-                samples: 2,
-                #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-                _webgl2_padding: Default::default(),
-            },
-            ..default()
+        MotionBlur {
+            shutter_angle: 1.0,
+            samples: 2,
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: Default::default(),
         },
     ));
 }
@@ -76,32 +69,30 @@ fn setup_scene(
         Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
     ));
     // Sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::default()),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::default())),
+        MeshMaterial3d(materials.add(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
-        }),
-        transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
-        ..default()
-    });
+        })),
+        Transform::default().with_scale(Vec3::splat(-4000.0)),
+    ));
     // Ground
     let mut plane: Mesh = Plane3d::default().into();
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(plane),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(plane)),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
+    ));
 
     spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
     spawn_trees(&mut meshes, &mut materials, &mut commands);
@@ -144,43 +135,35 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands
+        commands
             .spawn((
-                PbrBundle {
-                    mesh: box_mesh.clone(),
-                    material: color.clone(),
-                    transform: Transform::from_scale(Vec3::splat(0.5)),
-                    ..default()
-                },
+                Mesh3d(box_mesh.clone()),
+                MeshMaterial3d(color.clone()),
+                Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
-            .insert_if(CameraTracked, || i == 0);
-        entity.with_children(|parent| {
-            parent.spawn(PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color,
-                transform: Transform::from_xyz(0.0, 0.08, 0.03)
-                    .with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ..default()
-            });
-            let mut spawn_wheel = |x: f32, z: f32| {
+            .insert_if(CameraTracked, || i == 0)
+            .with_children(|parent| {
                 parent.spawn((
-                    PbrBundle {
-                        mesh: cylinder.clone(),
-                        material: wheel_matl.clone(),
-                        transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                    Mesh3d(box_mesh.clone()),
+                    MeshMaterial3d(color),
+                    Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                ));
+                let mut spawn_wheel = |x: f32, z: f32| {
+                    parent.spawn((
+                        Mesh3d(cylinder.clone()),
+                        MeshMaterial3d(wheel_matl.clone()),
+                        Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        ..default()
-                    },
-                    Rotates,
-                ));
-            };
-            spawn_wheel(1.0, 1.0);
-            spawn_wheel(1.0, -1.0);
-            spawn_wheel(-1.0, 1.0);
-            spawn_wheel(-1.0, -1.0);
-        });
+                        Rotates,
+                    ));
+                };
+                spawn_wheel(1.0, 1.0);
+                spawn_wheel(1.0, -1.0);
+                spawn_wheel(-1.0, 1.0);
+                spawn_wheel(-1.0, -1.0);
+            });
     }
 }
 
@@ -202,12 +185,11 @@ fn spawn_barriers(
                 offset,
                 (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
             );
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: matl.clone(),
-                transform: Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(matl.clone()),
+                Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
+            ));
         }
     };
     spawn_with_offset(0.04);
@@ -232,18 +214,16 @@ fn spawn_trees(
                 (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
             );
             let [x, z] = pos.into();
-            commands.spawn(PbrBundle {
-                mesh: sphere.clone(),
-                material: leaves.clone(),
-                transform: Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
-                ..default()
-            });
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: trunk.clone(),
-                transform: Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(sphere.clone()),
+                MeshMaterial3d(leaves.clone()),
+                Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
+            ));
+            commands.spawn((
+                Mesh3d(capsule.clone()),
+                MeshMaterial3d(trunk.clone()),
+                Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
+            ));
         }
     };
     spawn_with_offset(0.07);

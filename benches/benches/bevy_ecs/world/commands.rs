@@ -43,8 +43,8 @@ pub fn spawn_commands(criterion: &mut Criterion) {
             bencher.iter(|| {
                 let mut commands = Commands::new(&mut command_queue, &world);
                 for i in 0..entity_count {
-                    let entity = commands
-                        .spawn_empty()
+                    let mut entity = commands.spawn_empty();
+                    entity
                         .insert_if(A, || black_box(i % 2 == 0))
                         .insert_if(B, || black_box(i % 3 == 0))
                         .insert_if(C, || black_box(i % 4 == 0));

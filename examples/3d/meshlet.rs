@@ -119,15 +119,14 @@ fn setup(
         });
     }
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: standard_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+    ));
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
