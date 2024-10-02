@@ -176,7 +176,7 @@ mod tests {
         world.entity_mut(c).add_children(&[d]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
-        let (children_query, a_query) = system_state.get(world);
+        let (children_query, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query
             .iter_many(children_query.iter_descendants(a))
@@ -195,7 +195,7 @@ mod tests {
         world.entity_mut(b).add_children(&[c]);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
-        let (parent_query, a_query) = system_state.get(world);
+        let (parent_query, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
 

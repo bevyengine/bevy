@@ -176,7 +176,7 @@ pub(crate) fn despawn_temporary_render_entities(
     state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
     mut local: Local<Vec<Entity>>,
 ) {
-    let query = state.get(world);
+    let query = state.get(world).unwrap();
 
     local.extend(query.iter());
 

@@ -1199,9 +1199,10 @@ impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
+    ) -> Option<Self::Out> {
+        let out = run_system(input)?;
+        Some(!out)
     }
 }
 
@@ -1237,10 +1238,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
-    ) -> Self::Out {
-        a(input) && b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, A>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(a(input)? && b(input)?)
     }
 }
 
@@ -1258,10 +1259,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) && b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(!(a(input)? && b(input)?))
     }
 }
 
@@ -1279,10 +1280,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) || b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(!(a(input)? || b(input)?))
     }
 }
 
@@ -1300,10 +1301,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) || b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(a(input)? || b(input)?)
     }
 }
 
@@ -1321,10 +1322,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) ^ b(input))
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(!(a(input)? ^ b(input)?))
     }
 }
 
@@ -1342,10 +1343,10 @@ where
 
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) ^ b(input)
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out> {
+        Some(a(input)? ^ b(input)?)
     }
 }
 

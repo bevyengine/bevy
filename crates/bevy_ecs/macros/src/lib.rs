@@ -316,9 +316,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
-                unsafe {
+                let maybe_param = unsafe {
                     #param::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
-                }
+                };
+                // `ParamSet::get_param` ensures all sub-params are accessible.
+                maybe_param.unwrap()
             }
         });
     }
@@ -377,27 +379,21 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
-                    system_meta: &SystemMeta,
-                    world: UnsafeWorldCell<'w>,
-                ) -> bool {
-                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &SystemMeta,
                     world: UnsafeWorldCell<'w>,
                     change_tick: Tick,
-                ) -> Self::Item<'w, 's> {
-                    ParamSet {
+                ) -> Option<Self::Item<'w, 's>> {
+                    // TODO: Reduce `get_param` used for validation.
+                    <(#(#param,)*) as SystemParam>::get_param(state, system_meta, world, change_tick)?;
+                    let param = ParamSet {
                         param_states: state,
                         system_meta: system_meta.clone(),
                         world,
                         change_tick,
-                    }
+                    };
+                    Some(param)
                 }
             }
 
@@ -627,27 +623,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
 
                 #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
-                    system_meta: &#path::system::SystemMeta,
-                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                ) -> bool {
-                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&state.state, system_meta, world)
-                }
-
-                #[inline]
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                     change_tick: #path::component::Tick,
-                ) -> Self::Item<'w, 's> {
-                    let (#(#tuple_patterns,)*) = <
-                        (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
-                    #struct_name {
-                        #(#fields: #field_locals,)*
-                    }
+                ) -> Option<Self::Item<'w, 's>> {
+                    let (#(#tuple_patterns,)*) = <(#(#tuple_types,)*) as #path::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick)?;
+                    let param = #struct_name { #(#fields: #field_locals,)* };
+                    Some(param)
                 }
             }
 

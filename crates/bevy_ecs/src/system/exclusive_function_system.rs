@@ -113,11 +113,11 @@ where
         &mut self,
         _input: SystemIn<'_, Self>,
         _world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Option<Self::Out> {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
@@ -131,7 +131,7 @@ where
             world.flush();
             self.system_meta.last_run = world.increment_change_tick();
 
-            out
+            Some(out)
         })
     }
 
@@ -147,11 +147,6 @@ where
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(&self, _world: UnsafeWorldCell) -> bool {
-        true
     }
 
     #[inline]

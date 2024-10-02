@@ -68,8 +68,11 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out;
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Option<Self::Out>;
 
     /// Runs the system with the given input in the world.
     ///
@@ -78,15 +81,17 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        let ret = unsafe { self.run_unsafe(input, world_cell) };
-        self.apply_deferred(world);
-        ret
+        let result = unsafe { self.run_unsafe(input, world_cell) };
+        if result.is_some() {
+            self.apply_deferred(world);
+        }
+        result
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -97,38 +102,6 @@ pub trait System: Send + Sync + 'static {
     /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
     /// of this system into the world's command buffer.
     fn queue_deferred(&mut self, world: DeferredWorld);
-
-    /// Validates that all parameters can be acquired and that system can run without panic.
-    /// Built-in executors use this to prevent invalid systems from running.
-    ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
-    /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
-    /// should provide their own safety mechanism to prevent undefined behavior.
-    ///
-    /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
-    /// world mutations in between. Otherwise, while it won't lead to any undefined behavior,
-    /// the validity of the param may change.
-    ///
-    /// # Safety
-    ///
-    /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
-    ///   simultaneous accesses while the system is running.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
-
-    /// Safe version of [`System::validate_param_unsafe`].
-    /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
-        let world_cell = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world_cell);
-        // SAFETY:
-        // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
-        unsafe { self.validate_param_unsafe(world_cell) }
-    }
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
@@ -183,7 +156,7 @@ pub unsafe trait ReadOnlySystem: System {
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
+    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Option<Self::Out> {
         let world = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world);
         // SAFETY:
@@ -348,11 +321,9 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RunSystemError::InvalidParams(system.name()))
-        }
+        system
+            .run(input, self)
+            .ok_or(RunSystemError::InvalidParams(system.name()))
     }
 }
 

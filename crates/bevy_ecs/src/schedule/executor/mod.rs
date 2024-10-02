@@ -161,7 +161,7 @@ mod __rust_begin_short_backtrace {
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
-    ) -> O {
+    ) -> Option<O> {
         black_box(system.run_unsafe((), world))
     }
 
@@ -175,21 +175,9 @@ mod __rust_begin_short_backtrace {
     pub(super) fn readonly_run<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
-    ) -> O {
+    ) -> Option<O> {
         black_box(system.run((), world))
     }
-}
-
-#[macro_export]
-/// Emits a warning about system being skipped.
-macro_rules! warn_system_skipped {
-    ($ty:literal, $sys:expr) => {
-        bevy_utils::tracing::warn!(
-            "{} {} was skipped due to inaccessible system parameters.",
-            $ty,
-            $sys
-        )
-    };
 }
 
 #[cfg(test)]

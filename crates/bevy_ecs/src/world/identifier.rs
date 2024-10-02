@@ -61,8 +61,9 @@ unsafe impl SystemParam for WorldId {
         _: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _: Tick,
-    ) -> Self::Item<'world, 'state> {
-        world.id()
+    ) -> Option<Self::Item<'world, 'state>> {
+        let param = world.id();
+        Some(param)
     }
 }
 

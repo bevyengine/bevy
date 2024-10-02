@@ -61,7 +61,7 @@ impl FromWorld for SpritePipeline {
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let (render_device, default_sampler, render_queue) = system_state.get_mut(world).unwrap();
 
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(

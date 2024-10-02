@@ -77,7 +77,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 
         // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
         // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = state.get(world).iter().collect::<Vec<_>>();
+        let view_entities = state.get(world).unwrap().iter().collect::<Vec<_>>();
         for view_entity in view_entities {
             world.entity_mut(view_entity).remove::<ViewTarget>();
         }

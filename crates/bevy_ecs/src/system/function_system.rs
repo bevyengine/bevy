@@ -316,7 +316,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> Option<SystemParamItem<'w, 's, Param>>
     where
         Param: ReadOnlySystemParam,
     {
@@ -329,7 +329,10 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
+    pub fn get_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> Option<SystemParamItem<'w, 's, Param>> {
         self.validate_world(world.id());
         self.update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -342,18 +345,6 @@ impl<Param: SystemParam> SystemState<Param> {
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
         Param::apply(&mut self.param_state, &self.meta, world);
-    }
-
-    /// Wrapper over [`SystemParam::validate_param`].
-    ///
-    /// # Safety
-    ///
-    /// - The passed [`UnsafeWorldCell`] must have read-only access to
-    ///   world data in `archetype_component_access`.
-    /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell) -> bool {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
     }
 
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
@@ -423,7 +414,10 @@ impl<Param: SystemParam> SystemState<Param> {
     ///
     /// Users should strongly prefer to use [`SystemState::get`] over this function.
     #[inline]
-    pub fn get_manual<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
+    pub fn get_manual<'w, 's>(
+        &'s mut self,
+        world: &'w World,
+    ) -> Option<SystemParamItem<'w, 's, Param>>
     where
         Param: ReadOnlySystemParam,
     {
@@ -445,7 +439,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn get_manual_mut<'w, 's>(
         &'s mut self,
         world: &'w mut World,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> Option<SystemParamItem<'w, 's, Param>> {
         self.validate_world(world.id());
         let change_tick = world.change_tick();
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
@@ -462,7 +456,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> Option<SystemParamItem<'w, 's, Param>> {
         let change_tick = world.increment_change_tick();
         // SAFETY: The invariants are uphold by the caller.
         unsafe { self.fetch(world, change_tick) }
@@ -477,12 +471,12 @@ impl<Param: SystemParam> SystemState<Param> {
         &'s mut self,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> SystemParamItem<'w, 's, Param> {
+    ) -> Option<SystemParamItem<'w, 's, Param>> {
         // SAFETY: The invariants are uphold by the caller.
-        let param =
+        let maybe_param =
             unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
-        param
+        maybe_param
     }
 }
 
@@ -620,7 +614,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Option<Self::Out> {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
 
@@ -631,17 +625,17 @@ where
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let params = unsafe {
+        let param: <<F as SystemParamFunction<Marker>>::Param as SystemParam>::Item<'_, '_> = unsafe {
             F::Param::get_param(
                 self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
                 &self.system_meta,
                 world,
                 change_tick,
-            )
+            )?
         };
-        let out = self.func.run(input, params);
+        let out = self.func.run(input, param);
         self.system_meta.last_run = change_tick;
-        out
+        Some(out)
     }
 
     #[inline]
@@ -654,12 +648,6 @@ where
     fn queue_deferred(&mut self, world: DeferredWorld) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::queue(param_state, &self.system_meta, world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
-        let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
-        F::Param::validate_param(param_state, &self.system_meta, world)
     }
 
     #[inline]

@@ -256,7 +256,7 @@ impl FromWorld for Mesh2dPipeline {
             Res<RenderQueue>,
             Res<DefaultImageSampler>,
         )> = SystemState::new(world);
-        let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
+        let (render_device, render_queue, default_sampler) = system_state.get_mut(world).unwrap();
         let render_device = render_device.into_inner();
         let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
         let view_layout = render_device.create_bind_group_layout(
