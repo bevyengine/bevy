@@ -397,6 +397,7 @@ impl Plugin for RemotePlugin {
         }
 
         app.insert_resource(remote_methods)
+            .init_resource::<RemoteStreamingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(
                 Update,
@@ -734,7 +735,9 @@ fn process_normal_request(message: BrpMessage, world: &mut World) {
 ///
 /// For example, a `bevy/get+stream` request for multiple components will respond with all of them at first and
 /// after then will reply with only the components that have changed, not every component.
-fn process_stream_request(message: BrpMessage, world: &mut World) {
+fn process_stream_request(mut message: BrpMessage, world: &mut World) {
+    message.method = message.method.strip_suffix("+stream").unwrap().to_string();
+
     // Fetch the handler for the method. If there's no such handler
     // registered, return an error.
     let handler = world.resource_scope::<RemoteMethods, Option<RemoteMethod>>(|_world, methods| {
