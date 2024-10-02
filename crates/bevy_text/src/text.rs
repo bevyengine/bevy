@@ -68,7 +68,7 @@ impl ComputedTextBlock {
     /// Can be used to look up [`TextStyle`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
-        self.entities.iter()
+        &self.entities
     }
 
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
@@ -112,8 +112,16 @@ pub struct TextBlock {
 
 impl TextBlock {
     /// Makes a new [`TextBlock`].
-    pub const fn new(justify: JustifyText, linebreak: LineBreak, font_smoothing: FontSmoothing) -> Self {
-        Self{ justify, linebreak, font_smoothing }
+    pub const fn new(
+        justify: JustifyText,
+        linebreak: LineBreak,
+        font_smoothing: FontSmoothing,
+    ) -> Self {
+        Self {
+            justify,
+            linebreak,
+            font_smoothing,
+        }
     }
 
     /// Makes a new [`TextBlock`] with the specified [`JustifyText`].
@@ -276,4 +284,72 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
+}
+
+/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
+///
+/// Generic over the root text component and text span component. For example, [`Text2d`]/[`TextSpan2d`] for 2d or
+/// `Text`/`TextSpan` for UI.
+pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
+    changed_roots: Query<
+        Entity,
+        (
+            Or<(
+                Changed<Root>,
+                Changed<TextStyle>,
+                Changed<TextBlock>,
+                Changed<Children>,
+            )>,
+            With<Root>,
+            With<TextStyle>,
+            With<TextBlock>,
+        ),
+    >,
+    changed_spans: Query<
+        &Parent,
+        Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>)>,
+        With<Span>,
+        With<TextStyle>,
+    >,
+    mut computed: Query<(Option<&Parent>, Option<&mut ComputedTextBlock>)>,
+) {
+    // Root entity:
+    // - Root component changed.
+    // - TextStyle on root changed.
+    // - TextBlock changed.
+    // - Root children changed (can include additions and removals).
+    for root in changed_roots.iter() {
+        // TODO: ComputedTextBlock *should* be here. Log a warning?
+        let Ok((_, Some(mut computed))) = computed.get_mut(root) else {
+            continue;
+        };
+        computed.needs_rerender = true;
+    }
+
+    // Span entity:
+    // - Span component changed.
+    // - Span TextStyle changed.
+    // - Span children changed (can include additions and removals).
+    for span_parent in changed_spans.iter() {
+        let mut parent: Entity = **span_parent;
+
+        // Search for the nearest ancestor with ComputedTextBlock.
+        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
+        // is outweighed by the expense of tracking visited spans.
+        loop {
+            // TODO: If this lookup fails then there is a hierarchy error. Log a warning?
+            let Ok((maybe_parent, maybe_computed)) = computed.get_mut(parent) else {
+                break;
+            };
+            if let Some(computed) = maybe_computed {
+                computed.needs_rerender = true;
+                break;
+            }
+            // TODO: If there is no parent then a span is floating without an owning TextBlock. Log a warning?
+            let Some(next_parent) = maybe_parent else {
+                break;
+            };
+            parent = **next_parent;
+        }
+    }
 }

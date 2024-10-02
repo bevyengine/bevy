@@ -43,6 +43,7 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
+mod text_spans;
 
 pub use cosmic_text;
 
@@ -56,13 +57,16 @@ pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
+pub use text_spans::*;
 
 /// The text prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
+    pub use crate::{
+        Font, JustifyText, LineBreak, Text2d, TextBlock, TextError, TextSpan2d, TextStyle,
+    };
 }
 
 use bevy_app::prelude::*;

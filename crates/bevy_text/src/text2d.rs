@@ -38,15 +38,30 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// With `Text2d` the `justify` field of [`TextBlock`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+///
 /*
 ```
+# use bevy_asset::Handle;
+# use bevy_color::Color;
+# use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{Text2d, TextBlock, JustifyText};
+# use bevy_text::{Font, JustifyText, Text2d, TextBlock, TextStyle};
 #
+# let font_handle: Handle<Font> = Default::default();
 # let mut world = World::default();
 #
 // Basic usage.
 world.spawn(Text2d::new("hello world!"));
+
+// With non-default style.
+world.spawn((
+    Text2d::new("hello world!"),
+    TextStyle {
+        font: font_handle.clone().into(),
+        font_size: 60.0,
+        color: BLUE.into(),
+    }
+));
 
 // With text justification.
 world.spawn((
@@ -90,6 +105,7 @@ impl From<String> for Text2d {
 /// A span of 2d text in a tree of spans under an entity with [`Text2d`].
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+///
 /*
 ```
 # use bevy_asset::Handle;
