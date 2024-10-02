@@ -47,6 +47,7 @@ fn setup(
             shadows_enabled: false,
             ..default()
         },
+        Transform::from_xyz(4.0, 8.0, 4.0),
         RenderLayers::layer(1),
     ));
 
