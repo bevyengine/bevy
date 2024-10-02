@@ -144,14 +144,110 @@ impl<'w> EntityRef<'w> {
         unsafe { self.0.get_change_ticks_by_id(component_id) }
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// current entity, based on the given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityRef::get`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
     ///
-    /// Unlike [`EntityRef::get`], this returns a raw pointer to the component,
-    /// which is only valid while the `'w` borrow of the lifetime is active.
+    /// Unlike [`EntityRef::get`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::MissingComponent`] if the entity does
+    /// not have a component.
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`ComponentId`]
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Foo(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn(Foo(42)).id();
+    ///
+    /// // Grab the component ID for `Foo` in whatever way you like.
+    /// let component_id = world.register_component::<Foo>();
+    ///
+    /// // Then, get the component by ID.
+    /// let ptr = world.entity(entity).get_by_id(component_id);
+    /// # assert_eq!(unsafe { ptr.unwrap().deref::<Foo>() }, &Foo(42));
+    /// ```
+    ///
+    /// ## Array of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a same-sized array.
+    /// let Ok([x_ptr, y_ptr]) = world.entity(entity).get_by_id([x_id, y_id]) else {
+    ///     // Up to you to handle if a component is missing from the entity.
+    /// #   unreachable!();
+    /// };
+    /// # assert_eq!((unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() }), (&X(42), &Y(10)));
+    /// ```
+    ///
+    /// ## Slice of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, component::ComponentId};
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a vec of ptrs.
+    /// let ptrs = world.entity(entity).get_by_id(&[x_id, y_id] as &[ComponentId]);
+    /// # let ptrs = ptrs.unwrap();
+    /// # assert_eq!((unsafe { ptrs[0].deref::<X>() }, unsafe { ptrs[1].deref::<Y>() }), (&X(42), &Y(10)));
+    /// ```
+    ///
+    /// ## [`HashSet`] of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_utils::HashSet;
+    /// # use bevy_ecs::{prelude::*, component::ComponentId};
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a vec of ptrs.
+    /// let ptrs = world.entity(entity).get_by_id(&HashSet::from_iter([x_id, y_id]));
+    /// # let ptrs = ptrs.unwrap();
+    /// # assert_eq!((unsafe { ptrs[&x_id].deref::<X>() }, unsafe { ptrs[&y_id].deref::<Y>() }), (&X(42), &Y(10)));
+    /// ```
     #[inline]
     pub fn get_by_id<F: DynamicComponentFetch>(
         &self,
@@ -452,14 +548,25 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// current entity, based on the given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityMut::get`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
     ///
-    /// Unlike [`EntityMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`EntityMut::get`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::MissingComponent`] if the entity does
+    /// not have a component.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityRef::get_by_id`].
     #[inline]
     pub fn get_by_id<F: DynamicComponentFetch>(
         &self,
@@ -468,12 +575,26 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_by_id(component_ids)
     }
 
-    /// Consumes `self` and gets the component of the given [`ComponentId`] with
-    /// world `'w` lifetime from the entity.
+    /// Consumes `self` and returns [untyped read-only reference(s)](Ptr) to
+    /// component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::into_borrow`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityMut::into_borrow`]
+    /// where possible and only use this in cases where the actual component
+    /// types are not known at compile time.**
+    ///
+    /// Unlike [`EntityMut::into_borrow`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::MissingComponent`] if the entity does
+    /// not have a component.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityRef::get_by_id`].
     #[inline]
     pub fn into_borrow_by_id<F: DynamicComponentFetch>(
         self,
@@ -485,14 +606,119 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_ref(self.0) }
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// the current entity, based on the given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityMut::get_mut`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
     ///
-    /// Unlike [`EntityMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityMut`] is alive.
+    /// Unlike [`EntityMut::get_mut`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`ComponentId`]
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Foo(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn(Foo(42)).id();
+    ///
+    /// // Grab the component ID for `Foo` in whatever way you like.
+    /// let component_id = world.register_component::<Foo>();
+    ///
+    /// // Then, get the component by ID.
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut ptr = entity_mut.get_mut_by_id(component_id)
+    /// #   .unwrap();
+    /// # assert_eq!(unsafe { ptr.as_mut().deref_mut::<Foo>() }, &mut Foo(42));
+    /// ```
+    ///
+    /// ## Array of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a same-sized array.
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let Ok([mut x_ptr, mut y_ptr]) = entity_mut.get_mut_by_id([x_id, y_id]) else {
+    ///     // Up to you to handle if a component is missing from the entity.
+    /// #   unreachable!();
+    /// };
+    /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
+    /// ```
+    ///
+    /// ## Slice of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, component::ComponentId, change_detection::MutUntyped};
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a vec of ptrs.
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let ptrs = entity_mut.get_mut_by_id(&[x_id, y_id] as &[ComponentId])
+    /// #   .unwrap();
+    /// # let [mut x_ptr, mut y_ptr]: [MutUntyped; 2] = ptrs.try_into().unwrap();
+    /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
+    /// ```
+    ///
+    /// ## [`HashSet`] of [`ComponentId`]s
+    ///
+    /// ```
+    /// # use bevy_utils::HashSet;
+    /// # use bevy_ecs::{prelude::*, component::ComponentId};
+    /// #
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct X(i32);
+    /// # #[derive(Component, PartialEq, Debug)]
+    /// # pub struct Y(i32);
+    /// # let mut world = World::new();
+    /// let entity = world.spawn((X(42), Y(10))).id();
+    ///
+    /// // Grab the component IDs for `X` and `Y` in whatever way you like.
+    /// let x_id = world.register_component::<X>();
+    /// let y_id = world.register_component::<Y>();
+    ///
+    /// // Then, get the components by ID. You'll receive a `HashMap` of ptrs.
+    /// let mut entity_mut = world.entity_mut(entity);
+    /// let mut ptrs = entity_mut.get_mut_by_id(&HashSet::from_iter([x_id, y_id]))
+    /// #   .unwrap();
+    /// # let [mut x_ptr, mut y_ptr] = ptrs.get_many_mut([&x_id, &y_id]).unwrap();
+    /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
+    /// ```
     #[inline]
     pub fn get_mut_by_id<F: DynamicComponentFetch>(
         &mut self,
@@ -504,12 +730,28 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.0) }
     }
 
-    /// Consumes `self` and gets a [`MutUntyped<'w>`] of the component of the given [`ComponentId`]
-    /// with world `'w` lifetime from the entity.
+    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// to component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityMut::into_mut`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityMut::into_mut`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityMut::into_mut`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityMut::get_mut_by_id`].
     #[inline]
     pub fn into_mut_by_id<F: DynamicComponentFetch>(
         self,
@@ -779,14 +1021,25 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_change_ticks_by_id(component_id)
     }
 
-    /// Gets the component of the given [`ComponentId`] from the entity.
+    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// current entity, based on the given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityWorldMut::get`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
     ///
-    /// Unlike [`EntityWorldMut::get`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityWorldMut`] is alive.
+    /// Unlike [`EntityWorldMut::get`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::MissingComponent`] if the entity does
+    /// not have a component.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityRef::get_by_id`].
     #[inline]
     pub fn get_by_id<F: DynamicComponentFetch>(
         &self,
@@ -795,12 +1048,26 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).get_by_id(component_ids)
     }
 
-    /// Consumes `self` and gets the component of the given [`ComponentId`] with
-    /// with world `'w` lifetime from the entity.
+    /// Consumes `self` and returns [untyped read-only reference(s)](Ptr) to
+    /// component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::into_borrow`] where
-    /// possible and only use this in cases where the actual component types are not
-    /// known at compile time.**
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_borrow`]
+    /// where possible and only use this in cases where the actual component
+    /// types are not known at compile time.**
+    ///
+    /// Unlike [`EntityWorldMut::into_borrow`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityComponentError::MissingComponent`] if the entity does
+    /// not have a component.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityRef::get_by_id`].
     #[inline]
     pub fn into_borrow_by_id<F: DynamicComponentFetch>(
         self,
@@ -812,14 +1079,27 @@ impl<'w> EntityWorldMut<'w> {
         unsafe { component_ids.fetch_ref(self.into_unsafe_entity_cell()) }
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// the current entity, based on the given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::get_mut`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityWorldMut::get_mut`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
     ///
-    /// Unlike [`EntityWorldMut::get_mut`], this returns a raw pointer to the component,
-    /// which is only valid while the [`EntityWorldMut`] is alive.
+    /// Unlike [`EntityWorldMut::get_mut`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityMut::get_mut_by_id`].
     #[inline]
     pub fn get_mut_by_id<F: DynamicComponentFetch>(
         &mut self,
@@ -831,12 +1111,28 @@ impl<'w> EntityWorldMut<'w> {
         unsafe { component_ids.fetch_mut(self.as_unsafe_entity_cell()) }
     }
 
-    /// Consumes `self` and gets a [`MutUntyped<'w>`] of the component with the world `'w` lifetime
-    /// of the given [`ComponentId`] from the entity.
+    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// to component(s) with lifetime `'w` for the current entity, based on the
+    /// given [`ComponentId`]s.
     ///
-    /// **You should prefer to use the typed API [`EntityWorldMut::into_mut`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
+    /// **You should prefer to use the typed API [`EntityWorldMut::into_mut`] where
+    /// possible and only use this in cases where the actual component types
+    /// are not known at compile time.**
+    ///
+    /// Unlike [`EntityWorldMut::into_mut`], this returns untyped reference(s) to
+    /// component(s), and it's the job of the caller to ensure the correct
+    /// type(s) are dereferenced (if necessary).
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
+    ///
+    /// # Examples
+    ///
+    /// For examples on how to use this method, see [`EntityMut::get_mut_by_id`].
     #[inline]
     pub fn into_mut_by_id<F: DynamicComponentFetch>(
         self,
@@ -2877,6 +3173,21 @@ pub(crate) unsafe fn take_component<'a>(
 /// Types that can be used to fetch components from an entity dynamically by
 /// [`ComponentId`]s.
 ///
+/// Provided implementations are:
+/// - [`ComponentId`]: Returns a single untyped reference.
+/// - `[ComponentId; N]` and `&[ComponentId; N]`: Returns a same-sized array of untyped references.
+/// - `&[ComponentId]`: Returns a [`Vec`] of untyped references.
+/// - [`&HashSet<ComponentId>`](HashSet): Returns a [`HashMap`] of IDs to untyped references.
+///
+/// # Performance
+///
+/// - The slice and array implementations peform an aliased mutability check in
+///   [`DynamicComponentFetch::fetch_mut`] that is `O(N^2)`.
+/// - The [`HashSet`] implementation performs no such check as the type itself
+///   guarantees unique IDs.
+/// - The single [`ComponentId`] implementation performs no such check as only
+///   one reference is returned.
+///
 /// # Safety
 ///
 /// Implementor must ensure that:
@@ -3920,36 +4231,45 @@ mod tests {
 
         assert_eq!(
             Ok((&X(7), &Y(10))),
-            world.entity(e1).get_by_id(&[x_id, y_id]).map(|ptrs| {
-                let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
-                    panic!("get_components_dynamic_by_id didn't return 2 elements")
-                };
+            world
+                .entity(e1)
+                .get_by_id(&[x_id, y_id] as &[ComponentId])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_by_id(slice) didn't return 2 elements")
+                    };
 
-                // SAFETY: components match the id they were fetched with
-                (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
-            })
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
         );
         assert_eq!(
             Err(EntityComponentError::MissingComponent(y_id)),
-            world.entity(e2).get_by_id(&[x_id, y_id]).map(|ptrs| {
-                let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
-                    panic!("get_components_dynamic_by_id didn't return 2 elements")
-                };
+            world
+                .entity(e2)
+                .get_by_id(&[x_id, y_id] as &[ComponentId])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_by_id(slice) didn't return 2 elements")
+                    };
 
-                // SAFETY: components match the id they were fetched with
-                (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
-            })
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
         );
         assert_eq!(
             Err(EntityComponentError::MissingComponent(x_id)),
-            world.entity(e3).get_by_id(&[x_id, y_id]).map(|ptrs| {
-                let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
-                    panic!("get_components_dynamic_by_id didn't return 2 elements")
-                };
+            world
+                .entity(e3)
+                .get_by_id(&[x_id, y_id] as &[ComponentId])
+                .map(|ptrs| {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                        panic!("get_by_id(slice) didn't return 2 elements")
+                    };
 
-                // SAFETY: components match the id they were fetched with
-                (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
-            })
+                    // SAFETY: components match the id they were fetched with
+                    (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
+                })
         );
     }
 
@@ -4030,10 +4350,10 @@ mod tests {
             Ok((&mut X(7), &mut Y(10))),
             world
                 .entity_mut(e1)
-                .get_mut_by_id(&[x_id, y_id])
+                .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
                     let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
-                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                        panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
                     // SAFETY: components match the id they were fetched with
@@ -4046,10 +4366,10 @@ mod tests {
             Err(EntityComponentError::MissingComponent(y_id)),
             world
                 .entity_mut(e2)
-                .get_mut_by_id(&[x_id, y_id])
+                .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
                     let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
-                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                        panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
                     // SAFETY: components match the id they were fetched with
@@ -4062,10 +4382,10 @@ mod tests {
             Err(EntityComponentError::MissingComponent(x_id)),
             world
                 .entity_mut(e3)
-                .get_mut_by_id(&[x_id, y_id])
+                .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
                     let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
-                        panic!("get_components_dynamic_mut_by_id didn't return 2 elements")
+                        panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
                     // SAFETY: components match the id they were fetched with
