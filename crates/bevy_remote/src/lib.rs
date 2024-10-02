@@ -703,81 +703,43 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
+        // Fetch the handler for the method. If there's no such handler
+        // registered, return an error.
+        let Some(handler) = world
+            .resource::<RemoteMethods>()
+            .get(&message.method)
+            .cloned()
+        else {
+            let _ = message.sender.force_send(Err(BrpError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: format!("Method `{}` not found", message.method),
+                data: None,
+            }));
+            return;
+        };
+
         if message.stream {
-            process_stream_request(message, world);
-        } else {
-            process_normal_request(message, world);
+            world
+                .resource_mut::<RemoteStreamingRequests>()
+                .0
+                .push((message.clone(), handler.clone()));
         }
+
+        // Execute the handler, and send the result back to the client.
+        let result = match world.run_system_with_input(handler.main, message.params) {
+            Ok(result) => result,
+            Err(error) => {
+                let _ = message.sender.force_send(Err(BrpError {
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("Failed to run method handler: {error}"),
+                    data: None,
+                }));
+                return;
+            }
+        };
+
+        let _ = message.sender.force_send(result);
     }
-}
-
-/// Handles a single request which is completed after one response.
-fn process_normal_request(message: BrpMessage, world: &mut World) {
-    // Fetch the handler for the method. If there's no such handler
-    // registered, return an error.
-    let methods = world.resource::<RemoteMethods>();
-
-    let Some(handler) = methods.get(&message.method) else {
-        let _ = message.sender.force_send(Err(BrpError {
-            code: error_codes::METHOD_NOT_FOUND,
-            message: format!("Method `{}` not found", message.method),
-            data: None,
-        }));
-        return;
-    };
-
-    // Execute the handler, and send the result back to the client.
-    let result = match world.run_system_with_input(handler.main, message.params) {
-        Ok(result) => result,
-        Err(error) => {
-            let _ = message.sender.force_send(Err(BrpError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Failed to run method handler: {error}"),
-                data: None,
-            }));
-            return;
-        }
-    };
-
-    let _ = message.sender.force_send(result);
-}
-
-/// Handles a single request which sends one response at first and continues to send more as the
-/// data changes.
-fn process_stream_request(message: BrpMessage, world: &mut World) {
-    // Fetch the handler for the method. If there's no such handler
-    // registered, return an error.
-    let handler = world.resource_scope::<RemoteMethods, Option<RemoteMethod>>(|_world, methods| {
-        methods.get(&message.method).cloned()
-    });
-
-    let Some(handler) = handler else {
-        let _ = message.sender.force_send(Err(BrpError {
-            code: error_codes::METHOD_NOT_FOUND,
-            message: format!("Method `{}` not found", message.method),
-            data: None,
-        }));
-        return;
-    };
-
-    // Execute the main handler, and send the result back to the client as the initial response.
-    let result = match world.run_system_with_input(handler.main, message.params.clone()) {
-        Ok(result) => result,
-        Err(error) => {
-            let _ = message.sender.force_send(Err(BrpError {
-                code: error_codes::INTERNAL_ERROR,
-                message: format!("Failed to run method handler: {error}"),
-                data: None,
-            }));
-            return;
-        }
-    };
-
-    let _ = message.sender.force_send(result);
-    world
-        .resource_mut::<RemoteStreamingRequests>()
-        .0
-        .push((message, handler));
 }
 
 /// A system that checks all ongoing streaming requests for changes that should be sent
