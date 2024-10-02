@@ -2138,7 +2138,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         }
     }
 
-    /// Safety:
+    /// # Safety
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
     /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.
@@ -3016,12 +3016,12 @@ mod tests {
 
         let sort_by = query
             .iter_many(&world, entity_list)
-            .sort_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_unstable_by = query
             .iter_many(&world, entity_list)
-            .sort_unstable_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_unstable_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_by_key = query
@@ -3046,10 +3046,10 @@ mod tests {
         sort_unstable_v2.sort_unstable();
 
         let mut sort_by_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
-        sort_by_v2.sort_by(|e1, e2| e1.cmp(e2));
+        sort_by_v2.sort_by(Ord::cmp);
 
         let mut sort_unstable_by_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
-        sort_unstable_by_v2.sort_unstable_by(|e1, e2| e1.cmp(e2));
+        sort_unstable_by_v2.sort_unstable_by(Ord::cmp);
 
         let mut sort_by_key_v2 = query.iter_many(&world, entity_list).collect::<Vec<_>>();
         sort_by_key_v2.sort_by_key(|&e| e);
