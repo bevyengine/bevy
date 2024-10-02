@@ -1392,7 +1392,7 @@ impl EntityCommands<'_> {
     /// # bevy_ecs::system::assert_is_system(remove_with_required_system);
     /// ```
     pub fn remove_with_required<T: Bundle>(self) -> Self {
-        self.add(remove_with_required::<T>)
+        self.queue(remove_with_required::<T>)
     }
 
     /// Removes a component from the entity.
