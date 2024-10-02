@@ -1427,7 +1427,6 @@ impl EntityCommands<'_> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
-    #[allow(clippy::should_implement_trait)]
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands.queue(command.with_entity(self.entity));
         self
