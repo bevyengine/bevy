@@ -46,6 +46,8 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`.
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
+    ///
+    /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
     pub(crate) entities: SmallVec<[TextEntity; 1]>,
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
@@ -71,7 +73,8 @@ impl ComputedTextBlock {
 
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
-    /// Updated automatically by [`detect_text_needs_rerender`](crate::detect_text_needs_rerender).
+    /// Updated automatically by [`detect_text_needs_rerender`](crate::detect_text_needs_rerender) and cleared
+    /// by [`TextPipeline`] methods.
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
@@ -102,22 +105,47 @@ pub struct TextBlock {
     /// Should not affect its position within a container.
     pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
-    pub line_break: LineBreak,
+    pub linebreak: LineBreak,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
 
 impl TextBlock {
-    /// Returns this [`TextBlock`] with a new [`JustifyText`].
+    /// Makes a new [`TextBlock`].
+    pub const fn new(justify: JustifyText, linebreak: LineBreak, font_smoothing: FontSmoothing) -> Self {
+        Self{ justify, linebreak, font_smoothing }
+    }
+
+    /// Makes a new [`TextBlock`] with the specified [`JustifyText`].
+    pub const fn new_with_justify(justify: JustifyText) -> Self {
+        Self::default().with_justify(justify)
+    }
+
+    /// Makes a new [`TextBlock`] with the specified [`LineBreak`].
+    pub const fn new_with_linebreak(linebreak: LineBreak) -> Self {
+        Self::default().with_linebreak(linebreak)
+    }
+
+    /// Makes a new [`TextBlock`] with the specified [`FontSmoothing`].
+    pub const fn new_with_font_smoothing(font_smoothing: FontSmoothing) -> Self {
+        Self::default().with_font_smoothing(font_smoothing)
+    }
+
+    /// Makes a new [`TextBlock`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn new_with_no_wrap() -> Self {
+        Self::default().with_no_wrap(linebreak)
+    }
+
+    /// Returns this [`TextBlock`] with the specified [`JustifyText`].
     pub const fn with_justify(mut self, justify: JustifyText) -> Self {
         self.justify = justify;
         self
     }
 
-    /// Returns this [`TextBlock`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub const fn with_no_wrap(mut self) -> Self {
-        self.linebreak = LineBreak::NoWrap;
+    /// Returns this [`TextBlock`] with the specified [`LineBreak`].
+    pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
+        self.linebreak = linebreak;
         self
     }
 
@@ -126,143 +154,12 @@ impl TextBlock {
         self.font_smoothing = font_smoothing;
         self
     }
-}
 
-/// A component that is the entry point for rendering text.
-///
-/// It contains all of the text value and styling information.
-#[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
-pub struct OldText {
-    /// The text's sections
-    pub sections: Vec<TextSection>,
-    /// The text's internal alignment.
-    /// Should not affect its position within a container.
-    pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by `max_size`
-    pub linebreak: LineBreak,
-    /// The antialiasing method to use when rendering text.
-    pub font_smoothing: FontSmoothing,
-}
-
-impl OldText {
-    /// Constructs a [`Text`] with a single section.
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// // Basic usage.
-    /// let hello_world = Text::from_section(
-    ///     // Accepts a String or any type that converts into a String, such as &str.
-    ///     "hello world!",
-    ///     TextStyle {
-    ///         font: font_handle.clone().into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// );
-    ///
-    /// let hello_bevy = Text::from_section(
-    ///     "hello world\nand bevy!",
-    ///     TextStyle {
-    ///         font: font_handle.into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// ) // You can still add text justifaction.
-    /// .with_justify(JustifyText::Center);
-    /// ```
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            sections: vec![TextSection::new(value, style)],
-            ..default()
-        }
-    }
-
-    /// Constructs a [`Text`] from a list of sections.
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_color::palettes::basic::{RED, BLUE};
-    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// let hello_world = Text::from_sections([
-    ///     TextSection::new(
-    ///         "Hello, ",
-    ///         TextStyle {
-    ///             font: font_handle.clone().into(),
-    ///             font_size: 60.0,
-    ///             color: BLUE.into(),
-    ///         },
-    ///     ),
-    ///     TextSection::new(
-    ///         "World!",
-    ///         TextStyle {
-    ///             font: font_handle.into(),
-    ///             font_size: 60.0,
-    ///             color: RED.into(),
-    ///         },
-    ///     ),
-    /// ]);
-    /// ```
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
-        Self {
-            sections: sections.into_iter().collect(),
-            ..default()
-        }
-    }
-}
-
-/// Contains the value of the text in a section and how it should be styled.
-#[derive(Debug, Default, Clone, Reflect)]
-#[reflect(Default)]
-pub struct OldTextSection {
-    /// The content (in `String` form) of the text in the section.
-    pub value: String,
-    /// The style of the text in the section, including the font face, font size, and color.
-    pub style: TextStyle,
-}
-
-impl OldTextSection {
-    /// Create a new [`OldTextSection`].
-    pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            value: value.into(),
-            style,
-        }
-    }
-
-    /// Create an empty [`OldTextSection`] from a style. Useful when the value will be set dynamically.
-    pub const fn from_style(style: TextStyle) -> Self {
-        Self {
-            value: String::new(),
-            style,
-        }
-    }
-}
-
-impl From<&str> for OldTextSection {
-    fn from(value: &str) -> Self {
-        Self {
-            value: value.into(),
-            ..default()
-        }
-    }
-}
-
-impl From<String> for OldTextSection {
-    fn from(value: String) -> Self {
-        Self {
-            value,
-            ..Default::default()
-        }
+    /// Returns this [`TextBlock`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.linebreak = LineBreak::NoWrap;
+        self
     }
 }
 

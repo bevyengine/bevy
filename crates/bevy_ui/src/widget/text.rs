@@ -52,6 +52,24 @@ impl Default for TextNodeFlags {
 /// a [`TextBlock`]. See [`TextSpan`] for the component used by children of entities with `TextNEW`.
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
+/*
+```
+# use bevy_ecs::World;
+# use bevy_text::{JustifyText, TextBlock};
+# use bevy_ui::Text;
+#
+# let mut world = World::default();
+#
+// Basic usage.
+world.spawn(Text::new("hello world!"));
+
+// With text justification.
+world.spawn((
+    Text::new("hello world\nand bevy!"),
+    TextBlock::new_with_justify(JustifyText::Center)
+));
+```
+*/
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
@@ -69,6 +87,13 @@ impl Default for TextNodeFlags {
 )]
 pub struct TextNEW(pub String);
 
+impl TextNEW {
+    /// Makes a new text component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
+
 impl From<&str> for TextNEW {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -84,6 +109,36 @@ impl From<String> for TextNEW {
 /// A span of UI text in a tree of spans under an entity with [`Text`].
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+/*
+```
+# use bevy_asset::Handle;
+# use bevy_color::Color;
+# use bevy_color::palettes::basic::{RED, BLUE};
+# use bevy_ecs::World;
+# use bevy_text::{Font, TextStyle, TextSection};
+# use bevy_ui::{Text, TextSpan};
+#
+# let font_handle: Handle<Font> = Default::default();
+# let mut world = World::default();
+#
+world.spawn((
+    Text::new("Hello, "),
+    TextStyle {
+        font: font_handle.clone().into(),
+        font_size: 60.0,
+        color: BLUE.into(),
+    }
+))
+.with_child((
+    TextSpan::new("World!"),
+    TextStyle {
+        font: font_handle.into(),
+        font_size: 60.0,
+        color: RED.into(),
+    }
+));
+```
+*/
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(TextStyle, GhostNode, Visibility = Visibility::Hidden)]
