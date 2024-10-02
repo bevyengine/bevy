@@ -17,19 +17,17 @@ use bevy_reflect::prelude::*;
 /// with the camera's [`Frustum`].
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
-/// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
+/// - could be subject to frustum culling, for example with a [`Mesh3d`]
 ///     or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
-/// for example if the vertex positions of a [`Mesh`] inside a `Handle<Mesh>` are
-/// updated.
+/// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
 /// [`Camera`]: crate::camera::Camera
 /// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh`]: crate::mesh::Mesh
-/// [`Handle<Mesh>`]: crate::mesh::Mesh
+/// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {

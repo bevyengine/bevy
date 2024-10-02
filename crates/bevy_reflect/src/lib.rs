@@ -520,7 +520,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
-//! [`Function`]: func::Function
+//! [`Function`]: crate::func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -583,6 +583,7 @@ mod impls {
 
 pub mod attributes;
 mod enums;
+mod generics;
 pub mod serde;
 pub mod std_traits;
 #[cfg(feature = "debug_stack")]
@@ -610,6 +611,7 @@ pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
+pub use generics::*;
 pub use kind::*;
 pub use list::*;
 pub use map::*;
@@ -1460,7 +1462,7 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let mut list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
         let fields = list_value.drain();
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
@@ -1470,7 +1472,7 @@ mod tests {
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
-        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let mut map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
         let fields = map_value.drain();
         assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());

@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::NestedLoader,
+    loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
@@ -30,11 +30,11 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &Self::Settings,
+        load_context: &mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
@@ -290,7 +290,11 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`DirectNestedLoader::load`](crate::DirectNestedLoader::load)
+/// An error that occurs when attempting to call [`NestedLoader::load`] which
+/// is configured to work [immediately].
+///
+/// [`NestedLoader::load`]: crate::NestedLoader::load
+/// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 #[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {
@@ -550,7 +554,7 @@ impl<'a> LoadContext<'a> {
 
     /// Create a builder for loading nested assets in this context.
     #[must_use]
-    pub fn loader(&mut self) -> NestedLoader<'a, '_> {
+    pub fn loader(&mut self) -> NestedLoader<'a, '_, StaticTyped, Deferred> {
         NestedLoader::new(self)
     }
 

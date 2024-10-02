@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
-    sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::Anchor,
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -45,23 +45,23 @@ struct ConnectedGamepadsText;
 
 #[derive(Resource)]
 struct ButtonMaterials {
-    normal: Handle<ColorMaterial>,
-    active: Handle<ColorMaterial>,
+    normal: MeshMaterial2d<ColorMaterial>,
+    active: MeshMaterial2d<ColorMaterial>,
 }
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
         Self {
-            normal: world.add_asset(NORMAL_BUTTON_COLOR),
-            active: world.add_asset(ACTIVE_BUTTON_COLOR),
+            normal: world.add_asset(NORMAL_BUTTON_COLOR).into(),
+            active: world.add_asset(ACTIVE_BUTTON_COLOR).into(),
         }
     }
 }
 #[derive(Resource)]
 struct ButtonMeshes {
-    circle: Mesh2dHandle,
-    triangle: Mesh2dHandle,
-    start_pause: Mesh2dHandle,
-    trigger: Mesh2dHandle,
+    circle: Mesh2d,
+    triangle: Mesh2d,
+    start_pause: Mesh2d,
+    trigger: Mesh2d,
 }
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
@@ -78,31 +78,30 @@ impl FromWorld for ButtonMeshes {
 
 #[derive(Bundle)]
 struct GamepadButtonBundle {
-    mesh_bundle: MaterialMesh2dBundle<ColorMaterial>,
+    mesh: Mesh2d,
+    material: MeshMaterial2d<ColorMaterial>,
+    transform: Transform,
     react_to: ReactTo,
 }
 
 impl GamepadButtonBundle {
     pub fn new(
         button_type: GamepadButton,
-        mesh: Mesh2dHandle,
-        material: Handle<ColorMaterial>,
+        mesh: Mesh2d,
+        material: MeshMaterial2d<ColorMaterial>,
         x: f32,
         y: f32,
     ) -> Self {
         Self {
-            mesh_bundle: MaterialMesh2dBundle {
-                mesh,
-                material,
-                transform: Transform::from_xyz(x, y, 0.),
-                ..default()
-            },
+            mesh,
+            material,
+            transform: Transform::from_xyz(x, y, 0.),
             react_to: ReactTo(button_type),
         }
     }
 
     pub fn with_rotation(mut self, angle: f32) -> Self {
-        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle);
+        self.transform.rotation = Quat::from_rotation_z(angle);
         self
     }
 }
@@ -340,13 +339,9 @@ fn setup_sticks(
                 ));
                 // cursor
                 parent.spawn((
-                    MaterialMesh2dBundle {
-                        mesh: meshes.circle.clone(),
-                        material: materials.normal.clone(),
-                        transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.15).extend(1.)),
-                        ..default()
-                    },
+                    meshes.circle.clone(),
+                    materials.normal.clone(),
+                    Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
                     MoveWithAxes {
                         x_axis,
                         y_axis,
@@ -439,7 +434,7 @@ fn setup_connected(mut commands: Commands) {
 fn update_buttons(
     gamepads: Query<&Gamepad>,
     materials: Res<ButtonMaterials>,
-    mut query: Query<(&mut Handle<ColorMaterial>, &ReactTo)>,
+    mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
 ) {
     for buttons in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {

@@ -19,6 +19,7 @@ use core::net::{IpAddr, Ipv4Addr};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Bytes, Incoming},
+    header::HeaderValue,
     server::conn::http1,
     service, Request, Response,
 };
@@ -192,9 +193,12 @@ async fn process_request_batch(
         }
     };
 
-    Ok(Response::new(Full::new(Bytes::from(
-        serialized.as_bytes().to_owned(),
-    ))))
+    let mut response = Response::new(Full::new(Bytes::from(serialized.as_bytes().to_owned())));
+    response.headers_mut().insert(
+        hyper::header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    Ok(response)
 }
 
 /// A helper function for the Bevy Remote Protocol server that processes a single

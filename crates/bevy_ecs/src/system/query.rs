@@ -8,7 +8,11 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use core::borrow::Borrow;
+use core::{
+    borrow::Borrow,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -28,6 +32,15 @@ use core::borrow::Borrow;
 ///   This type parameter is optional.
 ///
 /// [`World`]: crate::world::World
+///
+/// # Similar parameters
+///
+/// [`Query`] has few sibling [`SystemParam`](crate::system::system_param::SystemParam)s, which perform additional validation:
+/// - [`Single`] - Exactly one matching query item.
+/// - [`Option<Single>`] - Zero or one matching query item.
+/// - [`Populated`] - At least one matching query item.
+///
+/// Those parameters will prevent systems from running if their requirements aren't met.
 ///
 /// # System parameter declaration
 ///
@@ -1627,5 +1640,72 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
         value.transmute_lens_filtered()
+    }
+}
+
+/// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
+///
+/// See [`Query`] for more details.
+pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
+    type Target = D::Item<'w>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> D::Item<'w> {
+        self.item
+    }
+}
+
+/// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
+/// which must individually check each query result for a match.
+///
+/// See [`Query`] for more details.
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {
+    type Target = Query<'w, 's, D, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> DerefMut for Populated<'_, '_, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> Query<'w, 's, D, F> {
+        self.0
     }
 }

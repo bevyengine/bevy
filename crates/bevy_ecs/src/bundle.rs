@@ -224,7 +224,14 @@ unsafe impl<C: Component> Bundle for C {
         storages: &mut Storages,
         required_components: &mut RequiredComponents,
     ) {
-        <C as Component>::register_required_components(components, storages, required_components);
+        let component_id = components.register_component::<C>(storages);
+        <C as Component>::register_required_components(
+            component_id,
+            components,
+            storages,
+            required_components,
+            0,
+        );
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
@@ -280,6 +287,7 @@ macro_rules! tuple_impl {
             }
         }
 
+        $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
@@ -412,7 +420,7 @@ impl BundleInfo {
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!
                 component_ids.push(component_id);
-                v
+                v.constructor
             })
             .collect();
 

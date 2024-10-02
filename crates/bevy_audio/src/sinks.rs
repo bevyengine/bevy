@@ -76,7 +76,7 @@ pub trait AudioSinkPlayback {
 /// Used to control audio during playback.
 ///
 /// Bevy inserts this component onto your entities when it begins playing an audio source.
-/// Use [`AudioBundle`][crate::AudioBundle] to trigger that to happen.
+/// Use [`AudioPlayer`][crate::AudioPlayer] to trigger that to happen.
 ///
 /// You can use this component to modify the playback settings while the audio is playing.
 ///
