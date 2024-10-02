@@ -7,21 +7,31 @@ use bevy::{
     window::{AppLifecycle, WindowMode},
 };
 
+use bevy_log::{Level, LogPlugin};
+
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
 #[bevy_main]
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
-            // on iOS, gestures must be enabled.
-            // This doesn't work on Android
-            recognize_rotation_gesture: true,
-            ..default()
-        }),
-        ..default()
-    }))
+    app.add_plugins(
+        DefaultPlugins
+            .set(LogPlugin {
+                level: Level::DEBUG,
+                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                ..Default::default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resizable: false,
+                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+                    // on iOS, gestures must be enabled.
+                    // This doesn't work on Android
+                    recognize_rotation_gesture: true,
+                    ..default()
+                }),
+                ..default()
+            }),
+    )
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
     .run();
