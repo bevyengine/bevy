@@ -1,8 +1,8 @@
 //! A simple 3D scene showing how alpha blending can break and how order independent transparency (OIT) can fix it.
 //!
-//! See [`OrderIndependtTransparencyPlugin`] for the trade-offs of using OIT.
+//! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
-//! [`OrderIndependtTransparencyPlugin`]: bevy::render::pipeline::OrderIndependtTransparencyPlugin
+//! [`OrderIndependentTransparencyPlugin`]: bevy::render::pipeline::OrderIndependentTransparencyPlugin
 use bevy::{
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,

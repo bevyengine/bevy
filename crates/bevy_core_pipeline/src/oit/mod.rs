@@ -1,4 +1,4 @@
-//! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin``] for more details.
+//! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
