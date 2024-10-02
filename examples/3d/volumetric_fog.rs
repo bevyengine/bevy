@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolumeBundle, VolumetricFog, VolumetricLight},
+    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -57,13 +57,9 @@ fn main() {
 /// Initializes the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+    )));
 
     // Spawn the camera.
     commands
@@ -122,10 +118,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     ));
 
     // Add the fog volume.
-    commands.spawn(FogVolumeBundle {
-        transform: Transform::from_scale(Vec3::splat(35.0)),
-        ..default()
-    });
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
+    ));
 
     // Add the help text.
     commands.spawn(

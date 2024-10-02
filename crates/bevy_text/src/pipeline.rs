@@ -16,8 +16,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    PositionedGlyph, TextBounds, TextSection, YAxisOrientation,
+    error::TextError, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText, LineBreak,
+    PositionedGlyph, TextBounds, TextSection, TextStyle, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -51,17 +51,26 @@ impl Default for SwashCache {
     }
 }
 
+/// Information about a font collected as part of preparing for text layout.
+#[derive(Clone)]
+struct FontFaceInfo {
+    stretch: cosmic_text::fontdb::Stretch,
+    style: cosmic_text::fontdb::Style,
+    weight: cosmic_text::fontdb::Weight,
+    family_name: Arc<str>,
+}
+
 /// The `TextPipeline` is used to layout and render [`Text`](crate::Text).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
-    spans_buffer: Vec<(&'static str, Attrs<'static>)>,
+    spans_buffer: Vec<(usize, &'static str, &'static TextStyle, FontFaceInfo)>,
 }
 
 impl TextPipeline {
@@ -69,11 +78,11 @@ impl TextPipeline {
     ///
     /// Negative or 0.0 font sizes will not be laid out.
     #[allow(clippy::too_many_arguments)]
-    pub fn update_buffer(
+    pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
-        linebreak_behavior: BreakLineOn,
+        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
+        linebreak: LineBreak,
         bounds: TextBounds,
         scale_factor: f64,
         buffer: &mut CosmicBuffer,
@@ -82,16 +91,45 @@ impl TextPipeline {
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
-        // return early if the fonts are not loaded yet
-        let mut font_size = 0.;
-        for section in sections {
-            if section.style.font_size > font_size {
-                font_size = section.style.font_size;
+        // Collect span information into a vec. This is necessary because font loading requires mut access
+        // to FontSystem, which the cosmic-text Buffer also needs.
+        let mut font_size: f32 = 0.;
+        let mut spans: Vec<(usize, &str, &TextStyle, FontFaceInfo)> =
+            core::mem::take(&mut self.spans_buffer)
+                .into_iter()
+                .map(|_| -> (usize, &str, &TextStyle, FontFaceInfo) { unreachable!() })
+                .collect();
+
+        for (span_index, (span, style)) in text_spans.enumerate() {
+            // Return early if a font is not loaded yet.
+            if !fonts.contains(style.font.id()) {
+                spans.clear();
+                self.spans_buffer = spans
+                    .into_iter()
+                    .map(
+                        |_| -> (usize, &'static str, &'static TextStyle, FontFaceInfo) {
+                            unreachable!()
+                        },
+                    )
+                    .collect();
+
+                return Err(TextError::NoSuchFont);
             }
-            fonts
-                .get(section.style.font.id())
-                .ok_or(TextError::NoSuchFont)?;
+
+            // Get max font size for use in cosmic Metrics.
+            font_size = font_size.max(style.font_size);
+
+            // Load Bevy fonts into cosmic-text's font system.
+            let face_info =
+                load_font_to_fontdb(style, font_system, &mut self.map_handle_to_font_id, fonts);
+
+            // Save spans that aren't zero-sized.
+            if scale_factor <= 0.0 || style.font_size <= 0.0 {
+                continue;
+            }
+            spans.push((span_index, span, style, face_info));
         }
+
         let line_height = font_size * 1.2;
         let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
@@ -100,55 +138,30 @@ impl TextPipeline {
         metrics.font_size = metrics.font_size.max(0.000001);
         metrics.line_height = metrics.line_height.max(0.000001);
 
-        // Load Bevy fonts into cosmic-text's font system.
-        // This is done as as separate pre-pass to avoid borrow checker issues
-        for section in sections.iter() {
-            load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
-        }
-
         // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
         // since they cannot be rendered by cosmic-text.
         //
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let mut spans: Vec<(&str, Attrs)> = core::mem::take(&mut self.spans_buffer)
-            .into_iter()
-            .map(|_| -> (&str, Attrs) { unreachable!() })
-            .collect();
-        // `metrics.font_size` hack continued: ignore all spans when scale_factor is zero.
-        if scale_factor > 0.0 {
-            spans.extend(
-                sections
-                    .iter()
-                    .enumerate()
-                    .filter(|(_section_index, section)| section.style.font_size > 0.0)
-                    .map(|(section_index, section)| {
-                        (
-                            &section.value[..],
-                            get_attrs(
-                                section,
-                                section_index,
-                                font_system,
-                                &self.map_handle_to_font_id,
-                                scale_factor,
-                            ),
-                        )
-                    }),
-            );
-        }
-        let spans_iter = spans.iter().copied();
+        let spans_iter = spans.iter().map(|(span_index, span, style, font_info)| {
+            (
+                *span,
+                get_attrs(*span_index, style, font_info, scale_factor),
+            )
+        });
 
+        // Update the buffer.
         buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
-            match linebreak_behavior {
-                BreakLineOn::WordBoundary => Wrap::Word,
-                BreakLineOn::AnyCharacter => Wrap::Glyph,
-                BreakLineOn::WordOrCharacter => Wrap::WordOrGlyph,
-                BreakLineOn::NoWrap => Wrap::None,
+            match linebreak {
+                LineBreak::WordBoundary => Wrap::Word,
+                LineBreak::AnyCharacter => Wrap::Glyph,
+                LineBreak::WordOrCharacter => Wrap::WordOrGlyph,
+                LineBreak::NoWrap => Wrap::None,
             },
         );
 
@@ -165,7 +178,7 @@ impl TextPipeline {
         spans.clear();
         self.spans_buffer = spans
             .into_iter()
-            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
+            .map(|_| -> (usize, &'static str, &'static TextStyle, FontFaceInfo) { unreachable!() })
             .collect();
 
         Ok(())
@@ -183,7 +196,7 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: JustifyText,
-        linebreak_behavior: BreakLineOn,
+        linebreak: LineBreak,
         font_smoothing: FontSmoothing,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
@@ -203,8 +216,10 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
-            sections,
-            linebreak_behavior,
+            sections
+                .iter()
+                .map(|section| (section.value.as_str(), &section.style)),
+            linebreak,
             bounds,
             scale_factor,
             buffer,
@@ -301,7 +316,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
-        linebreak_behavior: BreakLineOn,
+        linebreak: LineBreak,
         buffer: &mut CosmicBuffer,
         text_alignment: JustifyText,
         font_system: &mut CosmicFontSystem,
@@ -310,8 +325,10 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
-            sections,
-            linebreak_behavior,
+            sections
+                .iter()
+                .map(|section| (section.value.as_str(), &section.style)),
+            linebreak,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
             buffer,
@@ -384,13 +401,13 @@ impl TextMeasureInfo {
 }
 
 fn load_font_to_fontdb(
-    section: &TextSection,
+    style: &TextStyle,
     font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
-) {
-    let font_handle = section.style.font.clone();
-    map_handle_to_font_id
+) -> FontFaceInfo {
+    let font_handle = style.font.clone();
+    let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {
             let font = fonts.get(font_handle.id()).expect(
@@ -404,34 +421,35 @@ fn load_font_to_fontdb(
             // TODO: it is assumed this is the right font face
             let face_id = *ids.last().unwrap();
             let face = font_system.db().face(face_id).unwrap();
-            let family_name = face.families[0].0.to_owned();
+            let family_name = Arc::from(face.families[0].0.as_str());
 
             (face_id, family_name)
         });
-}
-
-/// Translates [`TextSection`] to [`Attrs`],
-/// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
-fn get_attrs<'a>(
-    section: &TextSection,
-    section_index: usize,
-    font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &'a HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
-    scale_factor: f64,
-) -> Attrs<'a> {
-    let (face_id, family_name) = map_handle_to_font_id
-        .get(&section.style.font.id())
-        .expect("Already loaded with load_font_to_fontdb");
     let face = font_system.db().face(*face_id).unwrap();
 
+    FontFaceInfo {
+        stretch: face.stretch,
+        style: face.style,
+        weight: face.weight,
+        family_name: family_name.clone(),
+    }
+}
+
+/// Translates [`TextStyle`] to [`Attrs`].
+fn get_attrs<'a>(
+    span_index: usize,
+    style: &TextStyle,
+    face_info: &'a FontFaceInfo,
+    scale_factor: f64,
+) -> Attrs<'a> {
     let attrs = Attrs::new()
-        .metadata(section_index)
-        .family(Family::Name(family_name))
-        .stretch(face.stretch)
-        .style(face.style)
-        .weight(face.weight)
-        .metrics(Metrics::relative(section.style.font_size, 1.2).scale(scale_factor as f32))
-        .color(cosmic_text::Color(section.style.color.to_linear().as_u32()));
+        .metadata(span_index)
+        .family(Family::Name(&face_info.family_name))
+        .stretch(face_info.stretch)
+        .style(face_info.style)
+        .weight(face_info.weight)
+        .metrics(Metrics::relative(style.font_size, 1.2).scale(scale_factor as f32))
+        .color(cosmic_text::Color(style.color.to_linear().as_u32()));
     attrs
 }
 

@@ -9,7 +9,7 @@
 //!
 //! ```no_run
 //! # use bevy_ecs::prelude::*;
-//! # use bevy_audio::{AudioBundle, AudioPlugin, PlaybackSettings};
+//! # use bevy_audio::{AudioPlayer, AudioPlugin, AudioSource, PlaybackSettings};
 //! # use bevy_asset::{AssetPlugin, AssetServer};
 //! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
@@ -20,10 +20,10 @@
 //! }
 //!
 //! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
-//!     commands.spawn(AudioBundle {
-//!         source: asset_server.load("background_audio.ogg"),
-//!         settings: PlaybackSettings::LOOP,
-//!     });
+//!     commands.spawn((
+//!         AudioPlayer::<AudioSource>(asset_server.load("background_audio.ogg")),
+//!         PlaybackSettings::LOOP,
+//!     ));
 //! }
 //! ```
 
@@ -38,11 +38,13 @@ mod sinks;
 /// The audio prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
+        AudioBundle, AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
+        Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink,
+        SpatialListener,
     };
 }
 
@@ -66,7 +68,7 @@ struct AudioPlaySet;
 
 /// Adds support for audio playback to a Bevy Application
 ///
-/// Insert an [`AudioBundle`] onto your entities to play audio.
+/// Insert an [`AudioPlayer`] onto your entities to play audio.
 #[derive(Default)]
 pub struct AudioPlugin {
     /// The global volume for all audio entities.

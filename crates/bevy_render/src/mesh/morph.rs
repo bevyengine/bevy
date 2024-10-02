@@ -14,6 +14,8 @@ use bytemuck::{Pod, Zeroable};
 use core::iter;
 use thiserror::Error;
 
+use super::Mesh3d;
+
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
 // Vec3 has 3 components, Mat2 has 4 components.
@@ -114,7 +116,7 @@ impl MorphTargetImage {
     }
 }
 
-/// Controls the [morph targets] for all child [`Handle<Mesh>`] entities. In most cases, [`MorphWeights`] should be considered
+/// Controls the [morph targets] for all child [`Mesh3d`] entities. In most cases, [`MorphWeights`] should be considered
 /// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
 /// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
 /// [`MeshMorphWeights`] values.
@@ -122,9 +124,9 @@ impl MorphTargetImage {
 /// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
 /// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
 /// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child [`Handle<Mesh>`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
+/// synchronized to child [`Mesh3d`] / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
 ///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Handle<Mesh>`] with a [`MeshMorphWeights`].
+/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Mesh3d`] with a [`MeshMorphWeights`].
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
@@ -148,7 +150,7 @@ impl MorphWeights {
             first_mesh,
         })
     }
-    /// The first child [`Handle<Mesh>`] primitive controlled by these weights.
+    /// The first child [`Mesh3d`] primitive controlled by these weights.
     /// This can be used to look up metadata information such as [`Mesh::morph_target_names`].
     pub fn first_mesh(&self) -> Option<&Handle<Mesh>> {
         self.first_mesh.as_ref()
@@ -168,7 +170,7 @@ impl MorphWeights {
 ///
 /// See [`MorphWeights`] for more details on Bevy's morph target implementation.
 ///
-/// Add this to an [`Entity`] with a [`Handle<Mesh>`] with a [`MorphAttributes`] set
+/// Add this to an [`Entity`] with a [`Mesh3d`] with a [`MorphAttributes`] set
 /// to control individual weights of each morph target.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
@@ -198,8 +200,8 @@ impl MeshMorphWeights {
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
 pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Handle<Mesh>>>,
+    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
+    mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
 ) {
     for (children, parent_weights) in &morph_nodes {
         let mut iter = morph_primitives.iter_many_mut(children);
