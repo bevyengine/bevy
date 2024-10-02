@@ -1886,11 +1886,11 @@ impl Default for BorderColor {
 /// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
-///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+///     mut node_query: Query<(Entity, &Button, Option<&mut Outline>), Changed<Button>>,
 /// ) {
-///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
+///     for (entity, button, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
-///             if matches!(*interaction, Interaction::Hovered) {
+///             if button.hovered {
 ///                 Color::WHITE
 ///             } else {
 ///                 Color::NONE

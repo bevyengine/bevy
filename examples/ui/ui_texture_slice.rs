@@ -18,24 +18,21 @@ fn main() {
 }
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &Children, &mut UiImage),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut button_query: Query<(&Button, &Children, &mut UiImage), Changed<Button>>,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, children, mut image) in &mut interaction_query {
+    for (button, children, mut image) in &mut button_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
+        match (button.pressed, button.hovered) {
+            (true, _) => {
                 text.sections[0].value = "Press".to_string();
                 image.color = GOLD.into();
             }
-            Interaction::Hovered => {
+            (false, true) => {
                 text.sections[0].value = "Hover".to_string();
                 image.color = ORANGE.into();
             }
-            Interaction::None => {
+            (false, false) => {
                 text.sections[0].value = "Button".to_string();
                 image.color = Color::WHITE;
             }

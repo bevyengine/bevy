@@ -145,16 +145,13 @@ pub fn spawn_ui_text<'a>(
 /// Checks for clicks on the radio buttons and sends `RadioButtonChangeEvent`s
 /// as necessary.
 pub fn handle_ui_interactions<T>(
-    mut interactions: Query<
-        (&Interaction, &WidgetClickSender<T>),
-        (With<Button>, With<RadioButton>),
-    >,
+    mut interactions: Query<(&Button, &WidgetClickSender<T>), With<RadioButton>>,
     mut widget_click_events: EventWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,
 {
-    for (interaction, click_event) in interactions.iter_mut() {
-        if *interaction == Interaction::Pressed {
+    for (button, click_event) in interactions.iter_mut() {
+        if button.pressed {
             widget_click_events.send(WidgetClickEvent((**click_event).clone()));
         }
     }

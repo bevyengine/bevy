@@ -195,14 +195,11 @@ fn set_camera_viewports(
 
 #[allow(clippy::type_complexity)]
 fn button_system(
-    interaction_query: Query<
-        (&Interaction, &TargetCamera, &RotateCamera),
-        (Changed<Interaction>, With<Button>),
-    >,
+    button_query: Query<(&Button, &TargetCamera, &RotateCamera), Changed<Button>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
-        if let Interaction::Pressed = *interaction {
+    for (button, target_camera, RotateCamera(direction)) in &button_query {
+        if button.pressed {
             // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
             if let Ok(mut camera_transform) = camera_query.get_mut(target_camera.entity()) {

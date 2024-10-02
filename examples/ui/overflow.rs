@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                         ..Default::default()
                                     },
-                                    Interaction::default(),
+                                    Button::default(),
                                     Outline {
                                         width: Val::Px(2.),
                                         offset: Val::Px(2.),
@@ -106,13 +106,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
-    for (mut outline, interaction) in outlines_query.iter_mut() {
-        if interaction.is_changed() {
-            outline.color = match *interaction {
-                Interaction::Pressed => RED.into(),
-                Interaction::Hovered => WHITE.into(),
-                Interaction::None => Color::NONE,
+fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Button>)>) {
+    for (mut outline, button) in outlines_query.iter_mut() {
+        if button.is_changed() {
+            outline.color = match (button.pressed, button.hovered) {
+                (true, _) => RED.into(),
+                (false, true) => WHITE.into(),
+                (false, false) => Color::NONE,
             };
         }
     }

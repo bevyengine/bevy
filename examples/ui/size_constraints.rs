@@ -293,19 +293,16 @@ fn spawn_button(
 }
 
 fn update_buttons(
-    mut button_query: Query<
-        (Entity, &Interaction, &Constraint, &ButtonValue),
-        Changed<Interaction>,
-    >,
+    mut button_query: Query<(Entity, &Button, &Constraint, &ButtonValue), Changed<Button>>,
     mut bar_query: Query<&mut Style, With<Bar>>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
     let mut style = bar_query.single_mut();
-    for (button_id, interaction, constraint, value) in button_query.iter_mut() {
-        match interaction {
-            Interaction::Pressed => {
+    for (button_id, button, constraint, value) in button_query.iter_mut() {
+        match (button.pressed, button.hovered) {
+            (true, _) => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
@@ -322,7 +319,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::Hovered => {
+            (false, true) => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -337,7 +334,7 @@ fn update_buttons(
                     }
                 }
             }
-            Interaction::None => {
+            (false, false) => {
                 if let Ok(children) = children_query.get(button_id) {
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
@@ -358,7 +355,7 @@ fn update_buttons(
 
 fn update_radio_buttons_colors(
     mut event_reader: EventReader<ButtonActivatedEvent>,
-    button_query: Query<(Entity, &Constraint, &Interaction)>,
+    button_query: Query<(Entity, &Constraint, &Button)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
@@ -366,7 +363,7 @@ fn update_radio_buttons_colors(
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();
-        for (id, constraint, interaction) in button_query.iter() {
+        for (id, constraint, button) in button_query.iter() {
             if target_constraint == constraint {
                 let (border_color, inner_color, text_color) = if id == button_id {
                     (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
@@ -374,7 +371,7 @@ fn update_radio_buttons_colors(
                     (
                         INACTIVE_BORDER_COLOR,
                         INACTIVE_INNER_COLOR,
-                        if matches!(interaction, Interaction::Hovered) {
+                        if button.hovered {
                             HOVERED_TEXT_COLOR
                         } else {
                             UNHOVERED_TEXT_COLOR
