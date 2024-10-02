@@ -10,13 +10,13 @@ use bevy_reflect::{
 };
 
 pub(crate) fn trigger_animation_event(
-    player: Entity,
+    player_entity: Entity,
+    target_entity: Entity,
     time: f32,
     event: Box<dyn AnimationEvent>,
-    target: Entity,
 ) -> impl Command {
     move |world: &mut World| {
-        event.trigger(player, time, target, world);
+        event.trigger(player_entity, time, target_entity, world);
     }
 }
 

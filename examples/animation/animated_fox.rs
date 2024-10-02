@@ -3,7 +3,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::{animate_targets_and_trigger_events, RepeatAnimation},
+    animation::{animate_targets, RepeatAnimation},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
@@ -18,10 +18,7 @@ fn main() {
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            setup_scene_once_loaded.before(animate_targets_and_trigger_events),
-        )
+        .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
         .add_systems(Update, keyboard_animation_control)
         .run();
 }

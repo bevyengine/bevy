@@ -581,11 +581,12 @@ impl ActiveAnimation {
     /// Update the animation given the delta time and the duration of the clip being played.
     #[inline]
     fn update(&mut self, delta: f32, clip_duration: f32) {
+        self.just_completed = false;
+
         if self.is_finished() {
             return;
         }
 
-        self.just_completed = false;
         self.last_seek_time = Some(self.seek_time);
 
         self.elapsed += delta;
@@ -615,6 +616,7 @@ impl ActiveAnimation {
     pub fn replay(&mut self) {
         self.completions = 0;
         self.elapsed = 0.0;
+        self.last_seek_time = None;
         self.seek_time = 0.0;
     }
 
@@ -983,18 +985,18 @@ pub fn advance_animations(
 
 struct AnimationTriggersIter<'a, 'b> {
     triggers: Option<core::slice::Iter<'a, AnimationEventKey>>,
-    animation: &'b ActiveAnimation,
+    active_animation: &'b ActiveAnimation,
 }
 
 impl<'a, 'b> AnimationTriggersIter<'a, 'b> {
     fn new(
         target_id: Option<AnimationTargetId>,
         clip: &'a AnimationClip,
-        animation: &'b ActiveAnimation,
+        active_animation: &'b ActiveAnimation,
     ) -> Self {
         Self {
             triggers: clip.events.get(&target_id).map(|v| v.iter()),
-            animation,
+            active_animation,
         }
     }
 }
@@ -1003,35 +1005,41 @@ impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
     type Item = &'a AnimationEventKey;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // if the animation is finished (unless it was this tick), return early
+        if !self.active_animation.just_completed && self.active_animation.is_finished() {
+            return None;
+        }
         loop {
             let trigger = self.triggers.as_mut()?.next()?;
-            if !self.animation.is_finished()
-                && match (
-                    self.animation.is_playback_reversed(),
-                    self.animation.just_completed,
-                ) {
-                    // forward, trigger if `last_seek_time < trigger_time <= seek_time`
-                    (false, false) => {
-                        Some(trigger.time) >= self.animation.last_seek_time
-                            && trigger.time <= self.animation.seek_time
-                    }
-                    // forward, completed this tick
-                    (false, true) => {
-                        Some(trigger.time) >= self.animation.last_seek_time
-                            || trigger.time <= self.animation.seek_time
-                    }
-                    // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
-                    (true, false) => {
-                        Some(trigger.time) <= self.animation.last_seek_time
-                            && trigger.time >= self.animation.seek_time
-                    }
-                    // reverse, completed this tick
-                    (true, true) => {
-                        Some(trigger.time) <= self.animation.last_seek_time
-                            || trigger.time >= self.animation.seek_time
-                    }
+            if match (
+                self.active_animation.is_playback_reversed(),
+                self.active_animation.just_completed && !self.active_animation.is_finished(),
+            ) {
+                // forward, trigger if `last_seek_time < trigger_time <= seek_time`
+                (false, false) => {
+                    self.active_animation.last_seek_time.map(|t| trigger.time > t).unwrap_or(true)
+                    // Some(trigger.time) >= self.active_animation.last_seek_time
+                        && trigger.time <= self.active_animation.seek_time
                 }
-            {
+                // forward, it looped this tick and we have to keep wrapping in mind
+                (false, true) => {
+                    self.active_animation.last_seek_time.map(|t| trigger.time > t).unwrap_or(true)
+                    // Some(trigger.time) >= self.active_animation.last_seek_time
+                        || trigger.time <= self.active_animation.seek_time
+                }
+                // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
+                (true, false) => {
+                    self.active_animation.last_seek_time.map(|t| trigger.time <= t).unwrap_or(false)
+                    // Some(trigger.time) <= self.active_animation.last_seek_time
+                        && trigger.time > self.active_animation.seek_time
+                }
+                // reverse, looped this tick
+                (true, true) => {
+                    self.active_animation.last_seek_time.map(|t| trigger.time <= t).unwrap_or(false)
+                    // Some(trigger.time) <= self.active_animation.last_seek_time
+                        || trigger.time > self.active_animation.seek_time
+                }
+            } {
                 return Some(trigger);
             }
         }
@@ -1039,23 +1047,19 @@ impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
 }
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
-fn trigger_untargeted_animation_events(
+fn trigger_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
+    targets: Query<(Entity, &AnimationTarget)>,
 ) {
-    for (entity, player, graph_id) in &players {
-        // The graph might not have loaded yet. Safely bail.
-        let Some(graph) = graphs.get(graph_id) else {
-            return;
-        };
-
+    let mut trigger_events_loop = |target_id,
+                                   player_entity,
+                                   target_entity,
+                                   player: &AnimationPlayer,
+                                   graph: &AnimationGraph| {
         for (index, active_animation) in player.active_animations.iter() {
-            if active_animation.is_finished() {
-                continue;
-            }
-
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| node.clip.as_ref())
@@ -1064,15 +1068,44 @@ fn trigger_untargeted_animation_events(
                 continue;
             };
 
-            for trigger in AnimationTriggersIter::new(None, clip, active_animation) {
+            for trigger in AnimationTriggersIter::new(target_id, clip, active_animation) {
                 commands.queue(trigger_animation_event(
-                    entity,
+                    player_entity,
+                    target_entity,
                     trigger.time,
                     trigger.event.clone().0,
-                    entity,
                 ));
             }
         }
+    };
+
+    // untargeted events
+    for (entity, player, graph_id) in &players {
+        // The graph might not have loaded yet. Safely bail.
+        let Some(graph) = graphs.get(graph_id) else {
+            return;
+        };
+
+        trigger_events_loop(None, entity, entity, player, graph);
+    }
+
+    // targeted events
+    for (target_entity, target) in &targets {
+        let &AnimationTarget {
+            id: target_id,
+            player: player_entity,
+        } = target;
+
+        let Ok((_, player, graph_handle)) = players.get(player_entity) else {
+            return;
+        };
+
+        // The graph might not have loaded yet. Safely bail.
+        let Some(graph) = graphs.get(graph_handle) else {
+            return;
+        };
+
+        trigger_events_loop(Some(target_id), player_entity, target_entity, player, graph);
     }
 }
 
@@ -1089,24 +1122,16 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
-///
-/// Also triggers animation events.
-pub fn animate_targets_and_trigger_events(
-    par_commands: ParallelCommands,
+pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTarget,
-        Option<&mut Transform>,
-        AnimationEntityMut,
-    )>,
+    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(entity, target, mut transform, mut entity_mut)| {
+        .for_each(|(target, mut transform, mut entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -1174,17 +1199,6 @@ pub fn animate_targets_and_trigger_events(
                     continue;
                 };
 
-                for trigger in AnimationTriggersIter::new(Some(target_id), clip, active_animation) {
-                    par_commands.command_scope(|mut commands| {
-                        commands.queue(trigger_animation_event(
-                            player_id,
-                            trigger.time,
-                            trigger.event.clone().0,
-                            entity,
-                        ));
-                    });
-                }
-
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
                 };
@@ -1227,6 +1241,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    trigger_animation_events,
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -1235,10 +1250,9 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    animate_targets_and_trigger_events
+                    animate_targets
                         .after(bevy_render::mesh::morph::inherit_weights)
                         .ambiguous_with_all(),
-                    trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
                     .chain()
@@ -1303,5 +1317,136 @@ impl AnimationGraphEvaluator {
         self.nodes.clear();
         self.nodes
             .extend(iter::repeat(EvaluatedAnimationGraphNode::default()).take(node_count));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Event, Clone, Reflect)]
+    struct A;
+
+    impl AnimationEvent for A {
+        fn trigger(&self, _: Entity, _: f32, target: Entity, world: &mut World) {
+            world.entity_mut(target).trigger(self.clone());
+        }
+
+        fn clone_value(&self) -> Box<dyn AnimationEvent> {
+            Box::new(self.clone())
+        }
+    }
+
+    #[test]
+    fn test_events_triggers_on_animation() {
+        let mut active_animation = ActiveAnimation::default();
+        let mut clip = AnimationClip::default();
+        clip.add_event(0.0, A);
+        clip.add_event(0.2, A);
+        assert_eq!(0.2, clip.duration);
+
+        assert_eq!(None, active_animation.last_seek_time);
+        assert_eq!(0.0, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert_eq!(
+            vec![0.0],
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.0), active_animation.last_seek_time);
+        assert_eq!(0.1, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert!(AnimationTriggersIter::new(None, &clip, &active_animation)
+            .next()
+            .is_none());
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.1), active_animation.last_seek_time);
+        assert_eq!(0.2, active_animation.seek_time);
+        assert!(active_animation.just_completed);
+        assert_eq!(
+            vec![0.2],
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.1), active_animation.last_seek_time);
+        assert_eq!(0.2, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert_eq!(
+            Vec::<f32>::new(),
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+    }
+
+    #[test]
+    fn test_events_triggers_on_looping_animation() {
+        let mut active_animation = ActiveAnimation::default();
+        active_animation.repeat = RepeatAnimation::Forever;
+        let mut clip = AnimationClip::default();
+        clip.add_event(0.0, A);
+        clip.add_event(0.2, A);
+        clip.add_event(0.3, A);
+        assert_eq!(0.3, clip.duration);
+
+        assert_eq!(None, active_animation.last_seek_time);
+        assert_eq!(0.0, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert_eq!(
+            vec![0.0],
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.0), active_animation.last_seek_time);
+        assert_eq!(0.1, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert_eq!(
+            Vec::<f32>::new(),
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.1), active_animation.last_seek_time);
+        assert_eq!(0.2, active_animation.seek_time);
+        assert_eq!(
+            vec![0.2],
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.2), active_animation.last_seek_time);
+        assert_eq!(0.0, active_animation.seek_time);
+        assert!(active_animation.just_completed);
+        assert_eq!(
+            vec![0.0, 0.3],
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
+
+        active_animation.update(0.1, clip.duration);
+        assert_eq!(Some(0.0), active_animation.last_seek_time);
+        assert_eq!(0.1, active_animation.seek_time);
+        assert!(!active_animation.just_completed);
+        assert_eq!(
+            Vec::<f32>::new(),
+            AnimationTriggersIter::new(None, &clip, &active_animation)
+                .map(|t| t.time)
+                .collect::<Vec<f32>>()
+        );
     }
 }
