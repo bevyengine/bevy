@@ -2030,6 +2030,51 @@ mod tests {
     }
 
     #[test]
+    fn remove_component_and_his_runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
     fn remove_component_and_his_required_components() {
         #[derive(Component)]
         #[require(Y)]

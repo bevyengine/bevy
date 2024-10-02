@@ -1235,17 +1235,10 @@ impl<'w> EntityWorldMut<'w> {
         let components = &mut self.world.components;
         let bundles = &mut self.world.bundles;
 
-        let bundle_id = bundles.register_info::<T>(components, storages);
-
-        // SAFETY: the `BundleInfo` is initialized above
-        let bundle_info = unsafe { bundles.get_unchecked(bundle_id) };
-
-        // We made copy to fix borrowing issue
-        let contributed_components = bundle_info.contributed_components().to_vec();
-        let extended_bundle = bundles.init_dynamic_info(components, &contributed_components);
+        let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
 
         // SAFETY: the dynamic `BundleInfo` is initialized above
-        self.location = unsafe { self.remove_bundle(extended_bundle) };
+        self.location = unsafe { self.remove_bundle(bundle_id) };
 
         self
     }

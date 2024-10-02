@@ -1301,6 +1301,8 @@ pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
+    /// Cache bundles, which contains both explicit and required components of [`Bundle`]
+    contributed_bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
@@ -1334,6 +1336,7 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
+        let contributed_bundle_ids = &mut self.contributed_bundle_ids;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
@@ -1345,9 +1348,33 @@ impl Bundles {
                 // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
+
+            // Be sure to update component bundle with requires
+            contributed_bundle_ids.remove(&TypeId::of::<T>());
+
             id
         });
         id
+    }
+
+    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+        &mut self,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> BundleId {
+        if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
+            id
+        } else {
+            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: `explicit_bundle_id` is valid and defined above
+            let contributed_components = unsafe {
+                self.get_unchecked(explicit_bundle_id)
+                    .contributed_components()
+                    .to_vec()
+            };
+
+            self.init_dynamic_info(components, &contributed_components)
+        }
     }
 
     /// # Safety
