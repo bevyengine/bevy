@@ -1345,7 +1345,7 @@ pub fn gamepad_connection_system(
         let id = connection_event.gamepad;
         match &connection_event.connection {
             GamepadConnection::Connected(info) => {
-                let Some(gamepad) = commands.get_entity(id) else {
+                let Some(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {:} removed before handling connection event.", id);
                     continue;
                 };
@@ -1353,7 +1353,7 @@ pub fn gamepad_connection_system(
                 info!("Gamepad {:?} connected.", id);
             }
             GamepadConnection::Disconnected => {
-                let Some(gamepad) = commands.get_entity(id) else {
+                let Some(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
