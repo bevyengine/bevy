@@ -71,6 +71,8 @@ pub struct TextPipeline {
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextStyle, FontFaceInfo)>,
+    /// Buffered vec for collecting font ids for glyph assembly.
+    font_ids: Vec<AssetId<Font>>,
 }
 
 impl TextPipeline {
@@ -81,12 +83,12 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
+        mut text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         linebreak: LineBreak,
+        justify: JustifyText,
         bounds: TextBounds,
         scale_factor: f64,
-        buffer: &mut CosmicBuffer,
-        alignment: JustifyText,
+        computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
@@ -100,7 +102,9 @@ impl TextPipeline {
                 .map(|_| -> (usize, &str, &TextStyle, FontFaceInfo) { unreachable!() })
                 .collect();
 
-        for (span_index, (span, style)) in text_spans.enumerate() {
+        computed.entities.clear();
+
+        for (span_index, (entity, depth, span, style)) in text_spans.enumerate() {
             // Return early if a font is not loaded yet.
             if !fonts.contains(style.font.id()) {
                 spans.clear();
@@ -115,6 +119,9 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
+
+            // Save this span entity in the computed text block.
+            computed.entities.push(TextEntity { entity, depth });
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(style.font_size);
@@ -152,6 +159,7 @@ impl TextPipeline {
         });
 
         // Update the buffer.
+        let buffer = &mut computed.buffer;
         buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, bounds.width, bounds.height);
 
@@ -170,7 +178,7 @@ impl TextPipeline {
         // PERF: https://github.com/pop-os/cosmic-text/issues/166:
         // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
         for buffer_line in buffer.lines.iter_mut() {
-            buffer_line.set_align(Some(alignment.into()));
+            buffer_line.set_align(Some(justify.into()));
         }
         buffer.shape_until_scroll(font_system, false);
 
@@ -193,41 +201,50 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         scale_factor: f64,
-        text_alignment: JustifyText,
-        linebreak: LineBreak,
-        font_smoothing: FontSmoothing,
+        block: &TextBlock,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
-        buffer: &mut CosmicBuffer,
+        computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.size = Default::default();
 
-        if sections.is_empty() {
-            return Ok(());
-        }
+        // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
+        computed.needs_rerender = false;
 
-        self.update_buffer(
+        // Extract font ids from the iterator while traversing it.
+        let mut font_ids = std::mem::take(&mut self.font_ids);
+        font_ids.clear();
+        let text_spans = text_spans.inspect(|(_, _, _, style)| {
+            font_ids.push(style.font.id());
+        });
+
+        let update_result = self.update_buffer(
             fonts,
             text_spans,
-            linebreak,
+            block.linebreak,
+            block.justify,
             bounds,
             scale_factor,
-            buffer,
-            text_alignment,
+            computed,
             font_system,
-        )?;
+        );
+        if let Err(err) = update_result {
+            self.font_ids = font_ids;
+            return Err(err);
+        }
 
+        let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
 
-        buffer
+        let result = buffer
             .layout_runs()
             .flat_map(|run| {
                 run.glyphs
@@ -237,7 +254,7 @@ impl TextPipeline {
             .try_for_each(|(layout_glyph, line_y)| {
                 let mut temp_glyph;
 
-                let layout_glyph = if font_smoothing == FontSmoothing::None {
+                let layout_glyph = if block.font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
                     temp_glyph = layout_glyph.clone();
@@ -253,15 +270,17 @@ impl TextPipeline {
                     layout_glyph
                 };
 
-                let section_index = layout_glyph.metadata;
+                let span_index = layout_glyph.metadata;
 
-                let font_handle = sections[section_index].style.font.clone_weak();
-                let font_atlas_set = font_atlas_sets.sets.entry(font_handle.id()).or_default();
+                let font_atlas_set = font_atlas_sets
+                    .sets
+                    .entry(font_ids[span_index])
+                    .or_default();
 
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                    .get_glyph_atlas_info(physical_glyph.cache_key, block.font_smoothing)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
@@ -270,7 +289,7 @@ impl TextPipeline {
                             &mut font_system.0,
                             &mut swash_cache.0,
                             layout_glyph,
-                            font_smoothing,
+                            block.font_smoothing,
                         )
                     })?;
 
@@ -294,10 +313,16 @@ impl TextPipeline {
                 // TODO: recreate the byte index, that keeps track of where a cursor is,
                 // when glyphs are not limited to single byte representation, relevant for #1319
                 let pos_glyph =
-                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
+                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, span_index);
                 layout_info.glyphs.push(pos_glyph);
                 Ok(())
-            })?;
+            });
+
+        // Return the scratch vec.
+        self.font_ids = font_ids;
+
+        // Check result.
+        result?;
 
         layout_info.size = box_size;
         Ok(())
@@ -312,23 +337,26 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         scale_factor: f64,
-        linebreak: LineBreak,
-        buffer: &mut CosmicBuffer,
-        text_alignment: JustifyText,
+        block: &TextBlock,
+        computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
+        // Clear this here at the focal point of measured text rendering to ensure the field's lifecycle has
+        // strong boundaries.
+        computed.needs_rerender = false;
+
         self.update_buffer(
             fonts,
             text_spans,
-            linebreak,
+            block.linebreak,
+            block.justify,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
-            buffer,
-            text_alignment,
+            computed,
             font_system,
         )?;
 

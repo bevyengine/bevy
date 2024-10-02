@@ -23,6 +23,16 @@ impl Default for CosmicBuffer {
     }
 }
 
+/// A sub-entity of a [`TextBlock`].
+///
+/// Returned by [`ComputedTextBlock::entities`].
+#[derive(Default, Debug, Copy, Clone)]
+pub struct TextEntity {
+    pub entity: Entity,
+    /// Records the hierarchy depth of the entity within a `TextBlock`.
+    pub depth: usize,
+}
+
 /// Computed information for a [`TextBlock`].
 ///
 /// Automatically updated by 2d and UI text systems.
@@ -37,17 +47,33 @@ pub struct ComputedTextBlock {
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     pub(crate) entities: SmallVec<[TextEntity; 1]>,
-    /// Flag set when any spans in this block have changed.
-    pub(crate) is_changed: bool,
+    /// Flag set when any change has been made to this block that should cause it to be rerendered.
+    ///
+    /// Includes:
+    /// - [`TextBlock`] changes.
+    /// - [`TextStyle`] or `Text2d`/`Text`/`TextSpan2d`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    // TODO: This encompasses both structural changes like font size or justification and non-structural
+    // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
+    // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
+    // solution would probably require splitting TextBlock and TextStyle into structural/non-structural
+    // components for more granular change detection. A cost/benefit analysis is needed.
+    pub(crate) needs_rerender: bool,
 }
 
 impl ComputedTextBlock {
-    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> {
+    /// Accesses entities in this block.
+    ///
+    /// Can be used to look up [`TextStyle`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// stored there.
+    pub fn entities(&self) -> &[TextEntity] {
         self.entities.iter()
     }
 
-    pub fn is_changed(&self) -> bool {
-        self.is_changed
+    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
+    ///
+    /// Updated automatically by [`detect_text_needs_rerender`](crate::detect_text_needs_rerender).
+    pub fn needs_rerender(&self) -> bool {
+        self.needs_rerender
     }
 }
 
@@ -56,7 +82,7 @@ impl Default for ComputedTextBlock {
         Self {
             buffer: CosmicBuffer::default(),
             entities: SmallVec::default(),
-            is_changed: true,
+            needs_rerender: true,
         }
     }
 }
@@ -71,8 +97,7 @@ impl Default for ComputedTextBlock {
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[requires(ComputedTextBlock, TextLayoutInfo)]
-pub struct TextBlock
-{
+pub struct TextBlock {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
@@ -102,8 +127,6 @@ impl TextBlock {
         self
     }
 }
-
-
 
 /// A component that is the entry point for rendering text.
 ///
@@ -282,6 +305,7 @@ impl From<JustifyText> for cosmic_text::Align {
 /// `TextStyle` determines the style of a text span within a [`TextBlock`], specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
 pub struct TextStyle {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///

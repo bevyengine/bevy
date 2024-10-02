@@ -593,18 +593,26 @@ pub fn extract_text_sections(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            &Text,
+            &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
     >,
+    text_styles: Extract<Query<&TextStyle>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let mut start = 0;
     let mut end = 1;
 
     let default_ui_camera = default_ui_camera.get();
-    for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
-        &uinode_query
+    for (
+        uinode,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        computed_block,
+        text_layout_info,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
@@ -642,16 +650,30 @@ pub fn extract_text_sections(
         transform.translation = transform.translation.round();
         transform.translation *= inverse_scale_factor;
 
+        let mut color = LinearRgba::WHITE;
+        let mut current_span = usize::MAX;
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                section_index,
+                span_index,
                 ..
-            },
+            }
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            if *span_index != current_span {
+                color = text_styles
+                    .get(
+                        computed_block
+                            .entities()
+                            .get(*span_index)
+                            .unwrap_or(Entity::PLACEHOLDER),
+                    )
+                    .map(|style| LinearRgba::from(style.color))
+                    .unwrap_or_default();
+                current_span = *span_index;
+            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
