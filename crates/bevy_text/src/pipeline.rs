@@ -193,7 +193,7 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak: LineBreak,
@@ -216,9 +216,7 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
-            sections
-                .iter()
-                .map(|section| (section.value.as_str(), &section.style)),
+            text_spans,
             linebreak,
             bounds,
             scale_factor,
@@ -314,7 +312,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        text_spans: impl Iterator<Item = (&'a str, &'a TextStyle)>,
         scale_factor: f64,
         linebreak: LineBreak,
         buffer: &mut CosmicBuffer,
@@ -325,9 +323,7 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
-            sections
-                .iter()
-                .map(|section| (section.value.as_str(), &section.style)),
+            text_spans,
             linebreak,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,

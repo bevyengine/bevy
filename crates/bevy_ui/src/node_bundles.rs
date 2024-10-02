@@ -12,7 +12,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[cfg(feature = "bevy_text")]
 use {
-    crate::widget::TextFlags,
+    crate::widget::TextNodeFlags,
     bevy_color::Color,
     bevy_text::{
         CosmicBuffer, JustifyText, LineBreak, Text, TextLayoutInfo, TextSection, TextStyle,
