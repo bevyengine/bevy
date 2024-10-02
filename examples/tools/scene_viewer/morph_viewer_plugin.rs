@@ -132,12 +132,12 @@ impl Target {
         entity: Entity,
     ) -> Vec<Target> {
         let get_name = |i| target_names.and_then(|names| names.get(i));
-        let entity_name = entity_name.map(|n| n.as_str());
+        let entity_name = entity_name.map(Name::as_str);
         weights
             .iter()
             .enumerate()
             .map(|(index, weight)| Target {
-                entity_name: entity_name.map(|n| n.to_owned()),
+                entity_name: entity_name.map(ToOwned::to_owned),
                 entity,
                 name: get_name(index).cloned(),
                 index,
@@ -232,7 +232,6 @@ fn detect_morphs(
     meshes: Res<Assets<Mesh>>,
     scene_handle: Res<SceneHandle>,
     mut setup: Local<bool>,
-    asset_server: Res<AssetServer>,
 ) {
     let no_morphing = morphs.iter().len() == 0;
     if no_morphing {
@@ -255,7 +254,6 @@ fn detect_morphs(
     }
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextStyle {
-        font: asset_server.load("assets/fonts/FiraMono-Medium.ttf"),
         font_size: 13.0,
         ..default()
     };

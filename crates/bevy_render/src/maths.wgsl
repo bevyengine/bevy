@@ -88,3 +88,8 @@ fn sphere_intersects_plane_half_space(
 ) -> bool {
     return dot(plane, sphere_center) + sphere_radius > 0.0;
 }
+
+// pow() but safe for NaNs/negatives
+fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
+    return pow(abs(color), vec3(power)) * sign(color);
+}

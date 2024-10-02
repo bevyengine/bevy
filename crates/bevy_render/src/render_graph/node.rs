@@ -3,6 +3,7 @@ use crate::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
     },
+    render_phase::DrawError,
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
@@ -13,8 +14,8 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_utils::all_tuples_with_size;
+use core::fmt::Debug;
 use downcast_rs::{impl_downcast, Downcast};
-use std::fmt::Debug;
 use thiserror::Error;
 
 pub use bevy_render_macros::RenderLabel;
@@ -97,6 +98,8 @@ pub enum NodeRunError {
     OutputSlotError(#[from] OutputSlotError),
     #[error("encountered an error when running a sub-graph")]
     RunSubGraphError(#[from] RunSubGraphError),
+    #[error("encountered an error when executing draw command")]
+    DrawError(#[from] DrawError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
@@ -226,7 +229,7 @@ pub struct NodeState {
 }
 
 impl Debug for NodeState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "{:?} ({:?})", self.label, self.type_name)
     }
 }
@@ -243,7 +246,7 @@ impl NodeState {
             input_slots: node.input().into(),
             output_slots: node.output().into(),
             node: Box::new(node),
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             edges: Edges {
                 label,
                 input_edges: Vec::new(),

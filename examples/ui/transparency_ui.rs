@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(Color::srgb(0.1, 0.5, 0.1)),
+                    background_color: Color::srgb(0.1, 0.5, 0.1).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "Button 1",
                         TextStyle {
                             font: font_handle.clone(),
-                            font_size: 40.0,
+                            font_size: 33.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(Color::srgb(0.5, 0.1, 0.5)),
+                    background_color: Color::srgb(0.5, 0.1, 0.5).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "Button 2",
                         TextStyle {
                             font: font_handle.clone(),
-                            font_size: 40.0,
+                            font_size: 33.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                         },

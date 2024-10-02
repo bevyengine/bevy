@@ -70,15 +70,15 @@ struct LevelData {
 
 fn setup(mut commands: Commands) {
     let level_data = LevelData {
-        unload_level_id: commands.register_one_shot_system(unload_current_level),
-        level_1_id: commands.register_one_shot_system(load_level_1),
-        level_2_id: commands.register_one_shot_system(load_level_2),
+        unload_level_id: commands.register_system(unload_current_level),
+        level_1_id: commands.register_system(load_level_1),
+        level_2_id: commands.register_system(load_level_2),
     };
     commands.insert_resource(level_data);
 
     // Spawns the UI that will show the user prompts.
     let text_style = TextStyle {
-        font_size: 50.0,
+        font_size: 42.0,
         ..default()
     };
     commands
@@ -150,28 +150,22 @@ fn load_level_1(
     ));
 
     // Save the asset into the `loading_assets` vector.
-    let fox = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
-        SceneBundle {
-            scene: fox.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        SceneRoot(fox.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         LevelComponents,
     ));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -192,28 +186,20 @@ fn load_level_2(
     ));
 
     // Spawn the helmet.
-    let helmet_scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let helmet_scene = asset_server
+        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());
-    commands.spawn((
-        SceneBundle {
-            scene: helmet_scene.clone(),
-            ..default()
-        },
-        LevelComponents,
-    ));
+    commands.spawn((SceneRoot(helmet_scene.clone()), LevelComponents));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -265,7 +251,7 @@ struct LoadingScreen;
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextStyle {
-        font_size: 80.0,
+        font_size: 67.0,
         ..default()
     };
 
@@ -319,7 +305,10 @@ fn display_loading_screen(
 }
 
 mod pipelines_ready {
-    use bevy::{prelude::*, render::render_resource::*, render::*};
+    use bevy::{
+        prelude::*,
+        render::{render_resource::*, *},
+    };
 
     pub struct PipelinesReadyPlugin;
     impl Plugin for PipelinesReadyPlugin {
@@ -331,7 +320,7 @@ mod pipelines_ready {
             // and then update the pipelines status from there.
             // Writing between these Apps can only be done through the
             // `ExtractSchedule`.
-            app.sub_app_mut(bevy::render::RenderApp)
+            app.sub_app_mut(RenderApp)
                 .add_systems(ExtractSchedule, update_pipelines_ready);
         }
     }

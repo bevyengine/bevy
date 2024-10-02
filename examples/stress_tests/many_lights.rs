@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{ExtractedPointLight, GlobalLightMeta},
+    pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowResolution},
@@ -53,12 +53,11 @@ fn setup(
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_scale(Vec3::NEG_ONE),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_scale(Vec3::NEG_ONE),
+    ));
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
@@ -78,25 +77,23 @@ fn setup(
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
 
-        PointLightBundle {
-            point_light: PointLight {
+        (
+            PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
-            transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
-            ..default()
-        }
+            Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
+        )
     }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
         Some("orthographic") => commands.spawn(Camera3dBundle {
             projection: OrthographicProjection {
-                scale: 20.0,
-                scaling_mode: ScalingMode::FixedHorizontal(1.0),
-                ..default()
+                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             ..default()
@@ -106,16 +103,15 @@ fn setup(
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn(PbrBundle {
-        mesh,
-        material,
-        transform: Transform {
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
@@ -126,7 +122,8 @@ const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
         PI * 2. * (i as f64 / golden_ratio),
-        (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
+        ops::acos((1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)) as f32)
+            as f64,
     )
 }
 
@@ -170,7 +167,7 @@ fn print_visible_light_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
-    global_light_meta: Res<GlobalLightMeta>,
+    global_light_meta: Res<GlobalClusterableObjectMeta>,
 ) {
     timer.0.tick(time.delta());
 

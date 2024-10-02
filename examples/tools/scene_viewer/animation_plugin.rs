@@ -108,7 +108,7 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = parents.get(entity).ok().map(|parent| parent.get());
+                current = parents.get(entity).ok().map(Parent::get);
             }
         }
 

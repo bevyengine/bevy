@@ -4,11 +4,12 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::SortedRenderPhase,
-    render_resource::RenderPassDescriptor,
+    render_phase::ViewSortedRenderPhases,
+    render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::ViewTarget,
+    view::{ViewDepthTexture, ViewTarget},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -18,20 +19,30 @@ pub struct MainTransparentPass2dNode {}
 impl ViewNode for MainTransparentPass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static SortedRenderPhase<Transparent2d>,
         &'static ViewTarget,
+        &'static ViewDepthTexture,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, transparent_phase, target): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (camera, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.view_entity();
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent2d>>()
+        else {
+            return Ok(());
+        };
 
-        if !transparent_phase.items.is_empty() {
+        let view_entity = graph.view_entity();
+        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+            return Ok(());
+        };
+
+        // This needs to run at least once to clear the background color, even if there are no items to render
+        {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
 
@@ -40,7 +51,13 @@ impl ViewNode for MainTransparentPass2dNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment())],
-                depth_stencil_attachment: None,
+                // NOTE: For the transparent pass we load the depth buffer. There should be no
+                // need to write to it, but store is set to `true` as a workaround for issue #3776,
+                // https://github.com/bevyengine/bevy/issues/3776
+                // so that wgpu does not clear the depth buffer.
+                // As the opaque and alpha mask passes run first, opaque meshes can occlude
+                // transparent ones.
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
@@ -51,7 +68,14 @@ impl ViewNode for MainTransparentPass2dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            if !transparent_phase.items.is_empty() {
+                #[cfg(feature = "trace")]
+                let _transparent_main_pass_2d_span =
+                    info_span!("transparent_main_pass_2d").entered();
+                if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the transparent 2D phase {err:?}");
+                }
+            }
 
             pass_span.end(&mut render_pass);
         }

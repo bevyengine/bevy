@@ -1,13 +1,14 @@
 //! Plays animations from a skinned glTF.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
     animation::{animate_targets, RepeatAnimation},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
+
+const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
@@ -37,26 +38,17 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Build the animation graph
-    let mut graph = AnimationGraph::new();
-    let animations = graph
-        .add_clips(
-            [
-                "models/animated/Fox.glb#Animation2",
-                "models/animated/Fox.glb#Animation1",
-                "models/animated/Fox.glb#Animation0",
-            ]
-            .into_iter()
-            .map(|path| asset_server.load(path)),
-            1.0,
-            graph.root,
-        )
-        .collect();
+    let (graph, node_indices) = AnimationGraph::from_clips([
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
+    ]);
 
     // Insert a resource with the current scene information
-    let graph = graphs.add(graph);
+    let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {
-        animations,
-        graph: graph.clone(),
+        animations: node_indices,
+        graph: graph_handle,
     });
 
     // Camera
@@ -67,33 +59,30 @@ fn setup(
     });
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 200.0,
             maximum_distance: 400.0,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Fox
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
@@ -104,7 +93,8 @@ fn setup(
     println!("  - return: change animation");
 }
 
-// Once the scene is loaded, start the animation
+// An `AnimationPlayer` is automatically added to the scene when it's ready.
+// When the player is added, start the animation.
 fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,

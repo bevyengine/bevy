@@ -1,5 +1,10 @@
 use crate::{IVec2, Rect, URect};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A rectangle defined by two opposite corners.
 ///
 /// The rectangle is axis aligned, and defined by its minimum and maximum coordinates,
@@ -11,6 +16,15 @@ use crate::{IVec2, Rect, URect};
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct IRect {
     /// The minimum corner point of the rect.
     pub min: IVec2,
@@ -19,6 +33,15 @@ pub struct IRect {
 }
 
 impl IRect {
+    /// An empty `IRect`, represented by maximum and minimum corner points
+    /// with `max == IVec2::MIN` and `min == IVec2::MAX`, so the
+    /// rect has an extremely large negative size.
+    /// This is useful, because when taking a union B of a non-empty `IRect` A and
+    /// this empty `IRect`, B will simply equal A.
+    pub const EMPTY: Self = Self {
+        max: IVec2::MIN,
+        min: IVec2::MAX,
+    };
     /// Create a new rectangle from two corner points.
     ///
     /// The two points do not need to be the minimum and/or maximum corners.
@@ -289,31 +312,31 @@ impl IRect {
         r
     }
 
-    /// Create a new rectangle with a constant inset.
+    /// Create a new rectangle by expanding it evenly on all sides.
     ///
-    /// The inset is the extra border on all sides. A positive inset produces a larger rectangle,
-    /// while a negative inset is allowed and produces a smaller rectangle. If the inset is negative
-    /// and its absolute value is larger than the rectangle half-size, the created rectangle is empty.
+    /// A positive expansion value produces a larger rectangle,
+    /// while a negative expansion value produces a smaller rectangle.
+    /// If this would result in zero or negative width or height, [`IRect::EMPTY`] is returned instead.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_math::{IRect, IVec2};
     /// let r = IRect::new(0, 0, 5, 1); // w=5 h=1
-    /// let r2 = r.inset(3); // w=11 h=7
+    /// let r2 = r.inflate(3); // w=11 h=7
     /// assert_eq!(r2.min, IVec2::splat(-3));
     /// assert_eq!(r2.max, IVec2::new(8, 4));
     ///
     /// let r = IRect::new(0, -1, 4, 3); // w=4 h=4
-    /// let r2 = r.inset(-1); // w=2 h=2
+    /// let r2 = r.inflate(-1); // w=2 h=2
     /// assert_eq!(r2.min, IVec2::new(1, 0));
     /// assert_eq!(r2.max, IVec2::new(3, 2));
     /// ```
     #[inline]
-    pub fn inset(&self, inset: i32) -> Self {
+    pub fn inflate(&self, expansion: i32) -> Self {
         let mut r = Self {
-            min: self.min - inset,
-            max: self.max + inset,
+            min: self.min - expansion,
+            max: self.max + expansion,
         };
         // Collapse min over max to enforce invariants and ensure e.g. width() or
         // height() never return a negative value.
@@ -448,10 +471,10 @@ mod tests {
     }
 
     #[test]
-    fn rect_inset() {
+    fn rect_inflate() {
         let r = IRect::from_center_size(IVec2::ZERO, IVec2::splat(4)); // [-2,-2] - [2,2]
 
-        let r2 = r.inset(2);
+        let r2 = r.inflate(2);
         assert_eq!(r2.min, IVec2::new(-4, -4));
         assert_eq!(r2.max, IVec2::new(4, 4));
     }

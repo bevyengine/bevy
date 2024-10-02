@@ -40,13 +40,13 @@ struct A;
 struct B;
 
 fn setup_with_commands(mut commands: Commands) {
-    let system_id = commands.register_one_shot_system(system_a);
+    let system_id = commands.register_system(system_a);
     commands.spawn((Callback(system_id), A));
 }
 
 fn setup_with_world(world: &mut World) {
     // We can run it once manually
-    world.run_system_once(system_b);
+    world.run_system_once(system_b).unwrap();
     // Or with a Callback
     let system_id = world.register_system(system_b);
     world.spawn((Callback(system_id), B));
@@ -97,22 +97,12 @@ fn setup_ui(mut commands: Commands) {
         TextBundle::from_sections([
             TextSection::new(
                 "Press A or B to trigger a one-shot system\n",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ),
-            TextSection::new(
-                "Last Triggered: ",
-                TextStyle {
-                    font_size: 20.0,
-                    ..default()
-                },
-            ),
+            TextSection::new("Last Triggered: ", TextStyle::default()),
             TextSection::new(
                 "-",
                 TextStyle {
-                    font_size: 20.0,
                     color: bevy::color::palettes::css::ORANGE.into(),
                     ..default()
                 },

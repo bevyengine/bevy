@@ -66,6 +66,7 @@ impl Drop for RenderAppChannels {
 }
 
 /// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
+///
 /// This moves rendering into a different thread, so that the Nth frame's rendering can
 /// be run at the same time as the N + 1 frame's simulation.
 ///
@@ -83,23 +84,27 @@ impl Drop for RenderAppChannels {
 /// A single frame of execution looks something like below    
 ///
 /// ```text
-/// |--------------------------------------------------------------------|
-/// |         | RenderExtractApp schedule | winit events | main schedule |
-/// | extract |----------------------------------------------------------|
-/// |         | extract commands | rendering schedule                    |
-/// |--------------------------------------------------------------------|
+/// |---------------------------------------------------------------------------|
+/// |      |         | RenderExtractApp schedule | winit events | main schedule |
+/// | sync | extract |----------------------------------------------------------|
+/// |      |         | extract commands | rendering schedule                    |
+/// |---------------------------------------------------------------------------|
 /// ```
 ///
+/// - `sync` is the step where the entity-entity mapping between the main and render world is updated.
+///     This is run on the main app's thread. For more information checkout [`WorldSyncPlugin`].
 /// - `extract` is the step where data is copied from the main world to the render world.
-/// This is run on the main app's thread.
+///     This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
-/// main schedule can start sooner.
+///     main schedule can start sooner.
 /// - Then the `rendering schedule` is run. See [`RenderSet`](crate::RenderSet) for the standard steps in this process.
 /// - In parallel to the rendering thread the [`RenderExtractApp`] schedule runs. By
-/// default this schedule is empty. But it is useful if you need something to run before I/O processing.
+///     default, this schedule is empty. But it is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
+///
+/// [`WorldSyncPlugin`]: crate::world_sync::WorldSyncPlugin
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
 

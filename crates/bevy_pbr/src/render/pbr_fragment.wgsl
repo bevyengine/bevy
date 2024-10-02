@@ -40,7 +40,7 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = mesh[in.instance_index].flags;
 #endif
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
@@ -89,12 +89,14 @@ fn pbr_input_from_standard_material(
     bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef VERTEX_UVS
     let uv_transform = pbr_bindings::material.uv_transform;
 #ifdef VERTEX_UVS_A
     var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 #endif
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef VERTEX_UVS_B
     var uv_b = (uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
@@ -104,12 +106,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let V = pbr_input.V;
-        let N = in.world_normal;
-        let T = in.world_tangent.xyz;
-        let B = in.world_tangent.w * cross(N, T);
+        let TBN = pbr_functions::calculate_tbn_mikktspace(in.world_normal, in.world_tangent);
+        let T = TBN[0];
+        let B = TBN[1];
+        let N = TBN[2];
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
 #ifdef VERTEX_UVS_A
+        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -123,6 +127,7 @@ fn pbr_input_from_standard_material(
 #endif
 
 #ifdef VERTEX_UVS_B
+        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv_b = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -178,7 +183,6 @@ fn pbr_input_from_standard_material(
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
         // emissive
-        // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
@@ -191,7 +195,7 @@ fn pbr_input_from_standard_material(
                 uv,
 #endif
                 bias,
-            ).rgb, 1.0);
+            ).rgb, emissive.a);
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -298,7 +302,7 @@ fn pbr_input_from_standard_material(
         // TODO: Meshlet support
 #ifndef MESHLET_MESH_MATERIAL_PASS
         thickness *= length(
-            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+            (transpose(mesh[in.instance_index].world_from_local) * vec4(pbr_input.N, 0.0)).xyz
         );
 #endif
         pbr_input.material.thickness = thickness;
@@ -358,6 +362,8 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 
+        let TBN = pbr_functions::calculate_tbn_mikktspace(pbr_input.world_normal, in.world_tangent);
+
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
         let Nt = pbr_functions::sample_texture(
@@ -373,12 +379,10 @@ fn pbr_input_from_standard_material(
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP
@@ -404,12 +408,10 @@ fn pbr_input_from_standard_material(
 
         pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             clearcoat_Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
@@ -418,6 +420,49 @@ fn pbr_input_from_standard_material(
 
 #endif  // VERTEX_TANGENTS
 #endif  // VERTEX_UVS
+
+        // Take anisotropy into account.
+        //
+        // This code comes from the `KHR_materials_anisotropy` spec:
+        // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
+#ifdef PBR_ANISOTROPY_TEXTURE_SUPPORTED
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+
+        var anisotropy_strength = pbr_bindings::material.anisotropy_strength;
+        var anisotropy_direction = pbr_bindings::material.anisotropy_rotation;
+
+        // Adjust based on the anisotropy map if there is one.
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ANISOTROPY_TEXTURE_BIT) != 0u) {
+            let anisotropy_texel = pbr_functions::sample_texture(
+                pbr_bindings::anisotropy_texture,
+                pbr_bindings::anisotropy_sampler,
+#ifdef STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                bias,
+            ).rgb;
+
+            let anisotropy_direction_from_texture = normalize(anisotropy_texel.rg * 2.0 - 1.0);
+            // Rotate by the anisotropy direction.
+            anisotropy_direction =
+                mat2x2(anisotropy_direction.xy, anisotropy_direction.yx * vec2(-1.0, 1.0)) *
+                anisotropy_direction_from_texture;
+            anisotropy_strength *= anisotropy_texel.b;
+        }
+
+        pbr_input.anisotropy_strength = anisotropy_strength;
+
+        let anisotropy_T = normalize(TBN * vec3(anisotropy_direction, 0.0));
+        let anisotropy_B = normalize(cross(pbr_input.world_normal, anisotropy_T));
+        pbr_input.anisotropy_T = anisotropy_T;
+        pbr_input.anisotropy_B = anisotropy_B;
+
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+#endif  // VERTEX_TANGENTS
+#endif  // PBR_ANISOTROPY_TEXTURE_SUPPORTED
 
 #endif  // LOAD_PREPASS_NORMALS
 

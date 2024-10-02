@@ -1,7 +1,6 @@
 //! Rendering a scene with baked lightmaps.
 
-use bevy::pbr::Lightmap;
-use bevy::prelude::*;
+use bevy::{pbr::Lightmap, prelude::*};
 
 fn main() {
     App::new()
@@ -13,10 +12,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/CornellBox/CornellBox.glb#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+    )));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-278.0, 273.0, 800.0),
@@ -29,17 +27,12 @@ fn add_lightmaps_to_meshes(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     meshes: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     let exposure = 250.0;
     for (entity, name, material) in meshes.iter() {
-        if &**name == "Light" {
-            materials.get_mut(material).unwrap().emissive = Color::Srgba(Srgba::WHITE * exposure);
-            continue;
-        }
-
         if &**name == "large_box" {
             materials.get_mut(material).unwrap().lightmap_exposure = exposure;
             commands.entity(entity).insert(Lightmap {

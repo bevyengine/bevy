@@ -94,49 +94,46 @@ fn setup(
     app_status: Res<AppStatus>,
 ) {
     // Spawn a plane.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     // Spawn the two HLODs.
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-            ..default()
-        })
-        .insert(MainModel::HighPoly);
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        MainModel::HighPoly,
+    ));
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf#Scene0"),
-            ..default()
-        })
-        .insert(MainModel::LowPoly);
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
+            ),
+        ),
+        MainModel::LowPoly,
+    ));
 
     // Spawn a light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 30.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Spawn a camera.
     commands
@@ -148,18 +145,19 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         });
 
     // Create the text.
     commands.spawn(
         TextBundle {
-            text: app_status.create_text(&asset_server),
-            ..TextBundle::default()
+            text: app_status.create_text(),
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -171,7 +169,7 @@ fn setup(
 // component as appropriate.
 fn set_visibility_ranges(
     mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    mut new_meshes: Query<Entity, Added<Mesh3d>>,
     parents: Query<(Option<&Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
@@ -290,19 +288,15 @@ fn update_mode(
 }
 
 // A system that updates the help text.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_text(&asset_server);
+        *text = app_status.create_text();
     }
 }
 
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
-    fn create_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_text(&self) -> Text {
         Text::from_section(
             format!(
                 "\
@@ -327,11 +321,7 @@ Press WASD or use the mouse wheel to move the camera",
                     ' '
                 },
             ),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

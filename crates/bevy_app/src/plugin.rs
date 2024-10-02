@@ -1,7 +1,7 @@
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
-use std::any::Any;
+use core::any::Any;
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -54,7 +54,7 @@ use std::any::Any;
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ````
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
@@ -82,7 +82,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures a name for the [`Plugin`] which is primarily used for checking plugin
     /// uniqueness and debugging.
     fn name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     /// If the plugin can be meaningfully instantiated several times in an [`App`],
@@ -119,12 +119,6 @@ pub(crate) struct PlaceholderPlugin;
 impl Plugin for PlaceholderPlugin {
     fn build(&self, _app: &mut App) {}
 }
-
-/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// It is used for dynamically loading plugins.
-///
-/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.
 ///
@@ -173,7 +167,9 @@ mod sealed {
             where
                 $($plugins: Plugins<$param>),*
             {
-                #[allow(non_snake_case, unused_variables)]
+                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;

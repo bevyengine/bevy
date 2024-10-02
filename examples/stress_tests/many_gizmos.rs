@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -70,7 +70,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
-            let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
+            let vector = Vec2::from(ops::sin_cos(angle)).extend(ops::sin(time.elapsed_seconds()));
             let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
             let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
@@ -87,13 +87,14 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 
-    commands.spawn(TextBundle::from_section(
-        "",
-        TextStyle {
-            font_size: 30.,
+    commands.spawn(
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
 fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
@@ -101,7 +102,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
 
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(Diagnostic::smoothed)
     else {
         return;
     };

@@ -8,10 +8,14 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
         render_resource::*,
     },
-    sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{Material2d, Material2dKey, Material2dPlugin},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_gltf_2d.wgsl";
+
 /// This vertex attribute supplies barycentric coordinates for each triangle.
+///
 /// Each component of the vector corresponds to one corner of a triangle. It's
 /// equal to 1.0 in that corner and 0.0 in the other two. Hence, its value in
 /// the fragment shader indicates proximity to a corner or the opposite edge.
@@ -42,13 +46,18 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
-    let mesh = asset_server.load("models/barycentric/barycentric.gltf#Mesh0/Primitive0");
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(mesh),
-        material: materials.add(CustomMaterial {}),
-        transform: Transform::from_scale(150.0 * Vec3::ONE),
-        ..default()
-    });
+    let mesh = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset("models/barycentric/barycentric.gltf"),
+    );
+    commands.spawn((
+        Mesh2d(mesh),
+        MeshMaterial2d(materials.add(CustomMaterial {})),
+        Transform::from_scale(150.0 * Vec3::ONE),
+    ));
 
     // Add a camera
     commands.spawn(Camera2dBundle { ..default() });
@@ -62,10 +71,10 @@ struct CustomMaterial {}
 
 impl Material2d for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_gltf_2d.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_gltf_2d.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(

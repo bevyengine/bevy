@@ -3,9 +3,6 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, path::Path};
-
 use bevy::{
     animation::animate_targets,
     color::palettes::{
@@ -17,12 +14,13 @@ use bevy::{
 };
 
 use argh::FromArgs;
+
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::asset::io::file::FileAssetReader;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::IoTaskPool;
-#[cfg(not(target_arch = "wasm32"))]
-use ron::ser::PrettyConfig;
+use {
+    bevy::{asset::io::file::FileAssetReader, tasks::IoTaskPool},
+    ron::ser::PrettyConfig,
+    std::{fs::File, path::Path},
+};
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
@@ -160,17 +158,17 @@ fn setup_assets_programmatically(
     let mut animation_graph = AnimationGraph::new();
     let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
         1.0,
         animation_graph.root,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation1"),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
     animation_graph.add_clip(
-        asset_server.load("models/animated/Fox.glb#Animation2"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
@@ -225,42 +223,35 @@ fn setup_scene(
         ..default()
     });
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 8.0, 13.0),
+    ));
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
-        transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_scale(Vec3::splat(0.07)),
+    ));
 
     // Ground
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(7.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(7.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
 }
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
     commands.spawn(TextBundle {
-        text: Text::from_section(
-            HELP_TEXT,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        ),
+        text: Text::from_section(HELP_TEXT, TextStyle::default()),
         style: Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -316,7 +307,7 @@ fn setup_node_rects(commands: &mut Commands) {
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
-                container.insert((
+                container = container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),

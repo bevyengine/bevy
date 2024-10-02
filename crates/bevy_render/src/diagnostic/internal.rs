@@ -1,12 +1,9 @@
-use std::{
-    borrow::Cow,
+use alloc::{borrow::Cow, sync::Arc};
+use core::{
     ops::{DerefMut, Range},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::{self, ThreadId},
+    sync::atomic::{AtomicBool, Ordering},
 };
+use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};
@@ -117,7 +114,7 @@ impl DiagnosticsRecorder {
             None => FrameData::new(device, internal.features),
         };
 
-        let old_frame = std::mem::replace(
+        let old_frame = core::mem::replace(
             internal.current_frame.get_mut().expect("lock poisoned"),
             new_frame,
         );
@@ -159,6 +156,7 @@ struct FrameData {
     timestamps_query_set: Option<QuerySet>,
     num_timestamps: u32,
     supports_timestamps_inside_passes: bool,
+    supports_timestamps_inside_encoders: bool,
     pipeline_statistics_query_set: Option<QuerySet>,
     num_pipeline_statistics: u32,
     buffer_size: u64,
@@ -225,6 +223,8 @@ impl FrameData {
             num_timestamps: 0,
             supports_timestamps_inside_passes: features
                 .contains(Features::TIMESTAMP_QUERY_INSIDE_PASSES),
+            supports_timestamps_inside_encoders: features
+                .contains(Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
             pipeline_statistics_query_set,
             num_pipeline_statistics: 0,
             buffer_size,
@@ -252,6 +252,11 @@ impl FrameData {
         encoder: &mut impl WriteTimestamp,
         is_inside_pass: bool,
     ) -> Option<u32> {
+        // `encoder.write_timestamp` is unsupported on WebGPU.
+        if !self.supports_timestamps_inside_encoders {
+            return None;
+        }
+
         if is_inside_pass && !self.supports_timestamps_inside_passes {
             return None;
         }
@@ -413,9 +418,9 @@ impl FrameData {
 
     fn diagnostic_path(&self, range: &Range<usize>, field: &str) -> DiagnosticPath {
         DiagnosticPath::from_components(
-            std::iter::once("render")
+            core::iter::once("render")
                 .chain(self.path_components[range.clone()].iter().map(|v| &**v))
-                .chain(std::iter::once(field)),
+                .chain(core::iter::once(field)),
         )
     }
 

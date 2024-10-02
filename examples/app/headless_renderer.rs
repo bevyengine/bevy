@@ -13,8 +13,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_asset::RenderAssetUsages,
-        render_asset::RenderAssets,
+        render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
             Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
@@ -22,7 +21,7 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::BevyDefault,
+        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
 };
@@ -161,28 +160,25 @@ fn setup(
 
     // Scene example for non black box picture
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb_u8(124, 144, 255)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -361,6 +357,10 @@ impl render_graph::Node for ImageCopyDriver {
             let block_dimensions = src_image.texture_format.block_dimensions();
             let block_size = src_image.texture_format.block_copy_size(None).unwrap();
 
+            // Calculating correct size of image row because
+            // copy_texture_to_buffer can copy image only by rows aligned wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+            // That's why image in buffer can be little bit wider
+            // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
                 (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
             );
@@ -378,7 +378,7 @@ impl render_graph::Node for ImageCopyDriver {
                     layout: ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
                                 .unwrap()
                                 .into(),
                         ),
@@ -432,8 +432,8 @@ fn receive_image_from_buffer(
         // buffered and receiving will just pick that up.
         //
         // It may also be worth noting that although on native, the usage of asynchronous
-        // channels is wholly unnecessary, for the sake of portability to WASM
-        // we'll use async channels that work on both native and WASM.
+        // channels is wholly unnecessary, for the sake of portability to Wasm
+        // we'll use async channels that work on both native and Wasm.
 
         let (s, r) = crossbeam_channel::bounded(1);
 
@@ -492,7 +492,24 @@ fn update(
                 for image in images_to_save.iter() {
                     // Fill correct data from channel to image
                     let img_bytes = images.get_mut(image.id()).unwrap();
-                    img_bytes.data.clone_from(&image_data);
+
+                    // We need to ensure that this works regardless of the image dimensions
+                    // If the image became wider when copying from the texture to the buffer,
+                    // then the data is reduced to its original size when copying from the buffer to the image.
+                    let row_bytes = img_bytes.width() as usize
+                        * img_bytes.texture_descriptor.format.pixel_size();
+                    let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+                    if row_bytes == aligned_row_bytes {
+                        img_bytes.data.clone_from(&image_data);
+                    } else {
+                        // shrink data to original image size
+                        img_bytes.data = image_data
+                            .chunks(aligned_row_bytes)
+                            .take(img_bytes.height() as usize)
+                            .flat_map(|row| &row[..row_bytes.min(row.len())])
+                            .cloned()
+                            .collect();
+                    }
 
                     // Create RGBA Image Buffer
                     let img = match img_bytes.clone().try_into_dynamic() {
@@ -513,7 +530,7 @@ fn update(
                     // Finally saving image to file, this heavy blocking operation is kept here
                     // for example simplicity, but in real app you should move it to a separate task
                     if let Err(e) = img.save(image_path) {
-                        panic!("Failed to save image: {}", e);
+                        panic!("Failed to save image: {e}");
                     };
                 }
                 if scene_controller.single_image {

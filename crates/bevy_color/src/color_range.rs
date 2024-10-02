@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::Mix;
 
@@ -15,29 +15,32 @@ pub trait ColorRange<T: Mix> {
 
 impl<T: Mix> ColorRange<T> for Range<T> {
     fn at(&self, factor: f32) -> T {
-        self.start.mix(&self.end, factor)
+        self.start.mix(&self.end, factor.clamp(0.0, 1.0))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palettes::basic;
-    use crate::{LinearRgba, Srgba};
+    use crate::{palettes::basic, LinearRgba, Srgba};
 
     #[test]
     fn test_color_range() {
         let range = basic::RED..basic::BLUE;
+        assert_eq!(range.at(-0.5), basic::RED);
         assert_eq!(range.at(0.0), basic::RED);
         assert_eq!(range.at(0.5), Srgba::new(0.5, 0.0, 0.5, 1.0));
         assert_eq!(range.at(1.0), basic::BLUE);
+        assert_eq!(range.at(1.5), basic::BLUE);
 
         let lred: LinearRgba = basic::RED.into();
         let lblue: LinearRgba = basic::BLUE.into();
 
         let range = lred..lblue;
+        assert_eq!(range.at(-0.5), lred);
         assert_eq!(range.at(0.0), lred);
         assert_eq!(range.at(0.5), LinearRgba::new(0.5, 0.0, 0.5, 1.0));
         assert_eq!(range.at(1.0), lblue);
+        assert_eq!(range.at(1.5), lblue);
     }
 }

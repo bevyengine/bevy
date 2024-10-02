@@ -1,29 +1,30 @@
-#![allow(deprecated)]
-
 //! This module contains basic node bundles used to build UIs
 
-#[cfg(feature = "bevy_text")]
-use crate::widget::TextFlags;
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
+    ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
-use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
-use bevy_sprite::TextureAtlas;
-#[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
+
+#[cfg(feature = "bevy_text")]
+use {
+    crate::widget::TextFlags,
+    bevy_color::Color,
+    bevy_text::{
+        CosmicBuffer, JustifyText, LineBreak, Text, TextLayoutInfo, TextSection, TextStyle,
+    },
+};
 
 /// The basic UI node.
 ///
 /// Contains the [`Node`] component and other components required to make a container.
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -38,6 +39,8 @@ pub struct NodeBundle {
     pub border_radius: BorderRadius,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
+    /// The scroll position of the node,
+    pub scroll_position: ScrollPosition,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -58,33 +61,13 @@ pub struct NodeBundle {
     pub z_index: ZIndex,
 }
 
-impl Default for NodeBundle {
-    fn default() -> Self {
-        NodeBundle {
-            // Transparent background
-            background_color: Color::NONE.into(),
-            border_color: Color::NONE.into(),
-            border_radius: BorderRadius::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
-}
-
 /// A UI node that is an image
 ///
 /// # Extra behaviours
 ///
 /// You may add one or both of the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`] to draw a specific section of the texture
+/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -94,8 +77,14 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The image of the node
+    /// The image of the node.
+    ///
+    /// To tint the image, change the `color` field of this component.
     pub image: UiImage,
+    /// The color of the background that will fill the containing node.
+    pub background_color: BackgroundColor,
+    /// The border radius of the node
+    pub border_radius: BorderRadius,
     /// The size of the image in pixels
     ///
     /// This component is set automatically
@@ -121,62 +110,12 @@ pub struct ImageBundle {
     pub z_index: ZIndex,
 }
 
-/// A UI node that is a texture atlas sprite
-///
-/// # Extra behaviours
-///
-/// You may add the following components to enable additional behaviours
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-///
-/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
-#[deprecated(
-    since = "0.14.0",
-    note = "Use `TextureAtlas` alongside `ImageBundle` instead"
-)]
-#[derive(Bundle, Debug, Default)]
-pub struct AtlasImageBundle {
-    /// Describes the logical size of the node
-    pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
-    /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
-    /// The image of the node
-    pub image: UiImage,
-    /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: TextureAtlas,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
-    /// The size of the image in pixels
-    ///
-    /// This component is set automatically
-    pub image_size: UiImageSize,
-    /// The transform of the node
-    ///
-    /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
-    pub visibility: Visibility,
-    /// Inherited visibility of an entity.
-    pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub view_visibility: ViewVisibility,
-    /// Indicates the depth at which the node should appear in the UI
-    pub z_index: ZIndex,
-}
-
 #[cfg(feature = "bevy_text")]
 /// A UI node that is text
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).
-#[derive(Bundle, Debug)]
+#[derive(Bundle, Debug, Default)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -185,6 +124,8 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Cached cosmic buffer for layout
+    pub buffer: CosmicBuffer,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
@@ -212,29 +153,6 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
-}
-
-#[cfg(feature = "bevy_text")]
-impl Default for TextBundle {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
-            text_layout_info: Default::default(),
-            text_flags: Default::default(),
-            calculated_size: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-            // Transparent background
-            background_color: BackgroundColor(Color::NONE),
-        }
-    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -280,7 +198,7 @@ impl TextBundle {
     /// Returns this [`TextBundle`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
-        self.text.linebreak_behavior = BreakLineOn::NoWrap;
+        self.text.linebreak = LineBreak::NoWrap;
         self
     }
 }
@@ -301,7 +219,7 @@ where
 ///
 /// You may add one or both of the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`] to draw a specific section of the texture
+/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
@@ -321,6 +239,8 @@ pub struct ButtonBundle {
     pub border_radius: BorderRadius,
     /// The image of the node
     pub image: UiImage,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -348,9 +268,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
-            border_color: BorderColor(Color::NONE),
-            border_radius: BorderRadius::default(),
+            border_color: Default::default(),
+            border_radius: Default::default(),
             image: Default::default(),
+            background_color: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

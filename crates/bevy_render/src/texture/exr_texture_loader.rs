@@ -2,10 +2,7 @@ use crate::{
     render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_asset::{
-    io::{AsyncReadExt, Reader},
-    AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,9 +10,11 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
 #[derive(Clone, Default)]
+#[cfg(feature = "exr")]
 pub struct ExrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
+#[cfg(feature = "exr")]
 pub struct ExrTextureLoaderSettings {
     pub asset_usage: RenderAssetUsages,
 }
@@ -23,6 +22,7 @@ pub struct ExrTextureLoaderSettings {
 /// Possible errors that can be produced by [`ExrTextureLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
+#[cfg(feature = "exr")]
 pub enum ExrTextureLoaderError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -35,11 +35,11 @@ impl AssetLoader for ExrTextureLoader {
     type Settings = ExrTextureLoaderSettings;
     type Error = ExrTextureLoaderError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &Self::Settings,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(

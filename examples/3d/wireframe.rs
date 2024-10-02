@@ -56,29 +56,22 @@ fn setup(
 ) {
     // Red cube: Never renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(RED)),
-            transform: Transform::from_xyz(-1.0, 0.5, -1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, 0.5, -1.0),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(Color::from(ORANGE)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(ORANGE))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // Green cube: Always renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(1.0, 0.5, 1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
@@ -87,11 +80,8 @@ fn setup(
 
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(Color::from(BLUE)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
         WireframeColor {
@@ -100,10 +90,7 @@ fn setup(
     ));
 
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(2.0, 4.0, 2.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(2.0, 4.0, 2.0)));
 
     // camera
     commands.spawn(Camera3dBundle {
@@ -115,8 +102,8 @@ fn setup(
     commands.spawn(
         TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -130,8 +117,7 @@ fn update_colors(
     mut text: Query<&mut Text>,
 ) {
     text.single_mut().sections[0].value = format!(
-        "
-Controls
+        "Controls
 ---------------
 Z - Toggle global
 X - Change global color
@@ -140,8 +126,7 @@ C - Change color of the green cube wireframe
 WireframeConfig
 -------------
 Global: {}
-Color: {:?}
-",
+Color: {:?}",
         config.global, config.default_color,
     );
 

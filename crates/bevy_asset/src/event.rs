@@ -1,6 +1,6 @@
 use crate::{Asset, AssetId, AssetLoadError, AssetPath, UntypedAssetId};
 use bevy_ecs::event::Event;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// An event emitted when a specific [`Asset`] fails to load.
 ///
@@ -92,7 +92,7 @@ impl<A: Asset> Clone for AssetEvent<A> {
 impl<A: Asset> Copy for AssetEvent<A> {}
 
 impl<A: Asset> Debug for AssetEvent<A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Added { id } => f.debug_struct("Added").field("id", id).finish(),
             Self::Modified { id } => f.debug_struct("Modified").field("id", id).finish(),

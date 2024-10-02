@@ -1,5 +1,5 @@
 //! A visual representation of UI node sizes.
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_color::Hsla;
@@ -28,7 +28,7 @@ mod inset;
 /// The [`Camera::order`] index used by the layout debug camera.
 pub const LAYOUT_DEBUG_CAMERA_ORDER: isize = 255;
 /// The [`RenderLayers`] used by the debug gizmos and the debug camera.
-pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::none().with(16);
+pub const LAYOUT_DEBUG_LAYERS: RenderLayers = RenderLayers::layer(16);
 
 #[derive(Clone, Copy)]
 struct LayoutRect {
@@ -92,7 +92,7 @@ fn update_debug_camera(
                     projection: OrthographicProjection {
                         far: 1000.0,
                         viewport_origin: Vec2::new(0.0, 0.0),
-                        ..default()
+                        ..OrthographicProjection::default_3d()
                     },
                     camera: Camera {
                         order: LAYOUT_DEBUG_CAMERA_ORDER,
@@ -101,7 +101,7 @@ fn update_debug_camera(
                     },
                     ..default()
                 },
-                LAYOUT_DEBUG_LAYERS,
+                LAYOUT_DEBUG_LAYERS.clone(),
                 DebugOverlayCamera,
                 Name::new("Layout Debug Camera"),
             ))
@@ -109,7 +109,7 @@ fn update_debug_camera(
         };
         if let Some((config, _)) = gizmo_config.get_config_mut_dyn(&TypeId::of::<UiGizmosDebug>()) {
             config.enabled = true;
-            config.render_layers = LAYOUT_DEBUG_LAYERS;
+            config.render_layers = LAYOUT_DEBUG_LAYERS.clone();
         }
         let cam = *options.layout_gizmos_camera.get_or_insert_with(spawn_cam);
         let Ok(mut cam) = debug_cams.get_mut(cam) else {

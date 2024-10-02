@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, Text2dBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -54,7 +54,8 @@ fn setup(mut commands: Commands) {
             },
         }],
         justify: JustifyText::Left,
-        linebreak_behavior: BreakLineOn::AnyCharacter,
+        linebreak: LineBreak::AnyCharacter,
+        ..default()
     };
 
     commands
@@ -83,9 +84,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Text2dBundle {
         text,
         text_anchor: bevy::sprite::Anchor::Center,
-        text_2d_bounds: Text2dBounds {
-            size: Vec2::new(1000., f32::INFINITY),
-        },
+        text_2d_bounds: TextBounds::new_horizontal(1000.),
         ..Default::default()
     });
 }

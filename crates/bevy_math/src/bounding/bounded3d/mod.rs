@@ -1,9 +1,14 @@
+mod extrusion;
 mod primitive_impls;
 
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{Quat, Vec3, Vec3A};
+use crate::{ops::FloatPow, Isometry3d, Quat, Vec3A};
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+pub use extrusion::BoundedExtrusion;
 
 /// Computes the geometric center of the given set of points.
 #[inline(always)]
@@ -19,16 +24,17 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
     acc / len as f32
 }
 
-/// A trait with methods that return 3D bounded volumes for a shape
+/// A trait with methods that return 3D bounding volumes for a shape.
 pub trait Bounded3d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d;
-    /// Get a bounding sphere for the shape with the given translation and rotation
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere;
+    /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
+    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d;
+    /// Get a bounding sphere for the shape translated and rotated by the given isometry.
+    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct Aabb3d {
     /// The minimum point of the box
     pub min: Vec3A,
@@ -49,19 +55,18 @@ impl Aabb3d {
     }
 
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
     pub fn from_point_cloud(
-        translation: impl Into<Vec3A>,
-        rotation: Quat,
+        isometry: Isometry3d,
         points: impl Iterator<Item = impl Into<Vec3A>>,
     ) -> Aabb3d {
         // Transform all points by rotation
-        let mut iter = points.map(|point| rotation * point.into());
+        let mut iter = points.map(|point| isometry.rotation * point.into());
 
         let first = iter
             .next()
@@ -71,10 +76,9 @@ impl Aabb3d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        let translation = translation.into();
         Aabb3d {
-            min: min + translation,
-            max: max + translation,
+            min: min + isometry.translation,
+            max: max + isometry.translation,
         }
     }
 
@@ -249,7 +253,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
     fn intersects(&self, sphere: &BoundingSphere) -> bool {
         let closest_point = self.closest_point(sphere.center);
         let distance_squared = sphere.center.distance_squared(closest_point);
-        let radius_squared = sphere.radius().powi(2);
+        let radius_squared = sphere.radius().squared();
         distance_squared <= radius_squared
     }
 }
@@ -259,7 +263,7 @@ mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        Quat, Vec3, Vec3A,
+        ops, Quat, Vec3, Vec3A,
     };
 
     #[test]
@@ -383,9 +387,9 @@ mod aabb3d_tests {
         };
         let transformed = a.transformed_by(
             Vec3A::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
-        let half_length = 2_f32.hypot(2.0);
+        let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
             Vec3A::new(2.0 - half_length, -half_length - 2.0, 2.0)
@@ -448,6 +452,7 @@ use crate::primitives::Sphere;
 
 /// A bounding sphere
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingSphere {
     /// The center of the bounding sphere
     pub center: Vec3A,
@@ -466,13 +471,12 @@ impl BoundingSphere {
     }
 
     /// Computes a [`BoundingSphere`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
     pub fn from_point_cloud(
-        translation: impl Into<Vec3A>,
-        rotation: Quat,
+        isometry: Isometry3d,
         points: &[impl Copy + Into<Vec3A>],
     ) -> BoundingSphere {
         let center = point_cloud_3d_center(points.iter().map(|v| Into::<Vec3A>::into(*v)));
@@ -486,10 +490,7 @@ impl BoundingSphere {
             }
         }
 
-        BoundingSphere::new(
-            rotation * center + translation.into(),
-            radius_squared.sqrt(),
-        )
+        BoundingSphere::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding sphere
@@ -517,7 +518,7 @@ impl BoundingSphere {
         let radius = self.radius();
         let distance_squared = (point - self.center).length_squared();
 
-        if distance_squared <= radius.powi(2) {
+        if distance_squared <= radius.squared() {
             // The point is inside the sphere.
             point
         } else {
@@ -546,13 +547,13 @@ impl BoundingVolume for BoundingSphere {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        2. * std::f32::consts::PI * self.radius() * self.radius()
+        2. * core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
+        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
     }
 
     #[inline(always)]
@@ -620,7 +621,7 @@ impl IntersectsVolume<Self> for BoundingSphere {
     #[inline(always)]
     fn intersects(&self, other: &Self) -> bool {
         let center_distance_squared = self.center.distance_squared(other.center);
-        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        let radius_sum_squared = (self.radius() + other.radius()).squared();
         center_distance_squared <= radius_sum_squared
     }
 }
@@ -732,11 +733,11 @@ mod bounding_sphere_tests {
         let a = BoundingSphere::new(Vec3::ONE, 5.0);
         let transformed = a.transformed_by(
             Vec3::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
         assert_relative_eq!(
             transformed.center,
-            Vec3A::new(2.0, std::f32::consts::SQRT_2 - 2.0, 5.0)
+            Vec3A::new(2.0, core::f32::consts::SQRT_2 - 2.0, 5.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

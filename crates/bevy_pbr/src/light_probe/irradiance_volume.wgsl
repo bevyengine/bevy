@@ -32,7 +32,7 @@ fn irradiance_volume_light(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32>
     let resolution = vec3<f32>(textureDimensions(irradiance_volume_texture) / vec3(1u, 2u, 3u));
 
     // Make sure to clamp to the edges to avoid texture bleed.
-    var unit_pos = (query_result.inverse_transform * vec4(world_position, 1.0f)).xyz;
+    var unit_pos = (query_result.light_from_world * vec4(world_position, 1.0f)).xyz;
     let stp = clamp((unit_pos + 0.5) * resolution, vec3(0.5f), resolution - vec3(0.5f));
     let uvw = stp / atlas_resolution;
 

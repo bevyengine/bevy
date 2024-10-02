@@ -54,25 +54,19 @@ fn setup(
             Lights,
         ))
         .with_children(|builder| {
-            builder.spawn(PointLightBundle {
-                point_light: PointLight {
-                    intensity: 0.0,
-                    range: spawn_plane_depth,
-                    color: Color::WHITE,
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(PointLight {
+                intensity: 0.0,
+                range: spawn_plane_depth,
+                color: Color::WHITE,
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
-            builder.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            builder.spawn(DirectionalLight {
+                shadow_depth_bias: 0.0,
+                shadow_normal_bias: 0.0,
+                shadows_enabled: true,
                 ..default()
             });
         });
@@ -89,10 +83,10 @@ fn setup(
     ));
 
     for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
-        commands.spawn(PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: white_handle.clone(),
-            transform: Transform::from_xyz(
+        commands.spawn((
+            Mesh3d(sphere_handle.clone()),
+            MeshMaterial3d(white_handle.clone()),
+            Transform::from_xyz(
                 0.0,
                 if z_i32 % 4 == 0 {
                     spawn_height
@@ -101,33 +95,31 @@ fn setup(
                 },
                 z_i32 as f32,
             ),
-            ..default()
-        });
+        ));
     }
 
     // ground plane
     let plane_size = 2.0 * spawn_plane_depth;
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(plane_size, plane_size))),
+        MeshMaterial3d(white_handle),
+    ));
 
-    let style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let style = TextStyle::default();
+
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    padding: UiRect::all(Val::Px(5.0)),
+                    ..default()
+                },
+                background_color: Color::BLACK.with_alpha(0.75).into(),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
+            GlobalZIndex(i32::MAX),
+        ))
         .with_children(|c| {
             c.spawn(TextBundle::from_sections([
                 TextSection::new("Controls:\n", style.clone()),

@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -8,27 +8,32 @@
 )]
 
 //! Provides 2D sprite rendering functionality.
+
+extern crate alloc;
+
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
+#[cfg(feature = "bevy_sprite_picking_backend")]
+mod picking_backend;
 mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+/// The sprite prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
-    #[allow(deprecated)]
-    #[doc(hidden)]
-    pub use crate::bundle::SpriteSheetBundle;
-
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
-        texture_atlas::{TextureAtlas, TextureAtlasLayout},
+        texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
@@ -48,7 +53,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh2d},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
@@ -62,6 +67,8 @@ use bevy_render::{
 pub struct SpritePlugin;
 
 pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
+pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(8846920112458963210);
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -75,12 +82,8 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
-
-/// A convenient alias for `With<Mesh2dHandle>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
 
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
@@ -94,6 +97,12 @@ impl Plugin for SpritePlugin {
             "render/sprite.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            SPRITE_VIEW_BINDINGS_SHADER_HANDLE,
+            "render/sprite_view_bindings.wgsl",
+            Shader::from_wgsl
+        );
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
@@ -101,7 +110,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .register_type::<SpriteSource>()
             .add_plugins((
                 Mesh2dRenderPlugin,
@@ -118,12 +127,15 @@ impl Plugin for SpritePlugin {
                     )
                         .in_set(SpriteSystem::ComputeSlices),
                     (
-                        check_visibility::<WithMesh2d>,
+                        check_visibility::<With<Mesh2d>>,
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
+
+        #[cfg(feature = "bevy_sprite_picking_backend")]
+        app.add_plugins(picking_backend::SpritePickingBackend);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -146,7 +158,8 @@ impl Plugin for SpritePlugin {
                         queue_sprites
                             .in_set(RenderSet::Queue)
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprites.in_set(RenderSet::PrepareBindGroups),
+                        prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         };
@@ -160,9 +173,9 @@ impl Plugin for SpritePlugin {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2dHandle` component,
+/// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
-/// and without a [`NoFrustumCulling`] component.
+///     and without a [`NoFrustumCulling`] component.
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
@@ -170,7 +183,7 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (
@@ -192,7 +205,7 @@ pub fn calculate_bounds_2d(
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(texture_handle).map(|image| image.size_f32()),
+                None => images.get(texture_handle).map(Image::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)
