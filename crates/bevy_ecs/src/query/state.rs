@@ -3,10 +3,10 @@ use crate::{
     batching::BatchingStrategy,
     component::{ComponentId, Tick},
     entity::Entity,
+    entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{
-        default_filters::DefaultQueryFilters, Access, DebugCheckedUnwrap, FilteredAccess,
-        QueryCombinationIter, QueryIter, QueryParIter,
+        Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -1746,7 +1746,7 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::query::DefaultQueryFilters;
+    use crate::entity_disabling::DefaultQueryFilters;
     use crate::{
         component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
     };

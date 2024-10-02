@@ -19,6 +19,7 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
 pub mod event;
 pub mod identifier;
 pub mod intern;

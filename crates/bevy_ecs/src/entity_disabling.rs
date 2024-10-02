@@ -1,3 +1,26 @@
+//! Types for entity disabling.
+//!
+//! Disabled entities do not show up in queries unless the query explicitly mentions them.
+//!
+//! If for example we have `Disabled` as an entity disabling component, when you add `Disabled`
+//! to an entity, the entity will only be visible to queries with a filter like
+//! [`With`]`<Disabled>` or query data like [`Has`]`<Disabled>`.
+//!
+//! ### Note
+//!
+//! Currently only queries for which the cache is built after enabling a filter will have entities
+//! with those components filtered. As a result, they should generally only be modified before the
+//! app starts.
+//!
+//! Because filters are applied to all queries they can have performance implication for
+//! the enire [`World`], especially when they cause queries to mix sparse and table components.
+//! See [`Query` performance] for more info.
+//!
+//! [`With`]: crate::prelude::With
+//! [`Has`]: crate::prelude::Has
+//! [`World`]: crate::prelude::World
+//! [`Query` performance]: crate::prelude::Query#performance
+
 use crate as bevy_ecs;
 use crate::{
     component::{ComponentId, Components, StorageType},
@@ -6,54 +29,7 @@ use crate::{
 use bevy_ecs_macros::Resource;
 
 /// The default filters for all queries, these are used to globally exclude entities from queries.
-/// Default filters are applied to any queries that does not explicitly mention that component.
-///
-/// If for example the component `Disabled` is registered here, entities with this component will
-/// only be visible to a [`Query`](crate::prelude::Query) containing something like
-/// [`With<Disabled>`](crate::prelude::With) or [`Has<Disabled>`](crate::prelude::Has).
-/// See below for a more detailed example.
-///
-/// These filters are only applied to queries whose cache is generated after updating this resource,
-/// As a result, this resource should generally only be modified before the app starts (typically
-/// during plugin construction)
-///
-/// Because these filters are applied to all queries, the storage type of the component has
-/// implications for the entire app. See [`Query` performance] for more info.
-///
-/// ### Example
-///
-/// ```rust
-/// # use bevy_ecs::{prelude::*, query::DefaultQueryFilters};
-/// # #[derive(Component)]
-/// # struct Disabled;
-/// let mut world = World::new();
-/// let mut filters = DefaultQueryFilters::default();
-/// filters.set_disabled(world.init_component::<Disabled>());
-/// world.insert_resource(filters);
-///
-/// // This entity is not Disabled, so most queries will see it
-/// let entity_a = world.spawn_empty().id();
-///
-/// // This entity has Disabled, so most queries won't see it
-/// let entity_b = world.spawn(Disabled).id();
-///
-/// // This query does not mention either of the markers, so it only gets entity_a
-/// let mut query = world.query::<Entity>();
-/// assert_eq!(1, query.iter(&world).count());
-/// assert_eq!(entity_a, query.get_single(&world).unwrap());
-///
-/// // This query only wants entities that are Disabled, thus it only sees entity_b
-/// let mut query = world.query_filtered::<Entity, With<Disabled>>();
-/// assert_eq!(1, query.iter(&world).count());
-/// assert_eq!(entity_b, query.get_single(&world).unwrap());
-///
-/// // This also works for query data
-/// let mut query = world.query::<(Entity, Has<Disabled>)>();
-/// assert_eq!(2, query.iter(&world).count());
-/// assert_eq!(vec![(entity_a, false), (entity_b, true)], query.iter(&world).collect::<Vec<_>>());
-/// ```
-///
-/// [`Query` performance]: crate::prelude::Query#performance
+/// See the [module docs](crate::entity_disabling) for more info.
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
@@ -61,8 +37,12 @@ pub struct DefaultQueryFilters {
 }
 
 impl DefaultQueryFilters {
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "No Disabled component exist yet")
+    )]
     /// Set the [`ComponentId`] for the entity disabling marker
-    pub fn set_disabled(&mut self, component_id: ComponentId) -> Option<()> {
+    pub(crate) fn set_disabled(&mut self, component_id: ComponentId) -> Option<()> {
         if self.disabled.is_some() {
             return None;
         }
@@ -70,7 +50,7 @@ impl DefaultQueryFilters {
         Some(())
     }
 
-    /// Get an iterator over all default filter components
+    /// Get an iterator over all currently enabled filter components
     pub fn ids(&self) -> impl Iterator<Item = ComponentId> {
         [self.disabled].into_iter().flatten()
     }
