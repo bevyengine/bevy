@@ -86,7 +86,7 @@ impl Plugin for WorldSyncPlugin {
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(*e));
                 };
             },
         );
@@ -134,7 +134,7 @@ pub(crate) enum EntityRecord {
     Added(Entity),
     /// When an entity is despawned on the main world, notify the render world so that the corresponding entity can be
     /// despawned. This contains the render world entity.
-    Removed(Entity),
+    Removed(RenderEntity),
     /// When a component is removed from an entity, notify the render world so that the corresponding component can be
     /// removed. This contains the main world entity.
     ComponentRemoved(Entity),
@@ -150,10 +150,11 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
         // TODO : batching record
         for record in pending.drain(..) {
+            println!("EntityRecord: {:?}", record);
             match record {
                 EntityRecord::Added(e) => {
-                    if let Some(mut entity) = world.get_entity_mut(e) {
-                        match entity.entry::<RenderEntity>() {
+                    if let Some(mut main_entity) = world.get_entity_mut(e) {
+                        match main_entity.entry::<RenderEntity>() {
                             bevy_ecs::world::Entry::Occupied(_) => {
                                 panic!("Attempting to synchronize an entity that has already been synchronized!");
                             }
@@ -165,19 +166,19 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         };
                     }
                 }
-                EntityRecord::Removed(entity) => {
-                    if let Some(ec) = render_world.get_entity_mut(entity) {
+                EntityRecord::Removed(render_entity) => {
+                    if let Some(ec) = render_world.get_entity_mut(render_entity.id()) {
                         ec.despawn();
                     };
                 }
-                EntityRecord::ComponentRemoved(entity) => {
+                EntityRecord::ComponentRemoved(main_entity) => {
                     // It's difficult to remove only the relevant component because component ids aren't stable across worlds,
                     // so we just clear the entire render world entity.
-                    let mut render_entity = world.get_mut::<RenderEntity>(entity).unwrap();
+                    let mut render_entity = world.get_mut::<RenderEntity>(main_entity).unwrap();
                     if let Some(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
                         render_world_entity.despawn();
 
-                        let id = render_world.spawn(MainEntity(entity)).id();
+                        let id = render_world.spawn(MainEntity(main_entity)).id();
                         render_entity.0 = id;
                     }
                 },
@@ -237,7 +238,7 @@ mod tests {
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(*e));
                 };
             },
         );

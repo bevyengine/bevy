@@ -6,6 +6,7 @@ use crate::{
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     texture::{GpuImage, TextureFormatPixelInfo},
+    world_sync::MainEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};
@@ -232,7 +233,7 @@ fn prepare_buffers(
     mut buffer_pool: ResMut<GpuReadbackBufferPool>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     ssbos: Res<RenderAssets<GpuShaderStorageBuffer>>,
-    handles: Query<(Entity, &Readback)>,
+    handles: Query<(&MainEntity, &Readback)>,
 ) {
     for (entity, readback) in handles.iter() {
         match readback {
@@ -254,7 +255,7 @@ fn prepare_buffers(
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
-                        entity,
+                        entity: entity.id(),
                         src: ReadbackSource::Texture {
                             texture: gpu_image.texture.clone(),
                             layout,
@@ -272,7 +273,7 @@ fn prepare_buffers(
                     let buffer = buffer_pool.get(&render_device, size);
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
-                        entity,
+                        entity: entity.id(),
                         src: ReadbackSource::Buffer {
                             src_start: 0,
                             dst_start: 0,
