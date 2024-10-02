@@ -1383,16 +1383,16 @@ impl EntityCommands<'_> {
     /// #[derive(Resource)]
     /// struct PlayerEntity { entity: Entity }
     ///
-    /// fn remove_with_required_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///     commands
     ///         .entity(player.entity)
     ///         // Remove both A and B components from the entity, because B is required by A
-    ///         .remove_with_required::<A>();
+    ///         .remove_with_requires::<A>();
     /// }
-    /// # bevy_ecs::system::assert_is_system(remove_with_required_system);
+    /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
-    pub fn remove_with_required<T: Bundle>(self) -> Self {
-        self.queue(remove_with_required::<T>)
+    pub fn remove_with_requires<T: Bundle>(self) -> Self {
+        self.queue(remove_with_requires::<T>)
     }
 
     /// Removes a component from the entity.
@@ -1836,9 +1836,9 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
 ///
 /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components
 /// are still required by entity components outside of the [`Bundle`].
-fn remove_with_required<T: Bundle>(entity: Entity, world: &mut World) {
+fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
     if let Some(mut entity) = world.get_entity_mut(entity) {
-        entity.remove_with_required::<T>();
+        entity.remove_with_requires::<T>();
     }
 }
 
@@ -2232,7 +2232,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(e).remove_with_required::<X>();
+            commands.entity(e).remove_with_requires::<X>();
         }
         queue.apply(&mut world);
 

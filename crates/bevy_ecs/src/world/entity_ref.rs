@@ -1230,7 +1230,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes all components in the [`Bundle`] and remove all required components for each component in the bundle
-    pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundles = &mut self.world.bundles;
