@@ -13,7 +13,6 @@ use crate::{
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::HashSet;
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
@@ -1230,7 +1229,25 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    
+    /// Removes all components in the [`Bundle`] and remove all required components for each component in the bundle
+    pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let bundles = &mut self.world.bundles;
+
+        let bundle_id = bundles.init_info::<T>(components, storages);
+
+        // SAFETY: the `BundleInfo` is initialized above
+        let bundle_info = unsafe { bundles.get_unchecked(bundle_id) };
+
+        let contributed_components = bundle_info.contributed_components().to_vec();
+        let extended_bundle = bundles.init_dynamic_info(components, &contributed_components);
+
+        // SAFETY: the dynamic `BundleInfo` is initialized above
+        self.location = unsafe { self.remove_bundle(extended_bundle) };
+
+        self
+    }
 
     /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
     ///
