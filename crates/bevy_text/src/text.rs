@@ -25,10 +25,15 @@ impl Default for CosmicBuffer {
 
 /// Computed information for a [`TextBlock`].
 ///
-/// Automatically updated.
+/// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
+    ///
+    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
+    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to not use `TextBlock` and instead manually implement the conversion to
+    /// `TextLayoutInfo`.
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
     pub(crate) entities: SmallVec<[TextEntity; 1]>,
@@ -39,6 +44,10 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     pub fn iter_entities(&self) -> impl Iterator<Item = Entity> {
         self.entities.iter()
+    }
+
+    pub fn is_changed(&self) -> bool {
+        self.is_changed
     }
 }
 
@@ -54,12 +63,13 @@ impl Default for ComputedTextBlock {
 
 /// Component with text format settings for a block of text.
 ///
-/// A block of text is composed of text spans, which each have a separate [`TextStyle`]. Text spans associated
-/// with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted to [`TextLayoutInfo`]
-/// for rendering.
+/// A block of text is composed of text spans, which each have a separate string value and [`TextStyle`]. Text
+/// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
+/// to [`TextLayoutInfo`] for rendering.
 ///
 /// See [`Text2d`] for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component, Default, Debug)]
 #[requires(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextBlock
 {
@@ -70,6 +80,27 @@ pub struct TextBlock
     pub line_break: LineBreak,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
+}
+
+impl TextBlock {
+    /// Returns this [`TextBlock`] with a new [`JustifyText`].
+    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+        self.justify = justify;
+        self
+    }
+
+    /// Returns this [`TextBlock`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub const fn with_no_wrap(mut self) -> Self {
+        self.linebreak = LineBreak::NoWrap;
+        self
+    }
+
+    /// Returns this [`TextBlock`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.font_smoothing = font_smoothing;
+        self
+    }
 }
 
 
@@ -163,25 +194,6 @@ impl OldText {
             sections: sections.into_iter().collect(),
             ..default()
         }
-    }
-
-    /// Returns this [`Text`] with a new [`JustifyText`].
-    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
-        self.justify = justify;
-        self
-    }
-
-    /// Returns this [`Text`] with soft wrapping disabled.
-    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub const fn with_no_wrap(mut self) -> Self {
-        self.linebreak = LineBreak::NoWrap;
-        self
-    }
-
-    /// Returns this [`Text`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.font_smoothing = font_smoothing;
-        self
     }
 }
 

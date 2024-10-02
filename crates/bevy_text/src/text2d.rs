@@ -27,16 +27,35 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-
 /// The top-level 2D text component.
+///
+/// Adding `Text2d` to an entity will pull in required components for setting up 2d text.
+/// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`TextBlock`]. See [`TextSpan2d`] for the component used by children of entities with [`Text2d`].
-#[derive(Component, Clone, Debug, Default)]
+///
+/// With `Text2d` the `justify` field of [`TextBlock`] only affects the internal alignment of a block of text and not its
+/// relative position which is controlled by the [`Anchor`] component.
+/// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[require(TextBlock, TextStyle, TextBounds, Anchor, SpriteSource, Visibility, Transform)]
+#[reflect(Component, Default, Debug)]
 pub struct Text2d(pub String);
 
-/// A span of text in a tree of spans under an entity with [`Text2d`].
+impl From<&str> for Text2d {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for Text2d {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+/// A span of 2d text in a tree of spans under an entity with [`Text2d`].
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 #[derive(Component, Clone, Debug, Default)]
