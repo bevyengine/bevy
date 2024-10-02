@@ -327,19 +327,21 @@ fn get_text_buffer<'a>(
     Some(buffer.into_inner())
 }
 
+
+#[cfg(test)]
+pub const TEST_LAYOUT_CONTEXT: LayoutContext = LayoutContext {
+    scale_factor: 1.0,
+    physical_size: bevy_math::Vec2::ONE,
+    min_size: 0.0,
+    max_size: 1.0,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{ContentSize, FixedMeasure};
     use bevy_math::Vec2;
     use taffy::TraversePartialTree;
-
-    const TEST_LAYOUT_CONTEXT: LayoutContext = LayoutContext {
-        scale_factor: 1.0,
-        physical_size: Vec2::ONE,
-        min_size: 0.0,
-        max_size: 1.0,
-    };
 
     /// Checks if the parent of the `user_root_node` in a `RootNodePair`
     /// is correctly assigned as the `implicit_viewport_node`.
