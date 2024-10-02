@@ -2178,7 +2178,7 @@ mod tests {
         world.spawn(C(0));
 
         let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.init_component::<C>());
+        df.set_disabled(world.register_component::<C>());
         world.insert_resource(df);
 
         // Without<C> only matches the first entity
@@ -2218,7 +2218,7 @@ mod tests {
         assert_eq!(3, query.iter(&world).count());
 
         let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.init_component::<Sparse>());
+        df.set_disabled(world.register_component::<Sparse>());
         world.insert_resource(df);
 
         let mut query = QueryState::<()>::new(&mut world);
@@ -2228,7 +2228,7 @@ mod tests {
         assert_eq!(1, query.iter(&world).count());
 
         let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.init_component::<Table>());
+        df.set_disabled(world.register_component::<Table>());
         world.insert_resource(df);
 
         let mut query = QueryState::<()>::new(&mut world);
