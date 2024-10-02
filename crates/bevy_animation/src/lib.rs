@@ -1024,30 +1024,26 @@ fn trigger_animation_events(
     players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
     targets: Query<(Entity, &AnimationTarget)>,
 ) {
-    let mut trigger_events_loop = |target_id,
-                                   player_entity,
-                                   target_entity,
-                                   player: &AnimationPlayer,
-                                   graph: &AnimationGraph| {
-        for (index, active_animation) in player.active_animations.iter() {
-            let Some(clip) = graph
-                .get(*index)
-                .and_then(|node| node.clip.as_ref())
-                .and_then(|id| clips.get(id))
-            else {
-                continue;
-            };
+    let mut trigger_events_loop =
+        |target_id, entity, player: &AnimationPlayer, graph: &AnimationGraph| {
+            for (index, active_animation) in player.active_animations.iter() {
+                let Some(clip) = graph
+                    .get(*index)
+                    .and_then(|node| node.clip.as_ref())
+                    .and_then(|id| clips.get(id))
+                else {
+                    continue;
+                };
 
-            for trigger in TriggeredEventsIter::new(target_id, clip, active_animation) {
-                commands.queue(trigger_animation_event(
-                    player_entity,
-                    target_entity,
-                    trigger.time,
-                    trigger.event.clone().0,
-                ));
+                for trigger in TriggeredEventsIter::new(target_id, clip, active_animation) {
+                    commands.queue(trigger_animation_event(
+                        entity,
+                        trigger.time,
+                        trigger.event.clone().0,
+                    ));
+                }
             }
-        }
-    };
+        };
 
     // untargeted events
     for (entity, player, graph_id) in &players {
@@ -1056,11 +1052,11 @@ fn trigger_animation_events(
             return;
         };
 
-        trigger_events_loop(None, entity, entity, player, graph);
+        trigger_events_loop(None, entity, player, graph);
     }
 
     // targeted events
-    for (target_entity, target) in &targets {
+    for (entity, target) in &targets {
         let &AnimationTarget {
             id: target_id,
             player: player_entity,
@@ -1075,7 +1071,7 @@ fn trigger_animation_events(
             return;
         };
 
-        trigger_events_loop(Some(target_id), player_entity, target_entity, player, graph);
+        trigger_events_loop(Some(target_id), entity, player, graph);
     }
 }
 
@@ -1382,7 +1378,7 @@ mod tests {
     struct A;
 
     impl AnimationEvent for A {
-        fn trigger(&self, _: Entity, _: f32, target: Entity, world: &mut World) {
+        fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
             world.entity_mut(target).trigger(self.clone());
         }
 

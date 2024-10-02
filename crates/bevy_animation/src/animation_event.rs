@@ -10,13 +10,12 @@ use bevy_reflect::{
 };
 
 pub(crate) fn trigger_animation_event(
-    player_entity: Entity,
-    target_entity: Entity,
+    entity: Entity,
     time: f32,
     event: Box<dyn AnimationEvent>,
 ) -> impl Command {
     move |world: &mut World| {
-        event.trigger(player_entity, time, target_entity, world);
+        event.trigger(time, entity, world);
     }
 }
 
@@ -25,7 +24,7 @@ pub(crate) fn trigger_animation_event(
 #[reflect_trait]
 pub trait AnimationEvent: Reflect + Send + Sync {
     /// Trigger the event, targeting `entity`.
-    fn trigger(&self, player: Entity, time: f32, target: Entity, world: &mut World);
+    fn trigger(&self, time: f32, entity: Entity, world: &mut World);
 
     /// Clone this value into a new `Box<dyn AnimationEvent>`
     fn clone_value(&self) -> Box<dyn AnimationEvent>;

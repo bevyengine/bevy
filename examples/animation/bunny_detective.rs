@@ -104,7 +104,7 @@ impl FromWorld for ParticleAssets {
 struct OnJumped;
 
 impl AnimationEvent for OnJumped {
-    fn trigger(&self, _player: Entity, _time: f32, target: Entity, world: &mut World) {
+    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
         world.entity_mut(target).trigger(Self);
     }
 
@@ -159,7 +159,7 @@ impl OnJumped {
 struct OnLanded;
 
 impl AnimationEvent for OnLanded {
-    fn trigger(&self, _player: Entity, _time: f32, target: Entity, world: &mut World) {
+    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
         world.entity_mut(target).trigger(Self);
     }
 
@@ -210,7 +210,7 @@ enum OnStep {
 }
 
 impl AnimationEvent for OnStep {
-    fn trigger(&self, _player: Entity, _time: f32, target: Entity, world: &mut World) {
+    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
         world.entity_mut(target).trigger(self.clone());
     }
 
