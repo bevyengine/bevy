@@ -994,6 +994,8 @@ impl Image {
             });
         };
 
+        // NOTE: GPUs are always Little Endian.
+        // Make sure to respect that when we create color values from bytes.
         match self.texture_descriptor.format {
             TextureFormat::Rgba8UnormSrgb => Ok(Color::srgba(
                 bytes[0] as f32 / u8::MAX as f32,
@@ -1125,6 +1127,8 @@ impl Image {
             });
         };
 
+        // NOTE: GPUs are always Little Endian.
+        // Make sure to respect that when we convert color values to bytes.
         match format {
             TextureFormat::Rgba8UnormSrgb => {
                 let [r, g, b, a] = Srgba::from(color).to_f32_array();
