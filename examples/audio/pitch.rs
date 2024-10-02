@@ -30,10 +30,10 @@ fn play_pitch(
 ) {
     for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
-        commands.spawn(PitchBundle {
-            source: pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0))),
-            settings: PlaybackSettings::DESPAWN,
-        });
+        commands.spawn((
+            AudioPlayer(pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0)))),
+            PlaybackSettings::DESPAWN,
+        ));
         info!("number of pitch assets: {}", pitch_assets.len());
     }
 }

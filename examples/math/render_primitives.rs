@@ -2,10 +2,7 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::{
-    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
-    sprite::MaterialMesh2dBundle,
-};
+use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -318,15 +315,14 @@ fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 }
 
 fn setup_lights(mut commands: Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 5000.0,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+        Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 /// Marker component for header text
@@ -535,12 +531,9 @@ fn spawn_primitive_2d(
                     camera_mode,
                     primitive_state: state,
                 },
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(mesh).into(),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh2d(meshes.add(mesh)),
+                MeshMaterial2d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -582,12 +575,9 @@ fn spawn_primitive_3d(
                     camera_mode,
                     primitive_state: state,
                 },
-                PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });

@@ -77,12 +77,9 @@ fn setup_scene(
             };
 
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh.clone(),
-                    material,
-                    transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 Bouncing,
             ));
         }

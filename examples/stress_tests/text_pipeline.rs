@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -65,7 +65,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             justify: JustifyText::Center,
-            linebreak_behavior: BreakLineOn::AnyCharacter,
+            linebreak: LineBreak::AnyCharacter,
             ..default()
         },
         ..Default::default()

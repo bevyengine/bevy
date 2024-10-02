@@ -6,7 +6,7 @@ use core::{
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::prelude::*;
-use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A};
+use bevy_math::{ops, AspectRatio, Mat4, Rect, Vec2, Vec3A, Vec4};
 use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
@@ -76,6 +76,7 @@ pub struct CameraUpdateSystem;
 /// [`Camera`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
     fn update(&mut self, width: f32, height: f32);
     fn far(&self) -> f32;
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8];
@@ -121,6 +122,13 @@ impl CameraProjection for Projection {
         match self {
             Projection::Perspective(projection) => projection.get_clip_from_view(),
             Projection::Orthographic(projection) => projection.get_clip_from_view(),
+        }
+    }
+
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        match self {
+            Projection::Perspective(projection) => projection.get_clip_from_view_for_sub(sub_view),
+            Projection::Orthographic(projection) => projection.get_clip_from_view_for_sub(sub_view),
         }
     }
 
@@ -187,6 +195,45 @@ pub struct PerspectiveProjection {
 impl CameraProjection for PerspectiveProjection {
     fn get_clip_from_view(&self) -> Mat4 {
         Mat4::perspective_infinite_reverse_rh(self.fov, self.aspect_ratio, self.near)
+    }
+
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        let full_width = sub_view.full_size.x as f32;
+        let full_height = sub_view.full_size.y as f32;
+        let sub_width = sub_view.size.x as f32;
+        let sub_height = sub_view.size.y as f32;
+        let offset_x = sub_view.offset.x;
+        // Y-axis increases from top to bottom
+        let offset_y = full_height - (sub_view.offset.y + sub_height);
+
+        // Original frustum parameters
+        let top = self.near * ops::tan(0.5 * self.fov);
+        let bottom = -top;
+        let right = top * self.aspect_ratio;
+        let left = -right;
+
+        // Calculate scaling factors
+        let width = right - left;
+        let height = top - bottom;
+
+        // Calculate the new frustum parameters
+        let left_prime = left + (width * offset_x) / full_width;
+        let right_prime = left + (width * (offset_x + sub_width)) / full_width;
+        let bottom_prime = bottom + (height * offset_y) / full_height;
+        let top_prime = bottom + (height * (offset_y + sub_height)) / full_height;
+
+        // Compute the new projection matrix
+        let x = (2.0 * self.near) / (right_prime - left_prime);
+        let y = (2.0 * self.near) / (top_prime - bottom_prime);
+        let a = (right_prime + left_prime) / (right_prime - left_prime);
+        let b = (top_prime + bottom_prime) / (top_prime - bottom_prime);
+
+        Mat4::from_cols(
+            Vec4::new(x, 0.0, 0.0, 0.0),
+            Vec4::new(0.0, y, 0.0, 0.0),
+            Vec4::new(a, b, 0.0, -1.0),
+            Vec4::new(0.0, 0.0, self.near, 0.0),
+        )
     }
 
     fn update(&mut self, width: f32, height: f32) {
@@ -388,6 +435,42 @@ impl CameraProjection for OrthographicProjection {
             self.area.max.x,
             self.area.min.y,
             self.area.max.y,
+            // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
+            // This is for interoperability with pipelines using infinite reverse perspective projections.
+            self.far,
+            self.near,
+        )
+    }
+
+    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+        let full_width = sub_view.full_size.x as f32;
+        let full_height = sub_view.full_size.y as f32;
+        let offset_x = sub_view.offset.x;
+        let offset_y = sub_view.offset.y;
+        let sub_width = sub_view.size.x as f32;
+        let sub_height = sub_view.size.y as f32;
+
+        // Orthographic projection parameters
+        let top = self.area.max.y;
+        let bottom = self.area.min.y;
+        let right = self.area.max.x;
+        let left = self.area.min.x;
+
+        // Calculate scaling factors
+        let scale_w = (right - left) / full_width;
+        let scale_h = (top - bottom) / full_height;
+
+        // Calculate the new orthographic bounds
+        let left_prime = left + scale_w * offset_x;
+        let right_prime = left_prime + scale_w * sub_width;
+        let top_prime = top - scale_h * offset_y;
+        let bottom_prime = top_prime - scale_h * sub_height;
+
+        Mat4::orthographic_rh(
+            left_prime,
+            right_prime,
+            bottom_prime,
+            top_prime,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
             self.far,

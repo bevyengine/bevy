@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
             },
         }],
         justify: JustifyText::Left,
-        linebreak_behavior: BreakLineOn::AnyCharacter,
+        linebreak: LineBreak::AnyCharacter,
         ..default()
     };
 
