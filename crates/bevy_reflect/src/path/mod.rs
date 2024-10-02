@@ -237,7 +237,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not provide a reflection path",
+    message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait GetPath: PartialReflect {

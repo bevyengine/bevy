@@ -63,6 +63,13 @@ impl Node {
         self.calculated_size
     }
 
+    /// Check if the node is empty.
+    /// A node is considered empty if it has a zero or negative extent along either of its axes.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.size().cmple(Vec2::ZERO).any()
+    }
+
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {
@@ -113,10 +120,16 @@ impl Node {
     }
 
     #[inline]
-    /// Returns the thickness of the UI node's outline.
+    /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     pub fn outline_width(&self) -> f32 {
         self.outline_width
+    }
+
+    #[inline]
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    pub fn outline_offset(&self) -> f32 {
+        self.outline_offset
     }
 }
 
@@ -1824,6 +1837,12 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
+    ///
+    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
+    pub rect: Option<Rect>,
 }
 
 impl Default for UiImage {
@@ -1843,6 +1862,7 @@ impl Default for UiImage {
             texture: TRANSPARENT_IMAGE_HANDLE,
             flip_x: false,
             flip_y: false,
+            rect: None,
         }
     }
 }
@@ -1866,6 +1886,7 @@ impl UiImage {
             color,
             flip_x: false,
             flip_y: false,
+            rect: None,
         }
     }
 
@@ -1887,6 +1908,12 @@ impl UiImage {
     #[must_use]
     pub const fn with_flip_y(mut self) -> Self {
         self.flip_y = true;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_rect(mut self, rect: Rect) -> Self {
+        self.rect = Some(rect);
         self
     }
 }

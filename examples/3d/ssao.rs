@@ -3,8 +3,8 @@
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
     pbr::{
-        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
-        ScreenSpaceAmbientOcclusionSettings,
+        ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle,
+        ScreenSpaceAmbientOcclusionQualityLevel,
     },
     prelude::*,
     render::camera::TemporalJitter,
@@ -107,7 +107,7 @@ fn update(
     camera: Query<
         (
             Entity,
-            Option<&ScreenSpaceAmbientOcclusionSettings>,
+            Option<&ScreenSpaceAmbientOcclusion>,
             Option<&TemporalJitter>,
         ),
         With<Camera>,
@@ -121,36 +121,36 @@ fn update(
     let mut sphere = sphere.single_mut();
     sphere.translation.y = (time.elapsed_seconds() / 1.7).sin() * 0.7;
 
-    let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
+    let (camera_entity, ssao, temporal_jitter) = camera.single();
 
     let mut commands = commands
         .entity(camera_entity)
         .insert_if(
-            ScreenSpaceAmbientOcclusionSettings {
+            ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
             },
             || keycode.just_pressed(KeyCode::Digit2),
         )
         .insert_if(
-            ScreenSpaceAmbientOcclusionSettings {
+            ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
             },
             || keycode.just_pressed(KeyCode::Digit3),
         )
         .insert_if(
-            ScreenSpaceAmbientOcclusionSettings {
+            ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
             },
             || keycode.just_pressed(KeyCode::Digit4),
         )
         .insert_if(
-            ScreenSpaceAmbientOcclusionSettings {
+            ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
             },
             || keycode.just_pressed(KeyCode::Digit5),
         );
     if keycode.just_pressed(KeyCode::Digit1) {
-        commands = commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
+        commands = commands.remove::<ScreenSpaceAmbientOcclusion>();
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
@@ -164,7 +164,7 @@ fn update(
     let text = &mut text.sections[0].value;
     text.clear();
 
-    let (o, l, m, h, u) = match ssao_settings.map(|s| s.quality_level) {
+    let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {
         None => ("*", "", "", "", ""),
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Low) => ("", "*", "", "", ""),
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Medium) => ("", "", "*", "", ""),

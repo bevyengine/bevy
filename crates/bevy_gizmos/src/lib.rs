@@ -51,7 +51,9 @@ mod pipeline_2d;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
 
-/// The `bevy_gizmos` prelude.
+/// The gizmos prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_render")]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
