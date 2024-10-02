@@ -13,10 +13,10 @@ use core::{
     iter::FusedIterator,
     mem::MaybeUninit,
     ops::Range,
-    vec::IntoIter,
 };
 
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
+use alloc::vec::IntoIter;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -1483,9 +1483,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1574,9 +1572,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1670,9 +1666,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     > {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1730,9 +1724,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     > {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1856,9 +1848,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1919,9 +1909,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1982,9 +1970,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     {
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -2041,7 +2027,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<E
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> Iterator
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
     for QueryManyIter<'w, 's, D, F, I>
 {
     type Item = D::Item<'w>;
@@ -2116,10 +2102,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 /// This struct is created by the [`QueryManyIter::sort`], [`QueryManyIter::sort_unstable`],
 /// [`QueryManyIter::sort_by`], [`QueryManyIter::sort_unstable_by`], [`QueryManyIter::sort_by_key`],
 /// [`QueryManyIter::sort_unstable_by_key`], and [`QueryManyIter::sort_by_cached_key`] methods.
-pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I>
-where
-    I: Iterator<Item = Entity>,
-{
+pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
@@ -2128,9 +2111,8 @@ where
     query_state: &'s QueryState<D, F>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QuerySortedManyIter<'w, 's, D, F, I>
-where
-    I: Iterator<Item = Entity>,
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
+    QuerySortedManyIter<'w, 's, D, F, I>
 {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
@@ -2247,10 +2229,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QuerySortedManyIter<'w, 's, D, F, Int
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> Iterator
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> Iterator
     for QuerySortedManyIter<'w, 's, D, F, I>
-where
-    I: Iterator<Item = Entity>,
 {
     type Item = D::Item<'w>;
 
@@ -2268,10 +2248,8 @@ where
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
-    for QuerySortedManyIter<'w, 's, D, F, I>
-where
-    I: DoubleEndedIterator<Item = Entity>,
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>>
+    DoubleEndedIterator for QuerySortedManyIter<'w, 's, D, F, I>
 {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -2283,14 +2261,12 @@ where
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
-    for QuerySortedManyIter<'w, 's, D, F, I>
-where
-    I: ExactSizeIterator<Item = Entity>,
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: ExactSizeIterator<Item = Entity>>
+    ExactSizeIterator for QuerySortedManyIter<'w, 's, D, F, I>
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Debug
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
     for QuerySortedManyIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
