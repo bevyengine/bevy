@@ -96,10 +96,9 @@ fn setup(
 
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
-        ..SceneBundle::default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+    ));
 }
 
 // Spawns the camera.
@@ -124,17 +123,15 @@ fn spawn_sphere(
     let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
 
     // Create a sphere.
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
-        }),
-        transform: Transform::default(),
-        ..PbrBundle::default()
-    });
+        })),
+    ));
 }
 
 // Spawns the reflection probe.

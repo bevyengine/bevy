@@ -84,13 +84,12 @@ fn spawn_tasks(mut commands: Commands) {
 
                         world
                             .entity_mut(entity)
-                            // Add our new PbrBundle of components to our tagged entity
-                            .insert(PbrBundle {
-                                mesh: box_mesh_handle,
-                                material: box_material_handle,
+                            // Add our new `Mesh3d` and `MeshMaterial3d` to our tagged entity
+                            .insert((
+                                Mesh3d(box_mesh_handle),
+                                MeshMaterial3d(box_material_handle),
                                 transform,
-                                ..default()
-                            })
+                            ))
                             // Task is complete, so remove task component from entity
                             .remove::<ComputeTransform>();
                     });
@@ -107,7 +106,7 @@ fn spawn_tasks(mut commands: Commands) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new [`PbrBundle`] of components to the entity using the result from the task's work, and
+/// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
 fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
     for mut task in &mut transform_tasks {

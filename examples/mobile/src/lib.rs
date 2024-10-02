@@ -68,25 +68,22 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(Color::srgb(0.5, 0.4, 0.3)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::srgb(0.5, 0.4, 0.3))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // sphere
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap()),
-        material: materials.add(Color::srgb(0.1, 0.4, 0.8)),
-        transform: Transform::from_xyz(1.5, 1.5, 1.5),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap())),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.4, 0.8))),
+        Transform::from_xyz(1.5, 1.5, 1.5),
+    ));
     // light
     commands.spawn((
         PointLight {
@@ -160,10 +157,10 @@ fn button_handler(
 }
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioBundle {
-        source: asset_server.load("sounds/Windless Slopes.ogg"),
-        settings: PlaybackSettings::LOOP,
-    });
+    commands.spawn((
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP,
+    ));
 }
 
 // Pause audio when app goes into background and resume when it returns.

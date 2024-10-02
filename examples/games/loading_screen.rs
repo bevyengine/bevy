@@ -154,11 +154,8 @@ fn load_level_1(
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
-        SceneBundle {
-            scene: fox.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        SceneRoot(fox.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         LevelComponents,
     ));
 
@@ -194,13 +191,7 @@ fn load_level_2(
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());
-    commands.spawn((
-        SceneBundle {
-            scene: helmet_scene.clone(),
-            ..default()
-        },
-        LevelComponents,
-    ));
+    commands.spawn((SceneRoot(helmet_scene.clone()), LevelComponents));
 
     // Spawn the light.
     commands.spawn((

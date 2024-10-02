@@ -72,33 +72,29 @@ fn change_track(
             commands.entity(track).insert(FadeOut);
         }
 
-        // Spawn a new `AudioBundle` with the appropriate soundtrack based on
+        // Spawn a new `AudioPlayer` with the appropriate soundtrack based on
         // the game state.
         //
         // Volume is set to start at zero and is then increased by the fade_in system.
         match game_state.as_ref() {
             GameState::Peaceful => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.first().unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioPlayer(soundtrack_player.track_list.first().unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));
             }
             GameState::Battle => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.get(1).unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioPlayer(soundtrack_player.track_list.get(1).unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));
