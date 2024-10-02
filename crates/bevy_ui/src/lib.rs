@@ -185,6 +185,11 @@ impl Plugin for UiPlugin {
             ),
         );
 
+        app.observe(widget::button_out_observer)
+            .observe(widget::button_hover_observer)
+            .observe(widget::button_up_observer)
+            .observe(widget::button_down_observer);
+
         #[cfg(feature = "bevy_text")]
         build_text_interop(app);
 
