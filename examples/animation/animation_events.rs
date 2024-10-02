@@ -66,7 +66,13 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        camera: Camera {
+            clear_color: ClearColorConfig::None,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 
     // A text entity that will have a message printed to it
     let message = commands
@@ -74,7 +80,7 @@ fn setup(
             text: Text::from_section(
                 "",
                 TextStyle {
-                    font_size: 71.0,
+                    font_size: 119.0,
                     color: Color::NONE,
                     ..Default::default()
                 },
@@ -102,8 +108,7 @@ fn setup(
     animation.set_duration(2.0);
 
     // Add events at the specified time
-    // If `time` is `0.0` it will trigger twice on the first tick for some reason
-    animation.add_event(0.001, Say::Hello(message));
+    animation.add_event(0.0, Say::Hello(message));
     animation.add_event(1.0, Say::Bye(message));
 
     let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
