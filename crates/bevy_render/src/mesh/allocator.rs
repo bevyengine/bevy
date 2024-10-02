@@ -516,11 +516,11 @@ impl MeshAllocator {
 
     /// A generic function that copies either vertex or index data into a slab.
     #[allow(clippy::too_many_arguments)]
-    fn copy_element_data<T: Fn(&mut [u8])>(
+    fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
         len: usize,
-        fill_data: T,
+        fill_data: impl Fn(&mut [u8]),
         buffer_usages: BufferUsages,
         slab_id: SlabId,
         render_device: &RenderDevice,

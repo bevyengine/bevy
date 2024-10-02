@@ -385,7 +385,7 @@ impl Mesh {
             .sum()
     }
 
-    /// Returns the size of a vertex in bytes.
+    /// Returns the size required for the vertex buffer in bytes.
     pub fn get_vertex_buffer_size(&self) -> usize {
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
