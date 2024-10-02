@@ -2099,9 +2099,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 
 /// An [`Iterator`] over sorted query results of a [`QueryManyIter`].
 ///
-/// This struct is created by the [`QueryManyIter::sort`], [`QueryManyIter::sort_unstable`],
-/// [`QueryManyIter::sort_by`], [`QueryManyIter::sort_unstable_by`], [`QueryManyIter::sort_by_key`],
-/// [`QueryManyIter::sort_unstable_by_key`], and [`QueryManyIter::sort_by_cached_key`] methods.
+/// This struct is created by the [`sort`](QueryManyIter), [`sort_unstable`](QueryManyIter),
+/// [`sort_by`](QueryManyIter), [`sort_unstable_by`](QueryManyIter), [`sort_by_key`](QueryManyIter),
+/// [`sort_unstable_by_key`](QueryManyIter), and [`sort_by_cached_key`](QueryManyIter) methods of [`QueryManyIter`].
 pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> {
     entity_iter: I,
     entities: &'w Entities,
@@ -2178,8 +2178,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         unsafe { D::fetch(&mut self.fetch, entity, location.table_row) }
     }
 
-    /// Collects the internal [`I`] once.
-    /// [`fetch_next`] and [`fetch_next_back`] require this to be called first.
+    /// Collects the internal [`I`](QuerySortedManyIter) once.
+    /// [`fetch_next`](QuerySortedManyIter) and [`fetch_next_back`](QuerySortedManyIter) require this to be called first.
     #[inline(always)]
     pub fn collect_inner(self) -> QuerySortedManyIter<'w, 's, D, F, IntoIter<Entity>> {
         QuerySortedManyIter {
@@ -2195,7 +2195,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QuerySortedManyIter<'w, 's, D, F, IntoIter<Entity>> {
     /// Get next result from the query
-    /// [`collect_inner`] needs to be called before this method becomes available.
+    /// [`collect_inner`](QuerySortedManyIter) needs to be called before this method becomes available.
     /// This is done to prevent mutable aliasing.
     #[inline(always)]
     pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
@@ -2212,7 +2212,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QuerySortedManyIter<'w, 's, D, F, Int
     }
 
     /// Get next result from the query
-    /// [`collect_inner`] needs to be called before this method becomes available.
+    /// [`collect_inner`](QuerySortedManyIter) needs to be called before this method becomes available.
     /// This is done to prevent mutable aliasing.
     #[inline(always)]
     pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
