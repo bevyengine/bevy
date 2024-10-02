@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
+use bevy_picking::Pickable;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -115,7 +116,7 @@ pub struct ImageBundle {
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).
-#[derive(Bundle, Debug, Default)]
+#[derive(Bundle, Debug)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -153,6 +154,33 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
+    /// Whether or not this text is pickable.
+    ///
+    /// By default, this is set to [`Pickable::IGNORE`].
+    pub pickable: Pickable,
+}
+
+impl Default for TextBundle {
+    fn default() -> Self {
+        Self {
+            node: Default::default(),
+            style: Default::default(),
+            text: Default::default(),
+            buffer: Default::default(),
+            text_layout_info: Default::default(),
+            text_flags: Default::default(),
+            calculated_size: Default::default(),
+            focus_policy: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
+            z_index: Default::default(),
+            background_color: Default::default(),
+            pickable: Pickable::IGNORE,
+        }
+    }
 }
 
 #[cfg(feature = "bevy_text")]
