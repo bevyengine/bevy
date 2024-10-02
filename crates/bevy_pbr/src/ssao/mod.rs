@@ -166,7 +166,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 pub struct ScreenSpaceAmbientOcclusion {
     /// Quality of the SSAO effect.
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
-    /// The constant thickness of objects use for the SSAO effect.
+    /// A constant estimated thickness of objects.
     ///
     /// This value is used to decide how far behind an object a ray of light needs to be in order
     /// to pass behind it. Any ray closer than that will be occluded.
