@@ -16,7 +16,7 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 pub enum EntityComponentError {
     /// The component with the given [`ComponentId`] does not exist on the entity.
     #[error("The component with the ID {0:?} does not exist on the entity.")]
-    NoSuchComponent(ComponentId),
+    MissingComponent(ComponentId),
     /// The component with the given [`ComponentId`] was requested mutably more than once.
     #[error("The component with the ID {0:?} was requested mutably more than once.")]
     AliasedMutability(ComponentId),

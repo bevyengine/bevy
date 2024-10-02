@@ -15,12 +15,12 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::{ComponentSparseSet, Storages, Table},
     system::Resource,
-    world::{error::EntityComponentError, RawCommandQueue},
+    world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
-use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, mem::MaybeUninit, ptr};
+use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -929,64 +929,6 @@ impl<'w> UnsafeEntityCell<'w> {
         } else {
             None
         }
-    }
-
-    /// Gets the components of the given [`ComponentId`]s from the entity.
-    ///
-    /// # Safety
-    ///
-    /// It is the callers responsibility to ensure that:
-    /// - the [`UnsafeEntityCell`] has permission to access the components mutably
-    /// - `component_ids` must contain no repeated [`ComponentId`]s.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
-    pub(crate) unsafe fn get_components_mut_by_id<const N: usize>(
-        &mut self,
-        component_ids: [ComponentId; N],
-    ) -> Result<[MutUntyped<'w>; N], EntityComponentError> {
-        let mut ptrs = [const { MaybeUninit::uninit() }; N];
-        for (ptr, id) in core::iter::zip(&mut ptrs, component_ids) {
-            *ptr = MaybeUninit::new(
-                // SAFETY: callers must ensure that `component_ids` contains no repeated `ComponentId`s.
-                unsafe { self.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::NoSuchComponent(id))?,
-            );
-        }
-
-        // SAFETY: Each ptr was initialized in the loop above.
-        let ptrs = ptrs.map(|ptr| unsafe { MaybeUninit::assume_init(ptr) });
-
-        Ok(ptrs)
-    }
-
-    /// Gets multiple mutable untyped components from the entity based on the
-    /// given iterator of [`ComponentId`]s.
-    ///
-    /// # Safety
-    ///
-    /// It is the callers responsibility to ensure that:
-    /// - the [`UnsafeEntityCell`] has permission to access the components mutably
-    /// - `component_ids` must contain no repeated [`ComponentId`]s.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`EntityComponentError::NoSuchComponent`] if the entity does not have a component.
-    pub(crate) unsafe fn get_components_dynamic_mut_by_id(
-        &mut self,
-        component_ids: impl ExactSizeIterator<Item = ComponentId>,
-    ) -> Result<Vec<MutUntyped<'w>>, EntityComponentError> {
-        let mut ptrs = Vec::with_capacity(component_ids.len());
-        for id in component_ids {
-            ptrs.push(
-                // SAFETY: callers must ensure that `component_ids` contains no repeated `ComponentId`s.
-                unsafe { self.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::NoSuchComponent(id))?,
-            );
-        }
-
-        Ok(ptrs)
     }
 }
 
