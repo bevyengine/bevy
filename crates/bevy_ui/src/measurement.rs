@@ -1,8 +1,7 @@
-use bevy_ecs::prelude::Component;
-use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use std::fmt::Formatter;
+use core::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 
 use crate::widget::ImageMeasure;
@@ -10,8 +9,8 @@ use crate::widget::ImageMeasure;
 #[cfg(feature = "bevy_text")]
 use crate::widget::TextMeasure;
 
-impl std::fmt::Debug for ContentSize {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for ContentSize {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ContentSize").finish()
     }
 }
@@ -23,9 +22,11 @@ pub struct MeasureArgs<'a> {
     pub available_height: AvailableSpace,
     #[cfg(feature = "bevy_text")]
     pub font_system: &'a mut bevy_text::cosmic_text::FontSystem,
+    #[cfg(feature = "bevy_text")]
+    pub buffer: Option<&'a mut bevy_text::cosmic_text::Buffer>,
     // When `bevy_text` is disabled, use `PhantomData` in order to keep lifetime in type signature.
     #[cfg(not(feature = "bevy_text"))]
-    pub font_system: std::marker::PhantomData<&'a mut ()>,
+    pub font_system: core::marker::PhantomData<&'a mut ()>,
 }
 
 /// A `Measure` is used to compute the size of a ui node

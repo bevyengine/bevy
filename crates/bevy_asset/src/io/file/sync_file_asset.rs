@@ -1,17 +1,16 @@
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
-    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream,
-    Reader, Writer,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
+    PathStream, Reader, Writer,
 };
 
+use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},
     io::{Read, Seek, Write},
     path::{Path, PathBuf},
-    pin::Pin,
-    task::Poll,
 };
 
 use super::{FileAssetReader, FileAssetWriter};
@@ -21,7 +20,7 @@ struct FileReader(File);
 impl AsyncRead for FileReader {
     fn poll_read(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
@@ -30,14 +29,16 @@ impl AsyncRead for FileReader {
     }
 }
 
-impl AsyncSeek for FileReader {
-    fn poll_seek(
+impl AsyncSeekForward for FileReader {
+    fn poll_seek_forward(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        pos: std::io::SeekFrom,
+        _cx: &mut core::task::Context<'_>,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
         let this = self.get_mut();
-        let seek = this.0.seek(pos);
+        let current = this.0.stream_position()?;
+        let seek = this.0.seek(std::io::SeekFrom::Start(current + offset));
+
         Poll::Ready(seek)
     }
 }
@@ -57,7 +58,7 @@ struct FileWriter(File);
 impl AsyncWrite for FileWriter {
     fn poll_write(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
         let this = self.get_mut();
@@ -67,7 +68,7 @@ impl AsyncWrite for FileWriter {
 
     fn poll_flush(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
         let this = self.get_mut();
         let flushed = this.0.flush();
@@ -76,7 +77,7 @@ impl AsyncWrite for FileWriter {
 
     fn poll_close(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
         Poll::Ready(Ok(()))
     }
@@ -89,7 +90,7 @@ impl Stream for DirReader {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         Poll::Ready(this.0.pop())

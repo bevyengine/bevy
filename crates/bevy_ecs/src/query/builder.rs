@@ -1,7 +1,9 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use crate::component::StorageType;
-use crate::{component::ComponentId, prelude::*};
+use crate::{
+    component::{ComponentId, StorageType},
+    prelude::*,
+};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
 
@@ -32,7 +34,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///
 /// // Consume the QueryState
 /// let (entity, b) = query.single(&world);
-///```
+/// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
     world: &'w mut World,
@@ -79,10 +81,14 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .map_or(false, |info| info.storage_type() == StorageType::Table)
         };
 
-        self.access
-            .access()
-            .component_reads_and_writes()
-            .all(is_dense)
+        #[allow(deprecated)]
+        let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
+            self.access.access().component_reads_and_writes();
+        if component_reads_and_writes_inverted {
+            return false;
+        }
+
+        component_reads_and_writes.all(is_dense)
             && self.access.access().archetypal().all(is_dense)
             && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)
@@ -256,12 +262,12 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         // SAFETY:
         // - We have included all required accesses for NewQ and NewF
         // - The layout of all QueryBuilder instances is the same
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 
     /// Create a [`QueryState`] with the accesses of the builder.
     ///
-    /// Takes `&mut self` to access the innner world reference while initializing
+    /// Takes `&mut self` to access the inner world reference while initializing
     /// state for the new [`QueryState`]
     pub fn build(&mut self) -> QueryState<D, F> {
         QueryState::<D, F>::from_builder(self)
@@ -271,8 +277,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::*;
-    use crate::world::FilteredEntityRef;
+    use crate::{prelude::*, world::FilteredEntityRef};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -307,9 +312,9 @@ mod tests {
         let mut world = World::new();
         let entity_a = world.spawn((A(0), B(0))).id();
         let entity_b = world.spawn((A(0), C(0))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
-        let component_id_c = world.init_component::<C>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
+        let component_id_c = world.register_component::<C>();
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
             .with_id(component_id_a)
@@ -396,8 +401,8 @@ mod tests {
     fn builder_dynamic_components() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let component_id_a = world.init_component::<A>();
-        let component_id_b = world.init_component::<B>();
+        let component_id_a = world.register_component::<A>();
+        let component_id_b = world.register_component::<B>();
 
         let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
             .ref_id(component_id_a)

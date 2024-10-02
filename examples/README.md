@@ -56,6 +56,7 @@ git checkout v0.4.0
   - [Movement](#movement)
   - [Picking](#picking)
   - [Reflection](#reflection)
+  - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
   - [Shaders](#shaders)
   - [State](#state)
@@ -71,7 +72,9 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -138,6 +141,7 @@ Example | Description
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
+[Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
@@ -156,7 +160,9 @@ Example | Description
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
 [Parenting](../examples/3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
+[Percentage-closer soft shadows](../examples/3d/pcss.rs) | Demonstrates percentage-closer soft shadows (PCSS)
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
+[Query glTF primitives](../examples/3d/query_gltf_primitives.rs) | Query primitives in a glTF scene
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
@@ -186,7 +192,9 @@ Example | Description
 --- | ---
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
+[Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
+[Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
@@ -217,6 +225,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[Alter Mesh](../examples/asset/alter_mesh.rs) | Shows how to modify the underlying asset of a Mesh after spawning.
+[Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
@@ -253,7 +263,9 @@ Example | Description
 Example | Description
 --- | ---
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
+[Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
+[Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 
 ## Dev tools
 
@@ -280,6 +292,7 @@ Example | Description
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
+[Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
@@ -372,6 +385,13 @@ Example | Description
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
 [Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
 
+## Remote Protocol
+
+Example | Description
+--- | ---
+[client](../examples/remote/client.rs) | A simple command line client that can control Bevy apps via the BRP
+[server](../examples/remote/server.rs) | A Bevy app that you can connect to with the BRP and edit
+
 ## Scene
 
 Example | Description
@@ -395,7 +415,8 @@ Example | Description
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
-[Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
+[Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
+[Instancing](../examples/shader/automatic_instancing.rs) | Shows that multiple instances of a cube are automatically instanced in one draw call
 [Material](../examples/shader/shader_material.rs) | A shader and a material that uses it
 [Material](../examples/shader/shader_material_2d.rs) | A shader and a material that uses it on a 2d mesh
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
@@ -404,6 +425,7 @@ Example | Description
 [Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
 [Specialized Mesh Pipeline](../examples/shader/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
+[Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 
 ## State
@@ -474,10 +496,12 @@ Example | Description
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
+[Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
@@ -489,6 +513,7 @@ Example | Description
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
 [UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
 [UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
+[UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
@@ -521,33 +546,51 @@ Example | Description
 ### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
+Alternatively, you can install Android Studio.
+
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
+
+See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+After this you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your Android project.
+
+#### About `libc++_shared.so`
+
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -567,17 +610,21 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
+[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
+
+Then build it as the [Build & Run](#build--run) section stated above.
+
+#### About `cargo-apk`
+
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
 Example | File | Description
 --- | --- | ---

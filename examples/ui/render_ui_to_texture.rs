@@ -7,10 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
+        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
-use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
@@ -51,7 +51,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {
@@ -105,13 +105,9 @@ fn setup(
 
     // Cube with material containing the rendered UI texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         Cube,
     ));
 

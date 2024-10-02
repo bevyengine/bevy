@@ -1,18 +1,21 @@
-use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl};
-use crate::impls::impl_assertions;
-use crate::utility::ident_or_index;
 use crate::{
-    from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME,
+    derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
+    from_reflect,
+    ident::ident_or_index,
+    impls,
+    impls::impl_assertions,
+    ReflectDerive, REFLECT_ATTRIBUTE_NAME,
 };
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, quote_spanned};
-use syn::parse::{Parse, ParseStream};
-use syn::spanned::Spanned;
-use syn::token::PathSep;
 use syn::{
-    parse_macro_input, DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+    spanned::Spanned,
+    token::PathSep,
+    DeriveInput, ExprPath, Generics, Member, PathArguments, Type, TypePath,
 };
 
 /// Generates the remote wrapper type and implements all the necessary traits.
@@ -70,10 +73,10 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
                 None
             },
         ),
-        ReflectDerive::Value(meta) => (
-            impls::impl_value(&meta),
+        ReflectDerive::Opaque(meta) => (
+            impls::impl_opaque(&meta),
             if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_value(&meta))
+                Some(from_reflect::impl_opaque(&meta))
             } else {
                 None
             },
@@ -114,10 +117,10 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
     let vis = &input.vis;
     let ty_generics = &input.generics;
     let where_clause = &input.generics.where_clause;
-    let attrs = input.attrs.iter().filter(|attr| {
-        !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME)
-            && !attr.path().is_ident(REFLECT_VALUE_ATTRIBUTE_NAME)
-    });
+    let attrs = input
+        .attrs
+        .iter()
+        .filter(|attr| !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME));
 
     quote! {
         #(#attrs)*
@@ -164,7 +167,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)
@@ -193,7 +196,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
                     // ```
                     // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
                     // |
-                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 core::mem::transmute::<A, B>(a)
                     // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     // |
                     // = note: source type: `A` (this type does not have a fixed size)
@@ -407,7 +410,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
                 }
             }
         }
-        ReflectDerive::Value(_) => {
+        ReflectDerive::Opaque(_) => {
             // No assertions needed since there are no fields to check
             proc_macro2::TokenStream::new()
         }

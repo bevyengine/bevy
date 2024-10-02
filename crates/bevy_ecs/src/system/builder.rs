@@ -4,74 +4,92 @@ use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
     system::{
-        system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
-        Query, SystemMeta,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
     },
     world::{FromWorld, World},
 };
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::{init_query_param, Res, ResMut, Resource, SystemState};
 
-/// A builder that can create a [`SystemParam`]
+/// A builder that can create a [`SystemParam`].
 ///
 /// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs_macros::SystemParam;
-/// # use bevy_ecs::system::{RunSystemOnce, ParamBuilder, LocalBuilder, QueryParamBuilder};
-/// #
-/// # #[derive(Component)]
-/// # struct A;
-/// #
-/// # #[derive(Component)]
-/// # struct B;
-/// #
+/// # use bevy_ecs::{
+/// #     prelude::*,
+/// #     system::{SystemParam, ParamBuilder},
+/// # };
 /// # #[derive(Resource)]
 /// # struct R;
 /// #
 /// # #[derive(SystemParam)]
 /// # struct MyParam;
 /// #
-/// # let mut world = World::new();
-/// # world.insert_resource(R);
-/// #
-/// fn my_system(res: Res<R>, query: Query<&A>, param: MyParam) {
-///     // ...
+/// fn some_system(param: MyParam) {}
+///
+/// fn build_system(builder: impl SystemParamBuilder<MyParam>) {
+///     let mut world = World::new();
+///     // To build a system, create a tuple of `SystemParamBuilder`s
+///     // with a builder for each parameter.
+///     // Note that the builder for a system must be a tuple,
+///     // even if there is only one parameter.
+///     (builder,)
+///         .build_state(&mut world)
+///         .build_system(some_system);
 /// }
 ///
-/// // To build a system, create a tuple of `SystemParamBuilder`s with a builder for each param.
-/// // `ParamBuilder` can be used to build a parameter using its default initialization,
-/// // and has helper methods to create typed builders.
-/// let system = (
-///     ParamBuilder,
-///     ParamBuilder::query::<&A>(),
-///     ParamBuilder::of::<MyParam>(),
-/// )
-///     .build_state(&mut world)
-///     .build_system(my_system);
-///
-/// // Other implementations of `SystemParamBuilder` can be used to configure the parameters.
-/// let system = (
-///     ParamBuilder,
-///     QueryParamBuilder::new::<&A, ()>(|builder| {
-///         builder.with::<B>();
-///     }),
-///     ParamBuilder,
-/// )
-///     .build_state(&mut world)
-///     .build_system(my_system);
-///
-/// fn single_parameter_system(local: Local<u64>) {
-///     // ...
+/// fn build_closure_system_infer(builder: impl SystemParamBuilder<MyParam>) {
+///     let mut world = World::new();
+///     // Closures can be used in addition to named functions.
+///     // If a closure is used, the parameter types must all be inferred
+///     // from the builders, so you cannot use plain `ParamBuilder`.
+///     (builder, ParamBuilder::resource())
+///         .build_state(&mut world)
+///         .build_system(|param, res| {
+///             let param: MyParam = param;
+///             let res: Res<R> = res;
+///         });
 /// }
 ///
-/// // Note that the builder for a system must be a tuple, even if there is only one parameter.
-/// let system = (LocalBuilder(2),)
-///     .build_state(&mut world)
-///     .build_system(single_parameter_system);
+/// fn build_closure_system_explicit(builder: impl SystemParamBuilder<MyParam>) {
+///     let mut world = World::new();
+///     // Alternately, you can provide all types in the closure
+///     // parameter list and call `build_any_system()`.
+///     (builder, ParamBuilder)
+///         .build_state(&mut world)
+///         .build_any_system(|param: MyParam, res: Res<R>| {});
+/// }
+/// ```
 ///
-/// world.run_system_once(system);
-///```
+/// See the documentation for individual builders for more examples.
+///
+/// # List of Builders
+///
+/// [`ParamBuilder`] can be used for parameters that don't require any special building.
+/// Using a `ParamBuilder` will build the system parameter the same way it would be initialized in an ordinary system.
+///
+/// `ParamBuilder` also provides factory methods that return a `ParamBuilder` typed as `impl SystemParamBuilder<P>`
+/// for common system parameters that can be used to guide closure parameter inference.
+///
+/// [`QueryParamBuilder`] can build a [`Query`] to add additional filters,
+/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// You can also use a [`QueryState`] to build a [`Query`].
+///
+/// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
+///
+/// [`DynParamBuilder`] can build a [`DynSystemParam`] to determine the type of the inner parameter,
+/// and to supply any `SystemParamBuilder` it needs.
+///
+/// Tuples of builders can build tuples of parameters, one builder for each element.
+/// Note that since systems require a tuple as a parameter, the outer builder for a system will always be a tuple.
+///
+/// A [`Vec`] of builders can build a `Vec` of parameters, one builder for each element.
+///
+/// A [`ParamSetBuilder`] can build a [`ParamSet`].
+/// This can wrap either a tuple or a `Vec`, one builder for each element.
+///
+/// A custom system param created with `#[derive(SystemParam)]` can be buildable if it includes a `#[system_param(builder)]` attribute.
+/// See [the documentation for `SystemParam` derives](SystemParam#builders).
 ///
 /// # Safety
 ///
@@ -97,6 +115,44 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 }
 
 /// A [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_ecs::{
+/// #     prelude::*,
+/// #     system::{SystemParam, ParamBuilder},
+/// # };
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # #[derive(Resource)]
+/// # struct R;
+/// #
+/// # #[derive(SystemParam)]
+/// # struct MyParam;
+/// #
+/// # let mut world = World::new();
+/// # world.insert_resource(R);
+/// #
+/// fn my_system(res: Res<R>, param: MyParam, query: Query<&A>) {
+///     // ...
+/// }
+///
+/// let system = (
+///     // A plain ParamBuilder can build any parameter type.
+///     ParamBuilder,
+///     // The `of::<P>()` method returns a `ParamBuilder`
+///     // typed as `impl SystemParamBuilder<P>`.
+///     ParamBuilder::of::<MyParam>(),
+///     // The other factory methods return typed builders
+///     // for common parameter types.
+///     ParamBuilder::query::<&A>(),
+/// )
+///     .build_state(&mut world)
+///     .build_system(my_system);
+/// ```
 #[derive(Default, Debug, Copy, Clone)]
 pub struct ParamBuilder;
 
@@ -153,6 +209,45 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 }
 
 /// A [`SystemParamBuilder`] for a [`Query`].
+/// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the query's state.
+/// This can be used to add additional filters,
+/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_ecs::{
+/// #     prelude::*,
+/// #     system::{SystemParam, QueryParamBuilder},
+/// # };
+/// #
+/// # #[derive(Component)]
+/// # struct Player;
+/// #
+/// # let mut world = World::new();
+/// let system = (QueryParamBuilder::new(|builder| {
+///     builder.with::<Player>();
+/// }),)
+///     .build_state(&mut world)
+///     .build_system(|query: Query<()>| {
+///         for _ in &query {
+///             // This only includes entities with an `Player` component.
+///         }
+///     });
+///
+/// // When collecting multiple builders into a `Vec`,
+/// // use `new_box()` to erase the closure type.
+/// let system = (vec![
+///     QueryParamBuilder::new_box(|builder| {
+///         builder.with::<Player>();
+///     }),
+///     QueryParamBuilder::new_box(|builder| {
+///         builder.without::<Player>();
+///     }),
+/// ],)
+///     .build_state(&mut world)
+///     .build_system(|query: Vec<Query<()>>| {});
+/// ```
 pub struct QueryParamBuilder<T>(T);
 
 impl<T> QueryParamBuilder<T> {
@@ -194,7 +289,8 @@ unsafe impl<
 }
 
 macro_rules! impl_system_param_builder_tuple {
-    ($(($param: ident, $builder: ident)),*) => {
+    ($(#[$meta:meta])* $(($param: ident, $builder: ident)),*) => {
+        $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
             fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
@@ -207,7 +303,14 @@ macro_rules! impl_system_param_builder_tuple {
     };
 }
 
-all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_param_builder_tuple,
+    0,
+    16,
+    P,
+    B
+);
 
 // SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
@@ -219,8 +322,76 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 }
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
+///
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
-/// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
+/// To build a [`ParamSet`] with a [`Vec`] of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, system::*};
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// # let mut world = World::new();
+/// #
+/// let system = (ParamSetBuilder((
+///     QueryParamBuilder::new(|builder| {
+///         builder.with::<Enemy>();
+///     }),
+///     QueryParamBuilder::new(|builder| {
+///         builder.with::<Ally>();
+///     }),
+///     ParamBuilder,
+/// )),)
+///     .build_state(&mut world)
+///     .build_system(buildable_system_with_tuple);
+/// # world.run_system_once(system);
+///
+/// fn buildable_system_with_tuple(
+///     mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>,
+/// ) {
+///     // The first parameter is built from the first builder,
+///     // so this will iterate over enemies.
+///     for mut health in set.p0().iter_mut() {}
+///     // And the second parameter is built from the second builder,
+///     // so this will iterate over allies.
+///     for mut health in set.p1().iter_mut() {}
+///     // Parameters that don't need special building can use `ParamBuilder`.
+///     let entities = set.p2().entities();
+/// }
+///
+/// let system = (ParamSetBuilder(vec![
+///     QueryParamBuilder::new_box(|builder| {
+///         builder.with::<Enemy>();
+///     }),
+///     QueryParamBuilder::new_box(|builder| {
+///         builder.with::<Ally>();
+///     }),
+/// ]),)
+///     .build_state(&mut world)
+///     .build_system(buildable_system_with_vec);
+/// # world.run_system_once(system);
+///
+/// fn buildable_system_with_vec(mut set: ParamSet<Vec<Query<&mut Health>>>) {
+///     // As with tuples, the first parameter is built from the first builder,
+///     // so this will iterate over enemies.
+///     for mut health in set.get_mut(0).iter_mut() {}
+///     // And the second parameter is built from the second builder,
+///     // so this will iterate over allies.
+///     for mut health in set.get_mut(1).iter_mut() {}
+///     // You can iterate over the parameters either by index,
+///     // or using the `for_each` method.
+///     set.for_each(|mut query| for mut health in query.iter_mut() {});
+/// }
+/// ```
 pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
@@ -293,6 +464,7 @@ unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
 }
 
 /// A [`SystemParamBuilder`] for a [`DynSystemParam`].
+/// See the [`DynSystemParam`] docs for examples.
 pub struct DynParamBuilder<'a>(
     Box<dyn FnOnce(&mut World, &mut SystemMeta) -> DynSystemParamState + 'a>,
 );
@@ -322,6 +494,23 @@ unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamB
 
 /// A [`SystemParamBuilder`] for a [`Local`].
 /// The provided value will be used as the initial value of the `Local`.
+///
+/// ## Example
+///
+/// ```
+/// # use bevy_ecs::{
+/// #     prelude::*,
+/// #     system::{SystemParam, LocalBuilder, RunSystemOnce},
+/// # };
+/// #
+/// # let mut world = World::new();
+/// let system = (LocalBuilder(100),)
+///     .build_state(&mut world)
+///     .build_system(|local: Local<usize>| {
+///         assert_eq!(*local, 100);
+///     });
+/// # world.run_system_once(system);
+/// ```
 pub struct LocalBuilder<T>(pub T);
 
 // SAFETY: `Local` performs no world access.
@@ -340,9 +529,11 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::entity::Entities;
-    use crate::prelude::{Component, Query};
-    use crate::system::{Local, RunSystemOnce};
+    use crate::{
+        entity::Entities,
+        prelude::{Component, Query},
+        system::{Local, RunSystemOnce},
+    };
 
     use super::*;
 
@@ -375,8 +566,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(local_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 10);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 10);
     }
 
     #[test]
@@ -392,8 +583,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(query_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -407,8 +598,8 @@ mod tests {
 
         let system = (state,).build_state(&mut world).build_system(query_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -422,8 +613,8 @@ mod tests {
             .build_state(&mut world)
             .build_system(multi_param_system);
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 1);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -453,8 +644,23 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 3);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 3);
+    }
+
+    #[test]
+    fn multi_param_builder_inference() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (LocalBuilder(0u64), ParamBuilder::local::<u64>())
+            .build_state(&mut world)
+            .build_system(|a, b| *a + *b + 1);
+
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 1);
     }
 
     #[test]
@@ -480,8 +686,8 @@ mod tests {
                 params.p0().iter().count() + params.p1().iter().count()
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 5);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -509,8 +715,8 @@ mod tests {
                 count
             });
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 5);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 5);
     }
 
     #[test]
@@ -538,7 +744,34 @@ mod tests {
                 },
             );
 
-        let result = world.run_system_once(system);
-        assert_eq!(result, 4);
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 4);
+    }
+
+    #[derive(SystemParam)]
+    #[system_param(builder)]
+    struct CustomParam<'w, 's> {
+        query: Query<'w, 's, ()>,
+        local: Local<'s, usize>,
+    }
+
+    #[test]
+    fn custom_param_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (CustomParamBuilder {
+            local: LocalBuilder(100),
+            query: QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            }),
+        },)
+            .build_state(&mut world)
+            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 101);
     }
 }

@@ -1,18 +1,20 @@
 use crate::{
     archetype::{Archetype, Archetypes},
+    bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, FilteredEntityMut,
-        FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
-use std::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData};
+use smallvec::SmallVec;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -626,27 +628,15 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
-        archetype: &'w Archetype,
+        _: &'w Archetype,
         _table: &Table,
     ) {
-        let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if archetype.contains(id) {
-                access.add_component_read(id);
-            }
-        });
-        fetch.1 = access;
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if table.has_column(id) {
-                access.add_component_read(id);
-            }
-        });
-        fetch.1 = access;
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
@@ -733,37 +723,15 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
-        archetype: &'w Archetype,
+        _: &'w Archetype,
         _table: &Table,
     ) {
-        let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if archetype.contains(id) {
-                access.add_component_read(id);
-            }
-        });
-        state.access.component_writes().for_each(|id| {
-            if archetype.contains(id) {
-                access.add_component_write(id);
-            }
-        });
-        fetch.1 = access;
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        let mut access = Access::default();
-        state.access.component_reads().for_each(|id| {
-            if table.has_column(id) {
-                access.add_component_read(id);
-            }
-        });
-        state.access.component_writes().for_each(|id| {
-            if table.has_column(id) {
-                access.add_component_write(id);
-            }
-        });
-        fetch.1 = access;
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, _: &'w Table) {
+        fetch.1.clone_from(&state.access);
     }
 
     #[inline]
@@ -813,6 +781,201 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
 unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
     type ReadOnly = FilteredEntityRef<'a>;
+}
+
+/// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
+/// and populates `Access` values so that queries that conflict with this access
+/// are rejected.
+unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
+where
+    B: Bundle,
+{
+    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Item<'w> = EntityRefExcept<'w, B>;
+    type State = SmallVec<[ComponentId; 4]>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _: &Self::State,
+        _: Tick,
+        _: Tick,
+    ) -> Self::Fetch<'w> {
+        world
+    }
+
+    const IS_DENSE: bool = true;
+
+    unsafe fn set_archetype<'w>(
+        _: &mut Self::Fetch<'w>,
+        _: &Self::State,
+        _: &'w Archetype,
+        _: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+
+    unsafe fn fetch<'w>(
+        world: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _: TableRow,
+    ) -> Self::Item<'w> {
+        let cell = world.get_entity(entity).unwrap();
+        EntityRefExcept::new(cell)
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        filtered_access: &mut FilteredAccess<ComponentId>,
+    ) {
+        let mut my_access = Access::new();
+        my_access.read_all_components();
+        for id in state {
+            my_access.remove_component_read(*id);
+        }
+
+        let access = filtered_access.access_mut();
+        assert!(
+            access.is_compatible(&my_access),
+            "`EntityRefExcept<{}>` conflicts with a previous access in this query.",
+            core::any::type_name::<B>(),
+        );
+        access.extend(&my_access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        Self::get_state(world.components()).unwrap()
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        let mut ids = SmallVec::new();
+        B::get_component_ids(components, &mut |maybe_id| {
+            if let Some(id) = maybe_id {
+                ids.push(id);
+            }
+        });
+        Some(ids)
+    }
+
+    fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
+        true
+    }
+}
+
+/// SAFETY: `Self` is the same as `Self::ReadOnly`.
+unsafe impl<'a, B> QueryData for EntityRefExcept<'a, B>
+where
+    B: Bundle,
+{
+    type ReadOnly = Self;
+}
+
+/// SAFETY: `EntityRefExcept` enforces read-only access to its contained
+/// components.
+unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
+
+/// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
+/// and populates `Access` values so that queries that conflict with this access
+/// are rejected.
+unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
+where
+    B: Bundle,
+{
+    type Fetch<'w> = UnsafeWorldCell<'w>;
+    type Item<'w> = EntityMutExcept<'w, B>;
+    type State = SmallVec<[ComponentId; 4]>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        _: &Self::State,
+        _: Tick,
+        _: Tick,
+    ) -> Self::Fetch<'w> {
+        world
+    }
+
+    const IS_DENSE: bool = true;
+
+    unsafe fn set_archetype<'w>(
+        _: &mut Self::Fetch<'w>,
+        _: &Self::State,
+        _: &'w Archetype,
+        _: &'w Table,
+    ) {
+    }
+
+    unsafe fn set_table<'w>(_: &mut Self::Fetch<'w>, _: &Self::State, _: &'w Table) {}
+
+    unsafe fn fetch<'w>(
+        world: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _: TableRow,
+    ) -> Self::Item<'w> {
+        let cell = world.get_entity(entity).unwrap();
+        EntityMutExcept::new(cell)
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        filtered_access: &mut FilteredAccess<ComponentId>,
+    ) {
+        let mut my_access = Access::new();
+        my_access.write_all_components();
+        for id in state {
+            my_access.remove_component_read(*id);
+        }
+
+        let access = filtered_access.access_mut();
+        assert!(
+            access.is_compatible(&my_access),
+            "`EntityMutExcept<{}>` conflicts with a previous access in this query.",
+            core::any::type_name::<B>()
+        );
+        access.extend(&my_access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        Self::get_state(world.components()).unwrap()
+    }
+
+    fn get_state(components: &Components) -> Option<Self::State> {
+        let mut ids = SmallVec::new();
+        B::get_component_ids(components, &mut |maybe_id| {
+            if let Some(id) = maybe_id {
+                ids.push(id);
+            }
+        });
+        Some(ids)
+    }
+
+    fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
+        true
+    }
+}
+
+/// SAFETY: All accesses that `EntityRefExcept` provides are also accesses that
+/// `EntityMutExcept` provides.
+unsafe impl<'a, B> QueryData for EntityMutExcept<'a, B>
+where
+    B: Bundle,
+{
+    type ReadOnly = EntityRefExcept<'a, B>;
 }
 
 /// SAFETY:
@@ -895,19 +1058,22 @@ unsafe impl QueryData for &Archetype {
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
 #[doc(hidden)]
-pub struct ReadFetch<'w, T> {
-    // T::STORAGE_TYPE = StorageType::Table
-    table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    // T::STORAGE_TYPE = StorageType::SparseSet
-    sparse_set: Option<&'w ComponentSparseSet>,
+pub struct ReadFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::STORAGE_TYPE = StorageType::Table
+        Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+        // T::STORAGE_TYPE = StorageType::SparseSet
+        &'w ComponentSparseSet,
+    >,
 }
 
-impl<T> Clone for ReadFetch<'_, T> {
+impl<T: Component> Clone for ReadFetch<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T> Copy for ReadFetch<'_, T> {}
+impl<T: Component> Copy for ReadFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
@@ -935,20 +1101,22 @@ unsafe impl<T: Component> WorldQuery for &T {
         _this_run: Tick,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
-            table_components: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                // SAFETY: The underlying type associated with `component_id` is `T`,
-                // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                // Note that we do not actually access any components in this function, we just get a shared
-                // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id)
-                        .debug_checked_unwrap()
-                }
-            }),
+            components: StorageSwitch::new(
+                || None,
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id)
+                            .debug_checked_unwrap()
+                    }
+                },
+            ),
         }
     }
 
@@ -980,13 +1148,14 @@ unsafe impl<T: Component> WorldQuery for &T {
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_components = Some(
+        let table_data = Some(
             table
-                .get_column(component_id)
+                .get_data_slice_for(component_id)
                 .debug_checked_unwrap()
-                .get_data_slice()
                 .into(),
         );
+        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+        unsafe { fetch.components.set_table(table_data) };
     }
 
     #[inline(always)]
@@ -995,22 +1164,20 @@ unsafe impl<T: Component> WorldQuery for &T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_components.debug_checked_unwrap() };
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
                 // SAFETY: Caller ensures `table_row` is in range.
                 let item = unsafe { table.get(table_row.as_usize()) };
                 item.deref()
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
+            },
+            |sparse_set| {
                 // SAFETY: Caller ensures `entity` is in range.
                 let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
                 item.deref()
-            }
-        }
+            },
+        )
     }
 
     fn update_component_access(
@@ -1020,13 +1187,13 @@ unsafe impl<T: Component> WorldQuery for &T {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1050,27 +1217,29 @@ unsafe impl<T: Component> QueryData for &T {
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
 
 #[doc(hidden)]
-pub struct RefFetch<'w, T> {
-    // T::STORAGE_TYPE = StorageType::Table
-    table_data: Option<(
-        ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        MaybeThinSlicePtrLocation<'w>,
-    )>,
-    // T::STORAGE_TYPE = StorageType::SparseSet
-    sparse_set: Option<&'w ComponentSparseSet>,
-
+pub struct RefFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::STORAGE_TYPE = StorageType::Table
+        Option<(
+            ThinSlicePtr<'w, UnsafeCell<T>>,
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            MaybeThinSlicePtrLocation<'w>,
+        )>,
+        // T::STORAGE_TYPE = StorageType::SparseSet
+        &'w ComponentSparseSet,
+    >,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<T> Clone for RefFetch<'_, T> {
+impl<T: Component> Clone for RefFetch<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T> Copy for RefFetch<'_, T> {}
+impl<T: Component> Copy for RefFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component in a readonly way.
@@ -1098,20 +1267,22 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         this_run: Tick,
     ) -> RefFetch<'w, T> {
         RefFetch {
-            table_data: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                // SAFETY: The underlying type associated with `component_id` is `T`,
-                // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                // Note that we do not actually access any components in this function, we just get a shared
-                // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id)
-                        .debug_checked_unwrap()
-                }
-            }),
+            components: StorageSwitch::new(
+                || None,
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id)
+                            .debug_checked_unwrap()
+                    }
+                },
+            ),
             last_run,
             this_run,
         }
@@ -1146,15 +1317,17 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
-        fetch.table_data = Some((
-            column.get_data_slice().into(),
-            column.get_added_ticks_slice().into(),
-            column.get_changed_ticks_slice().into(),
+        let table_data = Some((
+            column.get_data_slice(table.entity_count()).into(),
+            column.get_added_ticks_slice(table.entity_count()).into(),
+            column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_changed_by_slice().into(),
+            column.get_changed_by_slice(table.entity_count()).into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));
+        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+        unsafe { fetch.components.set_table(table_data) };
     }
 
     #[inline(always)]
@@ -1163,11 +1336,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, _callers) =
-                    unsafe { fetch.table_data.debug_checked_unwrap() };
+                    unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
@@ -1190,17 +1363,11 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     #[cfg(feature = "track_change_detection")]
                     changed_by: caller.deref(),
                 }
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let component_sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
-
+            },
+            |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks, _caller) = unsafe {
-                    component_sparse_set
-                        .get_with_ticks(entity)
-                        .debug_checked_unwrap()
-                };
+                let (component, ticks, _caller) =
+                    unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
                 Ref {
                     value: component.deref(),
@@ -1208,8 +1375,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     #[cfg(feature = "track_change_detection")]
                     changed_by: _caller.deref(),
                 }
-            }
-        }
+            },
+        )
     }
 
     fn update_component_access(
@@ -1219,13 +1386,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_read(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1249,27 +1416,29 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 #[doc(hidden)]
-pub struct WriteFetch<'w, T> {
-    // T::STORAGE_TYPE = StorageType::Table
-    table_data: Option<(
-        ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        MaybeThinSlicePtrLocation<'w>,
-    )>,
-    // T::STORAGE_TYPE = StorageType::SparseSet
-    sparse_set: Option<&'w ComponentSparseSet>,
-
+pub struct WriteFetch<'w, T: Component> {
+    components: StorageSwitch<
+        T,
+        // T::STORAGE_TYPE = StorageType::Table
+        Option<(
+            ThinSlicePtr<'w, UnsafeCell<T>>,
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            ThinSlicePtr<'w, UnsafeCell<Tick>>,
+            MaybeThinSlicePtrLocation<'w>,
+        )>,
+        // T::STORAGE_TYPE = StorageType::SparseSet
+        &'w ComponentSparseSet,
+    >,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<T> Clone for WriteFetch<'_, T> {
+impl<T: Component> Clone for WriteFetch<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T> Copy for WriteFetch<'_, T> {}
+impl<T: Component> Copy for WriteFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
@@ -1297,20 +1466,22 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         this_run: Tick,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
-            table_data: None,
-            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
-                // SAFETY: The underlying type associated with `component_id` is `T`,
-                // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                // Note that we do not actually access any components in this function, we just get a shared
-                // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                unsafe {
-                    world
-                        .storages()
-                        .sparse_sets
-                        .get(component_id)
-                        .debug_checked_unwrap()
-                }
-            }),
+            components: StorageSwitch::new(
+                || None,
+                || {
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components in `Self::fetch`.
+                    unsafe {
+                        world
+                            .storages()
+                            .sparse_sets
+                            .get(component_id)
+                            .debug_checked_unwrap()
+                    }
+                },
+            ),
             last_run,
             this_run,
         }
@@ -1345,15 +1516,17 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         table: &'w Table,
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
-        fetch.table_data = Some((
-            column.get_data_slice().into(),
-            column.get_added_ticks_slice().into(),
-            column.get_changed_ticks_slice().into(),
+        let table_data = Some((
+            column.get_data_slice(table.entity_count()).into(),
+            column.get_added_ticks_slice(table.entity_count()).into(),
+            column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_changed_by_slice().into(),
+            column.get_changed_by_slice(table.entity_count()).into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));
+        // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
+        unsafe { fetch.components.set_table(table_data) };
     }
 
     #[inline(always)]
@@ -1362,11 +1535,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
+        fetch.components.extract(
+            |table| {
+                // SAFETY: set_table was previously called
                 let (table_components, added_ticks, changed_ticks, _callers) =
-                    unsafe { fetch.table_data.debug_checked_unwrap() };
+                    unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
@@ -1389,17 +1562,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     #[cfg(feature = "track_change_detection")]
                     changed_by: caller.deref_mut(),
                 }
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let component_sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
-
+            },
+            |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks, _caller) = unsafe {
-                    component_sparse_set
-                        .get_with_ticks(entity)
-                        .debug_checked_unwrap()
-                };
+                let (component, ticks, _caller) =
+                    unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
                 Mut {
                     value: component.assert_unique().deref_mut(),
@@ -1407,8 +1574,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     #[cfg(feature = "track_change_detection")]
                     changed_by: _caller.deref_mut(),
                 }
-            }
-        }
+            },
+        )
     }
 
     fn update_component_access(
@@ -1418,13 +1585,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         assert!(
             !access.access().has_component_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1520,7 +1687,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         assert!(
             !access.access().has_component_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
         access.add_component_write(component_id);
     }
@@ -1743,9 +1910,9 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// ```
 pub struct Has<T>(PhantomData<T>);
 
-impl<T> std::fmt::Debug for Has<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "Has<{}>", std::any::type_name::<T>())
+impl<T> core::fmt::Debug for Has<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
+        write!(f, "Has<{}>", core::any::type_name::<T>())
     }
 }
 
@@ -1814,7 +1981,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.init_component::<T>()
+        world.register_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -1847,7 +2014,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         $(#[$meta])*
@@ -1856,6 +2022,7 @@ macro_rules! impl_tuple_query_data {
             type ReadOnly = ($($name::ReadOnly,)*);
         }
 
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
@@ -2149,6 +2316,74 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
 
 /// SAFETY: `PhantomData` never accesses any world data.
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
+
+/// A compile-time checked union of two different types that differs based on the
+/// [`StorageType`] of a given component.
+pub(super) union StorageSwitch<C: Component, T: Copy, S: Copy> {
+    /// The table variant. Requires the component to be a table component.
+    table: T,
+    /// The sparse set variant. Requires the component to be a sparse set component.
+    sparse_set: S,
+    _marker: PhantomData<C>,
+}
+
+impl<C: Component, T: Copy, S: Copy> StorageSwitch<C, T, S> {
+    /// Creates a new [`StorageSwitch`] using the given closures to initialize
+    /// the variant corresponding to the component's [`StorageType`].
+    pub fn new(table: impl FnOnce() -> T, sparse_set: impl FnOnce() -> S) -> Self {
+        match C::STORAGE_TYPE {
+            StorageType::Table => Self { table: table() },
+            StorageType::SparseSet => Self {
+                sparse_set: sparse_set(),
+            },
+        }
+    }
+
+    /// Creates a new [`StorageSwitch`] using a table variant.
+    ///
+    /// # Panics
+    ///
+    /// This will panic on debug builds if `C` is not a table component.
+    ///
+    /// # Safety
+    ///
+    /// `C` must be a table component.
+    #[inline]
+    pub unsafe fn set_table(&mut self, table: T) {
+        match C::STORAGE_TYPE {
+            StorageType::Table => self.table = table,
+            _ => {
+                #[cfg(debug_assertions)]
+                unreachable!();
+                #[cfg(not(debug_assertions))]
+                std::hint::unreachable_unchecked()
+            }
+        }
+    }
+
+    /// Fetches the internal value from the variant that corresponds to the
+    /// component's [`StorageType`].
+    pub fn extract<R>(&self, table: impl FnOnce(T) -> R, sparse_set: impl FnOnce(S) -> R) -> R {
+        match C::STORAGE_TYPE {
+            StorageType::Table => table(
+                // SAFETY: C::STORAGE_TYPE == StorageType::Table
+                unsafe { self.table },
+            ),
+            StorageType::SparseSet => sparse_set(
+                // SAFETY: C::STORAGE_TYPE == StorageType::SparseSet
+                unsafe { self.sparse_set },
+            ),
+        }
+    }
+}
+
+impl<C: Component, T: Copy, S: Copy> Clone for StorageSwitch<C, T, S> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<C: Component, T: Copy, S: Copy> Copy for StorageSwitch<C, T, S> {}
 
 #[cfg(test)]
 mod tests {

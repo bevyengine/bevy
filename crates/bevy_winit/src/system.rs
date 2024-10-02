@@ -6,33 +6,34 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
+use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
 
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    event_loop::ActiveEventLoop,
+};
 
 use bevy_app::AppExit;
-use bevy_ecs::prelude::EventReader;
-use bevy_ecs::query::With;
-use bevy_ecs::system::Res;
+use bevy_ecs::{prelude::EventReader, query::With, system::Res};
 use bevy_math::{IVec2, UVec2};
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-use crate::state::react_to_resize;
-use crate::winit_monitors::WinitMonitors;
 use crate::{
     converters::{
         convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, select_monitor, CreateMonitorParams,
-    CreateWindowParams, WinitWindows,
+    get_best_videomode, get_fitting_videomode, select_monitor,
+    state::react_to_resize,
+    winit_monitors::WinitMonitors,
+    CreateMonitorParams, CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -119,6 +120,26 @@ pub fn create_windows<F: QueryFilter + 'static>(
         }
 
         window_created_events.send(WindowCreated { window: entity });
+    }
+}
+
+/// Check whether keyboard focus was lost. This is different from window
+/// focus in that swapping between Bevy windows keeps window focus.
+pub(crate) fn check_keyboard_focus_lost(
+    mut focus_events: EventReader<WindowFocused>,
+    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+) {
+    let mut focus_lost = false;
+    let mut focus_gained = false;
+    for e in focus_events.read() {
+        if e.focused {
+            focus_gained = true;
+        } else {
+            focus_lost = true;
+        }
+    }
+    if focus_lost & !focus_gained {
+        keyboard_focus.send(KeyboardFocusLost);
     }
 }
 

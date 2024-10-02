@@ -59,11 +59,9 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking")
 ))]
 pub mod internal {
+    use alloc::sync::Arc;
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use std::{
-        sync::{Arc, Mutex},
-        time::Instant,
-    };
+    use std::{sync::Mutex, time::Instant};
 
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::system::Resource;

@@ -3,13 +3,12 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{RenderTarget, ScalingMode},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         view::RenderLayers,
     },
-    sprite::MaterialMesh2dBundle,
     window::WindowResized,
 };
 
@@ -81,12 +80,9 @@ fn setup_mesh(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Capsule2d::default()).into(),
-            transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
-            material: materials.add(Color::BLACK),
-            ..default()
-        },
+        Mesh2d(meshes.add(Capsule2d::default())),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -176,6 +172,6 @@ fn fit_canvas(
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
         let mut projection = projections.single_mut();
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scaling_mode = ScalingMode::WindowSize(h_scale.min(v_scale).round());
     }
 }

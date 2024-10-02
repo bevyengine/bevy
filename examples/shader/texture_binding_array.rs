@@ -1,9 +1,8 @@
 //! A shader that binds several textures onto one
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
-use bevy::ecs::system::lifetimeless::SRes;
-use bevy::ecs::system::SystemParamItem;
 use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -17,7 +16,7 @@ use bevy::{
         RenderApp,
     },
 };
-use std::{num::NonZeroU32, process::exit};
+use std::{num::NonZero, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
@@ -84,11 +83,10 @@ fn setup(
         .collect();
 
     // a cube with multiple textures
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(BindlessMaterial { textures }),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+    ));
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]
@@ -166,7 +164,7 @@ impl AsBindGroup for BindlessMaterial {
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
-                        .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                        .count(NonZero::<u32>::new(MAX_TEXTURE_COUNT as u32).unwrap()),
                 ),
                 // Sampler
                 //
@@ -177,7 +175,7 @@ impl AsBindGroup for BindlessMaterial {
                 //
                 // ```
                 // sampler(SamplerBindingType::Filtering)
-                //     .count(NonZeroU32::new(MAX_TEXTURE_COUNT as u32).unwrap()),
+                //     .count(NonZero::<u32>::new(MAX_TEXTURE_COUNT as u32).unwrap()),
                 // ```
                 //
                 // One may need to pay attention to the limit of sampler binding

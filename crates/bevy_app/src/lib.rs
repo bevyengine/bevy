@@ -1,4 +1,6 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -6,6 +8,8 @@
 )]
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
+
+extern crate alloc;
 
 mod app;
 mod main_schedule;
@@ -27,7 +31,9 @@ pub use sub_app::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use terminal_ctrl_c_handler::*;
 
-#[allow(missing_docs)]
+/// The app prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

@@ -1,11 +1,15 @@
 //! Determines which entities are being hovered by which pointers.
+//!
+//! The most important type in this module is the [`HoverMap`], which maps pointers to the entities
+//! they are hovering over.
 
-use std::{collections::BTreeMap, fmt::Debug};
+use alloc::collections::BTreeMap;
+use core::fmt::Debug;
+use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},
-    events::PointerCancel,
-    pointer::{PointerId, PointerInteraction, PointerPress},
+    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
     Pickable,
 };
 
@@ -63,7 +67,7 @@ pub fn update_focus(
     pickable: Query<&Pickable>,
     pointers: Query<&PointerId>,
     mut under_pointer: EventReader<backend::PointerHits>,
-    mut cancellations: EventReader<PointerCancel>,
+    mut pointer_input: EventReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -76,7 +80,7 @@ pub fn update_focus(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut cancellations);
+    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
 }
 
@@ -109,9 +113,18 @@ fn reset_maps(
 fn build_over_map(
     backend_events: &mut EventReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_cancel: &mut EventReader<PointerCancel>,
+    pointer_input: &mut EventReader<PointerInput>,
 ) {
-    let cancelled_pointers: Vec<PointerId> = pointer_cancel.read().map(|p| p.pointer_id).collect();
+    let cancelled_pointers: HashSet<PointerId> = pointer_input
+        .read()
+        .filter_map(|p| {
+            if let PointerAction::Canceled = p.action {
+                Some(p.pointer_id)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     for entities_under_pointer in backend_events
         .read()
@@ -176,7 +189,7 @@ fn build_hover_map(
 /// the entity will be considered pressed. If that entity is instead being hovered by both pointers,
 /// it will be considered hovered.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub enum PickingInteraction {
     /// The entity is being pressed down by a pointer.
     Pressed = 2,
@@ -231,7 +244,7 @@ pub fn update_interactions(
     for (hovered_entity, new_interaction) in new_interaction_state.drain() {
         if let Ok(mut interaction) = interact.get_mut(hovered_entity) {
             *interaction = new_interaction;
-        } else if let Some(entity_commands) = commands.get_entity(hovered_entity) {
+        } else if let Some(mut entity_commands) = commands.get_entity(hovered_entity) {
             entity_commands.try_insert(new_interaction);
         }
     }

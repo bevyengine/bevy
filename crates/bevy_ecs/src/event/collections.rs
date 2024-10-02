@@ -3,11 +3,16 @@ use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 use bevy_utils::detailed_trace;
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// An event collection that represents the events that occurred within the last two
 /// [`Events::update`] calls.
@@ -43,7 +48,7 @@ use std::ops::{Deref, DerefMut};
 ///
 /// // setup
 /// let mut events = Events::<MyEvent>::default();
-/// let mut reader = events.get_reader();
+/// let mut cursor = events.get_cursor();
 ///
 /// // run this once per update/frame
 /// events.update();
@@ -52,12 +57,12 @@ use std::ops::{Deref, DerefMut};
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in reader.read(&events) {
+/// for event in cursor.read(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(reader.read(&events).count(), 0);
+/// assert_eq!(cursor.read(&events).count(), 0);
 /// ```
 ///
 /// # Details
@@ -85,7 +90,7 @@ use std::ops::{Deref, DerefMut};
 /// [`EventWriter`]: super::EventWriter
 /// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Default))]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that `a.start_event_count + a.len()` should always be equal to `events_b.start_event_count`.
@@ -197,7 +202,7 @@ impl<E: Event> Events<E> {
     ///
     /// If you need access to the events that were removed, consider using [`Events::update_drain`].
     pub fn update(&mut self) {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        core::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(
@@ -212,7 +217,7 @@ impl<E: Event> Events<E> {
     /// If you do not need to take ownership of the removed events, use [`Events::update`] instead.
     #[must_use = "If you do not need the returned events, call .update() instead."]
     pub fn update_drain(&mut self) -> impl Iterator<Item = E> + '_ {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        core::mem::swap(&mut self.events_a, &mut self.events_b);
         let iter = self.events_b.events.drain(..);
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(

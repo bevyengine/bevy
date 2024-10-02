@@ -15,10 +15,10 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
-use std::sync::Arc;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -46,6 +46,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
+            crate::gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
@@ -57,7 +58,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         Err(e) => {
             error!("Error running render graph:");
             {
-                let mut src: &dyn std::error::Error = &e;
+                let mut src: &dyn core::error::Error = &e;
                 loop {
                     error!("> {}", src);
                     match src.source() {
@@ -119,6 +120,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 }
 
 /// A wrapper to safely make `wgpu` types Send / Sync on web with atomics enabled.
+///
 /// On web with `atomics` enabled the inner value can only be accessed
 /// or dropped on the `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
@@ -140,12 +142,20 @@ impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(t)
     }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
 }
 
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
 impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(send_wrapper::SendWrapper::new(t))
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0.take()
     }
 }
 
