@@ -495,7 +495,6 @@ pub struct RenderMeshInstanceGpu {
 
 /// CPU data that the render world needs to keep about each entity that contains
 /// a mesh.
-#[derive(Debug)]
 pub struct RenderMeshInstanceShared {
     /// The [`AssetId`] of the mesh.
     pub mesh_asset_id: AssetId<Mesh>,
