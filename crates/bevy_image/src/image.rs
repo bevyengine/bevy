@@ -1194,23 +1194,20 @@ impl Image {
             TextureFormat::R8Unorm | TextureFormat::R8Uint => {
                 // Convert to grayscale perceptually
                 let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0))
-                        .to_f32_array();
+                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
             }
             TextureFormat::R16Unorm | TextureFormat::R16Uint => {
                 // Convert to grayscale perceptually
                 let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0))
-                        .to_f32_array();
+                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
             }
             TextureFormat::R32Uint => {
                 // Convert to grayscale perceptually
                 let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0))
-                        .to_f32_array();
+                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
                 // go via f64 to avoid imprecision
                 let r = (r as f64 * u32::MAX as f64) as u32;
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
@@ -1218,8 +1215,7 @@ impl Image {
             TextureFormat::R32Float => {
                 // Convert to grayscale perceptually
                 let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0))
-                        .to_f32_array();
+                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
             }
             TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
