@@ -2,8 +2,8 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
-    ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Node, ScrollPosition,
+    Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -229,8 +229,6 @@ pub struct ButtonBundle {
     /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// Describes whether and how the button has been interacted with by the input
-    pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The color of the Node's border
@@ -266,7 +264,6 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
             border_color: Default::default(),
             border_radius: Default::default(),

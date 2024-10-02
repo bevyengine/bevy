@@ -50,7 +50,7 @@ pub mod prelude {
     pub use {
         crate::{
             geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
-            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+            widget::Label, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
@@ -59,7 +59,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystem;
 use bevy_render::{
     camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
@@ -133,7 +132,6 @@ impl Plugin for UiPlugin {
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
             .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<Style>()
@@ -157,10 +155,6 @@ impl Plugin for UiPlugin {
                     UiSystem::PostLayout,
                 )
                     .chain(),
-            )
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
 
         app.add_systems(
