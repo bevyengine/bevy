@@ -24,7 +24,7 @@ use core::{
     cell::RefCell,
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter,
+    iter, slice,
 };
 
 use bevy_app::{App, Plugin, PostUpdate};
@@ -907,9 +907,16 @@ impl AnimationPlayer {
     }
 }
 
-struct TriggeredEventsIter<'a, 'b> {
-    triggers: Option<core::slice::Iter<'a, AnimationEventKey>>,
-    active_animation: &'b ActiveAnimation,
+enum TriggeredEventsIter<'a, 'b> {
+    Missing,
+    Forward {
+        events: slice::Iter<'a, AnimationEventKey>,
+        active_animation: &'b ActiveAnimation,
+    },
+    Reverse {
+        events: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
+        active_animation: &'b ActiveAnimation,
+    },
 }
 
 impl<'a, 'b> TriggeredEventsIter<'a, 'b> {
@@ -918,9 +925,18 @@ impl<'a, 'b> TriggeredEventsIter<'a, 'b> {
         clip: &'a AnimationClip,
         active_animation: &'b ActiveAnimation,
     ) -> Self {
-        Self {
-            triggers: clip.events.get(&target_id).map(|v| v.iter()),
-            active_animation,
+        let Some(events) = clip.events.get(&target_id) else {
+            return Self::Missing;
+        };
+        match active_animation.is_playback_reversed() {
+            false => Self::Forward {
+                events: events.iter(),
+                active_animation,
+            },
+            true => Self::Reverse {
+                events: events.iter().rev(),
+                active_animation,
+            },
         }
     }
 }
@@ -929,50 +945,72 @@ impl<'a, 'b> Iterator for TriggeredEventsIter<'a, 'b> {
     type Item = &'a AnimationEventKey;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let active_animation = match &*self {
+            TriggeredEventsIter::Missing => return None,
+            TriggeredEventsIter::Forward {
+                active_animation, ..
+            }
+            | TriggeredEventsIter::Reverse {
+                active_animation, ..
+            } => *active_animation,
+        };
+
         // if the animation is finished (unless it was this tick), return early
-        if !self.active_animation.just_completed && self.active_animation.is_finished() {
+        if !active_animation.just_completed && active_animation.is_finished() {
             return None;
         }
+
         loop {
-            let trigger = self.triggers.as_mut()?.next()?;
-            if match (
-                self.active_animation.is_playback_reversed(),
-                self.active_animation.just_completed && !self.active_animation.is_finished(),
-            ) {
-                // forward, trigger if `last_seek_time < trigger_time <= seek_time`
-                (false, false) => {
-                    self.active_animation
-                        .last_seek_time
-                        .map(|t| trigger.time > t)
-                        .unwrap_or(true)
-                        && trigger.time <= self.active_animation.seek_time
+            match self {
+                Self::Forward { events, .. } => {
+                    let event = events.next()?;
+                    if match active_animation.just_completed && !active_animation.is_finished() {
+                        // trigger any events that are `<= seek_time` and `> last_seek_time`
+                        false => {
+                            event.time <= active_animation.seek_time
+                                && active_animation
+                                    .last_seek_time
+                                    .map(|last_seek_time| event.time > last_seek_time)
+                                    .unwrap_or(true)
+                        }
+                        // the animation looped this tick and we have trigger events that may be `> seek_time`,
+                        // assuming they are still `< last_seek_time`
+                        true => {
+                            event.time <= active_animation.seek_time
+                                || active_animation
+                                    .last_seek_time
+                                    .map(|last_seek_time| event.time > last_seek_time)
+                                    .unwrap_or(true)
+                        }
+                    } {
+                        return Some(event);
+                    }
                 }
-                // forward, it looped this tick and we have to keep wrapping in mind
-                (false, true) => {
-                    self.active_animation
-                        .last_seek_time
-                        .map(|t| trigger.time > t)
-                        .unwrap_or(true)
-                        || trigger.time <= self.active_animation.seek_time
+                Self::Reverse { events, .. } => {
+                    let event = events.next()?;
+                    if match active_animation.just_completed && !active_animation.is_finished() {
+                        // trigger any events that are `>= seek_time` and `< last_seek_time`
+                        false => {
+                            event.time >= active_animation.seek_time
+                                && active_animation
+                                    .last_seek_time
+                                    .map(|t| event.time < t)
+                                    .unwrap_or(true)
+                        }
+                        // the animation looped this tick and we have trigger events that may be `< seek_time`,
+                        // assuming they are still `> last_seek_time`
+                        true => {
+                            event.time >= active_animation.seek_time
+                                || active_animation
+                                    .last_seek_time
+                                    .map(|t| event.time < t)
+                                    .unwrap_or(true)
+                        }
+                    } {
+                        return Some(event);
+                    }
                 }
-                // reverse, trigger if `seek_time <= trigger_time < last_seek_time`
-                (true, false) => {
-                    self.active_animation
-                        .last_seek_time
-                        .map(|t| trigger.time < t)
-                        .unwrap_or(true)
-                        && trigger.time >= self.active_animation.seek_time
-                }
-                // reverse, looped this tick
-                (true, true) => {
-                    self.active_animation
-                        .last_seek_time
-                        .map(|t| trigger.time < t)
-                        .unwrap_or(true)
-                        || trigger.time >= self.active_animation.seek_time
-                }
-            } {
-                return Some(trigger);
+                Self::Missing => unreachable!(),
             }
         }
     }
