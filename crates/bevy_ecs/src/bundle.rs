@@ -22,7 +22,6 @@ use crate::{
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 
@@ -893,7 +892,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
@@ -913,6 +912,7 @@ impl<'w> BundleInserter<'w> {
                         ON_REPLACE,
                         entity,
                         add_bundle.iter_existing(),
+                        caller,
                     );
                 }
             }
@@ -1082,7 +1082,7 @@ impl<'w> BundleInserter<'w> {
         unsafe {
             deferred_world.trigger_on_add(new_archetype, entity, add_bundle.iter_added());
             if new_archetype.has_add_observer() {
-                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added());
+                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added(), caller);
             }
             match insert_mode {
                 InsertMode::Replace => {
@@ -1097,6 +1097,7 @@ impl<'w> BundleInserter<'w> {
                             ON_INSERT,
                             entity,
                             add_bundle.iter_inserted(),
+                            caller,
                         );
                     }
                 }
@@ -1113,6 +1114,7 @@ impl<'w> BundleInserter<'w> {
                             ON_INSERT,
                             entity,
                             add_bundle.iter_added(),
+                            caller,
                         );
                     }
                 }
@@ -1192,7 +1194,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1241,6 +1243,7 @@ impl<'w> BundleSpawner<'w> {
                     ON_ADD,
                     entity,
                     bundle_info.iter_contributed_components(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_insert(
@@ -1253,6 +1256,7 @@ impl<'w> BundleSpawner<'w> {
                     ON_INSERT,
                     entity,
                     bundle_info.iter_contributed_components(),
+                    caller,
                 );
             }
         };
@@ -1266,17 +1270,12 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {
-            self.spawn_non_existent(
-                entity,
-                bundle,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            self.spawn_non_existent(entity, bundle, caller);
         }
         entity
     }

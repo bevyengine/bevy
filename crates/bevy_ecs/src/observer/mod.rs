@@ -18,6 +18,7 @@ use crate::{
 };
 use bevy_ptr::Ptr;
 use bevy_utils::HashMap;
+use core::panic::Location;
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -199,6 +200,9 @@ pub struct ObserverTrigger {
 
     /// The entity the trigger targeted.
     pub entity: Entity,
+
+    /// The location of the source code that triggered the obserer.
+    pub caller: &'static Location<'static>,
 }
 
 // Map between an observer entity and its runner
@@ -265,6 +269,7 @@ impl Observers {
         components: impl Iterator<Item = ComponentId>,
         data: &mut T,
         propagate: &mut bool,
+        caller: &'static Location<'static>,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -286,6 +291,7 @@ impl Observers {
                     observer,
                     event_type,
                     entity,
+                    caller,
                 },
                 data.into(),
                 propagate,
@@ -377,16 +383,28 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) {
-        TriggerEvent { event, targets: () }.trigger(self);
+        TriggerEvent {
+            event,
+            targets: (),
+            caller: Location::caller(),
+        }
+        .trigger(self);
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_ref(&mut self, event: &mut impl Event) {
-        TriggerEvent { event, targets: () }.trigger_ref(self);
+        TriggerEvent {
+            event,
+            targets: (),
+            caller: Location::caller(),
+        }
+        .trigger_ref(self);
     }
 
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
@@ -394,8 +412,14 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
+    #[track_caller]
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.trigger(self);
+        TriggerEvent {
+            event,
+            targets,
+            caller: Location::caller(),
+        }
+        .trigger(self);
     }
 
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
@@ -403,8 +427,14 @@ impl World {
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_targets_ref(&mut self, event: &mut impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.trigger_ref(self);
+        TriggerEvent {
+            event,
+            targets,
+            caller: Location::caller(),
+        }
+        .trigger_ref(self);
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -529,6 +559,7 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
+    use core::panic::Location;
 
     use bevy_ptr::OwningPtr;
 
@@ -1233,5 +1264,37 @@ mod tests {
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
+    }
+
+    #[test]
+    #[track_caller]
+    fn observer_caller_location_event() {
+        #[derive(Event)]
+        struct EventA;
+
+        let caller = Location::caller();
+        let mut world = World::new();
+        world.observe(move |trigger: Trigger<EventA>| {
+            assert_eq!(trigger.trigger.caller, caller);
+        });
+        world.trigger(EventA);
+    }
+
+    #[test]
+    #[track_caller]
+    fn observer_caller_location_command_archetype_move() {
+        #[derive(Component)]
+        struct Component;
+
+        let caller = Location::caller();
+        let mut world = World::new();
+        world.observe(move |trigger: Trigger<OnAdd, Component>| {
+            assert_eq!(trigger.trigger.caller, caller);
+        });
+        world.observe(move |trigger: Trigger<OnRemove, Component>| {
+            assert_eq!(trigger.trigger.caller, caller);
+        });
+        world.commands().spawn(Component).clear();
+        world.flush_commands();
     }
 }
