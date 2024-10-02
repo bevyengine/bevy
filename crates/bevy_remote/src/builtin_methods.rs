@@ -635,6 +635,38 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
+/// Handles checking for changes in a `bevy/list` request for streaming.
+///
+/// Unlike the `bevy/list` method, `bevy/list+stream` **requires** the `entity` field.
+pub fn check_changes_remote_list_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult<bool> {
+    let BrpListParams { entity } = parse_some(params)?;
+
+    let entity_ref = get_entity(world, entity)?;
+
+    for component_id in entity_ref.archetype().components() {
+        let ticks = entity_ref
+            .get_change_ticks_by_id(component_id)
+            .ok_or(BrpError::internal("Failed to get ticks"))?;
+
+        if ticks.is_added(world.last_change_tick(), world.read_change_tick()) {
+            return Ok(true);
+        }
+    }
+
+    for (_, events) in world.removed_components().iter() {
+        for event in events.iter_current_update_events() {
+            if Entity::from(event.clone()) == entity {
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
+}
+
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
 fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {

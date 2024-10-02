@@ -373,9 +373,10 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_REPARENT_METHOD,
                 builtin_methods::process_remote_reparent_request,
             )
-            .with_method(
+            .with_method_and_streaming(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
+                builtin_methods::check_changes_remote_list_request,
             )
     }
 }
@@ -731,10 +732,7 @@ fn process_normal_request(message: BrpMessage, world: &mut World) {
 }
 
 /// Handles a single request which sends one response at first and continues to send more as the
-/// data changes. Only the changed data is sent, not the full request like the first one.
-///
-/// For example, a `bevy/get+stream` request for multiple components will respond with all of them at first and
-/// after then will reply with only the components that have changed, not every component.
+/// data changes.
 fn process_stream_request(mut message: BrpMessage, world: &mut World) {
     message.method = message.method.strip_suffix("+stream").unwrap().to_string();
 
