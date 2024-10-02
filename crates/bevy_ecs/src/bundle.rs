@@ -1349,10 +1349,6 @@ impl Bundles {
                 // - it was created in the same order as the components in T
                 unsafe { BundleInfo::new(core::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
-
-            // Be sure to update component bundle with requires
-            contributed_bundle_ids.remove(&TypeId::of::<T>());
-
             id
         });
         id
@@ -1370,13 +1366,18 @@ impl Bundles {
             id
         } else {
             let explicit_bundle_id = self.register_info::<T>(components, storages);
-            // SAFETY: `explicit_bundle_id` is valid and defined above
-            let contributed_components = unsafe {
-                self.get_unchecked(explicit_bundle_id)
-                    .contributed_components()
-                    .to_vec()
+            let id = unsafe {
+                let (ptr, len) = {
+                    // SAFETY: `explicit_bundle_id` is valid and defined above
+                    let contributed = self
+                        .get_unchecked(explicit_bundle_id)
+                        .contributed_components();
+                    (contributed.as_ptr(), contributed.len())
+                };
+                // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
+                // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
+                self.init_dynamic_info(components, std::slice::from_raw_parts(ptr, len))
             };
-            let id = self.init_dynamic_info(components, &contributed_components);
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
         }
