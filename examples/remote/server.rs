@@ -1,6 +1,7 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
 use bevy::{
+    input::common_conditions::input_just_pressed,
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
     time::common_conditions::on_timer,
@@ -14,6 +15,7 @@ fn main() {
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
+        .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube.run_if(on_timer(Duration::from_secs(1))))
         .register_type::<Cube>()
         .run();
@@ -63,6 +65,10 @@ fn move_cube(mut query: Query<&mut Transform, With<Cube>>) {
             transform.translation.y = 0.5;
         };
     }
+}
+
+fn remove(mut commands: Commands, query: Query<Entity, With<Cube>>) {
+    commands.entity(query.single()).remove::<Cube>();
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]
