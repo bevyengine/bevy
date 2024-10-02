@@ -367,7 +367,7 @@ fn handle_get_component(
     Ok(serialized_object)
 }
 
-/// Handles checking for changes in a `bevy/get` request for streaming.
+/// Handles checking for changes in a `bevy/get` request.
 pub fn check_changes_remote_get_request(
     In(params): In<Option<Value>>,
     world: &World,
@@ -635,9 +635,10 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles checking for changes in a `bevy/list` request for streaming.
+/// Handles checking for changes in a `bevy/list` request.
 ///
-/// Unlike the `bevy/list` method, `bevy/list+stream` **requires** the `entity` field.
+/// Unlike the `bevy/list` method, the update condition **requires** the `entity`
+/// field to be present.
 pub fn check_changes_remote_list_request(
     In(params): In<Option<Value>>,
     world: &World,

@@ -319,7 +319,7 @@ impl RemotePlugin {
     /// given `name`, `handler` and `streaming_handler`. The `streaming_handler`
     /// system must be read-only.
     #[must_use]
-    pub fn with_method_and_streaming<M, S>(
+    pub fn with_method_update_condition<M, S>(
         mut self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
@@ -344,7 +344,7 @@ impl RemotePlugin {
 impl Default for RemotePlugin {
     fn default() -> Self {
         Self::empty()
-            .with_method_and_streaming(
+            .with_method_update_condition(
                 builtin_methods::BRP_GET_METHOD,
                 builtin_methods::process_remote_get_request,
                 builtin_methods::check_changes_remote_get_request,
@@ -373,7 +373,7 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_REPARENT_METHOD,
                 builtin_methods::process_remote_reparent_request,
             )
-            .with_method_and_streaming(
+            .with_method_update_condition(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
                 builtin_methods::check_changes_remote_list_request,
@@ -391,7 +391,7 @@ impl Plugin for RemotePlugin {
                 name,
                 RemoteMethod {
                     main: app.main_mut().world_mut().register_boxed_system(main),
-                    streaming: streaming
+                    update_condition: streaming
                         .map(|system| app.main_mut().world_mut().register_boxed_system(system)),
                 },
             );
@@ -417,7 +417,7 @@ impl Plugin for RemotePlugin {
 #[derive(Debug, Clone)]
 pub struct RemoteMethod {
     main: SystemId<In<Option<Value>>, BrpResult>,
-    streaming: Option<SystemId<In<Option<Value>>, BrpResult<bool>>>,
+    update_condition: Option<SystemId<In<Option<Value>>, BrpResult<bool>>>,
 }
 
 /// Holds all implementations of methods known to the server.
@@ -794,7 +794,7 @@ fn process_single_ongoing_streaming_request(
 ) -> BrpResult<Option<Value>> {
     let should_run = world
         .run_system_with_input(
-            handlers.streaming.ok_or(BrpError {
+            handlers.update_condition.ok_or(BrpError {
                 code: error_codes::ENTITY_NOT_FOUND,
                 message: format!("Method `{}` does not support streaming", message.method),
                 data: None,
