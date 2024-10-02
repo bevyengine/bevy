@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    Node, UiImage,
+    Node, UiChildren, UiImage,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -14,15 +14,14 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_hierarchy::Children;
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 
-fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
+fn calc_name(texts: &Query<&Text>, children: impl Iterator<Item = Entity>) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        if let Ok(text) = texts.get(*child) {
+        if let Ok(text) = texts.get(child) {
             let values = text
                 .sections
                 .iter()
@@ -59,11 +58,12 @@ fn calc_bounds(
 
 fn button_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, &Children, Option<&mut AccessibilityNode>), Changed<Button>>,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
+    ui_children: UiChildren,
     texts: Query<&Text>,
 ) {
-    for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+    for (entity, accessible) in &mut query {
+        let name = calc_name(&texts, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -85,14 +85,12 @@ fn button_changed(
 
 fn image_changed(
     mut commands: Commands,
-    mut query: Query<
-        (Entity, &Children, Option<&mut AccessibilityNode>),
-        (Changed<UiImage>, Without<Button>),
-    >,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
+    ui_children: UiChildren,
     texts: Query<&Text>,
 ) {
-    for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+    for (entity, accessible) in &mut query {
+        let name = calc_name(&texts, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {
