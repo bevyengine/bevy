@@ -19,8 +19,8 @@ pub struct PositionedGlyph {
     pub size: Vec2,
     /// Information about the glyph's atlas.
     pub atlas_info: GlyphAtlasInfo,
-    /// The index of the glyph in the [`Text`](crate::Text)'s sections.
-    pub section_index: usize,
+    /// The index of the glyph in the [`ComputedTextBlock`](crate::ComputedTextBlock)'s tracked spans.
+    pub span_index: usize,
     /// TODO: In order to do text editing, we need access to the size of glyphs and their index in the associated String.
     /// For example, to figure out where to place the cursor in an input box from the mouse's position.
     /// Without this, it's only possible in texts where each glyph is one byte. Cosmic text has methods for this
@@ -30,17 +30,12 @@ pub struct PositionedGlyph {
 
 impl PositionedGlyph {
     /// Creates a new [`PositionedGlyph`]
-    pub fn new(
-        position: Vec2,
-        size: Vec2,
-        atlas_info: GlyphAtlasInfo,
-        section_index: usize,
-    ) -> Self {
+    pub fn new(position: Vec2, size: Vec2, atlas_info: GlyphAtlasInfo, span_index: usize) -> Self {
         Self {
             position,
             size,
             atlas_info,
-            section_index,
+            span_index,
             byte_index: 0,
         }
     }

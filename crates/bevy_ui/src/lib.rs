@@ -216,12 +216,18 @@ fn build_text_interop(app: &mut App) {
     use bevy_text::TextLayoutInfo;
 
     app.register_type::<TextLayoutInfo>()
-        .register_type::<TextNodeFlags>();
+        .register_type::<TextNodeFlags>()
+        .register_type::<Text>()
+        .register_type::<TextSpan>();
 
     app.add_systems(
         PostUpdate,
         (
-            widget::measure_text_system
+            (
+                bevy_text::detect_text_needs_rerender::<Text, TextSpan>,
+                widget::measure_text_system,
+            )
+                .chain()
                 .in_set(UiSystem::Prepare)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,

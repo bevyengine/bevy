@@ -98,6 +98,10 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
+/// System set in [`PostUpdate`] where all 2d text update systems are executed.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct Update2dText;
+
 /// A convenient alias for `With<Text>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
 pub type WithText = With<Text>;
@@ -105,28 +109,30 @@ pub type WithText = With<Text>;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
-            .register_type::<Text>()
+            .register_type::<Text2d>()
+            .register_type::<TextSpan2d>()
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<TextSpansScratch>()
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds_text2d
-                        .in_set(VisibilitySystems::CalculateBounds)
-                        .after(update_text2d_layout),
+                    remove_dropped_font_atlas_sets,
+                    detect_text_needs_rerender::<Text2d, TextSpan2d>,
                     update_text2d_layout
-                        .after(remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),
-                    remove_dropped_font_atlas_sets,
-                ),
+                    calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+                )
+                    .chain()
+                    .in_set(Update2dText),
             )
             .add_systems(Last, trim_cosmic_cache);
 

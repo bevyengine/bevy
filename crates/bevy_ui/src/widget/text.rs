@@ -28,11 +28,10 @@ use taffy::style::AvailableSpace;
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct TextNodeFlags
-{
+pub struct TextNodeFlags {
     /// If set a new measure function for the text node will be created.
     needs_measure_fn: bool,
-    /// If set the text will be recomputed
+    /// If set the text will be recomputed.
     needs_recompute: bool,
 }
 
@@ -89,6 +88,12 @@ impl From<String> for TextNEW {
 #[reflect(Component, Default, Debug)]
 #[require(TextStyle, GhostNode, Visibility = Visibility::Hidden)]
 pub struct TextSpan(pub String);
+
+impl TextSpanReader for TextSpan {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+}
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -167,9 +172,8 @@ fn create_text_measure<'a>(
         fonts,
         spans,
         scale_factor,
-        block.linebreak,
+        block,
         computed,
-        block.justify,
         font_system,
     ) {
         Ok(measure) => {
@@ -225,7 +229,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    spans: TextSpans<TextSpan>,
+    mut spans: TextSpans<TextSpan>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -235,14 +239,17 @@ pub fn measure_text_system(
         entity,
         text,
         text_style,
-        text_block,
+        block,
         content_size,
         text_flags,
         computed,
         maybe_camera,
-        maybe_children
-    ) in &mut text_query {
-        let Some(camera_entity) = maybe_camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        maybe_children,
+    ) in &mut text_query
+    {
+        let Some(camera_entity) = maybe_camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
         else {
             continue;
         };
@@ -257,8 +264,9 @@ pub fn measure_text_system(
                     * ui_scale.0,
             ),
         };
+        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
-            || text.is_changed()  // TODO: get needs_recompute from ComputedTextBlock
+            || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
         {
@@ -267,7 +275,7 @@ pub fn measure_text_system(
                 &fonts,
                 scale_factor.into(),
                 spans.iter_from_base(text.as_str(), text_style, maybe_children),
-                text_block,
+                block,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
@@ -290,58 +298,60 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
+    text_style: &TextStyle,
+    block: &TextBlock,
+    maybe_children: Option<&Children>,
     node: Ref<Node>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
-    buffer: &mut CosmicBuffer,
+    computed: &mut ComputedTextBlock,
+    spans: &mut TextSpans<TextSpan>,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
     // Skip the text node if it is waiting for a new measure func
-    if !text_flags.needs_new_measure_func {
-        let physical_node_size = if text.linebreak == LineBreak::NoWrap {
-            // With `NoWrap` set, no constraints are placed on the width of the text.
-            TextBounds::UNBOUNDED
-        } else {
-            // `scale_factor` is already multiplied by `UiScale`
-            TextBounds::new(
-                node.unrounded_size.x * scale_factor,
-                node.unrounded_size.y * scale_factor,
-            )
-        };
+    if text_flags.needs_measure_fn {
+        return;
+    }
 
-        let text_layout_info = text_layout_info.into_inner();
-        match text_pipeline.queue_text(
-            text_layout_info,
-            fonts,
-            &text.sections,
-            scale_factor.into(),
-            text.justify,
-            text.linebreak,
-            text.font_smoothing,
-            physical_node_size,
-            font_atlas_sets,
-            texture_atlases,
-            textures,
-            YAxisOrientation::TopToBottom,
-            buffer,
-            font_system,
-            swash_cache,
-        ) {
-            Err(TextError::NoSuchFont) => {
-                // There was an error processing the text layout, try again next frame
-                text_flags.needs_recompute = true;
-            }
-            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
-                panic!("Fatal error when processing text: {e}.");
-            }
-            Ok(()) => {
-                text_layout_info.size.x =
-                    scale_value(text_layout_info.size.x, inverse_scale_factor);
-                text_layout_info.size.y =
-                    scale_value(text_layout_info.size.y, inverse_scale_factor);
-                text_flags.needs_recompute = false;
-            }
+    let physical_node_size = if text.linebreak == LineBreak::NoWrap {
+        // With `NoWrap` set, no constraints are placed on the width of the text.
+        TextBounds::UNBOUNDED
+    } else {
+        // `scale_factor` is already multiplied by `UiScale`
+        TextBounds::new(
+            node.unrounded_size.x * scale_factor,
+            node.unrounded_size.y * scale_factor,
+        )
+    };
+
+    let text_layout_info = text_layout_info.into_inner();
+    match text_pipeline.queue_text(
+        text_layout_info,
+        fonts,
+        spans.iter_from_base(text.as_str(), text_style, maybe_children),
+        scale_factor.into(),
+        block,
+        physical_node_size,
+        font_atlas_sets,
+        texture_atlases,
+        textures,
+        YAxisOrientation::TopToBottom,
+        computed,
+        font_system,
+        swash_cache,
+    ) {
+        Err(TextError::NoSuchFont) => {
+            // There was an error processing the text layout, try again next frame
+            text_flags.needs_recompute = true;
+        }
+        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+        Ok(()) => {
+            text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
+            text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
+            text_flags.needs_recompute = false;
         }
     }
 }
@@ -369,18 +379,35 @@ pub fn text_system(
     mut text_query: Query<(
         Ref<Node>,
         &Text,
+        &TextStyle,
+        &TextBlock,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
+        &mut ComputedTextBlock,
         Option<&TargetCamera>,
-        &mut CosmicBuffer,
+        Option<&Children>,
     )>,
+    mut spans: TextSpans<TextSpan>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
     scale_factors_buffer.clear();
 
-    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+    for (
+        node,
+        text,
+        text_style,
+        block,
+        text_layout_info,
+        text_flags,
+        mut computed,
+        maybe_camera,
+        maybe_children,
+    ) in &mut text_query
+    {
+        let Some(camera_entity) = maybe_camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
         else {
             continue;
         };
@@ -410,10 +437,14 @@ pub fn text_system(
                 scale_factor,
                 inverse_scale_factor,
                 text,
+                text_style,
+                block,
+                maybe_children,
                 node,
                 text_flags,
                 text_layout_info,
-                buffer.as_mut(),
+                computed.as_mut(),
+                &mut spans,
                 &mut font_system,
                 &mut swash_cache,
             );
