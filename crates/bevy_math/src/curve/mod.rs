@@ -4,6 +4,7 @@
 
 pub mod adaptors;
 pub mod cores;
+pub mod easing;
 pub mod interval;
 pub mod iterable;
 pub mod sample_curves;
@@ -712,10 +713,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::easing::*;
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use core::f32::consts::TAU;
+    use glam::*;
 
     #[test]
     fn curve_can_be_made_into_an_object() {
@@ -746,6 +749,97 @@ mod tests {
         assert_eq!(curve.sample_unchecked(3.5), ops::log2(3.5));
         assert!(curve.sample_unchecked(-1.0).is_nan());
         assert!(curve.sample(-1.0).is_none());
+    }
+
+    #[test]
+    fn linear_curve() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+        let curve = LinearCurve::new(start, end);
+
+        let mid = (start + end) / 2.0;
+
+        [(0.0, start), (0.5, mid), (1.0, end)]
+            .into_iter()
+            .for_each(|(t, x)| {
+                assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+            });
+    }
+
+    #[test]
+    fn easing_curves_step() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = EasingCurve::new(start, end, StepCurve::new(4)).unwrap();
+        [
+            (0.0, start),
+            (0.124, start),
+            (0.125, Vec2::new(0.25, 0.5)),
+            (0.374, Vec2::new(0.25, 0.5)),
+            (0.375, Vec2::new(0.5, 1.0)),
+            (0.624, Vec2::new(0.5, 1.0)),
+            (0.625, Vec2::new(0.75, 1.5)),
+            (0.874, Vec2::new(0.75, 1.5)),
+            (0.875, end),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+    }
+
+    #[test]
+    fn easing_curves_quadratic() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = EasingCurve::new(start, end, EasingCurve::quadratic_ease_in()).unwrap();
+        [
+            (0.0, start),
+            (0.25, Vec2::new(0.0625, 0.125)),
+            (0.5, Vec2::new(0.25, 0.5)),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON),);
+        });
+    }
+
+    #[test]
+    fn easing_curve_non_unit_domain() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        // even though the quadratic_ease_in input curve has the domain [0.0, 2.0], the easing
+        // curve correctly behaves as if its domain were [0.0, 1.0]
+        let curve = EasingCurve::new(
+            start,
+            end,
+            EasingCurve::quadratic_ease_in()
+                .reparametrize(Interval::new(0.0, 2.0).unwrap(), |t| t / 2.0),
+        )
+        .unwrap();
+
+        [
+            (-0.1, None),
+            (0.0, Some(start)),
+            (0.25, Some(Vec2::new(0.0625, 0.125))),
+            (0.5, Some(Vec2::new(0.25, 0.5))),
+            (1.0, Some(end)),
+            (1.1, None),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            let sample = curve.sample(t);
+            match (sample, x) {
+                (None, None) => assert_eq!(sample, x),
+                (Some(s), Some(x)) => assert!(s.abs_diff_eq(x, f32::EPSILON)),
+                _ => unreachable!(),
+            };
+        });
     }
 
     #[test]
