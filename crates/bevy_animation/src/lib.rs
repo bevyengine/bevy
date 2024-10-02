@@ -907,16 +907,23 @@ impl AnimationPlayer {
     }
 }
 
-enum TriggeredEventsIter<'a, 'b> {
-    Missing,
-    Forward {
-        events: slice::Iter<'a, AnimationEventKey>,
-        active_animation: &'b ActiveAnimation,
+enum TriggeredEventsIterInner<'a> {
+    None,
+    Forward(slice::Iter<'a, AnimationEventKey>),
+    Reverse(iter::Rev<slice::Iter<'a, AnimationEventKey>>),
+    ForwardLooping {
+        a: slice::Iter<'a, AnimationEventKey>,
+        b: slice::Iter<'a, AnimationEventKey>,
     },
-    Reverse {
-        events: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
-        active_animation: &'b ActiveAnimation,
+    ReverseLooping {
+        a: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
+        b: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
     },
+}
+
+struct TriggeredEventsIter<'a, 'b> {
+    inner: TriggeredEventsIterInner<'a>,
+    active_animation: &'b ActiveAnimation,
 }
 
 impl<'a, 'b> TriggeredEventsIter<'a, 'b> {
@@ -926,17 +933,29 @@ impl<'a, 'b> TriggeredEventsIter<'a, 'b> {
         active_animation: &'b ActiveAnimation,
     ) -> Self {
         let Some(events) = clip.events.get(&target_id) else {
-            return Self::Missing;
+            return Self {
+                inner: TriggeredEventsIterInner::None,
+                active_animation,
+            };
         };
-        match active_animation.is_playback_reversed() {
-            false => Self::Forward {
-                events: events.iter(),
-                active_animation,
+        let reverse = active_animation.is_playback_reversed();
+        // the animation completed this tick, while still playing
+        let looping = active_animation.just_completed && !active_animation.is_finished();
+        let inner = match (reverse, looping) {
+            (false, false) => TriggeredEventsIterInner::Forward(events.iter()),
+            (true, false) => TriggeredEventsIterInner::Reverse(events.iter().rev()),
+            (false, true) => TriggeredEventsIterInner::ForwardLooping {
+                a: events.iter(),
+                b: events.iter(),
             },
-            true => Self::Reverse {
-                events: events.iter().rev(),
-                active_animation,
+            (true, true) => TriggeredEventsIterInner::ReverseLooping {
+                a: events.iter().rev(),
+                b: events.iter().rev(),
             },
+        };
+        Self {
+            inner,
+            active_animation,
         }
     }
 }
@@ -945,72 +964,77 @@ impl<'a, 'b> Iterator for TriggeredEventsIter<'a, 'b> {
     type Item = &'a AnimationEventKey;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let active_animation = match &*self {
-            TriggeredEventsIter::Missing => return None,
-            TriggeredEventsIter::Forward {
-                active_animation, ..
-            }
-            | TriggeredEventsIter::Reverse {
-                active_animation, ..
-            } => *active_animation,
-        };
-
-        // if the animation is finished (unless it was this tick), return early
-        if !active_animation.just_completed && active_animation.is_finished() {
+        // if the animation was finished earlier, return early
+        if !self.active_animation.just_completed && self.active_animation.is_finished() {
             return None;
         }
-
+        let &ActiveAnimation {
+            last_seek_time,
+            seek_time,
+            ..
+        } = self.active_animation;
+        // loop untill we find a triggered event or return `None`
         loop {
-            match self {
-                Self::Forward { events, .. } => {
-                    let event = events.next()?;
-                    if match active_animation.just_completed && !active_animation.is_finished() {
-                        // trigger any events that are `<= seek_time` and `> last_seek_time`
-                        false => {
-                            event.time <= active_animation.seek_time
-                                && active_animation
-                                    .last_seek_time
-                                    .map(|last_seek_time| event.time > last_seek_time)
-                                    .unwrap_or(true)
-                        }
-                        // the animation looped this tick and we have trigger events that may be `> seek_time`,
-                        // assuming they are still `< last_seek_time`
-                        true => {
-                            event.time <= active_animation.seek_time
-                                || active_animation
-                                    .last_seek_time
-                                    .map(|last_seek_time| event.time > last_seek_time)
-                                    .unwrap_or(true)
-                        }
-                    } {
+            match &mut self.inner {
+                TriggeredEventsIterInner::None => return None,
+                // the event should trigger if `event.time >= seek_time`
+                // we also have to check if `event.time < last_seek_time`
+                // to make sure the event is only triggered once
+                TriggeredEventsIterInner::Forward(iter) => {
+                    let event = iter.next()?;
+                    if event.time <= seek_time
+                        && last_seek_time.map(|lst| event.time > lst).unwrap_or(true)
+                    {
                         return Some(event);
                     }
                 }
-                Self::Reverse { events, .. } => {
-                    let event = events.next()?;
-                    if match active_animation.just_completed && !active_animation.is_finished() {
-                        // trigger any events that are `>= seek_time` and `< last_seek_time`
-                        false => {
-                            event.time >= active_animation.seek_time
-                                && active_animation
-                                    .last_seek_time
-                                    .map(|t| event.time < t)
-                                    .unwrap_or(true)
-                        }
-                        // the animation looped this tick and we have trigger events that may be `< seek_time`,
-                        // assuming they are still `> last_seek_time`
-                        true => {
-                            event.time >= active_animation.seek_time
-                                || active_animation
-                                    .last_seek_time
-                                    .map(|t| event.time < t)
-                                    .unwrap_or(true)
-                        }
-                    } {
+                TriggeredEventsIterInner::Reverse(rev) => {
+                    let event = rev.next()?;
+                    if event.time >= seek_time
+                        && last_seek_time.map(|lst| event.time < lst).unwrap_or(true)
+                    {
                         return Some(event);
                     }
                 }
-                Self::Missing => unreachable!(),
+                // when looping, we first trigger events where `event.time > last_seek_time`
+                // untill the iterator is exhausted
+                // then we use the other iterator to trigger events where `event.time <= seek_time`
+                // this is to make sure all events are triggered in the correct order that they occured
+                //
+                // Note: this is unlikely to work well if the animation somehow
+                // finished multiple times in one tick, should be rare enough though
+                TriggeredEventsIterInner::ForwardLooping { a, b } => {
+                    let event = match a.next() {
+                        Some(event)
+                            if last_seek_time.map(|lst| event.time > lst).unwrap_or(true) =>
+                        {
+                            event
+                        }
+                        None => match b.next() {
+                            Some(event) if event.time <= seek_time => event,
+                            None => return None,
+                            _ => continue,
+                        },
+                        _ => continue,
+                    };
+                    return Some(event);
+                }
+                TriggeredEventsIterInner::ReverseLooping { a, b } => {
+                    let event = match a.next() {
+                        Some(event)
+                            if last_seek_time.map(|lst| event.time < lst).unwrap_or(true) =>
+                        {
+                            event
+                        }
+                        None => match b.next() {
+                            Some(event) if event.time >= seek_time => event,
+                            None => return None,
+                            _ => continue,
+                        },
+                        _ => continue,
+                    };
+                    return Some(event);
+                }
             }
         }
     }
@@ -1484,7 +1508,7 @@ mod tests {
         assert_eq!(0.0, active_animation.seek_time);
         assert!(active_animation.just_completed);
         assert_eq!(
-            vec![0.0, 0.3],
+            vec![0.3, 0.0,],
             TriggeredEventsIter::new(None, &clip, &active_animation)
                 .map(|t| t.time)
                 .collect::<Vec<f32>>()
