@@ -1219,4 +1219,45 @@ mod tests {
 
         ui_schedule.run(&mut world);
     }
+
+    #[test]
+    fn test_ui_surface_compute_camera_layout() {
+        use bevy_ecs::prelude::ResMut;
+
+        let (mut world, ..) = setup_ui_test_world();
+
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+
+        struct TestSystemParam {
+            camera_entity: Entity,
+            root_node_entity: Entity,
+        }
+
+        fn test_system(
+            params: In<TestSystemParam>,
+            mut ui_surface: ResMut<UiSurface>,
+            #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut bevy_text::CosmicBuffer>,
+            #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+        ) {
+            ui_surface.upsert_node(&crate::layout::ui_surface::TEST_LAYOUT_CONTEXT, params.root_node_entity, &Style::default(), None);
+
+            ui_surface.compute_camera_layout(
+                params.camera_entity,
+                UVec2::new(800, 600),
+                #[cfg(feature = "bevy_text")] &mut buffer_query,
+                #[cfg(feature = "bevy_text")] &mut font_system.0,
+            );
+        }
+
+        let _ = world.run_system_once_with(TestSystemParam {
+            camera_entity,
+            root_node_entity,
+        }, test_system);
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
+    }
 }
