@@ -39,7 +39,7 @@ use bevy_utils::{
     prelude::default,
     tracing::{error, warn},
 };
-use core::{hash, mem};
+use core::mem;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -160,7 +160,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
-#[reflect(Component, Debug, Default, Hash, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq)]
 #[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
@@ -179,15 +179,6 @@ impl Default for ScreenSpaceAmbientOcclusion {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::default(),
             constant_object_thickness: 0.25,
         }
-    }
-}
-
-impl Eq for ScreenSpaceAmbientOcclusion {}
-
-impl hash::Hash for ScreenSpaceAmbientOcclusion {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.quality_level.hash(state);
-        self.constant_object_thickness.to_bits().hash(state);
     }
 }
 
@@ -491,7 +482,7 @@ impl FromWorld for SsaoPipelines {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct SsaoPipelineKey {
-    ssao_settings: ScreenSpaceAmbientOcclusion,
+    quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
     temporal_jitter: bool,
 }
 
@@ -499,7 +490,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
     type Key = SsaoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ssao_settings.quality_level.sample_counts();
+        let (slice_count, samples_per_slice_side) = key.quality_level.sample_counts();
 
         let mut shader_defs = vec![
             ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
@@ -666,7 +657,7 @@ fn prepare_ssao_pipelines(
             &pipeline_cache,
             &pipeline,
             SsaoPipelineKey {
-                ssao_settings: ssao_settings.clone(),
+                quality_level: ssao_settings.quality_level,
                 temporal_jitter,
             },
         );
