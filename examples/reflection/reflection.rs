@@ -102,7 +102,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     // Deserializing returns a `Box<dyn PartialReflect>` value.
     // Generally, deserializing a value will return the "dynamic" variant of a type.
     // For example, deserializing a struct will return the DynamicStruct type.
-    // "Value types" will be deserialized as themselves.
+    // "Opaque types" will be deserialized as themselves.
     assert_eq!(
         reflect_value.reflect_type_path(),
         DynamicStruct::type_path(),

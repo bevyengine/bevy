@@ -2,8 +2,10 @@
 
 use std::f32::consts::PI;
 
-use bevy::animation::{AnimationTarget, AnimationTargetId};
-use bevy::prelude::*;
+use bevy::{
+    animation::{AnimationTarget, AnimationTargetId},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -30,14 +32,13 @@ fn setup(
     });
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 500_000.0,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 2.5, 0.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 2.5, 0.0),
+    ));
 
     // Let's use the `Name` component to target entities. We can use anything we
     // like, but names are convenient.
@@ -47,83 +48,79 @@ fn setup(
 
     // Creating the animation
     let mut animation = AnimationClip::default();
-    // A curve can modify a single part of a transform, here the translation
+    // A curve can modify a single part of a transform: here, the translation.
     let planet_animation_target_id = AnimationTargetId::from_name(&planet);
     animation.add_curve_to_target(
         planet_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Translation(vec![
-                Vec3::new(1.0, 0.0, 1.0),
-                Vec3::new(-1.0, 0.0, 1.0),
-                Vec3::new(-1.0, 0.0, -1.0),
-                Vec3::new(1.0, 0.0, -1.0),
-                // in case seamless looping is wanted, the last keyframe should
-                // be the same as the first one
-                Vec3::new(1.0, 0.0, 1.0),
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
+            Vec3::new(1.0, 0.0, 1.0),
+            Vec3::new(-1.0, 0.0, 1.0),
+            Vec3::new(-1.0, 0.0, -1.0),
+            Vec3::new(1.0, 0.0, -1.0),
+            // in case seamless looping is wanted, the last keyframe should
+            // be the same as the first one
+            Vec3::new(1.0, 0.0, 1.0),
+        ]))
+        .map(TranslationCurve)
+        .expect("should be able to build translation curve because we pass in valid samples"),
     );
     // Or it can modify the rotation of the transform.
     // To find the entity to modify, the hierarchy will be traversed looking for
-    // an entity with the right name at each level
+    // an entity with the right name at each level.
     let orbit_controller_animation_target_id =
         AnimationTargetId::from_names([planet.clone(), orbit_controller.clone()].iter());
     animation.add_curve_to_target(
         orbit_controller_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Rotation(vec![
-                Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, PI / 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
-                Quat::IDENTITY,
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
+            Quat::IDENTITY,
+            Quat::from_axis_angle(Vec3::Y, PI / 2.),
+            Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+            Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+            Quat::IDENTITY,
+        ]))
+        .map(RotationCurve)
+        .expect("Failed to build rotation curve"),
     );
     // If a curve in an animation is shorter than the other, it will not repeat
     // until all other curves are finished. In that case, another animation should
-    // be created for each part that would have a different duration / period
+    // be created for each part that would have a different duration / period.
     let satellite_animation_target_id = AnimationTargetId::from_names(
         [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
     );
     animation.add_curve_to_target(
         satellite_animation_target_id,
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
-            keyframes: Keyframes::Scale(vec![
-                Vec3::splat(0.8),
-                Vec3::splat(1.2),
-                Vec3::splat(0.8),
-                Vec3::splat(1.2),
-                Vec3::splat(0.8),
-                Vec3::splat(1.2),
-                Vec3::splat(0.8),
-                Vec3::splat(1.2),
-                Vec3::splat(0.8),
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        UnevenSampleAutoCurve::new(
+            [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+                .into_iter()
+                .zip([
+                    Vec3::splat(0.8),
+                    Vec3::splat(1.2),
+                    Vec3::splat(0.8),
+                    Vec3::splat(1.2),
+                    Vec3::splat(0.8),
+                    Vec3::splat(1.2),
+                    Vec3::splat(0.8),
+                    Vec3::splat(1.2),
+                    Vec3::splat(0.8),
+                ]),
+        )
+        .map(ScaleCurve)
+        .expect("Failed to build scale curve"),
     );
-    // There can be more than one curve targeting the same entity path
+    // There can be more than one curve targeting the same entity path.
     animation.add_curve_to_target(
         AnimationTargetId::from_names(
             [planet.clone(), orbit_controller.clone(), satellite.clone()].iter(),
         ),
-        VariableCurve {
-            keyframe_timestamps: vec![0.0, 1.0, 2.0, 3.0, 4.0],
-            keyframes: Keyframes::Rotation(vec![
-                Quat::IDENTITY,
-                Quat::from_axis_angle(Vec3::Y, PI / 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
-                Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
-                Quat::IDENTITY,
-            ]),
-            interpolation: Interpolation::Linear,
-        },
+        UnevenSampleAutoCurve::new([0.0, 1.0, 2.0, 3.0, 4.0].into_iter().zip([
+            Quat::IDENTITY,
+            Quat::from_axis_angle(Vec3::Y, PI / 2.),
+            Quat::from_axis_angle(Vec3::Y, PI / 2. * 2.),
+            Quat::from_axis_angle(Vec3::Y, PI / 2. * 3.),
+            Quat::IDENTITY,
+        ]))
+        .map(RotationCurve)
+        .expect("should be able to build translation curve because we pass in valid samples"),
     );
 
     // Create the animation graph
@@ -137,11 +134,8 @@ fn setup(
     // First entity is the planet
     let planet_entity = commands
         .spawn((
-            PbrBundle {
-                mesh: meshes.add(Sphere::default()),
-                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
+            Mesh3d(meshes.add(Sphere::default())),
+            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
             graphs.add(graph),
@@ -167,12 +161,9 @@ fn setup(
             .with_children(|p| {
                 // The satellite, placed at a distance of the planet
                 p.spawn((
-                    PbrBundle {
-                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
-                        ..default()
-                    },
+                    Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+                    MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                    Transform::from_xyz(1.5, 0.0, 0.0),
                     AnimationTarget {
                         id: satellite_animation_target_id,
                         player: planet_entity,

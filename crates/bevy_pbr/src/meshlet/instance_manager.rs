@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
-use std::ops::{DerefMut, Range};
+use core::ops::{DerefMut, Range};
 
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]
@@ -178,21 +178,21 @@ pub fn extract_meshlet_mesh_entities(
                 Res<AssetServer>,
                 ResMut<Assets<MeshletMesh>>,
                 EventReader<AssetEvent<MeshletMesh>>,
-                &Entities,
             )>,
         >,
     >,
+    render_entities: &Entities,
 ) {
     // Get instances query
     if system_state.is_none() {
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (instances_query, asset_server, mut assets, mut asset_events, entities) =
+    let (instances_query, asset_server, mut assets, mut asset_events) =
         system_state.get_mut(&mut main_world);
 
     // Reset per-frame data
-    instance_manager.reset(entities);
+    instance_manager.reset(render_entities);
 
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {

@@ -1,9 +1,8 @@
 //! A shader that binds several textures onto one
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
-use bevy::ecs::system::lifetimeless::SRes;
-use bevy::ecs::system::SystemParamItem;
 use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypePath,
     render::{
@@ -84,11 +83,10 @@ fn setup(
         .collect();
 
     // a cube with multiple textures
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(BindlessMaterial { textures }),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+    ));
 }
 
 #[derive(Asset, TypePath, Debug, Clone)]

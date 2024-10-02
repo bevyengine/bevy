@@ -7,6 +7,8 @@
 
 //! This crate provides core functionality for Bevy Engine.
 
+extern crate alloc;
+
 mod name;
 #[cfg(feature = "serialize")]
 mod serde;
@@ -16,8 +18,10 @@ use bevy_ecs::system::Resource;
 pub use name::*;
 pub use task_pool_options::*;
 
+/// The core prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
         FrameCountPlugin, Name, NameOrEntity, TaskPoolOptions, TaskPoolPlugin,
@@ -27,7 +31,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;

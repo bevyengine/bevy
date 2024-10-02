@@ -2,7 +2,7 @@ use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
-use bevy_math::{primitives::Capsule3d, Vec2, Vec3};
+use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
 use wgpu::PrimitiveTopology;
 
 /// Manner in which UV coordinates are distributed vertically.
@@ -136,8 +136,8 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         let mut vts: Vec<Vec2> = vec![Vec2::ZERO; vert_len];
         let mut vns: Vec<Vec3> = vec![Vec3::ZERO; vert_len];
 
-        let to_theta = 2.0 * std::f32::consts::PI / longitudes as f32;
-        let to_phi = std::f32::consts::PI / latitudes as f32;
+        let to_theta = 2.0 * core::f32::consts::PI / longitudes as f32;
+        let to_phi = core::f32::consts::PI / latitudes as f32;
         let to_tex_horizontal = 1.0 / longitudes as f32;
         let to_tex_vertical = 1.0 / half_lats as f32;
 
@@ -158,11 +158,8 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let s_texture_polar = 1.0 - ((jf + 0.5) * to_tex_horizontal);
             let theta = jf * to_theta;
 
-            let cos_theta = theta.cos();
-            let sin_theta = theta.sin();
-
-            theta_cartesian[j] = Vec2::new(cos_theta, sin_theta);
-            rho_theta_cartesian[j] = Vec2::new(radius * cos_theta, radius * sin_theta);
+            theta_cartesian[j] = Vec2::from_angle(theta);
+            rho_theta_cartesian[j] = radius * theta_cartesian[j];
 
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
@@ -205,8 +202,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             let phi = ip1f * to_phi;
 
             // For coordinates.
-            let cos_phi_south = phi.cos();
-            let sin_phi_south = phi.sin();
+            let (sin_phi_south, cos_phi_south) = ops::sin_cos(phi);
 
             // Symmetrical hemispheres mean cosine and sine only needs
             // to be calculated once.

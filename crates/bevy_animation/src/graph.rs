@@ -1,7 +1,7 @@
 //! The animation graph, which allows animations to be blended together.
 
+use core::ops::{Index, IndexMut};
 use std::io::{self, Write};
-use std::ops::{Index, IndexMut};
 
 use bevy_asset::{io::Reader, Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};
@@ -508,11 +508,11 @@ impl AssetLoader for AnimationGraphAssetLoader {
 
     type Error = AnimationGraphLoadError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _: &'a Self::Settings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;

@@ -1,16 +1,17 @@
-use std::fmt;
+use core::fmt;
 
 use taffy::TaffyTree;
 
-use bevy_ecs::entity::{Entity, EntityHashMap};
-use bevy_ecs::prelude::Resource;
-use bevy_hierarchy::Children;
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    prelude::Resource,
+};
 use bevy_math::UVec2;
-use bevy_utils::default;
-use bevy_utils::tracing::warn;
+use bevy_utils::{default, tracing::warn};
 
-use crate::layout::convert;
-use crate::{LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style};
+use crate::{
+    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -26,6 +27,7 @@ pub struct UiSurface {
     pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::NodeId>>,
     pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,
     pub(super) taffy: TaffyTree<NodeMeasure>,
+    taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -53,6 +55,7 @@ impl Default for UiSurface {
             camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
             taffy,
+            taffy_children_scratch: Vec::new(),
         }
     }
 }
@@ -112,22 +115,24 @@ impl UiSurface {
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
-    pub fn update_children(&mut self, entity: Entity, children: &Children) {
-        let mut taffy_children = Vec::with_capacity(children.len());
+    pub fn update_children(&mut self, entity: Entity, children: impl Iterator<Item = Entity>) {
+        self.taffy_children_scratch.clear();
+
         for child in children {
-            if let Some(taffy_node) = self.entity_to_taffy.get(child) {
-                taffy_children.push(*taffy_node);
+            if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
+                self.taffy_children_scratch.push(*taffy_node);
             } else {
                 warn!(
                     "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected."
+without UI components as a child of an entity with UI components, results may be unexpected. \
+If this is intentional, consider adding a GhostNode component to this entity."
                 );
             }
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
-            .set_children(*taffy_node, &taffy_children)
+            .set_children(*taffy_node, &self.taffy_children_scratch)
             .unwrap();
     }
 
@@ -145,7 +150,7 @@ without UI components as a child of an entity with UI components, results may be
         }
     }
 
-    /// Set the ui node entities without a [`bevy_hierarchy::Parent`] as children to the root node in the taffy layout.
+    /// Sets the ui root node entities as children to the root node in the taffy layout.
     pub fn set_camera_children(
         &mut self,
         camera_id: Entity,
@@ -246,7 +251,7 @@ without UI components as a child of an entity with UI components, results may be
                                         #[cfg(feature = "bevy_text")]
                                         buffer,
                                         #[cfg(not(feature = "bevy_text"))]
-                                        font_system: std::marker::PhantomData,
+                                        font_system: core::marker::PhantomData,
                                     },
                                     style,
                                 );

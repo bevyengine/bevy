@@ -2,7 +2,7 @@ use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 
 use quote::{quote, ToTokens};
 
-use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
+use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
 
 pub fn impl_full_reflect(
     meta: &ReflectMeta,

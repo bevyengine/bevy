@@ -11,8 +11,8 @@
 
 use bevy::{
     core_pipeline::{
-        bloom::BloomSettings,
-        dof::{self, DepthOfFieldMode, DepthOfFieldSettings},
+        bloom::Bloom,
+        dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
     pbr::Lightmap,
@@ -80,21 +80,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             tonemapping: Tonemapping::TonyMcMapface,
             ..default()
         })
-        .insert(BloomSettings::NATURAL);
+        .insert(Bloom::NATURAL);
 
     // Insert the depth of field settings.
-    if let Some(dof_settings) = Option::<DepthOfFieldSettings>::from(*app_settings) {
-        camera.insert(dof_settings);
+    if let Some(depth_of_field) = Option::<DepthOfField>::from(*app_settings) {
+        camera.insert(depth_of_field);
     }
 
     // Spawn the scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+    )));
 
     // Spawn the help text.
     commands.spawn(
@@ -174,14 +170,14 @@ fn update_dof_settings(
     view_targets: Query<Entity, With<Camera>>,
     app_settings: Res<AppSettings>,
 ) {
-    let dof_settings: Option<DepthOfFieldSettings> = (*app_settings).into();
+    let depth_of_field: Option<DepthOfField> = (*app_settings).into();
     for view in view_targets.iter() {
-        match dof_settings {
+        match depth_of_field {
             None => {
-                commands.entity(view).remove::<DepthOfFieldSettings>();
+                commands.entity(view).remove::<DepthOfField>();
             }
-            Some(dof_settings) => {
-                commands.entity(view).insert(dof_settings);
+            Some(depth_of_field) => {
+                commands.entity(view).insert(depth_of_field);
             }
         }
     }
@@ -194,8 +190,8 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     // Turn on shadows.
@@ -227,9 +223,9 @@ fn create_text(app_settings: &AppSettings) -> Text {
     Text::from_section(app_settings.help_text(), TextStyle::default())
 }
 
-impl From<AppSettings> for Option<DepthOfFieldSettings> {
+impl From<AppSettings> for Option<DepthOfField> {
     fn from(app_settings: AppSettings) -> Self {
-        app_settings.mode.map(|mode| DepthOfFieldSettings {
+        app_settings.mode.map(|mode| DepthOfField {
             mode,
             focal_distance: app_settings.focal_distance,
             aperture_f_stops: app_settings.aperture_f_stops,

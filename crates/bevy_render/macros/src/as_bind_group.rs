@@ -366,7 +366,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                 if let Some(handle) = handle {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
-                                    let Some(sample_type) = image.texture_format.sample_type(None, None) else {
+                                    let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
                                         return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
                                             #binding_index,
                                             "None".to_string(),
@@ -1109,7 +1109,7 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut buffer = false;
 
     for meta in metas {
-        use syn::{Meta::List, Meta::Path};
+        use syn::Meta::{List, Path};
         match meta {
             // Parse #[storage(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {

@@ -1,15 +1,18 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
+use core::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
-    fmt::Display,
     fs::{self, File},
-    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
@@ -119,7 +122,7 @@ enum WebApi {
 }
 
 impl Display for WebApi {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             WebApi::Webgl2 => write!(f, "webgl2"),
             WebApi::Webgpu => write!(f, "webgpu"),

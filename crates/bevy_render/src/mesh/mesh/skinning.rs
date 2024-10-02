@@ -1,27 +1,27 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, VisitEntities, VisitEntitiesMut},
     prelude::ReflectComponent,
-    reflect::ReflectMapEntities,
+    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
 };
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
-use std::ops::Deref;
+use core::ops::Deref;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, MapEntities, Default)]
+#[derive(Component, Debug, Default, Clone, Reflect, VisitEntities, VisitEntitiesMut)]
+#[reflect(
+    Component,
+    MapEntities,
+    VisitEntities,
+    VisitEntitiesMut,
+    Default,
+    Debug
+)]
 pub struct SkinnedMesh {
+    #[visit_entities(ignore)]
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     pub joints: Vec<Entity>,
-}
-
-impl MapEntities for SkinnedMesh {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        for joint in &mut self.joints {
-            *joint = entity_mapper.map_entity(*joint);
-        }
-    }
 }
 
 #[derive(Asset, TypePath, Debug)]

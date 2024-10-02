@@ -62,13 +62,10 @@ const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // "Spawning" a scene bundle creates a new entity and spawns new instances
+    // Spawning a DynamicSceneRoot creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
-    commands.spawn(DynamicSceneBundle {
-        // Scenes are loaded just like any other asset.
-        scene: asset_server.load(SCENE_FILE_PATH),
-        ..default()
-    });
+    // Scenes can be loaded just like any other asset.
+    commands.spawn(DynamicSceneRoot(asset_server.load(SCENE_FILE_PATH)));
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
@@ -150,7 +147,7 @@ fn infotext_system(mut commands: Commands) {
         TextBundle::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
-                font_size: 50.0,
+                font_size: 42.0,
                 ..default()
             },
         )

@@ -3,7 +3,7 @@
 
 use std::f32::consts::*;
 
-use bevy::{prelude::*, render::mesh::skinning::SkinnedMesh};
+use bevy::{math::ops, prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()
@@ -26,19 +26,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
+    )));
 }
 
 /// The scene hierarchy currently looks somewhat like this:
 ///
 /// ```text
 /// <Parent entity>
-///   + Mesh node (without `PbrBundle` or `SkinnedMesh` component)
-///     + Skinned mesh entity (with `PbrBundle` and `SkinnedMesh` component, created by glTF loader)
+///   + Mesh node (without `Mesh3d` or `SkinnedMesh` component)
+///     + Skinned mesh entity (with `Mesh3d` and `SkinnedMesh` component, created by glTF loader)
 ///     + First joint
 ///       + Second joint
 /// ```
@@ -69,6 +67,6 @@ fn joint_animation(
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =
-            Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+            Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
     }
 }

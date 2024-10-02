@@ -15,27 +15,27 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::gpu_preprocessing::IndirectParameters;
-use bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase;
-use bevy_render::batching::no_gpu_preprocessing::{
-    self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
-    BatchedInstanceBuffer,
-};
-use bevy_render::batching::GetFullBatchData;
-use bevy_render::mesh::allocator::MeshAllocator;
-use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
-use bevy_render::texture::FallbackImage;
 use bevy_render::{
-    batching::{GetBatchData, NoAutomaticBatching},
+    batching::{
+        gpu_preprocessing::IndirectParameters,
+        no_gpu_preprocessing::{
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
+        },
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
+    },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{Mesh, RenderMeshBufferInfo},
+    mesh::{
+        allocator::MeshAllocator, Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMeshBufferInfo,
+    },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
+        TextureFormatPixelInfo,
     },
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
@@ -47,19 +47,6 @@ use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
-
-/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
-///
-/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
-#[reflect(Default, Component)]
-pub struct Mesh2dHandle(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2dHandle {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -218,32 +205,26 @@ pub struct RenderMesh2dInstance {
 pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
-pub struct Mesh2d;
+pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
             Entity,
             &ViewVisibility,
             &GlobalTransform,
-            &Mesh2dHandle,
+            &Mesh2d,
             Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh2d));
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
@@ -257,8 +238,6 @@ pub fn extract_mesh2d(
             },
         );
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
@@ -871,7 +850,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                 );
             }
             RenderMeshBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
             }
         }
         RenderCommandResult::Success

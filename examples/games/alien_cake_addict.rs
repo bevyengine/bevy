@@ -121,16 +121,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 10.0, 4.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(4.0, 10.0, 4.0),
+    ));
 
     // spawn the game board
     let cell_scene =
@@ -140,11 +139,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             (0..BOARD_SIZE_I)
                 .map(|i| {
                     let height = rng.gen_range(-0.1..0.1);
-                    commands.spawn(SceneBundle {
-                        transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                        scene: cell_scene.clone(),
-                        ..default()
-                    });
+                    commands.spawn((
+                        Transform::from_xyz(i as f32, height - 0.2, j as f32),
+                        SceneRoot(cell_scene.clone()),
+                    ));
                     Cell { height }
                 })
                 .collect()
@@ -154,8 +152,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn(SceneBundle {
-                transform: Transform {
+            .spawn((
+                Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
                         game.board[game.player.j][game.player.i].height,
@@ -164,10 +162,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
-                scene: asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
-                ..default()
-            })
+                SceneRoot(
+                    asset_server
+                        .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
+                ),
+            ))
             .id(),
     );
 
@@ -180,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextBundle::from_section(
             "Score:",
             TextStyle {
-                font_size: 40.0,
+                font_size: 33.0,
                 color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
@@ -346,27 +345,23 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn(SceneBundle {
-                transform: Transform::from_xyz(
+            .spawn((
+                Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
                     game.bonus.j as f32,
                 ),
-                scene: game.bonus.handle.clone(),
-                ..default()
-            })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        color: Color::srgb(1.0, 1.0, 0.0),
-                        intensity: 500_000.0,
-                        range: 10.0,
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 2.0, 0.0),
+                SceneRoot(game.bonus.handle.clone()),
+            ))
+            .with_child((
+                PointLight {
+                    color: Color::srgb(1.0, 1.0, 0.0),
+                    intensity: 500_000.0,
+                    range: 10.0,
                     ..default()
-                });
-            })
+                },
+                Transform::from_xyz(0.0, 2.0, 0.0),
+            ))
             .id(),
     );
 }
@@ -376,8 +371,9 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_seconds());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
+            cake_transform.scale = Vec3::splat(
+                1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_seconds())).abs(),
+            );
         }
     }
 }
@@ -414,7 +410,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             parent.spawn(TextBundle::from_section(
                 format!("Cake eaten: {}", game.cake_eaten),
                 TextStyle {
-                    font_size: 80.0,
+                    font_size: 67.0,
                     color: Color::srgb(0.5, 0.5, 1.0),
                     ..default()
                 },

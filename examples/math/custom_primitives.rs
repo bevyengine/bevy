@@ -36,7 +36,6 @@ const TRANSFORM_2D: Transform = Transform {
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
     near: -1.0,
     far: 10.0,
-    scale: 1.0,
     viewport_origin: Vec2::new(0.5, 0.5),
     scaling_mode: ScalingMode::AutoMax {
         max_width: 8.0,
@@ -125,48 +124,40 @@ fn setup(
 
     // Spawn the 2D heart
     commands.spawn((
-        PbrBundle {
-            // We can use the methods defined on the meshbuilder to customize the mesh.
-            mesh: meshes.add(HEART.mesh().resolution(50)),
-            material: materials.add(StandardMaterial {
-                emissive: RED.into(),
-                base_color: RED.into(),
-                ..Default::default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        // We can use the methods defined on the meshbuilder to customize the mesh.
+        Mesh3d(meshes.add(HEART.mesh().resolution(50))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            emissive: RED.into(),
+            base_color: RED.into(),
+            ..Default::default()
+        })),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         Shape2d,
     ));
 
     // Spawn an extrusion of the heart.
     commands.spawn((
-        PbrBundle {
-            transform: Transform::from_xyz(0., -3., -10.)
-                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-            // We can set a custom resolution for the round parts of the extrusion aswell.
-            mesh: meshes.add(EXTRUSION.mesh().resolution(50)),
-            material: materials.add(StandardMaterial {
-                base_color: RED.into(),
-                ..Default::default()
-            }),
+        // We can set a custom resolution for the round parts of the extrusion aswell.
+        Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.into(),
             ..Default::default()
-        },
+        })),
+        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
     ));
 
     // Point light for 3D
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
             ..default()
         },
-        transform: Transform::from_xyz(8.0, 12.0, 1.0),
-        ..default()
-    });
+        Transform::from_xyz(8.0, 12.0, 1.0),
+    ));
 
     // Example instructions
     commands.spawn(
@@ -313,6 +304,7 @@ fn switch_cameras(
 }
 
 /// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.
+///
 /// The tip of the heart connects the two circles at a 45° angle from `Vec3::NEG_Y`.
 #[derive(Copy, Clone)]
 struct Heart {
@@ -334,7 +326,7 @@ impl Heart {
 // If you implement `Measured2d` for a 2D primitive, `Measured3d` is automatically implemented for `Extrusion<T>`.
 impl Measured2d for Heart {
     fn perimeter(&self) -> f32 {
-        self.radius * (2.5 * PI + 2f32.powf(1.5) + 2.0)
+        self.radius * (2.5 * PI + ops::powf(2f32, 1.5) + 2.0)
     }
 
     fn area(&self) -> f32 {
@@ -367,7 +359,7 @@ impl Bounded2d for Heart {
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
         // The bounding circle of the heart is not at its origin. This `offset` is the offset between the center of the bounding circle and its translation.
-        let offset = self.radius / 2f32.powf(1.5);
+        let offset = self.radius / ops::powf(2f32, 1.5);
         // The center of the bounding circle
         let center = isometry * Vec2::new(0.0, -offset);
         // The radius of the bounding circle
@@ -442,7 +434,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // The left wing of the heart, starting from the point in the middle.
         for i in 1..self.resolution {
             let angle = (i as f32 / self.resolution as f32) * wing_angle;
-            let (sin, cos) = angle.sin_cos();
+            let (sin, cos) = ops::sin_cos(angle);
             vertices.push([radius * (cos - 1.0), radius * sin, 0.0]);
             uvs.push([0.5 - (cos - 1.0) / 4., 0.5 - sin / 2.]);
         }
@@ -454,7 +446,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // The right wing of the heart, starting from the bottom most point and going towards the middle point.
         for i in 0..self.resolution - 1 {
             let angle = (i as f32 / self.resolution as f32) * wing_angle - PI / 4.;
-            let (sin, cos) = angle.sin_cos();
+            let (sin, cos) = ops::sin_cos(angle);
             vertices.push([radius * (cos + 1.0), radius * sin, 0.0]);
             uvs.push([0.5 - (cos + 1.0) / 4., 0.5 - sin / 2.]);
         }
