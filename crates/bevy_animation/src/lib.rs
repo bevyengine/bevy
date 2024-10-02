@@ -1046,7 +1046,7 @@ impl<'a, 'b> Iterator for AnimationTriggersIter<'a, 'b> {
     }
 }
 
-/// A system that triggers untargeted animation events for the currently-playing animations.
+/// A system that triggers animation events for the currently-playing animations.
 fn trigger_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
@@ -1241,6 +1241,8 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    // `trigger_animation_events` has to run before `advance_animations` and `advance_transitions`
+                    // because if not, it won't trigger events that occur on the first tick of an animation.
                     trigger_animation_events,
                     advance_transitions,
                     advance_animations,
@@ -1388,8 +1390,10 @@ mod tests {
 
     #[test]
     fn test_events_triggers_on_looping_animation() {
-        let mut active_animation = ActiveAnimation::default();
-        active_animation.repeat = RepeatAnimation::Forever;
+        let mut active_animation = ActiveAnimation {
+            repeat: RepeatAnimation::Forever,
+            ..Default::default()
+        };
         let mut clip = AnimationClip::default();
         clip.add_event(0.0, A);
         clip.add_event(0.2, A);
