@@ -3,8 +3,10 @@
 use bevy::{
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
+    time::common_conditions::on_timer,
 };
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 fn main() {
     App::new()
@@ -12,6 +14,7 @@ fn main() {
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
+        .add_systems(Update, move_cube.run_if(on_timer(Duration::from_secs(1))))
         .register_type::<Cube>()
         .run();
 }
@@ -50,6 +53,16 @@ fn setup(
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
+}
+
+fn move_cube(mut query: Query<&mut Transform, With<Cube>>) {
+    for mut transform in &mut query {
+        if transform.translation.y < 1.0 {
+            transform.translation.y = 1.5;
+        } else {
+            transform.translation.y = 0.5;
+        };
+    }
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]

@@ -235,7 +235,12 @@ async fn process_single_request(
         ));
     }
 
-    let (result_sender, result_receiver) = async_channel::bounded(1);
+    let size = if request.method.ends_with("+stream") {
+        16
+    } else {
+        1
+    };
+    let (result_sender, result_receiver) = async_channel::bounded(size);
 
     let _ = request_sender
         .send(BrpMessage {
@@ -244,6 +249,12 @@ async fn process_single_request(
             sender: result_sender,
         })
         .await;
+
+    if size == 16 {
+        while let Ok(result) = result_receiver.recv().await {
+            let _ = dbg!(result);
+        }
+    }
 
     let result = result_receiver.recv().await?;
     Ok(BrpResponse::new(request.id, result))
