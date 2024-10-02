@@ -235,11 +235,8 @@ async fn process_single_request(
         ));
     }
 
-    let size = if request.method.ends_with("+stream") {
-        16
-    } else {
-        1
-    };
+    let stream = request.method.ends_with("+stream");
+    let size = if stream { 16 } else { 1 };
     let (result_sender, result_receiver) = async_channel::bounded(size);
 
     let _ = request_sender
@@ -247,6 +244,7 @@ async fn process_single_request(
             method: request.method,
             params: request.params,
             sender: result_sender,
+            stream,
         })
         .await;
 

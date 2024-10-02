@@ -442,6 +442,14 @@ impl RemoteMethods {
     ) -> Option<RemoteMethod> {
         self.0.insert(method_name.into(), handler)
     }
+
+    /// Get a [`RemoteMethod`] with its method name.
+    ///
+    /// This method ignores any characters after and including a '+'.
+    pub fn get(&self, method: &str) -> Option<&RemoteMethod> {
+        let method = method.split_once('+').map(|(m, _)| m).unwrap_or(method);
+        self.0.get(method)
+    }
 }
 
 /// Holds the [`BrpMessage`]'s of all ongoing streaming requests along with their handlers.
@@ -661,6 +669,9 @@ pub struct BrpMessage {
     ///
     /// The value sent here is serialized and sent back to the client.
     pub sender: Sender<BrpResult>,
+
+    /// An option to continute to send results when related data changes.
+    pub stream: bool,
 }
 
 /// A resource holding the matching sender for the [`BrpReceiver`]'s receiver.
@@ -692,7 +703,7 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
-        if message.method.ends_with("+stream") {
+        if message.stream {
             process_stream_request(message, world);
         } else {
             process_normal_request(message, world);
@@ -706,7 +717,7 @@ fn process_normal_request(message: BrpMessage, world: &mut World) {
     // registered, return an error.
     let methods = world.resource::<RemoteMethods>();
 
-    let Some(handler) = methods.0.get(&message.method) else {
+    let Some(handler) = methods.get(&message.method) else {
         let _ = message.sender.force_send(Err(BrpError {
             code: error_codes::METHOD_NOT_FOUND,
             message: format!("Method `{}` not found", message.method),
@@ -733,13 +744,11 @@ fn process_normal_request(message: BrpMessage, world: &mut World) {
 
 /// Handles a single request which sends one response at first and continues to send more as the
 /// data changes.
-fn process_stream_request(mut message: BrpMessage, world: &mut World) {
-    message.method = message.method.strip_suffix("+stream").unwrap().to_string();
-
+fn process_stream_request(message: BrpMessage, world: &mut World) {
     // Fetch the handler for the method. If there's no such handler
     // registered, return an error.
     let handler = world.resource_scope::<RemoteMethods, Option<RemoteMethod>>(|_world, methods| {
-        methods.0.get(&message.method).cloned()
+        methods.get(&message.method).cloned()
     });
 
     let Some(handler) = handler else {
