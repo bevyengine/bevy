@@ -135,9 +135,7 @@ fn setup_scene(
         });
 }
 
-fn button_handler(
-    mut button_query: Query<(&Button, &mut BackgroundColor), Changed<Button>>,
-) {
+fn button_handler(mut button_query: Query<(&Button, &mut BackgroundColor), Changed<Button>>) {
     for (button, mut color) in &mut button_query {
         match (button.pressed, button.hovered) {
             (true, _) => {
