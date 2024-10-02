@@ -28,11 +28,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // a barebones scene containing one of each gltf_extra type
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/extras/gltf_extras.glb")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/extras/gltf_extras.glb"),
+    )));
 
     // a place to display the extras on screen
     commands.spawn((

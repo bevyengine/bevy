@@ -22,15 +22,14 @@
 //! # use bevy_gltf::prelude::*;
 //!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
-//!     commands.spawn(SceneBundle {
+//!     commands.spawn((
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
-//!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
-//!         ..Default::default()
-//!     });
+//!         Transform::from_xyz(2.0, 0.0, -5.0),
+//!     ));
 //! }
 //! ```
 //! # Loading parts of a glTF asset
@@ -72,18 +71,14 @@
 //!     };
 //!     *loaded = true;
 //!
-//!     commands.spawn(SceneBundle {
-//!         // Gets the first scene in the file
-//!         scene: gltf.scenes[0].clone(),
-//!         ..Default::default()
-//!     });
+//!     // Spawns the first scene in the file
+//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
 //!
-//!     commands.spawn(SceneBundle {
-//!         // Gets the scene named "Lenses_low"
-//!         scene: gltf.named_scenes["Lenses_low"].clone(),
-//!         transform: Transform::from_xyz(1.0, 2.0, 3.0),
-//!         ..Default::default()
-//!     });
+//!     // Spawns the scene named "Lenses_low"
+//!     commands.spawn((
+//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         Transform::from_xyz(1.0, 2.0, 3.0),
+//!     ));
 //! }
 //! ```
 //!

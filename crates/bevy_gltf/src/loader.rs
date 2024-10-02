@@ -17,7 +17,8 @@ use bevy_ecs::{
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
-    DirectionalLight, PbrBundle, PointLight, SpotLight, StandardMaterial, UvChannel, MAX_JOINTS,
+    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
+    MAX_JOINTS,
 };
 use bevy_render::{
     alpha::AlphaMode,
@@ -25,7 +26,7 @@ use bevy_render::{
     mesh::{
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
+        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
     prelude::SpatialBundle,
     primitives::Aabb,
@@ -1456,12 +1457,13 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
-                    let mut mesh_entity = parent.spawn(PbrBundle {
+                    let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?
-                        mesh: load_context.get_label_handle(primitive_label.to_string()),
-                        material: load_context.get_label_handle(&material_label),
-                        ..Default::default()
-                    });
+                        Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
+                        MeshMaterial3d::<StandardMaterial>(
+                            load_context.get_label_handle(&material_label),
+                        ),
+                    ));
 
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {

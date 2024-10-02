@@ -131,6 +131,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "android-game-activity",
 ]
 
 # Provides an implementation for picking sprites
@@ -326,6 +327,12 @@ wayland = ["bevy_internal/wayland"]
 
 # X11 display server support
 x11 = ["bevy_internal/x11"]
+
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
+android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
@@ -2966,6 +2973,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ghost_nodes"
+path = "examples/ui/ghost_nodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ghost_nodes]
+name = "Ghost Nodes"
+description = "Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 doc-scrape-examples = true
@@ -3429,6 +3447,17 @@ name = "Screen Space Reflections"
 description = "Demonstrates screen space reflections with water ripples"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "camera_sub_view"
+path = "examples/3d/camera_sub_view.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_sub_view]
+name = "Camera sub view"
+description = "Demonstrates using different sub view effects on a camera"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "color_grading"
