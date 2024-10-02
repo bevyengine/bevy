@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
 //! and assorted support items.
 
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
@@ -75,7 +75,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         let mut inner_half_size = outer_half_size - Vec2::splat(corner_radius);
 
         if config.corner_radius < 0. {
-            std::mem::swap(&mut outer_half_size, &mut inner_half_size);
+            core::mem::swap(&mut outer_half_size, &mut inner_half_size);
         }
 
         // Handle cases where the rectangle collapses into simpler shapes

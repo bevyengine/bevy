@@ -4,12 +4,8 @@
 //! speed up code by shrinking the stack size of large types,
 //! and make comparisons for any type as fast as integers.
 
-use std::{
-    fmt::Debug,
-    hash::Hash,
-    ops::Deref,
-    sync::{OnceLock, PoisonError, RwLock},
-};
+use core::{fmt::Debug, hash::Hash, ops::Deref};
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 use bevy_utils::HashSet;
 
@@ -24,7 +20,6 @@ use bevy_utils::HashSet;
 /// Two interned values are only guaranteed to compare equal if they were interned using
 /// the same [`Interner`] instance.
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
-///
 /// ```
 /// # use bevy_ecs::intern::*;
 /// #[derive(PartialEq, Eq, Hash, Debug)]
@@ -71,13 +66,13 @@ impl<T: ?Sized + Internable> Eq for Interned<T> {}
 
 // Important: This must be kept in sync with the PartialEq/Eq implementation
 impl<T: ?Sized + Internable> Hash for Interned<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.0.ref_hash(state);
     }
 }
 
 impl<T: ?Sized + Debug> Debug for Interned<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -99,7 +94,7 @@ pub trait Internable: Hash + Eq {
     fn ref_eq(&self, other: &Self) -> bool;
 
     /// Feeds the reference to the hasher.
-    fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H);
+    fn ref_hash<H: core::hash::Hasher>(&self, state: &mut H);
 }
 
 impl Internable for str {
@@ -112,7 +107,7 @@ impl Internable for str {
         self.as_ptr() == other.as_ptr() && self.len() == other.len()
     }
 
-    fn ref_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn ref_hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.len().hash(state);
         self.as_ptr().hash(state);
     }
@@ -169,10 +164,8 @@ impl<T: ?Sized> Default for Interner<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::hash_map::DefaultHasher,
-        hash::{Hash, Hasher},
-    };
+    use core::hash::{Hash, Hasher};
+    use std::collections::hash_map::DefaultHasher;
 
     use crate::intern::{Internable, Interned, Interner};
 
@@ -187,11 +180,11 @@ mod tests {
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
-                std::ptr::eq(self, other)
+                core::ptr::eq(self, other)
             }
 
             fn ref_hash<H: Hasher>(&self, state: &mut H) {
-                std::ptr::hash(self, state);
+                core::ptr::hash(self, state);
             }
         }
 
@@ -218,11 +211,11 @@ mod tests {
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
-                std::ptr::eq(self, other)
+                core::ptr::eq(self, other)
             }
 
             fn ref_hash<H: Hasher>(&self, state: &mut H) {
-                std::ptr::hash(self, state);
+                core::ptr::hash(self, state);
             }
         }
 

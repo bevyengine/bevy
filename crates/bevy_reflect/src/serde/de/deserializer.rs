@@ -1,20 +1,19 @@
-use crate::serde::de::arrays::ArrayVisitor;
-use crate::serde::de::enums::EnumVisitor;
-use crate::serde::de::error_utils::make_custom_error;
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
-use crate::serde::de::lists::ListVisitor;
-use crate::serde::de::maps::MapVisitor;
-use crate::serde::de::options::OptionVisitor;
-use crate::serde::de::sets::SetVisitor;
-use crate::serde::de::structs::StructVisitor;
-use crate::serde::de::tuple_structs::TupleStructVisitor;
-use crate::serde::de::tuples::TupleVisitor;
-use crate::serde::TypeRegistrationDeserializer;
-use crate::{PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry};
-use core::fmt::Formatter;
+use crate::serde::ReflectDeserializeWithRegistry;
+use crate::{
+    serde::{
+        de::{
+            arrays::ArrayVisitor, enums::EnumVisitor, error_utils::make_custom_error,
+            lists::ListVisitor, maps::MapVisitor, options::OptionVisitor, sets::SetVisitor,
+            structs::StructVisitor, tuple_structs::TupleStructVisitor, tuples::TupleVisitor,
+        },
+        TypeRegistrationDeserializer,
+    },
+    PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
+};
+use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
-use std::fmt;
 
 /// A general purpose deserializer for reflected types.
 ///
@@ -32,7 +31,7 @@ use std::fmt;
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
@@ -69,7 +68,7 @@ use std::fmt;
 ///
 /// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
-/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
@@ -89,7 +88,7 @@ use std::fmt;
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [type path]: crate::TypePath::type_path
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
 /// [`Box<DynamicList>`]: crate::DynamicList
@@ -165,7 +164,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// This deserializer will return a [`Box<dyn Reflect>`] containing the deserialized data.
 ///
-/// For value types (i.e. [`ReflectKind::Value`]) or types that register [`ReflectDeserialize`] type data,
+/// For opaque types (i.e. [`ReflectKind::Opaque`]) or types that register [`ReflectDeserialize`] type data,
 /// this `Box` will contain the expected type.
 /// For example, deserializing an `i32` will return a `Box<i32>` (as a `Box<dyn Reflect>`).
 ///
@@ -202,7 +201,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
-/// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
+/// // Since `MyStruct` is not an opaque type and does not register `ReflectDeserialize`,
 /// // we know that its deserialized value will be a `DynamicStruct`,
 /// // although it will represent `MyStruct`.
 /// assert!(output.as_partial_reflect().represents::<MyStruct>());
@@ -221,7 +220,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 ///
 /// [`TypedReflectSerializer`]: crate::serde::TypedReflectSerializer
 /// [`Box<dyn Reflect>`]: crate::Reflect
-/// [`ReflectKind::Value`]: crate::ReflectKind::Value
+/// [`ReflectKind::Opaque`]: crate::ReflectKind::Opaque
 /// [`ReflectDeserialize`]: crate::ReflectDeserialize
 /// [`Box<DynamicStruct>`]: crate::DynamicStruct
 /// [`Box<DynamicList>`]: crate::DynamicList
@@ -233,9 +232,26 @@ pub struct TypedReflectDeserializer<'a> {
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
+    /// Creates a new [`TypedReflectDeserializer`] for the given type registration.
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self {
+            registration,
+            registry,
+        }
+    }
+
+    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is not registered in the given [`TypeRegistry`].
+    pub fn of<T: TypePath>(registry: &'a TypeRegistry) -> Self {
+        let registration = registry
+            .get(core::any::TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("no registration found for type `{}`", T::type_path()));
 
         Self {
             registration,
@@ -269,6 +285,13 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
                 let value = deserialize_reflect.deserialize(deserializer)?;
                 return Ok(value.into_partial_reflect());
+            }
+
+            if let Some(deserialize_reflect) =
+                self.registration.data::<ReflectDeserializeWithRegistry>()
+            {
+                let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
+                return Ok(value);
             }
 
             match self.registration.type_info() {
@@ -345,7 +368,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     dynamic_enum.set_represented_type(Some(self.registration.type_info()));
                     Ok(Box::new(dynamic_enum))
                 }
-                TypeInfo::Value(_) => {
+                TypeInfo::Opaque(_) => {
                     // This case should already be handled
                     Err(make_custom_error(format_args!(
                         "type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",

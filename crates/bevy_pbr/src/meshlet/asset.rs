@@ -1,3 +1,4 @@
+use alloc::sync::Arc;
 use bevy_asset::{
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
@@ -8,10 +9,7 @@ use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
-use std::{
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::io::{Read, Write};
 
 /// Unique identifier for the [`MeshletMesh`] asset format.
 const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
@@ -28,9 +26,14 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
+/// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
+///   * If additional detail is needed, a smaller tiling normal map not baked from a mesh is ok.
+/// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
+///   * Use `pbr_functions::sample_texture` to sample textures instead.
+///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
+/// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
-/// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
@@ -90,11 +93,11 @@ impl AssetSaver for MeshletMeshSaverLoader {
     type OutputLoader = Self;
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, MeshletMesh>,
-        _settings: &'a (),
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, MeshletMesh>,
+        _settings: &(),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer
@@ -124,11 +127,11 @@ impl AssetLoader for MeshletMeshSaverLoader {
     type Settings = ();
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
         // Load and check magic number
         let magic = async_read_u64(reader).await?;
@@ -200,7 +203,7 @@ fn write_slice<T: Pod>(
 fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error> {
     let len = read_u64(reader)? as usize;
 
-    let mut data: Arc<[T]> = std::iter::repeat_with(T::zeroed).take(len).collect();
+    let mut data: Arc<[T]> = core::iter::repeat_with(T::zeroed).take(len).collect();
     let slice = Arc::get_mut(&mut data).unwrap();
     reader.read_exact(bytemuck::cast_slice_mut(slice))?;
 

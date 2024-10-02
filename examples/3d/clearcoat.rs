@@ -97,9 +97,9 @@ fn spawn_car_paint_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -111,9 +111,8 @@ fn spawn_car_paint_sphere(
                 base_color: BLUE.into(),
                 ..default()
             }),
-            transform: Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -124,9 +123,9 @@ fn spawn_coated_glass_bubble_sphere(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 metallic: 0.5,
@@ -134,10 +133,9 @@ fn spawn_coated_glass_bubble_sphere(
                 base_color: Color::srgba(0.9, 0.9, 0.9, 0.3),
                 alpha_mode: AlphaMode::Blend,
                 ..default()
-            }),
-            transform: Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(-1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
@@ -147,14 +145,13 @@ fn spawn_coated_glass_bubble_sphere(
 /// This object is in glTF format, using the `KHR_materials_clearcoat`
 /// extension.
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
-            transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
-        .insert(ExampleSphere);
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
+        ),
+        Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ExampleSphere,
+    ));
 }
 
 /// Spawns an object with only a clearcoat normal map (a scratch pattern) and no
@@ -166,9 +163,9 @@ fn spawn_scratched_gold_ball(
     sphere: &Handle<Mesh>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: sphere.clone(),
-            material: materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(
@@ -179,30 +176,27 @@ fn spawn_scratched_gold_ball(
                 perceptual_roughness: 0.1,
                 base_color: GOLD.into(),
                 ..default()
-            }),
-            transform: Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(1.0, -1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(ExampleSphere);
 }
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    // Add the cascades objects used by the `DirectionalLightBundle`, since the
-    // user can toggle between a point light and a directional light.
-    commands
-        .spawn(PointLightBundle {
-            point_light: PointLight {
-                color: WHITE.into(),
-                intensity: 100000.0,
-                ..default()
-            },
+    commands.spawn((
+        PointLight {
+            color: WHITE.into(),
+            intensity: 100000.0,
             ..default()
-        })
-        .insert(CascadesFrusta::default())
-        .insert(Cascades::default())
-        .insert(CascadeShadowConfig::default())
-        .insert(CascadesVisibleEntities::default());
+        },
+        // Add the cascades objects used by the `DirectionalLight`, since the
+        // user can toggle between a point light and a directional light.
+        CascadesFrusta::default(),
+        Cascades::default(),
+        CascadeShadowConfig::default(),
+        CascadesVisibleEntities::default(),
+    ));
 }
 
 /// Spawns a camera with associated skybox and environment map.
@@ -258,9 +252,9 @@ fn animate_light(
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
-            f32::sin(now * 1.4),
-            f32::cos(now * 1.0),
-            f32::cos(now * 0.6),
+            ops::sin(now * 1.4),
+            ops::cos(now * 1.0),
+            ops::cos(now * 0.6),
         ) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }

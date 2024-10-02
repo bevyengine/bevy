@@ -6,6 +6,7 @@ use bevy::{
         bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
+    math::ops,
     prelude::*,
 };
 use std::{
@@ -76,12 +77,9 @@ fn setup_scene(
             };
 
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh.clone(),
-                    material,
-                    transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 Bouncing,
             ));
         }
@@ -219,6 +217,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            (transform.translation.x + transform.translation.z + time.elapsed_seconds()).sin();
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
     }
 }

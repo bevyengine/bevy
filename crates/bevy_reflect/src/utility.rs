@@ -2,11 +2,11 @@
 
 use crate::TypeInfo;
 use bevy_utils::{FixedState, NoOpHash, TypeIdMap};
-use std::{
+use core::{
     any::{Any, TypeId},
     hash::BuildHasher,
-    sync::{OnceLock, PoisonError, RwLock},
 };
+use std::sync::{OnceLock, PoisonError, RwLock};
 
 /// A type that can be stored in a ([`Non`])[`GenericTypeCell`].
 ///
@@ -138,7 +138,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -148,7 +148,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             let fields = [UnnamedField::new::<T>(0)];
-///             let info = TupleStructInfo::new::<Self>(&fields);
+///             let info = TupleStructInfo::new::<Self>(&fields)
+///                 .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")]));
 ///             TypeInfo::TupleStruct(info)
 ///         })
 ///     }
@@ -171,7 +172,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }
 /// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }

@@ -3,10 +3,9 @@
 //! The most important type in this module is the [`HoverMap`], which maps pointers to the entities
 //! they are hovering over.
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    fmt::Debug,
-};
+use alloc::collections::BTreeMap;
+use core::fmt::Debug;
+use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},
@@ -190,7 +189,7 @@ fn build_hover_map(
 /// the entity will be considered pressed. If that entity is instead being hovered by both pointers,
 /// it will be considered hovered.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub enum PickingInteraction {
     /// The entity is being pressed down by a pointer.
     Pressed = 2,

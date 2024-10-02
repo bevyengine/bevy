@@ -1,6 +1,8 @@
-use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
-use crate::struct_utility::FieldAccessors;
-use crate::ReflectStruct;
+use crate::{
+    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+    struct_utility::FieldAccessors,
+    ReflectStruct,
+};
 use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 

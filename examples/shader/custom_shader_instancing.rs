@@ -1,4 +1,11 @@
 //! A shader that renders a mesh multiple times in one draw call.
+//!
+//! Bevy will automatically batch and instance your meshes assuming you use the same
+//! `Handle<Material>` and `Handle<Mesh>` for all of your instances.
+//!
+//! This example is intended for advanced users and shows how to make a custom instancing
+//! implementation using bevy's low level rendering api.
+//! It's generally recommended to try the built-in instancing before going with this approach.
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
@@ -27,7 +34,6 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
-use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";
@@ -300,7 +306,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                 );
             }
             RenderMeshBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, 0..instance_buffer.length as u32);
+                pass.draw(vertex_buffer_slice.range, 0..instance_buffer.length as u32);
             }
         }
         RenderCommandResult::Success

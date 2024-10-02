@@ -1,5 +1,4 @@
-use crate::serde::de::error_utils::make_custom_error;
-use crate::{Type, TypeRegistration, TypeRegistry};
+use crate::{serde::de::error_utils::make_custom_error, Type, TypeRegistration, TypeRegistry};
 use serde::de::Error;
 
 /// Attempts to find the [`TypeRegistration`] for a given [type].

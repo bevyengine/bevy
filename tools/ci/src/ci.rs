@@ -1,5 +1,7 @@
-use crate::commands;
-use crate::prepare::{Flag, Prepare, PreparedCommand};
+use crate::{
+    commands,
+    prepare::{Flag, Prepare, PreparedCommand},
+};
 use argh::FromArgs;
 
 /// The CI command line tool for Bevy.

@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
@@ -50,6 +51,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
@@ -808,7 +810,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(Entity, &DepthOfField, &Projection)>>,
+    mut query: Extract<Query<(&RenderEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -818,6 +820,7 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
+        let entity = entity.id();
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             continue;
@@ -848,7 +851,7 @@ fn extract_depth_of_field_settings(
 ///
 /// See <https://photo.stackexchange.com/a/97218>.
 pub fn calculate_focal_length(sensor_height: f32, fov: f32) -> f32 {
-    0.5 * sensor_height / f32::tan(0.5 * fov)
+    0.5 * sensor_height / ops::tan(0.5 * fov)
 }
 
 impl DepthOfFieldPipelines {
