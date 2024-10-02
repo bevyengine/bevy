@@ -1337,7 +1337,6 @@ impl Bundles {
         storages: &mut Storages,
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
-        let contributed_bundle_ids = &mut self.contributed_bundle_ids;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
@@ -1366,6 +1365,7 @@ impl Bundles {
             id
         } else {
             let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap alllow this
             let id = unsafe {
                 let (ptr, len) = {
                     // SAFETY: `explicit_bundle_id` is valid and defined above
