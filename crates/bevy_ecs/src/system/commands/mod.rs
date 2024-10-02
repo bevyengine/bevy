@@ -1393,7 +1393,7 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
-    pub fn remove_with_requires<T: Bundle>(self) -> Self {
+    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
         self.queue(remove_with_requires::<T>)
     }
 
