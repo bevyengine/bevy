@@ -333,6 +333,42 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
+/// Handles checking for changes in a `bevy/get` request for streaming.
+pub fn check_changes_remote_get_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> Result<bool, BrpError> {
+    let BrpGetParams {
+        entity, components, ..
+    } = parse_some(params)?;
+
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let entity_ref = get_entity(world, entity)?;
+
+    for component_path in components {
+        let type_registration = get_component_type_registration(&type_registry, &component_path)
+            .map_err(BrpError::component_error)?;
+        let component_id = world
+            .components()
+            .get_id(type_registration.type_id())
+            .ok_or(BrpError::component_error(format!(
+                "Unknown component: `{component_path}`"
+            )))?;
+
+        let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) else {
+            // TODO: Check if this is actually internal error or not
+            return Err(BrpError::internal("Failed to get ticks for component"));
+        };
+
+        if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
 /// Handle a single component for [`process_remote_get_request`].
 fn handle_get_component(
     component_path: &str,

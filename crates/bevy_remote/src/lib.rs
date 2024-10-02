@@ -286,7 +286,7 @@ pub struct RemotePlugin {
             String,
             (
                 Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
-                Option<Box<dyn System<In = In<Option<Value>>, Out = bool>>>,
+                Option<Box<dyn System<In = In<Option<Value>>, Out = Result<bool, BrpError>>>>,
             ),
         )>,
     >,
@@ -319,11 +319,16 @@ impl RemotePlugin {
     /// given `name`, `handler` and `streaming_handler`. The `streaming_handler`
     /// system must be read-only.
     #[must_use]
-    pub fn with_method_and_streaming<M>(
+    pub fn with_method_and_streaming<M, S>(
         mut self,
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
-        streaming_handler: impl IntoSystem<In<Option<Value>>, bool, M, System: ReadOnlySystem>,
+        streaming_handler: impl IntoSystem<
+            In<Option<Value>>,
+            Result<bool, BrpError>,
+            S,
+            System: ReadOnlySystem,
+        >,
     ) -> Self {
         self.methods.get_mut().unwrap().push((
             name.into(),
@@ -339,9 +344,10 @@ impl RemotePlugin {
 impl Default for RemotePlugin {
     fn default() -> Self {
         Self::empty()
-            .with_method(
+            .with_method_and_streaming(
                 builtin_methods::BRP_GET_METHOD,
                 builtin_methods::process_remote_get_request,
+                builtin_methods::check_changes_remote_get_request,
             )
             .with_method(
                 builtin_methods::BRP_QUERY_METHOD,
@@ -409,7 +415,7 @@ impl Plugin for RemotePlugin {
 #[derive(Debug, Clone)]
 pub struct RemoteMethod {
     main: SystemId<In<Option<Value>>, BrpResult>,
-    streaming: Option<SystemId<In<Option<Value>>, bool>>,
+    streaming: Option<SystemId<In<Option<Value>>, Result<bool, BrpError>>>,
 }
 
 /// Holds all implementations of methods known to the server.
@@ -786,12 +792,19 @@ fn process_single_ongoing_streaming_request(
     handlers: &RemoteMethod,
 ) -> Result<Option<Value>, BrpError> {
     let should_run = world
-        .run_system_with_input(handlers.streaming.unwrap(), message.params.clone())
+        .run_system_with_input(
+            handlers.streaming.ok_or(BrpError {
+                code: error_codes::ENTITY_NOT_FOUND,
+                message: format!("Method `{}` does not support streaming", message.method),
+                data: None,
+            })?,
+            message.params.clone(),
+        )
         .map_err(|error| BrpError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Failed to run method handler: {error}"),
             data: None,
-        })?;
+        })??;
 
     if !should_run {
         return Ok(None);
