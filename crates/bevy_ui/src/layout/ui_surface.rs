@@ -724,6 +724,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "bevy_text"))]
+    // TODO: add tests for #[cfg(feature = "bevy_text")] params
     fn test_compute_camera_layout() {
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
