@@ -129,48 +129,39 @@ fn spawn_spheres(
 
     let sphere_handle = meshes.add(Sphere::new(2.0).mesh());
 
-    let alpha = 0.5;
+    let alpha = 0.25;
 
     let render_layers = RenderLayers::layer(1);
 
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: RED.with_alpha(alpha).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_translation(pos_a + offset),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(alpha).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
+        })),
+        Transform::from_translation(pos_a + offset),
         render_layers.clone(),
     ));
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: GREEN.with_alpha(alpha).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_translation(pos_b + offset),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: GREEN.with_alpha(alpha).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
+        })),
+        Transform::from_translation(pos_b + offset),
         render_layers.clone(),
     ));
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle,
-            material: materials.add(StandardMaterial {
-                base_color: BLUE.with_alpha(alpha).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_translation(pos_c + offset),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.with_alpha(alpha).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
-        render_layers,
+        })),
+        Transform::from_translation(pos_c + offset),
+        render_layers.clone(),
     ));
 }
 
@@ -191,74 +182,56 @@ fn spawn_occlusion_test(
     // front
     let x = -2.5;
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle.clone(),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(x, 0.0, 2.0),
-            ..default()
-        },
+        Mesh3d(cube_handle.clone()),
+        MeshMaterial3d(cube_material.clone()),
+        Transform::from_xyz(x, 0.0, 2.0),
         render_layers.clone(),
     ));
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: RED.with_alpha(0.5).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_xyz(x, 0., 0.),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(0.5).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
+        })),
+        Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
 
     // intersection
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle.clone(),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 1.0),
-            ..default()
-        },
+        Mesh3d(cube_handle.clone()),
+        MeshMaterial3d(cube_material.clone()),
+        Transform::from_xyz(x, 0.0, 1.0),
         render_layers.clone(),
     ));
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: RED.with_alpha(0.5).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_xyz(0., 0., 0.),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(0.5).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
+        })),
+        Transform::from_xyz(0., 0., 0.),
         render_layers.clone(),
     ));
 
     // back
     let x = 2.5;
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle.clone(),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(x, 0.0, -2.0),
-            ..default()
-        },
+        Mesh3d(cube_handle.clone()),
+        MeshMaterial3d(cube_material.clone()),
+        Transform::from_xyz(x, 0.0, -2.0),
         render_layers.clone(),
     ));
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: RED.with_alpha(0.5).into(),
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_xyz(x, 0., 0.),
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(0.5).into(),
+            alpha_mode: AlphaMode::Blend,
             ..default()
-        },
+        })),
+        Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),
     ));
 }
