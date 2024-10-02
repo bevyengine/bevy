@@ -162,15 +162,6 @@ pub struct LogPlugin {
     /// This can be further filtered using the `filter` setting.
     pub level: Level,
 
-    /// An identifier, in reverse DNS notation, used to identify the subsystem that is being logged.
-    /// Used for iOS.
-    #[cfg(target_os = "ios")]
-    pub subsystem: String,
-
-    /// The category within the subsystem. Used for iOS.
-    #[cfg(target_os = "ios")]
-    pub category: String,
-
     /// Optionally add an extra [`Layer`] to the tracing subscriber
     ///
     /// This function is only called once, when the plugin is built.
@@ -195,10 +186,6 @@ impl Default for LogPlugin {
         Self {
             filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
-            #[cfg(target_os = "ios")]
-            subsystem: "com.example.test".to_string(),
-            #[cfg(target_os = "ios")]
-            category: "default".to_string(),
             custom_layer: |_| None,
         }
     }
@@ -309,10 +296,7 @@ impl Plugin for LogPlugin {
 
         #[cfg(target_os = "ios")]
         {
-            finished_subscriber = subscriber.with(tracing_oslog::OsLogger::new(
-                &self.subsystem,
-                &self.category,
-            ));
+            finished_subscriber = subscriber.with(tracing_oslog::OsLogger::default());
         }
 
         let logger_already_set = LogTracer::init().is_err();
