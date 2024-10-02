@@ -973,7 +973,7 @@ impl<'a, 'b> Iterator for TriggeredEventsIter<'a, 'b> {
             seek_time,
             ..
         } = self.active_animation;
-        // loop untill we find a triggered event or return `None`
+        // loop until we find a triggered event or return `None`
         loop {
             match &mut self.inner {
                 TriggeredEventsIterInner::None => return None,
@@ -997,9 +997,9 @@ impl<'a, 'b> Iterator for TriggeredEventsIter<'a, 'b> {
                     }
                 }
                 // when looping, we first trigger events where `event.time > last_seek_time`
-                // untill the iterator is exhausted
+                // until the iterator is exhausted
                 // then we use the other iterator to trigger events where `event.time <= seek_time`
-                // this is to make sure all events are triggered in the correct order that they occured
+                // this is to make sure all events are triggered in the correct order that they occurred
                 //
                 // Note: this is unlikely to work well if the animation somehow
                 // finished multiple times in one tick, should be rare enough though
