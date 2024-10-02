@@ -1372,8 +1372,9 @@ impl Bundles {
                     .contributed_components()
                     .to_vec()
             };
-
-            self.init_dynamic_info(components, &contributed_components)
+            let id = self.init_dynamic_info(components, &contributed_components);
+            self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
+            id
         }
     }
 
