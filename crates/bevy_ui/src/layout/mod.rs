@@ -493,7 +493,13 @@ mod tests {
         WindowScaleFactorChanged,
     };
 
-    use crate::{layout::{approx_round_layout_coords, ui_surface::UiSurface}, prelude::*, ui_layout_system, update::update_target_camera_system, ContentSize, LayoutContext};
+    use crate::{
+        layout::{approx_round_layout_coords, ui_surface::UiSurface},
+        prelude::*,
+        ui_layout_system,
+        update::update_target_camera_system,
+        ContentSize, LayoutContext,
+    };
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
@@ -1234,20 +1240,30 @@ mod tests {
             #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut bevy_text::CosmicBuffer>,
             #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
-            ui_surface.upsert_node(&LayoutContext::default(), params.root_node_entity, &Style::default(), None);
+            ui_surface.upsert_node(
+                &LayoutContext::default(),
+                params.root_node_entity,
+                &Style::default(),
+                None,
+            );
 
             ui_surface.compute_camera_layout(
                 params.camera_entity,
                 UVec2::new(800, 600),
-                #[cfg(feature = "bevy_text")] &mut buffer_query,
-                #[cfg(feature = "bevy_text")] &mut font_system.0,
+                #[cfg(feature = "bevy_text")]
+                &mut buffer_query,
+                #[cfg(feature = "bevy_text")]
+                &mut font_system.0,
             );
         }
 
-        let _ = world.run_system_once_with(TestSystemParam {
-            camera_entity,
-            root_node_entity,
-        }, test_system);
+        let _ = world.run_system_once_with(
+            TestSystemParam {
+                camera_entity,
+                root_node_entity,
+            },
+            test_system,
+        );
 
         let ui_surface = world.resource::<UiSurface>();
 

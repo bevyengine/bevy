@@ -726,10 +726,7 @@ mod tests {
 
         ui_surface.upsert_node(&LayoutContext::default(), root_node_entity, &style, None);
 
-        ui_surface.compute_camera_layout(
-            camera_entity,
-            UVec2::new(800, 600),
-        );
+        ui_surface.compute_camera_layout(camera_entity, UVec2::new(800, 600));
 
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
