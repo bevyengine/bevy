@@ -25,23 +25,24 @@ fn button_system(
     mut text_query: Query<&mut Text>,
 ) {
     for (button, mut color, mut border_color, children) in &mut button_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        match (button.pressed, button.hovered) {
+        let new_str = match (button.pressed, button.hovered) {
             (true, _) => {
-                text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
+                "Press"
             }
             (false, true) => {
-                text.sections[0].value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                "Hover"
             }
             (false, false) => {
-                text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                "Button"
             }
+        };
+
+        if let Ok(mut text) = text_query.get_mut(children[0]) {
+            text.sections[0].value = new_str.to_string();
         }
     }
 }
