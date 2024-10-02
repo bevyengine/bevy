@@ -1,3 +1,10 @@
+//! Example of how to draw to a texture from the CPU.
+//!
+//! You can set the values of individual pixels to whatever you want.
+//! Bevy provides user-friendly APIs that work with [`Color`](bevy::color::Color)
+//! values and automatically perform any necessary conversions and encoding
+//! into the texture's native pixel format.
+
 use bevy::color::{color_difference::EuclideanDistance, palettes::css};
 use bevy::prelude::*;
 use bevy::render::{
@@ -16,7 +23,7 @@ fn main() {
         // one pixel at a time, so the pattern will gradually emerge over time, and
         // the speed at which it appears is not tied to the framerate.
         // Let's make the fixed update very fast, so it doesn't take too long. :)
-        .insert_resource(Time::<Fixed>::from_hz(256.0))
+        .insert_resource(Time::<Fixed>::from_hz(1024.0))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, draw)
         .run();
@@ -104,7 +111,7 @@ fn draw(
     let rot_speed = 0.0123;
     let period = 0.12345;
 
-    let r = (*i as f32 * period).sin() * max_radius;
+    let r = ops::sin(*i as f32 * period) * max_radius;
     let xy = Vec2::from_angle(*i as f32 * rot_speed) * r + center;
     let (x, y) = (xy.x as u32, xy.y as u32);
 
