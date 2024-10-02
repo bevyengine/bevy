@@ -614,6 +614,7 @@ impl ActiveAnimation {
 
     /// Reset back to the initial state as if no time has elapsed.
     pub fn replay(&mut self) {
+        self.just_completed = false;
         self.completions = 0;
         self.elapsed = 0.0;
         self.last_seek_time = None;
