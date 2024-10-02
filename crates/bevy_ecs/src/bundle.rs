@@ -287,6 +287,7 @@ macro_rules! tuple_impl {
             }
         }
 
+        $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
