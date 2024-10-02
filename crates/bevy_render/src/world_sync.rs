@@ -150,7 +150,6 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
         // TODO : batching record
         for record in pending.drain(..) {
-            println!("EntityRecord: {:?}", record);
             match record {
                 EntityRecord::Added(e) => {
                     if let Some(mut main_entity) = world.get_entity_mut(e) {
@@ -174,7 +173,9 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                 EntityRecord::ComponentRemoved(main_entity) => {
                     // It's difficult to remove only the relevant component because component ids aren't stable across worlds,
                     // so we just clear the entire render world entity.
-                    let mut render_entity = world.get_mut::<RenderEntity>(main_entity).unwrap();
+                    let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
+                        continue;
+                    };
                     if let Some(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
                         render_world_entity.despawn();
 
