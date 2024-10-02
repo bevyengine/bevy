@@ -466,7 +466,8 @@ pub enum AnimationEvaluationError {
     /// [`AnimationCurveEvaluator`].
     ///
     /// You shouldn't ordinarily see this error unless you implemented
-    /// [`AnimationCurveEvaluator`] yourself.
+    /// [`AnimationCurveEvaluator`] yourself. The contained [`TypeId`] is the ID
+    /// of the curve evaluator.
     InconsistentEvaluatorImplementation(TypeId),
 }
 
@@ -681,23 +682,26 @@ impl Clone for AnimationPlayer {
 /// Temporary data that the [`animate_targets`] system maintains.
 #[derive(Default)]
 pub struct AnimationEvaluationState {
-    /// A mapping from each [`Keyframes`] type being animated to its
-    /// [`KeyframeEvaluator`].
+    /// Stores all [`AnimationCurveEvaluator`]s corresponding to properties that
+    /// we've seen so far.
     ///
-    /// For efficiency's sake, the [`KeyframeEvaluator`]s are cached from frame
-    /// to frame and animation target to animation target. Therefore, there may
-    /// be entries in this list corresponding to properties that the current
-    /// [`AnimationPlayer`] doesn't animate. To iterate only over the properties
-    /// that are currently being animated, consult the
-    /// [`Self::current_keyframe_types`] set.
+    /// This is a mapping from the type ID of an animation curve evaluator to
+    /// the animation curve evaluator itself.
+    ///
+    /// For efficiency's sake, the [`AnimationCurveEvaluator`]s are cached from
+    /// frame to frame and animation target to animation target. Therefore,
+    /// there may be entries in this list corresponding to properties that the
+    /// current [`AnimationPlayer`] doesn't animate. To iterate only over the
+    /// properties that are currently being animated, consult the
+    /// [`Self::current_curve_evaluator_types`] set.
     curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
 
-    /// The set of [`Keyframes`] types that the current [`AnimationPlayer`] is
-    /// animating.
+    /// The set of [`AnimationCurveEvaluator`] types that the current
+    /// [`AnimationPlayer`] is animating.
     ///
-    /// This is built up as new keyframes are encountered during graph
+    /// This is built up as new curve evaluators are encountered during graph
     /// traversal.
-    current_curve_types: TypeIdMap<()>,
+    current_curve_evaluator_types: TypeIdMap<()>,
 }
 
 impl AnimationPlayer {
@@ -1002,19 +1006,26 @@ pub fn animate_targets(
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
-                            let curve_type_id = (*curve.0).type_id();
+                            // Fetch the curve evaluator. Curve evaluator types
+                            // are unique to each property, but shared among all
+                            // curve types. For example, given two curve types A
+                            // and B, `RotationCurve<A>` and `RotationCurve<B>`
+                            // will both yield a `RotationCurveEvaluator` and
+                            // therefore will share the same evaluator in this
+                            // table.
+                            let curve_evaluator_type_id = (*curve.0).evaluator_type();
                             let curve_evaluator = evaluation_state
                                 .curve_evaluators
-                                .entry(curve_type_id)
+                                .entry(curve_evaluator_type_id)
                                 .or_insert_with(|| curve.0.create_evaluator());
 
                             evaluation_state
-                                .current_curve_types
-                                .insert(curve_type_id, ());
+                                .current_curve_evaluator_types
+                                .insert(curve_evaluator_type_id, ());
 
-                            if let Err(err) = AnimationCurveEvaluator::apply(
-                                &mut **curve_evaluator,
+                            if let Err(err) = AnimationCurve::apply(
                                 &*curve.0,
+                                &mut **curve_evaluator,
                                 seek_time,
                                 weight,
                                 animation_graph_node_index,
@@ -1101,25 +1112,25 @@ impl From<&Name> for AnimationTargetId {
 }
 
 impl AnimationEvaluationState {
-    /// Calls [`KeyframeEvaluator::blend`] on all keyframe types that we've been
-    /// building up for a single target.
+    /// Calls [`AnimationCurveEvaluator::blend`] on all curve evaluator types
+    /// that we've been building up for a single target.
     ///
     /// The given `node_index` is the node that we're evaluating.
     fn blend_all(
         &mut self,
         node_index: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        for keyframe_type in self.current_curve_types.keys() {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
             self.curve_evaluators
-                .get_mut(keyframe_type)
+                .get_mut(curve_evaluator_type)
                 .unwrap()
                 .blend(node_index)?;
         }
         Ok(())
     }
 
-    /// Calls [`KeyframeEvaluator::push_blend_register`] on all keyframe types
-    /// that we've been building up for a single target.
+    /// Calls [`AnimationCurveEvaluator::push_blend_register`] on all curve
+    /// evaluator types that we've been building up for a single target.
     ///
     /// The `weight` parameter is the weight that should be pushed onto the
     /// stack, while the `node_index` parameter is the node that we're
@@ -1129,17 +1140,17 @@ impl AnimationEvaluationState {
         weight: f32,
         node_index: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        for keyframe_type in self.current_curve_types.keys() {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
             self.curve_evaluators
-                .get_mut(keyframe_type)
+                .get_mut(curve_evaluator_type)
                 .unwrap()
                 .push_blend_register(weight, node_index)?;
         }
         Ok(())
     }
 
-    /// Calls [`KeyframeEvaluator::commit`] on all keyframe types that we've
-    /// been building up for a single target.
+    /// Calls [`AnimationCurveEvaluator::commit`] on all curve evaluator types
+    /// that we've been building up for a single target.
     ///
     /// This is the call that actually writes the computed values into the
     /// components being animated.
@@ -1148,9 +1159,9 @@ impl AnimationEvaluationState {
         mut transform: Option<Mut<Transform>>,
         mut entity_mut: AnimationEntityMut,
     ) -> Result<(), AnimationEvaluationError> {
-        for (keyframe_type, _) in self.current_curve_types.drain() {
+        for (curve_evaluator_type, _) in self.current_curve_evaluator_types.drain() {
             self.curve_evaluators
-                .get_mut(&keyframe_type)
+                .get_mut(&curve_evaluator_type)
                 .unwrap()
                 .commit(
                     transform.as_mut().map(|transform| transform.reborrow()),
