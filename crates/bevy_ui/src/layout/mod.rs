@@ -1,17 +1,17 @@
 use crate::{
     BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, Style, TargetCamera, UiScale,
+    ScrollPosition, Style, TargetCamera, UiChildren, UiRootNodes, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::{Entity, EntityHashMap, EntityHashSet},
     event::EventReader,
-    query::{With, Without},
+    query::With,
     removal_detection::RemovedComponents,
     system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::Children;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
@@ -22,7 +22,9 @@ use thiserror::Error;
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
-use bevy_text::{CosmicBuffer, TextPipeline};
+use bevy_text::CosmicBuffer;
+#[cfg(feature = "bevy_text")]
+use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
@@ -102,7 +104,7 @@ pub fn ui_layout_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
-    root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
+    root_nodes: UiRootNodes,
     mut style_query: Query<
         (
             Entity,
@@ -112,8 +114,8 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    node_query: Query<Entity, With<Node>>,
+    ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut Node,
@@ -124,7 +126,7 @@ pub fn ui_layout_system(
         Option<&ScrollPosition>,
     )>,
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
-    #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
+    #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
@@ -160,35 +162,39 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     camera_layout_info.clear();
-    root_node_query.iter().for_each(|(entity,target_camera)|{
-        match camera_with_default(target_camera) {
-            Some(camera_entity) => {
-                let Ok((_, camera)) = cameras.get(camera_entity) else {
-                    warn!(
-                        "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
-                        camera_entity
-                    );
-                    return;
-                };
-                let layout_info = camera_layout_info
-                    .entry(camera_entity)
-                    .or_insert_with(|| calculate_camera_layout_info(camera));
-                layout_info.root_nodes.push(entity);
-            }
-            None => {
-                if cameras.is_empty() {
-                    warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
-                } else {
-                    warn!(
-                        "Multiple cameras found, causing UI target ambiguity. \
-                        To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
-                        entity
-                    );
+
+    style_query
+        .iter_many(root_nodes.iter())
+        .for_each(|(entity, _, _, target_camera)| {
+            match camera_with_default(target_camera) {
+                Some(camera_entity) => {
+                    let Ok((_, camera)) = cameras.get(camera_entity) else {
+                        warn!(
+                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            camera_entity
+                        );
+                        return;
+                    };
+                    let layout_info = camera_layout_info
+                        .entry(camera_entity)
+                        .or_insert_with(|| calculate_camera_layout_info(camera));
+                    layout_info.root_nodes.push(entity);
+                }
+                None => {
+                    if cameras.is_empty() {
+                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                    } else {
+                        warn!(
+                            "Multiple cameras found, causing UI target ambiguity. \
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            entity
+                        );
+                    }
                 }
             }
-        }
 
-    });
+        }
+    );
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
@@ -242,23 +248,22 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    children_query.iter().for_each(|(entity, children)| {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
+
+    node_query.iter().for_each(|entity| {
+        if ui_children.is_changed(entity) {
+            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
     });
 
     #[cfg(feature = "bevy_text")]
     let text_buffers = &mut buffer_query;
-    #[cfg(feature = "bevy_text")]
-    let font_system = text_pipeline.font_system_mut();
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    children_query.iter().for_each(|(entity, children)| {
-        if children.is_changed() {
-            ui_surface.update_children(entity, &children);
+    node_query.iter().for_each(|entity| {
+        if ui_children.is_changed(entity) {
+            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
     });
 
@@ -271,7 +276,7 @@ pub fn ui_layout_system(
             #[cfg(feature = "bevy_text")]
             text_buffers,
             #[cfg(feature = "bevy_text")]
-            font_system,
+            &mut font_system.0,
         );
 
         for root in &camera.root_nodes {
@@ -281,7 +286,7 @@ pub fn ui_layout_system(
                 &ui_surface,
                 None,
                 &mut node_transform_query,
-                &just_children_query,
+                &ui_children,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
@@ -307,7 +312,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
         )>,
-        children_query: &Query<&Children>,
+        ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
@@ -415,21 +420,19 @@ pub fn ui_layout_system(
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
-            if let Ok(children) = children_query.get(entity) {
-                for &child_uinode in children {
-                    update_uinode_geometry_recursive(
-                        commands,
-                        child_uinode,
-                        ui_surface,
-                        Some(viewport_size),
-                        node_transform_query,
-                        children_query,
-                        inverse_target_scale_factor,
-                        rounded_size,
-                        clamped_scroll_position,
-                        absolute_location,
-                    );
-                }
+            for child_uinode in ui_children.iter_ui_children(entity) {
+                update_uinode_geometry_recursive(
+                    commands,
+                    child_uinode,
+                    ui_surface,
+                    Some(viewport_size),
+                    node_transform_query,
+                    ui_children,
+                    inverse_target_scale_factor,
+                    rounded_size,
+                    clamped_scroll_position,
+                    absolute_location,
+                );
             }
         }
     }
@@ -523,6 +526,10 @@ mod tests {
         world.init_resource::<ManualTextureViews>();
         #[cfg(feature = "bevy_text")]
         world.init_resource::<bevy_text::TextPipeline>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::CosmicFontSystem>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
         world.spawn((
@@ -940,7 +947,7 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node);
+            world.run_system_once_with(new_pos, move_ui_node).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
@@ -991,7 +998,7 @@ mod tests {
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
-        world.run_system_once(update_camera_viewports);
+        world.run_system_once(update_camera_viewports).unwrap();
 
         ui_schedule.run(&mut world);
 
@@ -1160,6 +1167,10 @@ mod tests {
         world.init_resource::<ManualTextureViews>();
         #[cfg(feature = "bevy_text")]
         world.init_resource::<bevy_text::TextPipeline>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::CosmicFontSystem>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
         world.spawn((

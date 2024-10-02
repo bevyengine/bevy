@@ -567,7 +567,7 @@ pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
-        handle: &Handle<Mesh>,
+        mesh: &Mesh3d,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -583,8 +583,7 @@ impl RenderMeshInstanceShared {
         );
 
         RenderMeshInstanceShared {
-            mesh_asset_id: handle.id(),
-
+            mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
             material_bind_group_id: AtomicMaterialBindGroupId::default(),
         }
@@ -870,7 +869,7 @@ pub fn extract_meshes_for_cpu_building(
             &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
-            &Handle<Mesh>,
+            &Mesh3d,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
@@ -887,7 +886,7 @@ pub fn extract_meshes_for_cpu_building(
             view_visibility,
             transform,
             previous_transform,
-            handle,
+            mesh,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -912,7 +911,7 @@ pub fn extract_meshes_for_cpu_building(
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
-                handle,
+                mesh,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -969,7 +968,7 @@ pub fn extract_meshes_for_gpu_building(
             Option<&PreviousGlobalTransform>,
             Option<&Lightmap>,
             Option<&Aabb>,
-            &Handle<Mesh>,
+            &Mesh3d,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
             Has<NotShadowCaster>,
@@ -1003,7 +1002,7 @@ pub fn extract_meshes_for_gpu_building(
             previous_transform,
             lightmap,
             aabb,
-            handle,
+            mesh,
             not_shadow_receiver,
             transmitted_receiver,
             not_shadow_caster,
@@ -1028,7 +1027,7 @@ pub fn extract_meshes_for_gpu_building(
 
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
-                handle,
+                mesh,
                 not_shadow_caster,
                 no_automatic_batching,
             );

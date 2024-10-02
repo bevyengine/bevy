@@ -131,6 +131,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "android-game-activity",
 ]
 
 # Provides an implementation for picking sprites
@@ -326,6 +327,12 @@ wayland = ["bevy_internal/wayland"]
 
 # X11 display server support
 x11 = ["bevy_internal/x11"]
+
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
+android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
@@ -911,6 +918,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "query_gltf_primitives"
+path = "examples/3d/query_gltf_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.query_gltf_primitives]
+name = "Query glTF primitives"
+description = "Query primitives in a glTF scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "motion_blur"
 path = "examples/3d/motion_blur.rs"
 doc-scrape-examples = true
@@ -1146,7 +1164,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1893,6 +1911,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "fallible_params"
+path = "examples/ecs/fallible_params.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fallible_params]
+name = "Fallible System Parameters"
+description = "Systems are skipped if their parameters cannot be acquired"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "startup_system"
 path = "examples/ecs/startup_system.rs"
 doc-scrape-examples = true
@@ -2445,13 +2474,24 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "shader_instancing"
-path = "examples/shader/shader_instancing.rs"
+name = "custom_shader_instancing"
+path = "examples/shader/custom_shader_instancing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.shader_instancing]
+[package.metadata.example.custom_shader_instancing]
 name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "automatic_instancing"
+path = "examples/shader/automatic_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.automatic_instancing]
+name = "Instancing"
+description = "Shows that multiple instances of a cube are automatically instanced in one draw call"
 category = "Shaders"
 wasm = true
 
@@ -2933,6 +2973,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ghost_nodes"
+path = "examples/ui/ghost_nodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ghost_nodes]
+name = "Ghost Nodes"
+description = "Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "grid"
 path = "examples/ui/grid.rs"
 doc-scrape-examples = true
@@ -3396,6 +3447,17 @@ name = "Screen Space Reflections"
 description = "Demonstrates screen space reflections with water ripples"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "camera_sub_view"
+path = "examples/3d/camera_sub_view.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_sub_view]
+name = "Camera sub view"
+description = "Demonstrates using different sub view effects on a camera"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "color_grading"

@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -30,6 +32,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{
@@ -128,6 +131,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
 /// Bundle to apply screen space ambient occlusion.
 #[derive(Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `ScreenSpaceAmbientOcclusion` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct ScreenSpaceAmbientOcclusionBundle {
     pub settings: ScreenSpaceAmbientOcclusion,
     pub depth_prepass: DepthPrepass,
@@ -145,8 +152,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 ///
 /// # Usage Notes
 ///
-/// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app,
-/// and add the [`DepthPrepass`] and [`NormalPrepass`] components to your camera.
+/// Requires that you add [`ScreenSpaceAmbientOcclusionPlugin`] to your app.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
 /// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasing`]).
@@ -155,6 +161,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Eq, Hash, Clone, Default, Debug)]
 #[reflect(Component, Debug, Default, Hash, PartialEq)]
+#[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {
     pub quality_level: ScreenSpaceAmbientOcclusionQualityLevel,
@@ -488,7 +495,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (Entity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -501,9 +508,10 @@ fn extract_ssao_settings(
             );
             return;
         }
-
         if camera.is_active {
-            commands.get_or_spawn(entity).insert(ssao_settings.clone());
+            commands
+                .get_or_spawn(entity.id())
+                .insert(ssao_settings.clone());
         }
     }
 }

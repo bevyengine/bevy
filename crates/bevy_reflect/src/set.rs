@@ -3,22 +3,27 @@ use core::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
-    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, Generics,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`](std::collections::HashSet). The
-/// order of these entries is not guaranteed by this trait.
+/// Sets contain zero or more entries of a fixed type, and correspond to types
+/// like [`HashSet`] and [`BTreeSet`].
+/// The order of these entries is not guaranteed by this trait.
 ///
-/// # Hashing
+/// # Hashing and equality
 ///
-/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
-/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
-/// to the entire struct or enum.
-/// This is true even for manual implementors who do not use the hashed value,
+/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`] and be
+/// comparable using [`PartialReflect::reflect_partial_eq`].
+/// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding
+/// `#[reflect(Hash, PartialEq)]` to the entire struct or enum.
+/// The ordering is expected to be total, that is as if the reflected type implements the [`Eq`] trait.
+/// This is true even for manual implementors who do not hash or compare values,
 /// as it is still relied on by [`DynamicSet`].
 ///
 /// # Example
@@ -36,6 +41,8 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
+/// [`HashSet`]: std::collections::HashSet
+/// [`BTreeSet`]: std::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: PartialReflect {
@@ -56,7 +63,9 @@ pub trait Set: PartialReflect {
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -81,6 +90,7 @@ pub trait Set: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct SetInfo {
     ty: Type,
+    generics: Generics,
     value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -91,6 +101,7 @@ impl SetInfo {
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
+            generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -117,6 +128,8 @@ impl SetInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An ordered set of reflected values.
@@ -182,8 +195,8 @@ impl Set for DynamicSet {
         Box::new(iter)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.hash_table.into_iter().collect::<Vec<_>>()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.hash_table.drain().collect::<Vec<_>>()
     }
 
     fn clone_dynamic(&self) -> DynamicSet {

@@ -185,17 +185,16 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
     // light depending on the settings, we add the union of the components
     // necessary for this light to behave as all three of those.
     commands
-        .spawn(DirectionalLightBundle {
-            directional_light: create_directional_light(app_status),
-            transform: Transform::from_rotation(Quat::from_array([
+        .spawn((
+            create_directional_light(app_status),
+            Transform::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
                 0.36505926,
                 -0.5648683,
             ]))
             .with_translation(vec3(57.693, 34.334, -6.422)),
-            ..default()
-        })
+        ))
         // These two are needed for point lights.
         .insert(CubemapVisibleEntities::default())
         .insert(CubemapFrusta::default())
@@ -206,10 +205,9 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
+    ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.

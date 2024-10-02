@@ -39,12 +39,9 @@ fn setup(
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
-            transform: Transform::from_translation(entity_spawn),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_translation(entity_spawn),
         Movable::new(entity_spawn),
     ));
 
@@ -55,10 +52,10 @@ fn setup(
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This system will move all Movable entities with a Transform

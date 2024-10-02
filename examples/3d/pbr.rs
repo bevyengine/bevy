@@ -24,41 +24,38 @@ fn setup(
             let x01 = (x + 5) as f32 / 10.0;
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
-            commands.spawn(PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
+            commands.spawn((
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
                     ..default()
-                }),
-                transform: Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
-                ..default()
-            });
+                })),
+                Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+            ));
         }
     }
     // unlit sphere
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh,
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
-        }),
-        transform: Transform::from_xyz(-5.0, -2.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-5.0, -2.5, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 1_500.,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // labels
     commands.spawn(
