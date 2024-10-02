@@ -28,7 +28,7 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
     let nodes = graph
         .nodes()
         .map(|node| NodeData {
-            rootindex: None,
+            root_index: None,
             neighbours: graph.neighbors(node),
         })
         .collect::<Vec<_>>();
@@ -36,18 +36,18 @@ pub(crate) fn new_tarjan_scc<S: BuildHasher>(
     TarjanScc {
         graph,
         unchecked_nodes,
-        index: 1,                   // Invariant: index < componentcount at all times.
-        componentcount: usize::MAX, // Will hold if componentcount is initialized to number of nodes - 1 or higher.
+        index: 1,                    // Invariant: index < component_count at all times.
+        component_count: usize::MAX, // Will hold if component_count is initialized to number of nodes - 1 or higher.
         nodes,
         stack: Vec::new(),
         visitation_stack: Vec::new(),
         start: None,
-        indexadjustment: None,
+        index_adjustment: None,
     }
 }
 
 struct NodeData<N: Iterator<Item = NodeId>> {
-    rootindex: Option<NonZeroUsize>,
+    root_index: Option<NonZeroUsize>,
     neighbours: N,
 }
 
@@ -71,7 +71,7 @@ where
     /// The index of the next SCC
     index: usize,
     /// A count of potentially remaining SCCs
-    componentcount: usize,
+    component_count: usize,
     /// Information about each [`NodeId`], including a possible SCC index and an
     /// [`Iterator`] of possibly unvisited neighbours.
     nodes: Vec<NodeData<Neighbours>>,
@@ -82,7 +82,7 @@ where
     /// An index into the `stack` indicating the starting point of a SCC.
     start: Option<usize>,
     /// An adjustment to the `index` which will be applied once the current SCC is found.
-    indexadjustment: Option<usize>,
+    index_adjustment: Option<usize>,
 }
 
 impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = NodeId>>
@@ -101,12 +101,12 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
     /// the sccs is their postorder (reverse topological sort).
     fn next_scc(&mut self) -> Option<&[NodeId]> {
         // Cleanup from possible previous iteration
-        if let (Some(start), Some(indexadjustment)) =
-            (self.start.take(), self.indexadjustment.take())
+        if let (Some(start), Some(index_adjustment)) =
+            (self.start.take(), self.index_adjustment.take())
         {
             self.stack.truncate(start);
-            self.index -= indexadjustment; // Backtrack index back to where it was before we ever encountered the component.
-            self.componentcount -= 1;
+            self.index -= index_adjustment; // Backtrack index back to where it was before we ever encountered the component.
+            self.component_count -= 1;
         }
 
         loop {
@@ -125,7 +125,7 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
                 break None;
             };
 
-            let visited = self.nodes[self.graph.to_index(node)].rootindex.is_some();
+            let visited = self.nodes[self.graph.to_index(node)].root_index.is_some();
 
             // If this node hasn't already been visited (e.g., it was the neighbour of a previously checked node)
             // add it to the visitation stack.
@@ -142,15 +142,15 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
     fn visit_once(&mut self, v: NodeId, mut v_is_local_root: bool) -> Option<usize> {
         let node_v = &mut self.nodes[self.graph.to_index(v)];
 
-        if node_v.rootindex.is_none() {
+        if node_v.root_index.is_none() {
             let v_index = self.index;
-            node_v.rootindex = NonZeroUsize::new(v_index);
+            node_v.root_index = NonZeroUsize::new(v_index);
             self.index += 1;
         }
 
         while let Some(w) = self.nodes[self.graph.to_index(v)].neighbours.next() {
             // If a neighbour hasn't been visited yet...
-            if self.nodes[self.graph.to_index(w)].rootindex.is_none() {
+            if self.nodes[self.graph.to_index(w)].root_index.is_none() {
                 // Push the current node and the neighbour back onto the visitation stack.
                 // On the next execution of `visit_once`, the neighbour will be visited.
                 self.visitation_stack.push((v, v_is_local_root));
@@ -159,11 +159,11 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
                 return None;
             }
 
-            if self.nodes[self.graph.to_index(w)].rootindex
-                < self.nodes[self.graph.to_index(v)].rootindex
+            if self.nodes[self.graph.to_index(w)].root_index
+                < self.nodes[self.graph.to_index(v)].root_index
             {
-                self.nodes[self.graph.to_index(v)].rootindex =
-                    self.nodes[self.graph.to_index(w)].rootindex;
+                self.nodes[self.graph.to_index(v)].root_index =
+                    self.nodes[self.graph.to_index(w)].root_index;
                 v_is_local_root = false;
             }
         }
@@ -174,29 +174,30 @@ impl<'graph, S: BuildHasher, A: Iterator<Item = NodeId>, N: Iterator<Item = Node
         }
 
         // Pop the stack and generate an SCC.
-        let mut indexadjustment = 1;
-        let c = NonZeroUsize::new(self.componentcount);
+        let mut index_adjustment = 1;
+        let c = NonZeroUsize::new(self.component_count);
         let nodes = &mut self.nodes;
         let start = self
             .stack
             .iter()
             .rposition(|&w| {
-                if nodes[self.graph.to_index(v)].rootindex > nodes[self.graph.to_index(w)].rootindex
+                if nodes[self.graph.to_index(v)].root_index
+                    > nodes[self.graph.to_index(w)].root_index
                 {
                     true
                 } else {
-                    nodes[self.graph.to_index(w)].rootindex = c;
-                    indexadjustment += 1;
+                    nodes[self.graph.to_index(w)].root_index = c;
+                    index_adjustment += 1;
                     false
                 }
             })
             .map(|x| x + 1)
             .unwrap_or_default();
-        nodes[self.graph.to_index(v)].rootindex = c;
+        nodes[self.graph.to_index(v)].root_index = c;
         self.stack.push(v); // Pushing the component root to the back right before getting rid of it is somewhat ugly, but it lets it be included in f.
 
         self.start = Some(start);
-        self.indexadjustment = Some(indexadjustment);
+        self.index_adjustment = Some(index_adjustment);
 
         Some(start)
     }
