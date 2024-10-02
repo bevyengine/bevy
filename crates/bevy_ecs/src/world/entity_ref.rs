@@ -3205,7 +3205,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn_empty().id();
         let entity = world.entity(entity);
-        assert!(entity.get_by_id(invalid_component_id).is_ok());
+        assert!(entity.get_by_id(invalid_component_id).is_err());
     }
 
     #[test]
@@ -3214,8 +3214,8 @@ mod tests {
 
         let mut world = World::new();
         let mut entity = world.spawn_empty();
-        assert!(entity.get_by_id(invalid_component_id).is_ok());
-        assert!(entity.get_mut_by_id(invalid_component_id).is_ok());
+        assert!(entity.get_by_id(invalid_component_id).is_err());
+        assert!(entity.get_mut_by_id(invalid_component_id).is_err());
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7387
