@@ -22,22 +22,22 @@ fn button_system(
         (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextNEW>,
 ) {
     for (interaction, mut atlas, children, mut image) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
+                **text = "Press".to_string();
                 atlas.index = (atlas.index + 1) % 30;
                 image.color = GOLD.into();
             }
             Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
+                **text = "Hover".to_string();
                 image.color = ORANGE.into();
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+                **text = "Button".to_string();
                 image.color = Color::WHITE;
             }
         }
@@ -102,8 +102,8 @@ fn setup(
                         },
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Button",
+                        parent.spawn((
+                            TextNEW::new("Button"),
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 33.0,

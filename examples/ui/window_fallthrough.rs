@@ -25,25 +25,22 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2dBundle::default());
-    // Text with one section
+    // Text with one span
     commands.spawn((
-        // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "Hit 'P' then scroll/click around!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 83.0, // Nice and big so you can see it!
-                ..default()
-            },
-        )
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        TextNEW::new("Hit 'P' then scroll/click around!"),
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 83.0, // Nice and big so you can see it!
+            ..default()
+        },
         // Set the style of the TextBundle itself.
-        .with_style(Style {
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.),
             right: Val::Px(10.),
             ..default()
-        }),
+        },
     ));
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.

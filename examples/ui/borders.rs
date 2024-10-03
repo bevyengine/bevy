@@ -159,8 +159,8 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
-                label,
+            .spawn((
+                TextNEW::new(label),
                 TextStyle {
                     font_size: 9.0,
                     ..Default::default()
@@ -228,8 +228,8 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
-                label,
+            .spawn((
+                TextNEW::new(label),
                 TextStyle {
                     font_size: 9.0,
                     ..Default::default()
@@ -265,8 +265,8 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders",
+            builder.spawn((
+                TextNEW::new("Borders"),
                 TextStyle {
                     font_size: 20.0,
                     ..Default::default()
@@ -290,8 +290,8 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders Rounded",
+            builder.spawn((
+                TextNEW::new("Borders Rounded"),
                 TextStyle {
                     font_size: 20.0,
                     ..Default::default()

@@ -72,13 +72,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section("Size Constraints Example", text_style.clone())
-                            .with_style(Style {
-                                margin: UiRect::bottom(Val::Px(25.)),
-                                ..Default::default()
-                            }),
-                    );
+                    parent.spawn((
+                        TextNEW::new("Size Constraints Example"),
+                        text_style.clone(),
+                        Style {
+                            margin: UiRect::bottom(Val::Px(25.)),
+                            ..Default::default()
+                        },
+                    ));
 
                     spawn_bar(parent);
 
@@ -191,12 +192,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                             },
                             ..Default::default()
                         })
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle {
-                                text: Text::from_section(label.to_string(), text_style.clone()),
-                                ..Default::default()
-                            });
-                        });
+                        .with_child((TextNEW::new(label), text_style.clone()));
 
                     // spawn row buttons
                     parent
@@ -272,23 +268,18 @@ fn spawn_button(
                     .into(),
                     ..Default::default()
                 })
-                .with_children(|parent| {
-                    parent.spawn(TextBundle {
-                        text: Text::from_section(
-                            label,
-                            TextStyle {
-                                color: if active {
-                                    ACTIVE_TEXT_COLOR
-                                } else {
-                                    UNHOVERED_TEXT_COLOR
-                                },
-                                ..text_style
-                            },
-                        )
-                        .with_justify(JustifyText::Center),
-                        ..Default::default()
-                    });
-                });
+                .with_child((
+                    TextNEW::new(label),
+                    TextStyle {
+                        color: if active {
+                            ACTIVE_TEXT_COLOR
+                        } else {
+                            UNHOVERED_TEXT_COLOR
+                        },
+                        ..text_style
+                    },
+                    TextBlock::new_with_justify(JustifyText::Center),
+                ));
         });
 }
 
@@ -298,7 +289,7 @@ fn update_buttons(
         Changed<Interaction>,
     >,
     mut bar_query: Query<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextStyle>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
@@ -327,9 +318,9 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = HOVERED_TEXT_COLOR;
+                                if let Ok(mut style) = text_query.get_mut(grandchild) {
+                                    if style.color != ACTIVE_TEXT_COLOR {
+                                        style.color = HOVERED_TEXT_COLOR;
                                     }
                                 }
                             }
@@ -342,9 +333,9 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.sections[0].style.color != ACTIVE_TEXT_COLOR {
-                                        text.sections[0].style.color = UNHOVERED_TEXT_COLOR;
+                                if let Ok(mut style) = text_query.get_mut(grandchild) {
+                                    if style.color != ACTIVE_TEXT_COLOR {
+                                        style.color = UNHOVERED_TEXT_COLOR;
                                     }
                                 }
                             }
@@ -361,7 +352,7 @@ fn update_radio_buttons_colors(
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextStyle>,
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
@@ -386,8 +377,8 @@ fn update_radio_buttons_colors(
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {
-                        if let Ok(mut text) = text_query.get_mut(grandchild) {
-                            text.sections[0].style.color = text_color;
+                        if let Ok(mut style) = text_query.get_mut(grandchild) {
+                            style.color = text_color;
                         }
                     }
                 }

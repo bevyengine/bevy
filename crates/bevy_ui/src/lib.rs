@@ -53,7 +53,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label, TextNEW, TextSpan},
+            widget::{Button, Label, TextNEW, TextSpan, UiTextReader, UiTextWriter},
             Interaction, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
