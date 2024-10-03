@@ -212,6 +212,44 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
+//! ### bevy/get+watch
+//!
+//! Watch the values of one or more components from an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components will be fetched.
+//! - `components`: An array of [fully-qualified type names] of components to fetch.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!   components is not present or can not be reflected. Defaults to false.
+//!
+//! If `strict` is false:
+//!
+//! `result`:
+//! - `components`: A map associating each type name to its value on the requested entity.
+//! - `errors`: A map associating each type name with an error if it was not on the entity
+//!   or could not be reflected.
+//!
+//! If `strict` is true:
+//!
+//! `result`: A map associating each type name to its value on the requested entity.
+//!
+//! ### bevy/list+watch
+//!
+//! Watch all components present on an entity.
+//!
+//! When `params` is not provided, this lists all registered components. If `params` is provided,
+//! this lists only those components present on the provided entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components will be listed.
+//!
+//! `result`:
+//! - `added`: An array of fully-qualified type names of components added to the entity in the
+//!   last tick.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
+//!
+//!
 //! ## Custom methods
 //!
 //! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
@@ -360,6 +398,10 @@ impl Default for RemotePlugin {
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
                 builtin_methods::process_remote_get_watching_request,
+            )
+            .with_watching_method(
+                builtin_methods::BRP_LIST_AND_WATCH_METHOD,
+                builtin_methods::process_remote_list_watching_request,
             )
     }
 }

@@ -46,8 +46,11 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
-/// The method path for a `bevy/get` request.
+/// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
+
+/// The method path for a `bevy/list+watch` request.
+pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
 
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
@@ -253,6 +256,13 @@ pub enum BrpGetResponse {
 
 /// The response to a `bevy/list` request.
 pub type BrpListResponse = Vec<String>;
+
+/// A single response from a `bevy/list+watch` request.
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct BrpListWatchingResponse {
+    added: Vec<String>,
+    removed: Vec<String>,
+}
 
 /// The response to a `bevy/query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
@@ -671,17 +681,14 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles checking for changes in a `bevy/list` request.
-///
-/// Unlike the `bevy/list` method, the update condition **requires** the `entity`
-/// field to be present.
-pub fn check_changes_remote_list_request(
+/// Handles a `bevy/list` request (list all components) coming from a client.
+pub fn process_remote_list_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-) -> BrpResult<bool> {
+) -> BrpResult<Option<Value>> {
     let BrpListParams { entity } = parse_some(params)?;
-
     let entity_ref = get_entity(world, entity)?;
+    let mut response = BrpListWatchingResponse::default();
 
     for component_id in entity_ref.archetype().components() {
         let ticks = entity_ref
@@ -689,19 +696,31 @@ pub fn check_changes_remote_list_request(
             .ok_or(BrpError::internal("Failed to get ticks"))?;
 
         if ticks.is_added(world.last_change_tick(), world.read_change_tick()) {
-            return Ok(true);
+            let Some(component_info) = world.components().get_info(component_id) else {
+                continue;
+            };
+            response.added.push(component_info.name().to_owned());
         }
     }
 
-    for (_, events) in world.removed_components().iter() {
+    for (component_id, events) in world.removed_components().iter() {
         for event in events.iter_current_update_events() {
             if Entity::from(event.clone()) == entity {
-                return Ok(true);
+                let Some(component_info) = world.components().get_info(*component_id) else {
+                    continue;
+                };
+                response.removed.push(component_info.name().to_owned());
             }
         }
     }
 
-    Ok(false)
+    if response.added.is_empty() && response.removed.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            serde_json::to_value(response).map_err(BrpError::internal)?,
+        ))
+    }
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
