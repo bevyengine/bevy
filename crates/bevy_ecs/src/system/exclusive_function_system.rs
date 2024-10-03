@@ -119,11 +119,6 @@ where
 
     #[inline]
     unsafe fn try_acquire_params_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
-        panic!("Cannot run exclusive systems with a shared World reference");
-    }
-
-    #[inline]
-    fn try_acquire_params(&mut self, _world: &mut World) -> bool {
         true
     }
 
