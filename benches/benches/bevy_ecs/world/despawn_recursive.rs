@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::despawn_with_children_recursive;
+use bevy_hierarchy::BuildChildren;
+use bevy_hierarchy::ChildBuild;
 use criterion::Criterion;
 use glam::*;
 
@@ -16,7 +18,11 @@ pub fn world_despawn_recursive(criterion: &mut Criterion) {
     for entity_count in (0..5).map(|i| 10_u32.pow(i)) {
         let mut world = World::default();
         for _ in 0..entity_count {
-            world.spawn((A(Mat4::default()), B(Vec4::default())));
+            world
+                .spawn((A(Mat4::default()), B(Vec4::default())))
+                .with_children(|parent| {
+                    parent.spawn((A(Mat4::default()), B(Vec4::default())));
+                });
         }
 
         let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
