@@ -19,6 +19,23 @@ pub(crate) struct TextIterScratch {
     stack: Vec<(&'static Children, usize)>,
 }
 
+impl TextIterScratch {
+    fn take<'a, 'b>(&'a mut self) -> Vec<(&'b Children, usize)> {
+        core::mem::take(&mut self.stack)
+            .into_iter()
+            .map(|_| -> (&Children, usize) { unreachable!() })
+            .collect()
+    }
+
+    fn recover(&mut self, mut stack: Vec<(&Children, usize)>) {
+        stack.clear();
+        self.stack = stack
+            .into_iter()
+            .map(|_| -> (&'static Children, usize) { unreachable!() })
+            .collect();
+    }
+}
+
 /// System parameter for reading text spans in a [`TextBlock`].
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
@@ -26,25 +43,13 @@ pub(crate) struct TextIterScratch {
 pub struct TextReader<'w, 's, R: TextSpanAccess, S: TextSpanAccess> {
     scratch: ResMut<'w, TextIterScratch>,
     roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
-    spans: Query<
-        'w,
-        's,
-        (
-            Entity,
-            &'static S,
-            &'static TextStyle,
-            Option<&'static Children>,
-        ),
-    >,
+    spans: Query<'w, 's, (&'static S, &'static TextStyle, Option<&'static Children>)>,
 }
 
 impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextReader<'w, 's, R, S> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
     pub fn iter<'a>(&'a mut self, root_entity: Entity) -> TextSpanIter<'a, R, S> {
-        let stack = core::mem::take(&mut self.scratch.stack)
-            .into_iter()
-            .map(|_| -> (&Children, usize) { unreachable!() })
-            .collect();
+        let stack = self.scratch.take();
 
         TextSpanIter {
             scratch: &mut self.scratch,
@@ -56,97 +61,36 @@ impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextReader<'w, 's, R, S> {
     }
 
     /// Gets a text span within a text block at a specific index in the flattened span list.
-    pub fn get<'a>(
-        &'a mut self,
-        root_entity: Entity,
-        index: usize,
-    ) -> Option<(&'a str, &'a TextStyle)> {
-        self.iter(root_entity)
-            .nth(index)
-            .map(|(_, _, text, style)| (text, style))
-    }
-}
-
-/// System parameter for reading and writing text spans in a [`TextBlock`].
-///
-/// `R` is the root text component, and `S` is the text span component on children.
-#[derive(SystemParam)]
-pub struct TextWriter<'w, 's, R: TextSpanAccess, S: TextSpanAccess> {
-    scratch: ResMut<'w, TextIterScratch>,
-    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<S>>,
-    spans: Query<'w, 's, (Entity, &'static mut S, &'static mut TextStyle), Without<R>>,
-    children: Query<'w, 's, &'static Children>,
-}
-
-impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextWriter<'w, 's, R, S> {
-    /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Mut<String>, Mut<TextStyle>)> {
-        // Root
-        if index == 0 {
-            let (text, style) = self.roots.get_mut(root_entity).ok()?;
-            return Some((text.map_unchanged(|t| t.write_span()), style));
-        }
-
-        // Prep stack.
-        let mut stack: Vec<(&Children, usize)> = core::mem::take(&mut self.scratch.stack)
-            .into_iter()
-            .map(|_| -> (&Children, usize) { unreachable!() })
-            .collect();
-
-        if let Ok(children) = self.children.get(root_entity) {
-            stack.push((children, 0));
-        }
-
-        // Span
-        let mut count = 1;
-        let res = 'l: loop {
-            let Some((children, idx)) = stack.last_mut() else {
-                Self::return_stack(&mut self.scratch, stack);
-                return None;
-            };
-
-            loop {
-                let Some(child) = children.get(*idx) else {
-                    // All children at this stack entry have been iterated.
-                    stack.pop();
-                    break;
-                };
-
-                // Increment to prep the next entity in this stack level.
-                *idx += 1;
-
-                if !self.spans.contains(*child) {
-                    continue;
-                };
-                count += 1;
-
-                if count - 1 == index {
-                    Self::return_stack(&mut self.scratch, stack);
-                    break 'l *child;
-                }
-
-                if let Ok(children) = self.children.get(*child) {
-                    stack.push((children, 0));
-                    break;
-                }
-            }
-        };
-
-        // Note: We do this outside the loop due to borrow checker limitations.
-        let (_, text, style) = self.spans.get_mut(res).unwrap();
-        Some((text.map_unchanged(|t| t.write_span()), style))
+    ) -> Option<(Entity, usize, &str, &TextStyle)> {
+        self.iter(root_entity).nth(index)
     }
 
-    fn return_stack(scratch: &mut TextIterScratch, mut stack: Vec<(&Children, usize)>) {
-        stack.clear();
-        scratch.stack = stack
-            .into_iter()
-            .map(|_| -> (&'static Children, usize) { unreachable!() })
-            .collect();
+    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<&str> {
+        self.get(root_entity, index).map(|(_, _, text, _)| text)
+    }
+
+    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<&TextStyle> {
+        self.get(root_entity, index).map(|(_, _, _, style)| style)
+    }
+
+    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn text(&mut self, root_entity: Entity, index: usize) -> &str {
+        self.get_text(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextStyle {
+        self.get_style(root_entity, index).unwrap()
     }
 }
 
@@ -161,16 +105,7 @@ pub struct TextSpanIter<'a, R: TextSpanAccess, S: TextSpanAccess> {
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
     roots: &'a Query<'a, 'a, (&'static R, &'static TextStyle, Option<&'static Children>)>,
-    spans: &'a Query<
-        'a,
-        'a,
-        (
-            Entity,
-            &'static S,
-            &'static TextStyle,
-            Option<&'static Children>,
-        ),
-    >,
+    spans: &'a Query<'a, 'a, (&'static S, &'static TextStyle, Option<&'static Children>)>,
 }
 
 impl<'a, R: TextSpanAccess, S: TextSpanAccess> Iterator for TextSpanIter<'a, R, S> {
@@ -203,7 +138,8 @@ impl<'a, R: TextSpanAccess, S: TextSpanAccess> Iterator for TextSpanIter<'a, R, 
                 // Increment to prep the next entity in this stack level.
                 *idx += 1;
 
-                let Ok((entity, span, style, maybe_children)) = self.spans.get(*child) else {
+                let entity = *child;
+                let Ok((span, style, maybe_children)) = self.spans.get(entity) else {
                     continue;
                 };
 
@@ -223,11 +159,108 @@ impl<'a, R: TextSpanAccess, S: TextSpanAccess> Iterator for TextSpanIter<'a, R, 
 impl<'a, R: TextSpanAccess, S: TextSpanAccess> Drop for TextSpanIter<'a, R, S> {
     fn drop(&mut self) {
         // Return the internal stack.
-        let mut stack = std::mem::take(&mut self.stack);
-        stack.clear();
-        self.scratch.stack = stack
-            .into_iter()
-            .map(|_| -> (&'static Children, usize) { unreachable!() })
-            .collect();
+        let stack = std::mem::take(&mut self.stack);
+        self.scratch.recover(stack);
+    }
+}
+
+/// System parameter for reading and writing text spans in a [`TextBlock`].
+///
+/// `R` is the root text component, and `S` is the text span component on children.
+#[derive(SystemParam)]
+pub struct TextWriter<'w, 's, R: TextSpanAccess, S: TextSpanAccess> {
+    scratch: ResMut<'w, TextIterScratch>,
+    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<S>>,
+    spans: Query<'w, 's, (&'static mut S, &'static mut TextStyle), Without<R>>,
+    children: Query<'w, 's, &'static Children>,
+}
+
+impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextWriter<'w, 's, R, S> {
+    /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
+    pub fn get(
+        &mut self,
+        root_entity: Entity,
+        index: usize,
+    ) -> Option<(Entity, usize, Mut<String>, Mut<TextStyle>)> {
+        // Root
+        if index == 0 {
+            let (text, style) = self.roots.get_mut(root_entity).ok()?;
+            return Some((
+                root_entity,
+                0,
+                text.map_unchanged(|t| t.write_span()),
+                style,
+            ));
+        }
+
+        // Prep stack.
+        let mut stack: Vec<(&Children, usize)> = self.scratch.take();
+        if let Ok(children) = self.children.get(root_entity) {
+            stack.push((children, 0));
+        }
+
+        // Span
+        let mut count = 1;
+        let (depth, entity) = 'l: loop {
+            let Some((children, idx)) = stack.last_mut() else {
+                self.scratch.recover(stack);
+                return None;
+            };
+
+            loop {
+                let Some(child) = children.get(*idx) else {
+                    // All children at this stack entry have been iterated.
+                    stack.pop();
+                    break;
+                };
+
+                // Increment to prep the next entity in this stack level.
+                *idx += 1;
+
+                if !self.spans.contains(*child) {
+                    continue;
+                };
+                count += 1;
+
+                if count - 1 == index {
+                    let depth = stack.len();
+                    self.scratch.recover(stack);
+                    break 'l (depth, *child);
+                }
+
+                if let Ok(children) = self.children.get(*child) {
+                    stack.push((children, 0));
+                    break;
+                }
+            }
+        };
+
+        // Note: We do this outside the loop due to borrow checker limitations.
+        let (text, style) = self.spans.get_mut(entity).unwrap();
+        Some((entity, depth, text.map_unchanged(|t| t.write_span()), style))
+    }
+
+    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<Mut<String>> {
+        self.get(root_entity, index).map(|(_, _, text, _)| text)
+    }
+
+    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextStyle>> {
+        self.get(root_entity, index).map(|(_, _, _, style)| style)
+    }
+
+    /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn text(&mut self, root_entity: Entity, index: usize) -> Mut<String> {
+        self.get_text(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextStyle> {
+        self.get_style(root_entity, index).unwrap()
     }
 }
