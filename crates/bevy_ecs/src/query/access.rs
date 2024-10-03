@@ -1,4 +1,6 @@
+use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
+use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use fixedbitset::FixedBitSet;
 
@@ -727,6 +729,25 @@ impl<T: SparseSetIndex> Access<T> {
         AccessConflicts::Individual(conflicts)
     }
 
+    /// Returns the indices of the resources this has access to.
+    pub fn resource_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .ones()
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has non-exclusive access to.
+    pub fn resource_reads(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .difference(&self.resource_writes)
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has exclusive access to.
+    pub fn resource_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_writes.ones().map(T::get_sparse_set_index)
+    }
+
     /// Returns the indices of the components that this has an archetypal access to.
     ///
     /// These are components whose values are not accessed (and thus will never cause conflicts),
@@ -860,6 +881,24 @@ impl AccessConflicts {
         match self {
             Self::All => false,
             Self::Individual(set) => set.is_empty(),
+        }
+    }
+
+    pub(crate) fn format_conflict_list(&self, world: &World) -> String {
+        match self {
+            AccessConflicts::All => String::new(),
+            AccessConflicts::Individual(indices) => format!(
+                " {}",
+                indices
+                    .ones()
+                    .map(|index| world
+                        .components
+                        .get_info(ComponentId::get_sparse_set_index(index))
+                        .unwrap()
+                        .name())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ),
         }
     }
 
@@ -1236,6 +1275,20 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
+        self.add(filter);
+    }
+
+    /// Adds read access to all resources to the set.
+    pub(crate) fn add_unfiltered_read_all_resources(&mut self) {
+        let mut filter = FilteredAccess::default();
+        filter.access.read_all_resources();
+        self.add(filter);
+    }
+
+    /// Adds write access to all resources to the set.
+    pub(crate) fn add_unfiltered_write_all_resources(&mut self) {
+        let mut filter = FilteredAccess::default();
+        filter.access.write_all_resources();
         self.add(filter);
     }
 
