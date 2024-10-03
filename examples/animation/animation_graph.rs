@@ -250,16 +250,15 @@ fn setup_scene(
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
-    commands.spawn(TextBundle {
-        text: Text::from_section(HELP_TEXT, TextStyle::default()),
-        style: Style {
+    commands.spawn((
+        TextNEW::new(HELP_TEXT),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 /// Initializes the node UI widgets.
@@ -271,18 +270,15 @@ fn setup_node_rects(commands: &mut Commands) {
         };
 
         let text = commands
-            .spawn(TextBundle {
-                text: Text::from_section(
-                    node_string,
-                    TextStyle {
-                        font_size: 16.0,
-                        color: ANTIQUE_WHITE.into(),
-                        ..default()
-                    },
-                )
-                .with_justify(JustifyText::Center),
-                ..default()
-            })
+            .spawn((
+                TextNEW::new(node_string),
+                TextStyle {
+                    font_size: 16.0,
+                    color: ANTIQUE_WHITE.into(),
+                    ..default()
+                },
+                TextBlock::new_with_justify(JustifyText::Center),
+            ))
             .id();
 
         let container = {
@@ -426,8 +422,8 @@ fn handle_weight_drag(
 
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
-    mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Style, Without<Text>>,
+    mut text_query: Query<&mut TextNEW>,
+    mut background_query: Query<&mut Style, Without<TextNEW>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
@@ -444,7 +440,7 @@ fn update_ui(
             // Update the node labels with the current weights.
             let mut text_iter = text_query.iter_many_mut(children);
             if let Some(mut text) = text_iter.fetch_next() {
-                text.sections[0].value = format!(
+                **text = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );
