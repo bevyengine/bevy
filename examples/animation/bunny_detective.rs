@@ -17,12 +17,12 @@ fn main() {
         .register_type::<(OnLanded, OnJumped, OnStep)>()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
+            color: ALICE_BLUE.into(),
             brightness: 2000.,
         })
         .init_resource::<ParticleAssets>()
         .init_resource::<BoneTargets>()
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, setup_instructions))
         .add_systems(
             Update,
             (setup_scene_once_loaded, jump_input, simulate_particles),
@@ -408,4 +408,30 @@ fn spawn_particle<M: Material>(
             },
         ));
     }
+}
+
+fn setup_instructions(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                padding: UiRect::all(Val::Px(20.0)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::End,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_child(TextBundle {
+            text: Text::from_section(
+                "press spacebar to jump",
+                TextStyle {
+                    font_size: 40.0,
+                    color: ALICE_BLUE.into(),
+                    ..Default::default()
+                },
+            ),
+            ..Default::default()
+        });
 }
