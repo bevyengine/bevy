@@ -1202,7 +1202,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// # Safety
-    /// See [`insert_by_id`]
+    /// See [`EntityWorldMut::insert_by_id`]
     #[inline]
     pub(crate) unsafe fn insert_by_id_with_caller(
         &mut self,
