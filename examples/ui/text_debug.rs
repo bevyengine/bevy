@@ -31,6 +31,7 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let background_color = MAROON.into();
     commands.spawn(Camera2dBundle::default());
     let root_uinode = commands
         .spawn(NodeBundle {
@@ -64,6 +65,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
             )
+            .with_background_color(background_color)
         );
         builder.spawn(TextBundle::from_section(
                 "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
@@ -77,6 +79,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 max_width: Val::Px(300.),
                 ..default()
             })
+            .with_background_color(background_color)
         );
         builder.spawn(
             TextBundle::from_section(
@@ -91,6 +94,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 max_width: Val::Px(300.),
                 ..default()
             })
+            .with_background_color(background_color)
         );
     }).id();
 
@@ -119,6 +123,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 max_width: Val::Px(400.),
                 ..default()
             })
+            .with_background_color(background_color)
         );
 
         builder.spawn(
@@ -134,7 +139,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_style(Style {
                 max_width: Val::Px(300.),
                 ..default()
-            }),
+            })
+            .with_background_color(background_color)
         );
 
         builder.spawn(
@@ -150,7 +156,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_style(Style {
                 max_width: Val::Px(300.),
                 ..default()
-            }),
+            })
+            .with_background_color(background_color)
         );
 
         builder.spawn((
@@ -221,12 +228,11 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         color: BLUE.into(),
                     },
                 ),
-            ]),
+            ]).with_background_color(background_color),
             TextChanges,
-        ));
+        ));        
     })
     .id();
-
     commands
         .entity(root_uinode)
         .add_children(&[left_column, right_column]);
