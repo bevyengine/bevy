@@ -294,6 +294,21 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each(
         &mut self,
         root_entity: Entity,
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>),
+    ) {
+        self.for_each_until(root_entity, |a, b, c, d| {
+            (callback)(a, b, c, d);
+            true
+        });
+    }
+
+    /// Invokes a callback on each span in a text block, starting with the root entity.
+    ///
+    /// Traversal will stop when the callback returns `false`.
+    // TODO: find a way to consolidate get and for_each, or provide a real iterator. Lifetime issues are challenging here.
+    pub fn for_each_until(
+        &mut self,
+        root_entity: Entity,
         mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>) -> bool,
     ) {
         // Root

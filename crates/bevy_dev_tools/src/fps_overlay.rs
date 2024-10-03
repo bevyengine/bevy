@@ -7,15 +7,16 @@ use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
+    entity::Entity,
     query::With,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, Text, TextSection, TextStyle};
+use bevy_text::{Font, TextBuilderExt, TextStyle};
 use bevy_ui::{
-    node_bundles::{NodeBundle, TextBundle},
+    node_bundles::NodeBundle,
+    widget::{TextNEW, UiTextWriter},
     GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
@@ -72,6 +73,7 @@ impl Default for FpsOverlayConfig {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
                 color: Color::WHITE,
+                ..default()
             },
             enabled: true,
         }
@@ -95,22 +97,22 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             },
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    TextSection::new("FPS: ", overlay_config.text_config.clone()),
-                    TextSection::from_style(overlay_config.text_config.clone()),
-                ]),
-                FpsText,
-            ));
-        });
+        .spawn_text_block::<TextNEW>([
+            ("FPS: ".into(), overlay_config.text_config.clone()),
+            ("".into(), overlay_config.text_config.clone()),
+        ])
+        .insert(FpsText);
 }
 
-fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
+fn update_text(
+    diagnostic: Res<DiagnosticsStore>,
+    query: Query<Entity, With<FpsText>>,
+    mut writer: UiTextWriter,
+) {
+    for entity in &query {
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
-                text.sections[1].value = format!("{value:.2}");
+                *writer.text(entity, 1) = format!("{value:.2}");
             }
         }
     }
@@ -118,12 +120,13 @@ fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, Wi
 
 fn customize_text(
     overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Text, With<FpsText>>,
+    query: Query<Entity, With<FpsText>>,
+    mut writer: UiTextWriter,
 ) {
-    for mut text in &mut query {
-        for section in text.sections.iter_mut() {
-            section.style = overlay_config.text_config.clone();
-        }
+    for entity in &query {
+        writer.for_each(entity, |_, _, _, mut style| {
+            *style = overlay_config.text_config.clone();
+        });
     }
 }
 

@@ -2,7 +2,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{BuildChildren, Children, Parent};
+use bevy_hierarchy::{AddChild, BuildChildren, Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
@@ -317,18 +317,11 @@ impl TextBuilderExt for EntityCommands<'_> {
         &mut self,
         spans: impl IntoIterator<Item = (String, TextStyle)>,
     ) -> EntityCommands {
-        let mut spans = spans.into_iter();
-
-        // Root of the block.
-        let first = spans.next().unwrap_or_default();
-        let ec = self.with_child((R::from(first.0), first.1));
-
-        // Spans.
-        while let Some(next) = spans.next() {
-            ec.with_child((R::Span::from(next.0), next.1));
-        }
-
-        ec.reborrow()
+        let parent = self.id();
+        let mut ec = self.commands_mut().spawn_text_block::<R>(spans);
+        let child = ec.id();
+        ec.commands().queue(AddChild { parent, child });
+        ec
     }
 }
 
