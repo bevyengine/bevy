@@ -3403,13 +3403,13 @@ category = "Camera"
 wasm = true
 
 [[example]]
-name = "screen_shake"
-path = "examples/camera/screen_shake.rs"
+name = "2d_screen_shake"
+path = "examples/camera/2d_screen_shake.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.screen_shake]
+[package.metadata.example.2d_screen_shake]
 name = "Screen Shake"
-description = "A simple screen shake effect"
+description = "A simple 2D screen shake effect"
 category = "Camera"
 wasm = true
 
