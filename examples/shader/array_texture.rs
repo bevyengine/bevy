@@ -74,12 +74,11 @@ fn create_array_texture(
         array_texture: loading_texture.handle.clone(),
     });
     for x in -5..=5 {
-        commands.spawn(MaterialMeshBundle {
-            mesh: mesh_handle.clone(),
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
-            ..Default::default()
-        });
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(material_handle.clone()),
+            Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
+        ));
     }
 }
 

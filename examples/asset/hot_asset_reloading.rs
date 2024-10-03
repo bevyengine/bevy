@@ -23,10 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // You should see the changes immediately show up in your app.
 
     // mesh
-    commands.spawn(SceneBundle {
-        scene: scene_handle,
-        ..default()
-    });
+    commands.spawn(SceneRoot(scene_handle));
     // light
     commands.spawn((
         DirectionalLight::default(),

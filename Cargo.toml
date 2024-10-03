@@ -131,6 +131,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "android-game-activity",
 ]
 
 # Provides an implementation for picking sprites
@@ -326,6 +327,12 @@ wayland = ["bevy_internal/wayland"]
 
 # X11 display server support
 x11 = ["bevy_internal/x11"]
+
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
+android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
@@ -2962,6 +2969,17 @@ doc-scrape-examples = true
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ghost_nodes"
+path = "examples/ui/ghost_nodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ghost_nodes]
+name = "Ghost Nodes"
+description = "Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy"
 category = "UI (User Interface)"
 wasm = true
 

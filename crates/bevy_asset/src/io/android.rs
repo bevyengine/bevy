@@ -17,7 +17,7 @@ pub struct AndroidAssetReader;
 
 impl AssetReader for AndroidAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let asset_manager = bevy_winit::ANDROID_APP
+        let asset_manager = bevy_window::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -31,7 +31,7 @@ impl AssetReader for AndroidAssetReader {
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
-        let asset_manager = bevy_winit::ANDROID_APP
+        let asset_manager = bevy_window::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -47,7 +47,7 @@ impl AssetReader for AndroidAssetReader {
         &'a self,
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
-        let asset_manager = bevy_winit::ANDROID_APP
+        let asset_manager = bevy_window::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();
@@ -76,7 +76,7 @@ impl AssetReader for AndroidAssetReader {
         &'a self,
         path: &'a Path,
     ) -> std::result::Result<bool, AssetReaderError> {
-        let asset_manager = bevy_winit::ANDROID_APP
+        let asset_manager = bevy_window::ANDROID_APP
             .get()
             .expect("Bevy must be setup with the #[bevy_main] macro on Android")
             .asset_manager();

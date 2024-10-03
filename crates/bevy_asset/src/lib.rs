@@ -188,7 +188,7 @@ pub use handle::*;
 pub use id::*;
 pub use loader::*;
 pub use loader_builders::{
-    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+    Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
 };
 pub use path::*;
 pub use reflect::*;
@@ -689,7 +689,7 @@ mod tests {
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
                     .loader()
-                    .direct()
+                    .immediate()
                     .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {

@@ -227,10 +227,7 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
-    commands.spawn(SceneBundle {
-        scene: assets.main_scene.clone(),
-        ..SceneBundle::default()
-    });
+    commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
@@ -272,13 +269,11 @@ fn spawn_light(commands: &mut Commands) {
 
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
-        .spawn(PbrBundle {
-            mesh: assets.main_sphere.clone(),
-            material: assets.main_sphere_material.clone(),
-            transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
-                .with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+        .spawn((
+            Mesh3d(assets.main_sphere.clone()),
+            MeshMaterial3d(assets.main_sphere_material.clone()),
+            Transform::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(MainObject);
 }
 
@@ -292,14 +287,12 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SceneBundle {
-            scene: assets.fox.clone(),
-            visibility: Visibility::Hidden,
-            transform: Transform::from_scale(Vec3::splat(FOX_SCALE)),
-            ..default()
-        })
-        .insert(MainObject);
+    commands.spawn((
+        SceneRoot(assets.fox.clone()),
+        Visibility::Hidden,
+        Transform::from_scale(Vec3::splat(FOX_SCALE)),
+        MainObject,
+    ));
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
@@ -388,11 +381,8 @@ fn rotate_camera(
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<
-        &mut Visibility,
-        (With<MainObject>, With<Handle<Mesh>>, Without<Handle<Scene>>),
-    >,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
+    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
@@ -597,13 +587,12 @@ fn create_cubes(
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
                     let pos = global_transform.transform_point(uvw);
                     let voxel_cube = commands
-                        .spawn(MaterialMeshBundle {
-                            mesh: example_assets.voxel_cube.clone(),
-                            material: voxel_cube_material.clone(),
-                            transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
+                        .spawn((
+                            Mesh3d(example_assets.voxel_cube.clone()),
+                            MeshMaterial3d(voxel_cube_material.clone()),
+                            Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
-                            ..default()
-                        })
+                        ))
                         .insert(VoxelCube)
                         .insert(NotShadowCaster)
                         .id();

@@ -163,14 +163,13 @@ fn setup(
                 let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
                 let (mesh, transform) = meshes.choose(&mut material_rng).unwrap();
                 commands
-                    .spawn(PbrBundle {
-                        mesh: mesh.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_translation((radius * unit_sphere_p).as_vec3())
+                    .spawn((
+                        Mesh3d(mesh.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_translation((radius * unit_sphere_p).as_vec3())
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .mul_transform(*transform),
-                        ..default()
-                    })
+                    ))
                     .insert_if(NoFrustumCulling, || args.no_frustum_culling)
                     .insert_if(NoAutomaticBatching, || args.no_automatic_batching);
             }
@@ -178,7 +177,7 @@ fn setup(
             // camera
             let mut camera = commands.spawn(Camera3dBundle::default());
             if args.gpu_culling {
-                camera = camera.insert(GpuCulling);
+                camera.insert(GpuCulling);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -186,12 +185,9 @@ fn setup(
 
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2))),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
-                    transform: Transform::from_scale(-Vec3::ONE),
-                    ..default()
-                },
+                Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2)))),
+                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Transform::from_scale(-Vec3::ONE),
                 NotShadowCaster,
             ));
         }
@@ -206,34 +202,30 @@ fn setup(
                         continue;
                     }
                     // cube
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz(
                             (x as f32) * scale,
                             HEIGHT as f32 * scale,
                             (y as f32) * scale,
                         ),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.choose(&mut material_rng).unwrap().0.clone(),
-                        material: materials.choose(&mut material_rng).unwrap().clone(),
-                        transform: Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
-                        ..default()
-                    });
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
+                    ));
+                    commands.spawn((
+                        Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
+                    ));
                 }
             }
             // camera
@@ -244,12 +236,9 @@ fn setup(
             });
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center)),
-                    material: material_assets.add(StandardMaterial::from(Color::WHITE)),
-                    transform: Transform::from_scale(-Vec3::ONE).with_translation(center),
-                    ..default()
-                },
+                Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
+                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                Transform::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));
         }
@@ -469,7 +458,7 @@ fn move_camera(
 fn print_mesh_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Handle<Mesh>, &ViewVisibility)>,
+    sprites: Query<(&Mesh3d, &ViewVisibility)>,
 ) {
     timer.tick(time.delta());
 

@@ -15,7 +15,6 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -27,7 +26,8 @@ use bevy_render::{
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        allocator::MeshAllocator, Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMeshBufferInfo,
     },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
@@ -47,19 +47,6 @@ use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
-
-/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
-///
-/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
-#[reflect(Default, Component, Debug, PartialEq)]
-pub struct Mesh2dHandle(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2dHandle {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -218,7 +205,7 @@ pub struct RenderMesh2dInstance {
 pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
-pub struct Mesh2d;
+pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
@@ -227,7 +214,7 @@ pub fn extract_mesh2d(
             Entity,
             &ViewVisibility,
             &GlobalTransform,
-            &Mesh2dHandle,
+            &Mesh2d,
             Has<NoAutomaticBatching>,
         )>,
     >,

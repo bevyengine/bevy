@@ -5,15 +5,15 @@ use std::{f32::consts::PI, fmt::Write};
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-        },
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
+        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
@@ -27,6 +27,13 @@ fn main() {
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
+
+type TaaComponents = (
+    TemporalAntiAliasing,
+    TemporalJitter,
+    DepthPrepass,
+    MotionVectorPrepass,
+);
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
@@ -48,18 +55,18 @@ fn modify_aa(
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
 
         *msaa = Msaa::Sample4;
     }
@@ -80,9 +87,9 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Fxaa::default());
     }
 
@@ -113,9 +120,9 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Smaa::default());
     }
 
@@ -141,7 +148,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .insert(TemporalAntiAliasBundle::default());
+            .insert(TemporalAntiAliasing::default());
     }
 }
 
@@ -252,11 +259,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -265,20 +271,17 @@ fn setup(
 
     // Cubes
     for i in 0..5 {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
+            MeshMaterial3d(cube_material.clone()),
+            Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+        ));
     }
 
     // Flight Helmet
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+    )));
 
     // Light
     commands.spawn((

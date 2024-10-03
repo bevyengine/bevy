@@ -409,7 +409,7 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline {
             let outline_size = uinode.outlined_node_size();
             extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: global_transform.compute_matrix(),
@@ -510,9 +510,8 @@ pub fn extract_default_ui_camera_view(
                     TemporaryRenderEntity,
                 ))
                 .id();
-            let entity_commands = commands
-                .get_or_spawn(entity)
-                .insert(DefaultCameraView(default_camera_view));
+            let mut entity_commands = commands.get_or_spawn(entity);
+            entity_commands.insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
