@@ -20,9 +20,6 @@ use thiserror::Error;
 /// # See also
 ///
 /// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
-///   to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct Node {

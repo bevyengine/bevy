@@ -9,8 +9,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
 ///
-/// It can be used alongside [`Interaction`] to get the position of the press.
-///
 /// The component is updated when it is in the same entity with [`Node`].
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]

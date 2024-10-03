@@ -10,7 +10,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// The data required to create a buttonlike widget that can respond to hovering and being clicked / pressed.
 ///
 /// Information about whether or not this button is currently pressed or hovered is gathered from
-/// user input, processed via [`bevy_picking`] and read in the [`determine_button_interaction`] system.
+/// user input, processed via [`bevy_picking`] and set during [`UiSystem::Focus`](crate::UiSystem::Focus).
 ///
 /// See [`FocusPolicy`](crate::focus::FocusPolicy) to configure whether or not the button should block interactions with lower nodes.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
