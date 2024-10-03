@@ -26,19 +26,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
+    )));
 }
 
 /// The scene hierarchy currently looks somewhat like this:
 ///
 /// ```text
 /// <Parent entity>
-///   + Mesh node (without `PbrBundle` or `SkinnedMesh` component)
-///     + Skinned mesh entity (with `PbrBundle` and `SkinnedMesh` component, created by glTF loader)
+///   + Mesh node (without `Mesh3d` or `SkinnedMesh` component)
+///     + Skinned mesh entity (with `Mesh3d` and `SkinnedMesh` component, created by glTF loader)
 ///     + First joint
 ///       + Second joint
 /// ```

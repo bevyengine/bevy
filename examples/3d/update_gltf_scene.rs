@@ -16,14 +16,13 @@ fn main() {
 struct MovedScene;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_xyz(4.0, 25.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+    ));
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-0.5, 0.9, 1.5)
@@ -39,20 +38,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Spawn the scene as a child of this entity at the given transform
-    commands.spawn(SceneBundle {
-        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn((
+        Transform::from_xyz(-1.0, 0.0, 0.0),
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+    ));
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
-        },
+        ),
         MovedScene,
     ));
 }

@@ -66,12 +66,9 @@ fn setup(
 
     // The cube that will be rendered to the texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: cube_material_handle,
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(cube_material_handle),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
         FirstPassCube,
         first_pass_layer.clone(),
     ));
@@ -81,10 +78,8 @@ fn setup(
     // Setting the layer to RenderLayers::layer(0) would cause the main view to be lit, but the rendered-to-texture cube to be unlit.
     // Setting the layer to RenderLayers::layer(1) would cause the rendered-to-texture cube to be lit, but the main view to be unlit.
     commands.spawn((
-        PointLightBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
-            ..default()
-        },
+        PointLight::default(),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 10.0)),
         RenderLayers::layer(0).with(1),
     ));
 
@@ -115,13 +110,9 @@ fn setup(
 
     // Main pass cube, with material containing the rendered first pass texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         MainPassCube,
     ));
 

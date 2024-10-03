@@ -22,14 +22,13 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 16.0, 8.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 16.0, 8.0),
+    ));
 
     let mesh = meshes.add(Cuboid::from_size(Vec3::splat(0.5)));
     // This example uses the StandardMaterial but it can work with most custom material too
@@ -39,14 +38,13 @@ fn setup(
     for x in -5..5 {
         for y in -5..5 {
             for z in -5..5 {
-                commands.spawn(PbrBundle {
+                commands.spawn((
                     // For automatic instancing to take effect you need to
                     // use the same mesh handle and material handle for each instance
-                    mesh: mesh.clone(),
-                    material: material.clone(),
-                    transform: Transform::from_xyz(x as f32, y as f32, z as f32),
-                    ..default()
-                });
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_xyz(x as f32, y as f32, z as f32),
+                ));
             }
         }
     }
