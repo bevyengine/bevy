@@ -801,7 +801,7 @@ fn process_remote_requests(world: &mut World) {
     }
 }
 
-/// A system that checks all ongoing streaming requests for changes that should be sent
+/// A system that checks all ongoing watching requests for changes that should be sent
 /// and handles it if so.
 fn process_ongoing_watching_requests(world: &mut World) {
     let requests = world.resource::<RemoteWatchingRequests>().0.clone();

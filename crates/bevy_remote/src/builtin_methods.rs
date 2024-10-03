@@ -344,7 +344,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-/// Handles a `bevy/get+stream` request coming from a client.
+/// Handles a `bevy/get+watch` request coming from a client.
 pub fn process_remote_get_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
