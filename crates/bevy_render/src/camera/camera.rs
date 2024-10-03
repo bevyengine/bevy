@@ -239,11 +239,9 @@ pub enum ViewportConversionError {
 #[require(
     Frustum,
     CameraMainTextureUsages,
+    VisibleEntities,
     Transform,
-    GlobalTransform,
     Visibility,
-    InheritedVisibility,
-    ViewVisibility,
     Msaa
 )]
 pub struct Camera {
