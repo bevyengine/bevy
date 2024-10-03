@@ -381,7 +381,8 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
-    use bevy_utils::default;
+
+    use crate::{detect_text_needs_rerender, TextSpansScratch};
 
     use super::*;
 
@@ -398,12 +399,15 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<TextSpansScratch>()
             .add_systems(
                 Update,
                 (
+                    detect_text_needs_rerender::<Text2d, TextSpan2d>,
                     update_text2d_layout,
-                    calculate_bounds_text2d.after(update_text2d_layout),
-                ),
+                    calculate_bounds_text2d,
+                )
+                    .chain(),
             );
 
         // A font is needed to ensure the text is laid out with an actual size.
@@ -414,13 +418,7 @@ mod tests {
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
-        let entity = app
-            .world_mut()
-            .spawn((Text2dBundle {
-                text: Text::from_section(FIRST_TEXT, default()),
-                ..default()
-            },))
-            .id();
+        let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();
 
         (app, entity)
     }
@@ -472,8 +470,8 @@ mod tests {
             .get_entity_mut(entity)
             .expect("Could not find entity");
         *entity_ref
-            .get_mut::<Text>()
-            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, default());
+            .get_mut::<Text2d>()
+            .expect("Missing Text2d on entity") = Text2d::new(SECOND_TEXT);
 
         // Recomputes the AABB.
         app.update();
