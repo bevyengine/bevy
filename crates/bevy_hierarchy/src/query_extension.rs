@@ -409,4 +409,57 @@ mod tests {
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
     }
+
+    #[test]
+    fn root_parent() {
+        let world = &mut World::new();
+
+        let [a, b, c] = core::array::from_fn(|i| world.spawn(A(i)).id());
+
+        world.entity_mut(a).add_children(&[b]);
+        world.entity_mut(b).add_children(&[c]);
+
+        let mut system_state = SystemState::<Query<&Parent>>::new(world);
+        let parent_query = system_state.get(world);
+
+        assert_eq!(a, parent_query.root_parent(c));
+        assert_eq!(a, parent_query.root_parent(b));
+        assert_eq!(a, parent_query.root_parent(a));
+    }
+
+    #[test]
+    fn leaf_iter() {
+        let world = &mut World::new();
+
+        let [a, b, c, d] = core::array::from_fn(|i| world.spawn(A(i)).id());
+
+        world.entity_mut(a).add_children(&[b, c]);
+        world.entity_mut(c).add_children(&[d]);
+
+        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let (children_query, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a)).collect();
+
+        assert_eq!([&A(1), &A(3)], result.as_slice());
+    }
+
+    #[test]
+    fn siblings() {
+        let world = &mut World::new();
+
+        let [a, b, c, d, e] = core::array::from_fn(|i| world.spawn(A(i)).id());
+
+        world.entity_mut(a).add_children(&[b, c, d]);
+        world.entity_mut(c).add_children(&[e]);
+
+        let mut system_state = SystemState::<(Query<(&Parent, &Children)>, Query<&A>)>::new(world);
+        let (hierarchy_query, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query
+            .iter_many(hierarchy_query.iter_siblings(b))
+            .collect();
+
+        assert_eq!([&A(2), &A(3)], result.as_slice());
+    }
 }
