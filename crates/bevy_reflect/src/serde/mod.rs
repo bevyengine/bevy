@@ -191,11 +191,11 @@ mod tests {
         use crate::{ReflectFromReflect, TypePath};
         use alloc::sync::Arc;
         use bevy_reflect_derive::reflect_trait;
+        use core::any::TypeId;
         use core::fmt::{Debug, Formatter};
         use serde::de::{SeqAccess, Visitor};
         use serde::ser::SerializeSeq;
         use serde::{Deserializer, Serialize, Serializer};
-        use std::any::TypeId;
 
         #[reflect_trait]
         trait Enemy: Reflect + Debug {
@@ -442,7 +442,7 @@ mod tests {
                 assert_eq!(reflect_serialize, serde_serialize);
 
                 let registration = registry.get(TypeId::of::<T>()).unwrap();
-                let reflect_deserializer = TypedReflectDeserializer::new(&registration, &registry);
+                let reflect_deserializer = TypedReflectDeserializer::new(registration, registry);
 
                 let mut deserializer = serde_json::Deserializer::from_str(&serde_serialize);
                 let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
