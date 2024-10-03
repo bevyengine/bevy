@@ -6,10 +6,14 @@
 
 @group(1) @binding(0) var depth: texture_depth_2d;
 
+struct OitFragment {
+    color: vec3<f32>,
+    alpha: f32,
+    depth: f32,
+}
 // Contains all the colors and depth for this specific fragment
-// - X is rgba packed with 8 bits per channel
-// - Y is the depth
-var<private> fragment_list: array<vec2<u32>, 32>;
+// TODO don't hardcode size
+var<private> fragment_list: array<OitFragment, 32>;
 
 struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -58,13 +62,19 @@ fn sort(screen_index: i32, buffer_size: i32) -> SortResult {
 
     // fill list
     for (var i = 0; i < counter; i += 1) {
-        fragment_list[i] = layers[screen_index + buffer_size * i];
+        let fragment = layers[screen_index + buffer_size * i];
+        // unpack color/alpha/depth
+        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment.x);
+        let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment.y);
+        fragment_list[i].color = color;
+        fragment_list[i].alpha = depth_alpha.y;
+        fragment_list[i].depth = depth_alpha.x;
     }
 
     // bubble sort the list based on the depth
     for (var i = counter; i >= 0; i -= 1) {
         for (var j = 0; j < i; j += 1) {
-            if bitcast<f32>(fragment_list[j].y) < bitcast<f32>(fragment_list[j + 1].y) {
+            if fragment_list[j].depth < fragment_list[j + 1].depth {
                 // swap
                 let temp = fragment_list[j + 1];
                 fragment_list[j + 1] = fragment_list[j];
@@ -76,13 +86,14 @@ fn sort(screen_index: i32, buffer_size: i32) -> SortResult {
     // resolve blend
     var final_color = vec4(0.0);
     for (var i = 0; i <= counter; i += 1) {
-        let color = unpack4x8unorm(fragment_list[i].r);
-        var base_color = vec4(color.rgb * color.a, color.a);
+        let color = fragment_list[i].color;
+        let alpha = fragment_list[i].alpha;
+        var base_color = vec4(color.rgb * alpha, alpha);
         final_color = blend(final_color, base_color);
     }
     var result: SortResult;
     result.color = final_color;
-    result.depth = bitcast<f32>(fragment_list[0].y);
+    result.depth = fragment_list[0].depth;
 
     return result;
 }

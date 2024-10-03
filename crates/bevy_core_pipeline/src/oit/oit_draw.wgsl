@@ -26,9 +26,21 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
     let layer_index = screen_index + layer_id * buffer_size;
     // TODO consider a different packing strategy,
     // this loses a lot of color accuracy
-    let packed_color = pack4x8unorm(color);
-    let depth = bitcast<u32>(position.z);
-    oit_layers[layer_index] = vec2(packed_color, depth);
+    let rgb9e5_color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
+    let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
+    oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
     discard;
 }
 #endif // OIT_ENABLED
+
+fn pack_24bit_depth_8bit_alpha(depth: f32, alpha: f32) -> u32 {
+    let depth_bits = u32(saturate(depth) * f32(0xFFFFFFu) + 0.5);
+    let alpha_bits = u32(saturate(alpha) * f32(0xFFu) + 0.5);
+    return (depth_bits & 0xFFFFFFu) | ((alpha_bits & 0xFFu) << 24u);
+}
+
+fn unpack_24bit_depth_8bit_alpha(packed: u32) -> vec2<f32> {
+    let depth_bits = packed & 0xFFFFFFu;
+    let alpha_bits = (packed >> 24u) & 0xFFu;
+    return vec2(f32(depth_bits) / f32(0xFFFFFFu), f32(alpha_bits) / f32(0xFFu));
+}
