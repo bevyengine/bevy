@@ -29,6 +29,8 @@
 //!
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
+#![expect(deprecated)]
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_color::Color;
@@ -44,8 +46,7 @@ use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -122,6 +123,10 @@ pub type VolumetricFogSettings = VolumetricFog;
 /// A convenient [`Bundle`] that contains all components necessary to generate a
 /// fog volume.
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `FogVolume` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct FogVolumeBundle {
     /// The actual fog volume.
     pub fog_volume: FogVolume,
@@ -140,6 +145,7 @@ pub struct FogVolumeBundle {
 
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Transform, Visibility)]
 pub struct FogVolume {
     /// The color of the fog.
     ///

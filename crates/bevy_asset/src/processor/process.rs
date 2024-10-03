@@ -1,20 +1,18 @@
-use crate::io::SliceReader;
-use crate::transformer::IdentityAssetTransformer;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, SliceReader, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
-    transformer::{AssetTransformer, TransformedAsset},
+    transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
@@ -29,11 +27,11 @@ pub trait Process: Send + Sync + Sized + 'static {
     type OutputLoader: AssetLoader;
     /// Processes the asset stored on `context` in some way using the settings stored on `meta`. The results are written to `writer`. The
     /// final written processed asset is loadable using [`Process::OutputLoader`]. This load will use the returned [`AssetLoader::Settings`].
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
+    fn process(
+        &self,
+        context: &mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
@@ -164,9 +162,9 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    AssetSaveError(#[from] Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Encountered an error while transforming the asset: {0}")]
-    AssetTransformError(Box<dyn std::error::Error + Send + Sync + 'static>),
+    AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
@@ -181,17 +179,17 @@ where
         LoadTransformAndSaveSettings<Loader::Settings, Transformer::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
-    async fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext<'_>,
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);
         };
         let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: std::any::type_name::<Loader>().to_string(),
+            loader: core::any::type_name::<Loader>().to_string(),
             settings: settings.loader_settings,
         });
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
@@ -248,7 +246,7 @@ impl<P: Process> ErasedProcessor for P {
             let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: std::any::type_name::<P::OutputLoader>().to_string(),
+                    loader: core::any::type_name::<P::OutputLoader>().to_string(),
                     settings: loader_settings,
                 }));
             Ok(output_meta)
@@ -262,7 +260,7 @@ impl<P: Process> ErasedProcessor for P {
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: std::any::type_name::<P>().to_string(),
+            processor: core::any::type_name::<P>().to_string(),
             settings: P::Settings::default(),
         }))
     }
@@ -318,7 +316,7 @@ impl<'a> ProcessContext<'a> {
         meta: AssetMeta<L, ()>,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
-        let loader_name = std::any::type_name::<L>();
+        let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server

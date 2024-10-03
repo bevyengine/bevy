@@ -296,6 +296,7 @@ fn update_cycling_mode_text(
 // -----------------------------------
 
 /// A small state machine which tracks a click-and-drag motion used to create new control points.
+///
 /// When the user is not doing a click-and-drag motion, the `start` field is `None`. When the user
 /// presses the left mouse button, the location of that press is temporarily stored in the field.
 #[derive(Clone, Default, Resource)]

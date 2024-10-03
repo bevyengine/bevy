@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{BreakLineOn, TextBounds},
+    text::{FontSmoothing, LineBreak, TextBounds},
 };
 
 fn main() {
@@ -96,7 +96,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::WordBoundary,
+                    linebreak: LineBreak::WordBoundary,
+                    ..default()
                 },
                 // Wrap text in the rectangle
                 text_2d_bounds: TextBounds::from(box_size),
@@ -126,7 +127,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::AnyCharacter,
+                    linebreak: LineBreak::AnyCharacter,
+                    ..default()
                 },
                 // Wrap text in the rectangle
                 text_2d_bounds: TextBounds::from(other_box_size),
@@ -135,6 +137,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             });
         });
+
+    // Demonstrate font smoothing off
+    commands.spawn(Text2dBundle {
+        text: Text::from_section("FontSmoothing::None", slightly_smaller_text_style.clone())
+            .with_font_smoothing(FontSmoothing::None),
+        transform: Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        ..default()
+    });
 
     for (text_anchor, color) in [
         (Anchor::TopLeft, Color::Srgba(RED)),

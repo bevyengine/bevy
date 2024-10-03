@@ -1,5 +1,6 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
 use crate::ShadowView;
+use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{PreviousViewData, PreviousViewUniforms},
@@ -18,12 +19,8 @@ use bevy_render::{
     view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
+use core::{array, iter, sync::atomic::AtomicBool};
 use encase::internal::WriteInto;
-use std::{
-    array, iter,
-    mem::size_of,
-    sync::{atomic::AtomicBool, Arc},
-};
 
 /// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].
 #[derive(Resource)]

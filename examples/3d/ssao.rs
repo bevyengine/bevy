@@ -1,12 +1,9 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+    core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     math::ops,
-    pbr::{
-        ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionBundle,
-        ScreenSpaceAmbientOcclusionQualityLevel,
-    },
+    pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -29,18 +26,17 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        .spawn((
-            Camera3d::default(),
-            Camera {
-                hdr: true,
-                ..default()
-            },
-            Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Msaa::Off,
-        ))
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
-        .insert(TemporalAntiAliasBundle::default());
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
+            hdr: true,
+            ..default()
+        },
+        Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Msaa::Off,
+        ScreenSpaceAmbientOcclusion::default(),
+        TemporalAntiAliasing::default(),
+    ));
 
     let material = materials.add(StandardMaterial {
         base_color: Color::srgb(0.5, 0.5, 0.5),
@@ -48,51 +44,39 @@ fn setup(
         reflectance: 0.0,
         ..default()
     });
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: material.clone(),
-        transform: Transform::from_xyz(0.0, 0.0, 1.0),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: material.clone(),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material,
-        transform: Transform::from_xyz(1.0, 0.0, 0.0),
-        ..default()
-    });
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.4).mesh().uv(72, 36)),
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.4, 0.4, 0.4),
-                perceptual_roughness: 1.0,
-                reflectance: 0.0,
-                ..default()
-            }),
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(material.clone()),
+        Transform::from_xyz(0.0, 0.0, 1.0),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(material.clone()),
+        Transform::from_xyz(0.0, -1.0, 0.0),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(material),
+        Transform::from_xyz(1.0, 0.0, 0.0),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(0.4).mesh().uv(72, 36))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.4, 0.4, 0.4),
+            perceptual_roughness: 1.0,
+            reflectance: 0.0,
             ..default()
-        },
+        })),
         SphereMarker,
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+    ));
 
     commands.spawn(
         TextBundle::from_section("", TextStyle::default()).with_style(Style {

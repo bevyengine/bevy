@@ -1,7 +1,6 @@
 //! This example illustrates how to load and play an audio file, and control how it's played.
 
-use bevy::math::ops;
-use bevy::prelude::*;
+use bevy::{math::ops, prelude::*};
 
 fn main() {
     App::new()
@@ -13,10 +12,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
-            ..default()
-        },
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
         MyMusic,
     ));
 }

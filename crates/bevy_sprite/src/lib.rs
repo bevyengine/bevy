@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -8,10 +8,13 @@
 )]
 
 //! Provides 2D sprite rendering functionality.
+
+extern crate alloc;
+
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;
-#[cfg(feature = "bevy_picking")]
+#[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
 mod sprite;
@@ -22,14 +25,15 @@ mod texture_slice;
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
         sprite::{ImageScaleMode, Sprite},
-        texture_atlas::{TextureAtlas, TextureAtlasLayout},
+        texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
+        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
     };
 }
 
@@ -49,7 +53,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh2d},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
@@ -81,10 +85,6 @@ pub enum SpriteSystem {
 #[reflect(Component, Default, Debug)]
 pub struct SpriteSource;
 
-/// A convenient alias for `With<Mesh2dHandle>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
-
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
 pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
@@ -110,7 +110,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .register_type::<SpriteSource>()
             .add_plugins((
                 Mesh2dRenderPlugin,
@@ -127,14 +127,14 @@ impl Plugin for SpritePlugin {
                     )
                         .in_set(SpriteSystem::ComputeSlices),
                     (
-                        check_visibility::<WithMesh2d>,
+                        check_visibility::<With<Mesh2d>>,
                         check_visibility::<WithSprite>,
                     )
                         .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 
-        #[cfg(feature = "bevy_picking")]
+        #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(picking_backend::SpritePickingBackend);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -173,7 +173,7 @@ impl Plugin for SpritePlugin {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2dHandle` component,
+/// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
@@ -183,7 +183,7 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (

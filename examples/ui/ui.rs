@@ -7,6 +7,7 @@ use bevy::{
     },
     color::palettes::basic::LIME,
     input::mouse::{MouseScrollUnit, MouseWheel},
+    picking::focus::HoverMap,
     prelude::*,
     winit::WinitSettings,
 };
@@ -17,7 +18,7 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, mouse_scroll);
+        .add_systems(Update, update_scroll_position);
 
     #[cfg(feature = "bevy_dev_tools")]
     {
@@ -43,6 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
+        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
@@ -122,7 +124,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(200.),
                         ..default()
                     },
-                    background_color: Color::srgb(0.15, 0.15, 0.15).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -138,53 +139,42 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ),
                         Label,
                     ));
-                    // List with hidden overflow
+                    // Scrolling list
                     parent
                         .spawn(NodeBundle {
                             style: Style {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
-                                overflow: Overflow::clip_y(),
+                                overflow: Overflow::scroll_y(),
                                 ..default()
                             },
                             background_color: Color::srgb(0.10, 0.10, 0.10).into(),
                             ..default()
                         })
                         .with_children(|parent| {
-                            // Moving panel
-                            parent
-                                .spawn((
-                                    NodeBundle {
-                                        style: Style {
-                                            flex_direction: FlexDirection::Column,
-                                            align_items: AlignItems::Center,
-                                            ..default()
-                                        },
+                            // List items
+                            for i in 0..25 {
+                                parent
+                                    .spawn((
+                                        TextBundle::from_section(
+                                            format!("Item {i}"),
+                                            TextStyle {
+                                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                                ..default()
+                                            },
+                                        ),
+                                        Label,
+                                        AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                    ))
+                                    .insert(Pickable {
+                                        should_block_lower: false,
                                         ..default()
-                                    },
-                                    ScrollingList::default(),
-                                    AccessibilityNode(NodeBuilder::new(Role::List)),
-                                ))
-                                .with_children(|parent| {
-                                    // List items
-                                    for i in 0..30 {
-                                        parent.spawn((
-                                            TextBundle::from_section(
-                                                format!("Item {i}"),
-                                                TextStyle {
-                                                    font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
-                                                    ..default()
-                                                },
-                                            ),
-                                            Label,
-                                            AccessibilityNode(NodeBuilder::new(Role::ListItem)),
-                                        ));
-                                    }
-                                });
+                                    });
+                            }
                         });
                 });
+
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -224,6 +214,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
+                .insert(Pickable::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn(NodeBundle {
@@ -336,35 +327,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[derive(Component, Default)]
-struct ScrollingList {
-    position: f32,
-}
-
-fn mouse_scroll(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
-    query_node: Query<&Node>,
-) {
-    for mouse_wheel_event in mouse_wheel_events.read() {
-        for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
-            let items_height = list_node.size().y;
-            let container_height = query_node.get(parent.get()).unwrap().size().y;
-
-            let max_scroll = (items_height - container_height).max(0.);
-
-            let dy = match mouse_wheel_event.unit {
-                MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
-                MouseScrollUnit::Pixel => mouse_wheel_event.y,
-            };
-
-            scrolling_list.position += dy;
-            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.top = Val::Px(scrolling_list.position);
-        }
-    }
-}
-
 #[cfg(feature = "bevy_dev_tools")]
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_overlay(
@@ -375,5 +337,34 @@ fn toggle_overlay(
     if input.just_pressed(KeyCode::Space) {
         // The toggle method will enable the debug_overlay if disabled and disable if enabled
         options.toggle();
+    }
+}
+
+/// Updates the scroll position of scrollable nodes in response to mouse input
+pub fn update_scroll_position(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    mut scrolled_node_query: Query<&mut ScrollPosition>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+) {
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        let (mut dx, mut dy) = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+        };
+
+        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
+        {
+            std::mem::swap(&mut dx, &mut dy);
+        }
+
+        for (_pointer, pointer_map) in hover_map.iter() {
+            for (entity, _hit) in pointer_map.iter() {
+                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
+                    scroll_position.offset_x -= dx;
+                    scroll_position.offset_y -= dy;
+                }
+            }
+        }
     }
 }

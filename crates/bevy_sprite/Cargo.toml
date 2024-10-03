@@ -9,7 +9,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_picking = ["dep:bevy_picking", "dep:bevy_window"]
+default = ["bevy_sprite_picking_backend"]
+bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
+serialize = ["dep:serde"]
 webgl = []
 webgpu = []
 
@@ -40,6 +42,7 @@ rectangle-pack = "0.4"
 bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
+serde = { version = "1", features = ["derive"], optional = true }
 
 [lints]
 workspace = true

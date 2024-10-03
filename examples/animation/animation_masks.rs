@@ -107,30 +107,29 @@ fn setup_scene(
     ));
 
     // Spawn the light.
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 8.0, 13.0),
+    ));
 
     // Spawn the fox.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_scale(Vec3::splat(0.07)),
+    ));
 
     // Spawn the ground.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(7.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(7.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
 }
 
 // Creates the UI.

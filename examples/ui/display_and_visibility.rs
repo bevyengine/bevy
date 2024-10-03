@@ -1,9 +1,9 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-use bevy::winit::WinitSettings;
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,
+    winit::WinitSettings,
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];

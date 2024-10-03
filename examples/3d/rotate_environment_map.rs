@@ -63,9 +63,9 @@ fn spawn_sphere(
     asset_server: &AssetServer,
     sphere_mesh: &Handle<Mesh>,
 ) {
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
             clearcoat: 1.0,
             clearcoat_perceptual_roughness: 0.3,
             clearcoat_normal_texture: Some(asset_server.load_with_settings(
@@ -76,20 +76,16 @@ fn spawn_sphere(
             perceptual_roughness: 0.1,
             base_color: GOLD.into(),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(1.25)),
+    ));
 }
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 100000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 100000.0,
         ..default()
     });
 }

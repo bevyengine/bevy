@@ -22,15 +22,14 @@
 //! # use bevy_gltf::prelude::*;
 //!
 //! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
-//!     commands.spawn(SceneBundle {
+//!     commands.spawn((
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
 //!         // If this isn't specified bevy doesn't know which part of the glTF file to load.
-//!         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+//!         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))),
 //!         // You can use the transform to give it a position
-//!         transform: Transform::from_xyz(2.0, 0.0, -5.0),
-//!         ..Default::default()
-//!     });
+//!         Transform::from_xyz(2.0, 0.0, -5.0),
+//!     ));
 //! }
 //! ```
 //! # Loading parts of a glTF asset
@@ -72,18 +71,14 @@
 //!     };
 //!     *loaded = true;
 //!
-//!     commands.spawn(SceneBundle {
-//!         // Gets the first scene in the file
-//!         scene: gltf.scenes[0].clone(),
-//!         ..Default::default()
-//!     });
+//!     // Spawns the first scene in the file
+//!     commands.spawn(SceneRoot(gltf.scenes[0].clone()));
 //!
-//!     commands.spawn(SceneBundle {
-//!         // Gets the scene named "Lenses_low"
-//!         scene: gltf.named_scenes["Lenses_low"].clone(),
-//!         transform: Transform::from_xyz(1.0, 2.0, 3.0),
-//!         ..Default::default()
-//!     });
+//!     // Spawns the scene named "Lenses_low"
+//!     commands.spawn((
+//!         SceneRoot(gltf.named_scenes["Lenses_low"].clone()),
+//!         Transform::from_xyz(1.0, 2.0, 3.0),
+//!     ));
 //! }
 //! ```
 //!
@@ -94,6 +89,8 @@
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
+
+extern crate alloc;
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
@@ -107,8 +104,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
     mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
@@ -152,6 +148,7 @@ impl Plugin for GltfPlugin {
             .register_type::<GltfSceneExtras>()
             .register_type::<GltfMeshExtras>()
             .register_type::<GltfMaterialExtras>()
+            .register_type::<GltfMaterialName>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
@@ -459,6 +456,13 @@ pub struct GltfMaterialExtras {
     pub value: String,
 }
 
+/// The material name of a glTF primitive.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfMaterialName(pub String);
+
 /// Labels that can be used to load part of a glTF
 ///
 /// You can use [`GltfAssetLabel::from_asset`] to add it to an asset path
@@ -527,8 +531,8 @@ pub enum GltfAssetLabel {
     InverseBindMatrices(usize),
 }
 
-impl std::fmt::Display for GltfAssetLabel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for GltfAssetLabel {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
             GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),

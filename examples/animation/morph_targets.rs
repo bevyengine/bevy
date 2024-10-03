@@ -46,15 +46,13 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
             .from_asset("models/animated/MorphStressTest.gltf"),
         ),
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
-        ..default()
-    });
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"),
+    )));
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
+    ));
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),

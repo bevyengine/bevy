@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! once {
     ($expression:expr) => {{
-        use ::std::sync::atomic::{AtomicBool, Ordering};
+        use ::core::sync::atomic::{AtomicBool, Ordering};
 
         static SHOULD_FIRE: AtomicBool = AtomicBool::new(true);
         if SHOULD_FIRE.swap(false, Ordering::Relaxed) {

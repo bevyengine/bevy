@@ -1,14 +1,13 @@
-use std::ops::DerefMut;
+use core::ops::DerefMut;
 
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    mesh::Mesh,
+    mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
         InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
@@ -370,6 +369,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
 }
 
 /// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+///
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
@@ -440,11 +440,11 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-/// Add this component to make a [`Mesh`] not cast shadows.
+/// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`] not receive shadows.
+/// Add this component to make a [`Mesh3d`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
@@ -452,7 +452,7 @@ pub struct NotShadowCaster;
 #[derive(Debug, Component, Reflect, Default)]
 #[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -527,7 +527,7 @@ pub enum SimulationLightSystems {
 pub(crate) fn directional_light_order(
     (entity_1, volumetric_1, shadows_enabled_1): (&Entity, &bool, &bool),
     (entity_2, volumetric_2, shadows_enabled_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     volumetric_2
         .cmp(volumetric_1) // volumetric before shadows
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
@@ -580,8 +580,6 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let clip_from_view =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
@@ -596,6 +594,12 @@ pub fn update_point_light_frusta(
         if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
+
+        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+            core::f32::consts::FRAC_PI_2,
+            1.0,
+            point_light.shadow_map_near_z,
+        );
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
@@ -639,7 +643,8 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_world_from_view = spot_light_world_from_view(transform);
-        let spot_clip_from_view = spot_light_clip_from_view(spot_light.outer_angle);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
         *frustum = Frustum::from_clip_from_world_custom_far(
@@ -692,7 +697,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -819,7 +824,7 @@ pub fn check_dir_light_mesh_visibility(
 
     // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
     // TODO: use resource to avoid unnecessary memory alloc
-    let mut defer_queue = std::mem::take(defer_visible_entities_queue.deref_mut());
+    let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
     commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
@@ -861,7 +866,7 @@ pub fn check_point_light_mesh_visibility(
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,

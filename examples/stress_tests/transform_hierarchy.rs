@@ -377,7 +377,7 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(commands.spawn(TransformBundle::from(root_transform)).id());
+    ents.push(commands.spawn(root_transform).id());
 
     let mut result = InsertResult::default();
     let mut rng = rand::thread_rng();
@@ -423,7 +423,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd = cmd.insert(TransformBundle::from(transform));
+            cmd = cmd.insert(transform);
 
             cmd.id()
         };

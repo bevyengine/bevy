@@ -1,7 +1,6 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::math::ops;
-use bevy::prelude::*;
+use bevy::{math::ops, prelude::*};
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 

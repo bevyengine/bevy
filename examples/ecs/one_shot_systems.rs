@@ -46,7 +46,7 @@ fn setup_with_commands(mut commands: Commands) {
 
 fn setup_with_world(world: &mut World) {
     // We can run it once manually
-    world.run_system_once(system_b);
+    world.run_system_once(system_b).unwrap();
     // Or with a Callback
     let system_id = world.register_system(system_b);
     world.spawn((Callback(system_id), B));
