@@ -23,9 +23,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
         self.core
             .sample_with(t, |x, y, t| if t >= 1.0 { y.clone() } else { x.clone() })
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -57,7 +62,7 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> V {
+    fn sample_clamped(&self, t: f32) -> V {
         match self.core.sample_interp_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
             InterpolationDatum::Exact((_, v))
@@ -68,6 +73,11 @@ where
                 cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, t1 - t0)
             }
         }
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> V {
+        self.sample_clamped(t)
     }
 }
 
@@ -112,7 +122,7 @@ impl Curve<Quat> for CubicRotationCurve {
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> Quat {
+    fn sample_clamped(&self, t: f32) -> Quat {
         let vec = match self.core.sample_interp_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
             InterpolationDatum::Exact((_, v))
@@ -124,6 +134,11 @@ impl Curve<Quat> for CubicRotationCurve {
             }
         };
         Quat::from_vec4(vec.normalize())
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> Quat {
+        self.sample_clamped(t)
     }
 }
 
@@ -170,7 +185,7 @@ where
     }
 
     #[inline]
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
@@ -181,6 +196,11 @@ where
                 TwoIterators::Right(interpolated)
             }
         }
+    }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
     }
 }
 
@@ -219,7 +239,7 @@ where
     }
 
     #[inline]
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
@@ -233,6 +253,11 @@ where
                 TwoIterators::Right(interpolated)
             }
         }
+    }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
     }
 }
 
@@ -269,7 +294,7 @@ where
         self.core.domain()
     }
 
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp_timed(t) {
             InterpolationDatum::Exact((_, v))
             | InterpolationDatum::LeftTail((_, v))
@@ -284,6 +309,11 @@ where
                 cubic_spline_interpolate_slices(self.core.width() / 3, u, v, s, t1 - t0),
             ),
         }
+    }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
     }
 }
 

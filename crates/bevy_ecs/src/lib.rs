@@ -60,11 +60,11 @@ pub mod prelude {
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
             NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
             ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
-            OnReplace, World,
+            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
 

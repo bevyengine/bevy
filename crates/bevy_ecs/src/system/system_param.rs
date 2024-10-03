@@ -6,12 +6,15 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
-        Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
-        QuerySingleError, QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
+        QueryState, ReadOnlyQueryData,
     },
-    storage::{ResourceData, SparseSetIndex},
+    storage::ResourceData,
     system::{Query, Single, SystemMeta},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
+        FromWorld, World,
+    },
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
@@ -349,21 +352,7 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let accesses = match conflicts {
-        AccessConflicts::All => "",
-        AccessConflicts::Individual(indices) => &format!(
-            " {}",
-            indices
-                .ones()
-                .map(|index| world
-                    .components
-                    .get_info(ComponentId::get_sparse_set_index(index))
-                    .unwrap()
-                    .name())
-                .collect::<Vec<&str>>()
-                .join(", ")
-        ),
-    };
+    let accesses = conflicts.format_conflict_list(world);
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
@@ -421,7 +410,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
                 world.change_tick(),
             )
         };
-        result.is_ok()
+        let is_valid = result.is_ok();
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 }
 
@@ -483,7 +476,11 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
                 world.change_tick(),
             )
         };
-        !matches!(result, Err(QuerySingleError::MultipleEntities(_)))
+        let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 }
 
@@ -773,14 +770,18 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -883,14 +884,18 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -1429,14 +1434,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -1536,14 +1545,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     #[inline]
     unsafe fn validate_param(
         &component_id: &Self::State,
-        _system_meta: &SystemMeta,
+        system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
-        unsafe { world.storages() }
+        let is_valid = unsafe { world.storages() }
             .non_send_resources
             .get(component_id)
-            .is_some_and(ResourceData::is_present)
+            .is_some_and(ResourceData::is_present);
+        if !is_valid {
+            system_meta.try_warn_param::<Self>();
+        }
+        is_valid
     }
 
     #[inline]
@@ -2420,6 +2433,57 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
+    }
+}
+
+// SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResources` with no access.
+// Therefore, `init_state` trivially registers all access, and no accesses can conflict.
+// Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
+unsafe impl SystemParam for FilteredResources<'_, '_> {
+    type State = Access<ComponentId>;
+
+    type Item<'world, 'state> = FilteredResources<'world, 'state>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Access::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
+        // and the builder registers `access` in `build`.
+        unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+// SAFETY: FilteredResources only reads resources.
+unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
+
+// SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResourcesMut` with no access.
+// Therefore, `init_state` trivially registers all access, and no accesses can conflict.
+// Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
+unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
+    type State = Access<ComponentId>;
+
+    type Item<'world, 'state> = FilteredResourcesMut<'world, 'state>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Access::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
+        // and the builder registers `access` in `build`.
+        unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
 }
 

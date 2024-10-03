@@ -15,7 +15,7 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
+//!     .observe_entity(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
 //!         // Stop the event from bubbling up the entity hierarchjy

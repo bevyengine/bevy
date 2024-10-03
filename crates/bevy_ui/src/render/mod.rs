@@ -409,7 +409,7 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline {
             let outline_size = uinode.outlined_node_size();
             extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: global_transform.compute_matrix(),
