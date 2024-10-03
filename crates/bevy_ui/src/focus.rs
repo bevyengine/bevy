@@ -1,38 +1,10 @@
 use crate::ResolvedBorderRadius;
 use bevy_ecs::prelude::*;
-use bevy_math::{Rect, Vec2};
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-
-/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
-/// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
-///
-/// The component is updated when it is in the same entity with [`Node`].
-#[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct RelativeCursorPosition {
-    /// Visible area of the Node relative to the size of the entire Node.
-    pub normalized_visible_node_rect: Rect,
-    /// Cursor position relative to the size and position of the Node.
-    /// A None value indicates that the cursor position is unknown.
-    pub normalized: Option<Vec2>,
-}
-
-impl RelativeCursorPosition {
-    /// A helper function to check if the mouse is over the node
-    pub fn mouse_over(&self) -> bool {
-        self.normalized
-            .map(|position| self.normalized_visible_node_rect.contains(position))
-            .unwrap_or(false)
-    }
-}
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
