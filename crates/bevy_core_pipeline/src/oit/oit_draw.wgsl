@@ -24,8 +24,6 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
 
     // get the layer_index from the screen
     let layer_index = screen_index + layer_id * buffer_size;
-    // TODO consider a different packing strategy,
-    // this loses a lot of color accuracy
     let rgb9e5_color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
