@@ -138,17 +138,13 @@ fn setup(
     ));
 
     // create a minimal UI explaining how to interact with the example
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
-            TextStyle::default(),
-        ),
-        style: Style {
+    commands.spawn((
+        TextNEW::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }

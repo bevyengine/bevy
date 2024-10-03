@@ -45,29 +45,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("translation", text_style.clone())
-                .with_justify(text_justification),
-            ..default()
-        },
+        Text2d::new("translation"),
+        text_style.clone(),
+        TextBlock::new_with_justify(text_justification),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone())
-                .with_justify(text_justification),
-            ..default()
-        },
+        Text2d::new("rotation"),
+        text_style.clone(),
+        TextBlock::new_with_justify(text_justification),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("scale", text_style).with_justify(text_justification),
-            transform: Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
-            ..default()
-        },
+        Text2d::new("scale"),
+        text_style,
+        TextBlock::new_with_justify(text_justification),
+        Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,
     ));
     // Demonstrate text wrapping
@@ -89,22 +84,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text {
-                    sections: vec![TextSection::new(
-                        "this text wraps in the box\n(Unicode linebreaks)",
-                        slightly_smaller_text_style.clone(),
-                    )],
-                    justify: JustifyText::Left,
-                    linebreak: LineBreak::WordBoundary,
-                    ..default()
-                },
+            builder.spawn((
+                Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
+                slightly_smaller_text_style.clone(),
+                TextBlock::new_with_justify(JustifyText::Left)
+                    .with_linebreak(LineBreak::WordBoundary),
                 // Wrap text in the rectangle
-                text_2d_bounds: TextBounds::from(box_size),
+                TextBounds::from(box_size),
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
-                ..default()
-            });
+                Transform::from_translation(Vec3::Z),
+            ));
         });
 
     let other_box_size = Vec2::new(300.0, 200.0);
@@ -120,31 +109,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text {
-                    sections: vec![TextSection::new(
-                        "this text wraps in the box\n(AnyCharacter linebreaks)",
-                        slightly_smaller_text_style.clone(),
-                    )],
-                    justify: JustifyText::Left,
-                    linebreak: LineBreak::AnyCharacter,
-                    ..default()
-                },
+            builder.spawn((
+                Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
+                slightly_smaller_text_style.clone(),
+                TextBlock::new_with_justify(JustifyText::Left)
+                    .with_linebreak(LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
-                text_2d_bounds: TextBounds::from(other_box_size),
+                TextBounds::from(other_box_size),
                 // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
-                ..default()
-            });
+                Transform::from_translation(Vec3::Z),
+            ));
         });
 
     // Demonstrate font smoothing off
-    commands.spawn(Text2dBundle {
-        text: Text::from_section("FontSmoothing::None", slightly_smaller_text_style.clone())
-            .with_font_smoothing(FontSmoothing::None),
-        transform: Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
-        ..default()
-    });
+    commands.spawn((
+        Text2d::new("FontSmoothing::None"),
+        slightly_smaller_text_style.clone(),
+        TextBlock::new_with_font_smoothing(FontSmoothing::None),
+        Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+    ));
 
     for (text_anchor, color) in [
         (Anchor::TopLeft, Color::Srgba(RED)),
@@ -152,27 +135,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         (Anchor::BottomRight, Color::Srgba(BLUE)),
         (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {
-        commands.spawn(Text2dBundle {
-            text: Text {
-                sections: vec![TextSection::new(
-                    format!(" Anchor::{text_anchor:?} "),
-                    TextStyle {
-                        color,
-                        ..slightly_smaller_text_style.clone()
-                    },
-                )],
-                ..Default::default()
+        commands.spawn((
+            Text2d::new(format!(" Anchor::{text_anchor:?} ")),
+            TextStyle {
+                color,
+                ..slightly_smaller_text_style.clone()
             },
-            transform: Transform::from_translation(250. * Vec3::Y),
+            Transform::from_translation(250. * Vec3::Y),
             text_anchor,
-            ..default()
-        });
+        ));
     }
 }
 
 fn animate_translation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
+    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * ops::sin(time.elapsed_seconds()) - 400.0;
@@ -182,7 +159,7 @@ fn animate_translation(
 
 fn animate_rotation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
+    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
         transform.rotation = Quat::from_rotation_z(ops::cos(time.elapsed_seconds()));
@@ -191,7 +168,7 @@ fn animate_rotation(
 
 fn animate_scale(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
+    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.
