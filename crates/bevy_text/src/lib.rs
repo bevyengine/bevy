@@ -43,7 +43,7 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
-mod text_blocks;
+mod text_access;
 
 pub use cosmic_text;
 
@@ -57,7 +57,7 @@ pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
-pub use text_blocks::*;
+pub use text_access::*;
 
 /// The text prelude.
 ///
@@ -117,7 +117,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextSpansScratch>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
                 (

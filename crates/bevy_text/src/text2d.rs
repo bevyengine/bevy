@@ -1,7 +1,7 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBlocks, TextBounds, TextError, TextLayoutInfo, TextPipeline, TextSpanReader, TextStyle,
+    TextBlocks, TextBounds, TextError, TextLayoutInfo, TextPipeline, TextSpanAccess, TextStyle,
     YAxisOrientation,
 };
 use bevy_asset::Assets;
@@ -95,9 +95,12 @@ impl Text2d {
     }
 }
 
-impl TextSpanReader for Text2d {
+impl TextSpanAccess for Text2d {
     fn read_span(&self) -> &str {
         self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
     }
 }
 
@@ -151,9 +154,12 @@ world.spawn((
 #[require(TextStyle, Visibility(visibility_hidden), Transform)]
 pub struct TextSpan2d(pub String);
 
-impl TextSpanReader for TextSpan2d {
+impl TextSpanAccess for TextSpan2d {
     fn read_span(&self) -> &str {
         self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
     }
 }
 
@@ -382,7 +388,7 @@ mod tests {
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
 
-    use crate::{detect_text_needs_rerender, TextSpansScratch};
+    use crate::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -399,7 +405,7 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextSpansScratch>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 Update,
                 (

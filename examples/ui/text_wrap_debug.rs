@@ -119,23 +119,12 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             ];
 
             for (j, message) in messages.into_iter().enumerate() {
-                let text = Text {
-                    sections: vec![TextSection {
-                        value: message.clone(),
-                        style: text_style.clone(),
-                    }],
-                    justify: JustifyText::Left,
-                    linebreak,
-                    ..default()
-                };
-                let text_id = commands
-                    .spawn(TextBundle {
-                        text,
-                        background_color: Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
-                        ..Default::default()
-                    })
-                    .id();
-                commands.entity(column_id).add_child(text_id);
+                commands.entity(column_id).with_child((
+                    TextNEW(message.clone()),
+                    text_style.clone(),
+                    TextBlock::new_with_justify(JustifyText::Left).with_linebreak(linebreak),
+                    BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into()),
+                ));
             }
             commands.entity(row_id).add_child(column_id);
         }
