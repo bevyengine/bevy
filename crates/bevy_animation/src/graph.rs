@@ -1,14 +1,25 @@
 //! The animation graph, which allows animations to be blended together.
 
-use core::ops::{Index, IndexMut};
+use core::iter;
+use core::ops::{Index, IndexMut, Range};
 use std::io::{self, Write};
 
-use bevy_asset::{io::Reader, Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{
+    io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
+};
+use bevy_ecs::{
+    event::EventReader,
+    system::{Res, ResMut, Resource},
+};
 use bevy_reflect::{Reflect, ReflectSerialize};
 use bevy_utils::HashMap;
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::{
+    graph::{DiGraph, NodeIndex},
+    Direction,
+};
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use thiserror::Error;
 
 use crate::{AnimationClip, AnimationTargetId};
@@ -170,6 +181,99 @@ pub enum AnimationGraphLoadError {
     /// is supplied.
     #[error("RON serialization")]
     SpannedRon(#[from] SpannedError),
+}
+
+/// Acceleration structures for animation graphs that allows Bevy to evaluate
+/// them quickly.
+///
+/// These are kept up to date as [`AnimationGraph`] instances are added,
+/// modified, and removed.
+#[derive(Default, Reflect, Resource)]
+pub struct ThreadedAnimationGraphs(
+    pub(crate) HashMap<AssetId<AnimationGraph>, ThreadedAnimationGraph>,
+);
+
+/// An acceleration structure for an animation graph that allows Bevy to
+/// evaluate it quickly.
+///
+/// This is kept up to date as the associated [`AnimationGraph`] instance is
+/// added, modified, or removed.
+#[derive(Default, Reflect)]
+pub struct ThreadedAnimationGraph {
+    /// A cached postorder traversal of the graph.
+    ///
+    /// The node indices here are stored in postorder. Siblings are stored in
+    /// descending order. This is because the
+    /// [`crate::animation_curves::AnimationCurveEvaluator`] uses a stack for
+    /// evaluation. Consider this graph:
+    ///
+    /// ```text
+    ///             ┌─────┐
+    ///             │     │
+    ///             │  1  │
+    ///             │     │
+    ///             └──┬──┘
+    ///                │
+    ///        ┌───────┼───────┐
+    ///        │       │       │
+    ///        ▼       ▼       ▼
+    ///     ┌─────┐ ┌─────┐ ┌─────┐
+    ///     │     │ │     │ │     │
+    ///     │  2  │ │  3  │ │  4  │
+    ///     │     │ │     │ │     │
+    ///     └──┬──┘ └─────┘ └─────┘
+    ///        │
+    ///    ┌───┴───┐
+    ///    │       │
+    ///    ▼       ▼
+    /// ┌─────┐ ┌─────┐
+    /// │     │ │     │
+    /// │  5  │ │  6  │
+    /// │     │ │     │
+    /// └─────┘ └─────┘
+    /// ```
+    ///
+    /// The postorder traversal in this case will be (4, 3, 6, 5, 2, 1).
+    ///
+    /// The fact that the children of each node are sorted in reverse ensures
+    /// that, at each level, the order of blending proceeds in ascending order
+    /// by node index, as we guarantee. To illustrate this, consider the way
+    /// the graph above is evaluated. (Interpolation is represented with the ⊕
+    /// symbol.)
+    ///
+    /// | Step | Node | Operation  | Stack (after operation) | Blend Register |
+    /// | ---- | ---- | ---------- | ----------------------- | -------------- |
+    /// | 1    | 4    | Push       | 4                       |                |
+    /// | 2    | 3    | Push       | 4 3                     |                |
+    /// | 3    | 6    | Push       | 4 3 6                   |                |
+    /// | 4    | 5    | Push       | 4 3 6 5                 |                |
+    /// | 5    | 2    | Blend 5    | 4 3 6                   | 5              |
+    /// | 6    | 2    | Blend 6    | 4 3                     | 5 ⊕ 6          |
+    /// | 7    | 2    | Push Blend | 4 3 2                   |                |
+    /// | 8    | 1    | Blend 2    | 4 3                     | 2              |
+    /// | 9    | 1    | Blend 3    | 4                       | 2 ⊕ 3          |
+    /// | 10   | 1    | Blend 4    |                         | 2 ⊕ 3 ⊕ 4      |
+    /// | 11   | 1    | Push Blend | 1                       |                |
+    /// | 12   |      | Commit     |                         |                |
+    pub threaded_graph: Vec<AnimationNodeIndex>,
+
+    /// A mapping from each parent node index to the range within
+    /// [`Self::sorted_edges`].
+    ///
+    /// This allows for quick lookup of the children of each node, sorted in
+    /// ascending order of node index, without having to sort the result of the
+    /// `petgraph` traversal functions every frame.
+    pub sorted_edge_ranges: Vec<Range<u32>>,
+
+    /// A list of the children of each node, sorted in ascending order.
+    pub sorted_edges: Vec<AnimationNodeIndex>,
+
+    /// A mapping from node index to a bitfield specifying the mask groups that
+    /// this node masks *out* (i.e. doesn't animate).
+    ///
+    /// A 1 in bit position N indicates that this node doesn't animate any
+    /// targets of mask group N.
+    pub computed_masks: Vec<u64>,
 }
 
 /// A version of [`AnimationGraph`] suitable for serializing as an asset.
@@ -569,5 +673,114 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
             root: animation_graph.root,
             mask_groups: animation_graph.mask_groups,
         }
+    }
+}
+
+/// A system that creates, updates, and removes [`ThreadedAnimationGraph`]
+/// structures for every changed [`AnimationGraph`].
+///
+/// The [`ThreadedAnimationGraph`] contains acceleration structures that allow
+/// for quick evaluation of that graph's animations.
+pub(crate) fn thread_animation_graphs(
+    mut threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
+    animation_graphs: Res<Assets<AnimationGraph>>,
+    mut animation_graph_asset_events: EventReader<AssetEvent<AnimationGraph>>,
+) {
+    for animation_graph_asset_event in animation_graph_asset_events.read() {
+        match *animation_graph_asset_event {
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
+                // Fetch the animation graph.
+                let Some(animation_graph) = animation_graphs.get(id) else {
+                    continue;
+                };
+
+                // Reuse the allocation if possible.
+                let mut threaded_animation_graph =
+                    threaded_animation_graphs.0.remove(&id).unwrap_or_default();
+                threaded_animation_graph.clear();
+
+                // Recursively thread the graph in postorder.
+                threaded_animation_graph.init(animation_graph);
+                threaded_animation_graph.build_from(
+                    &animation_graph.graph,
+                    animation_graph.root,
+                    0,
+                );
+
+                // Write in the threaded graph.
+                threaded_animation_graphs
+                    .0
+                    .insert(id, threaded_animation_graph);
+            }
+
+            AssetEvent::Removed { id } => {
+                threaded_animation_graphs.0.remove(&id);
+            }
+            AssetEvent::Unused { .. } => {}
+        }
+    }
+}
+
+impl ThreadedAnimationGraph {
+    /// Removes all the data in this [`ThreadedAnimationGraph`], keeping the
+    /// memory around for later reuse.
+    fn clear(&mut self) {
+        self.threaded_graph.clear();
+        self.sorted_edge_ranges.clear();
+        self.sorted_edges.clear();
+    }
+
+    /// Prepares the [`ThreadedAnimationGraph`] for recursion.
+    fn init(&mut self, animation_graph: &AnimationGraph) {
+        let node_count = animation_graph.graph.node_count();
+        let edge_count = animation_graph.graph.edge_count();
+
+        self.threaded_graph.reserve(node_count);
+        self.sorted_edges.reserve(edge_count);
+
+        self.sorted_edge_ranges.clear();
+        self.sorted_edge_ranges
+            .extend(iter::repeat(0..0).take(node_count));
+
+        self.computed_masks.clear();
+        self.computed_masks.extend(iter::repeat(0).take(node_count));
+    }
+
+    /// Recursively constructs the [`ThreadedAnimationGraph`] for the subtree
+    /// rooted at the given node.
+    ///
+    /// `mask` specifies the computed mask of the parent node. (It could be
+    /// fetched from the [`Self::computed_masks`] field, but we pass it
+    /// explicitly as a micro-optimization.)
+    fn build_from(
+        &mut self,
+        graph: &AnimationDiGraph,
+        node_index: AnimationNodeIndex,
+        mut mask: u64,
+    ) {
+        // Accumulate the mask.
+        mask |= graph.node_weight(node_index).unwrap().mask;
+        self.computed_masks.insert(node_index.index(), mask);
+
+        // Gather up the indices of our children, and sort them.
+        let mut kids: SmallVec<[AnimationNodeIndex; 8]> = graph
+            .neighbors_directed(node_index, Direction::Outgoing)
+            .collect();
+        kids.sort_unstable();
+
+        // Write in the list of kids.
+        self.sorted_edge_ranges[node_index.index()] =
+            (self.sorted_edges.len() as u32)..((self.sorted_edges.len() + kids.len()) as u32);
+        self.sorted_edges.extend_from_slice(&kids);
+
+        // Recurse. (This is a postorder traversal.)
+        for kid in kids.into_iter().rev() {
+            self.build_from(graph, kid, mask);
+        }
+
+        // Finally, push our index.
+        self.threaded_graph.push(node_index);
     }
 }

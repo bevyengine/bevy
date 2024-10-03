@@ -376,6 +376,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
                 }
 
+                fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                    <(#(#param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
+                }
+
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
                     state: &'s Self::State,
