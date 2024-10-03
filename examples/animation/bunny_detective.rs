@@ -3,10 +3,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::{
-        animation_event::{AnimationEvent, ReflectAnimationEvent},
-        AnimationTargetId,
-    },
+    animation::AnimationTargetId,
     color::palettes::css::{ALICE_BLUE, WHITE},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -181,7 +178,7 @@ impl OnLanded {
         // Transition to the `walk` animation.
         let (mut player, mut transitions) = players.get_mut(trigger.entity()).unwrap();
         transitions
-            .play(&mut player, animations.walk, Duration::from_secs_f32(1.0))
+            .play(&mut player, animations.walk, Duration::from_secs_f32(0.8))
             .repeat();
 
         let translation = transforms.get(trigger.entity()).unwrap().translation();
@@ -350,9 +347,9 @@ fn setup_scene_once_loaded(
         );
 
         jump_clip.add_event(0.0, OnJumped);
-        // Trigger the `OnLanded` event after 0.53s in the jump animation.
-        // The feet hits the ground between frame 8 and 9 and the frame rate is 16 fps.
-        // 8.5 / 16 = 5.3
+        // Trigger the OnLanded event after 0.53s in the jump animation.
+        // The feet hits the ground between frame 8 and 9 in the animation
+        // and the frame rate of the animation is 16 fps: 8.5 / 16 = 5.3
         jump_clip.add_event(0.53, OnLanded);
 
         let walk_node = graph.get(animations.walk).unwrap();
@@ -362,7 +359,7 @@ fn setup_scene_once_loaded(
             .and_then(|id| clips.get_mut(id))
             .unwrap();
 
-        // Trigger `OnStep` events targeting the feet.
+        // Trigger OnStep events targeting the feet.
         walk_clip.add_event_to_target(bones.left_foot, 0.05, OnStep::Start);
         walk_clip.add_event_to_target(bones.left_foot, 0.5, OnStep::End);
         walk_clip.add_event_to_target(bones.right_foot, 0.55, OnStep::Start);

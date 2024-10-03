@@ -483,11 +483,15 @@ impl AnimationClip {
     ) {
         self.duration = self.duration.max(time);
         let triggers = self.events.entry(target_id).or_default();
-        triggers.push(AnimationEventKey {
-            time,
-            event: AnimationEventData::new(event),
-        });
-        triggers.sort_by_key(|k| FloatOrd(k.time));
+        match triggers.binary_search_by_key(&FloatOrd(time), |e| FloatOrd(e.time)) {
+            Ok(index) | Err(index) => triggers.insert(
+                index,
+                AnimationEventKey {
+                    time,
+                    event: AnimationEventData::new(event),
+                },
+            ),
+        }
     }
 }
 
@@ -1519,8 +1523,8 @@ mod tests {
         assert_triggered_events_with(&active_animation, &clip, [0.5, 0.5, 0.5]);
 
         clip.add_event(1.0, A);
-        clip.add_event(1.0, A);
         clip.add_event(0.0, A);
+        clip.add_event(1.0, A);
         clip.add_event(0.0, A);
 
         active_animation.update(0.4, clip.duration); // 0.8 : 0.2
@@ -1531,8 +1535,8 @@ mod tests {
     fn test_events_triggers() {
         let mut active_animation = ActiveAnimation::default();
         let mut clip = AnimationClip::default();
-        clip.add_event(0.0, A);
         clip.add_event(0.2, A);
+        clip.add_event(0.0, A);
         assert_eq!(0.2, clip.duration);
 
         assert_triggered_events_with(&active_animation, &clip, []);
@@ -1565,9 +1569,9 @@ mod tests {
             ..Default::default()
         };
         let mut clip = AnimationClip::default();
+        clip.add_event(0.3, A);
         clip.add_event(0.0, A);
         clip.add_event(0.2, A);
-        clip.add_event(0.3, A);
         assert_eq!(0.3, clip.duration);
 
         assert_triggered_events_with(&active_animation, &clip, []);
