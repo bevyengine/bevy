@@ -9,7 +9,7 @@ use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{Font, TextLayoutInfo};
+use crate::{Font, TextLayoutInfo, TextRoot};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -279,13 +279,63 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
-/// Provides convenience methods for constructing text blocks.
+/// Provides convenience methods for spawning text blocks.
 pub trait TextBuilderExt {
+    /// Spawns an entire text block including the root entity as a child of the current entity.
+    ///
+    /// If no spans are provided then a default text entity will be spawned.
+    ///
+    /// Returns an [`EntityCommands`] for the root entity.
+    fn spawn_text_block<R: TextRoot>(&mut self, spans: Vec<(String, TextStyle)>) -> EntityCommands;
+}
+
+impl TextBuilderExt for Commands<'_, '_> {
+    fn spawn_text_block<R: TextRoot>(
+        &mut self,
+        mut spans: Vec<(String, TextStyle)>,
+    ) -> EntityCommands {
+        let mut spans = spans.drain(..);
+
+        // Root of the block.
+        let first = spans.next().unwrap_or_default();
+        let mut ec = self.spawn((R::from(first.0), first.1));
+
+        // Spans.
+        while let Some(next) = spans.next() {
+            ec.with_child((R::Span::from(next.0), next.1));
+        }
+
+        ec
+    }
+}
+
+impl TextBuilderExt for EntityCommands<'_> {
+    fn spawn_text_block<R: TextRoot>(
+        &mut self,
+        mut spans: Vec<(String, TextStyle)>,
+    ) -> EntityCommands {
+        let mut spans = spans.drain(..);
+
+        // Root of the block.
+        let first = spans.next().unwrap_or_default();
+        let ec = self.with_child((R::from(first.0), first.1));
+
+        // Spans.
+        while let Some(next) = spans.next() {
+            ec.with_child((R::Span::from(next.0), next.1));
+        }
+
+        ec.reborrow()
+    }
+}
+
+/// Provides convenience methods for adding text spans to a text block.
+pub trait TextSpanBuilderExt {
     /// Adds a flat list of spans as children of the current entity.
     fn with_spans<S: Component>(&mut self, spans: Vec<(S, TextStyle)>) -> &mut Self;
 }
 
-impl TextBuilderExt for EntityCommands<'_> {
+impl TextSpanBuilderExt for EntityCommands<'_> {
     fn with_spans<S: Component>(&mut self, mut spans: Vec<(S, TextStyle)>) -> &mut Self {
         for (span, style) in spans.drain(..) {
             self.with_child((span, style));

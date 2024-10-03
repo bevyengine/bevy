@@ -6,12 +6,18 @@ use bevy_hierarchy::Children;
 
 use crate::TextStyle;
 
-/// Helper trait for using the [`TextReader`] system param.
+/// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component {
     /// Gets the text span's string.
     fn read_span(&self) -> &str;
     /// Gets mutable reference to the text span's string.
     fn write_span(&mut self) -> &mut String;
+}
+
+/// Helper trait for the root text component in a text block.
+pub trait TextRoot: TextSpanAccess + From<String> {
+    /// Component type for spans of text blocks starting with the root component.
+    type Span: TextSpanAccess + From<String>;
 }
 
 #[derive(Resource, Default)]
@@ -40,15 +46,23 @@ impl TextIterScratch {
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
-pub struct TextReader<'w, 's, R: TextSpanAccess, S: TextSpanAccess> {
+pub struct TextReader<'w, 's, R: TextRoot> {
     scratch: ResMut<'w, TextIterScratch>,
     roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
-    spans: Query<'w, 's, (&'static S, &'static TextStyle, Option<&'static Children>)>,
+    spans: Query<
+        'w,
+        's,
+        (
+            &'static <R as TextRoot>::Span,
+            &'static TextStyle,
+            Option<&'static Children>,
+        ),
+    >,
 }
 
-impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextReader<'w, 's, R, S> {
+impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
-    pub fn iter<'a>(&'a mut self, root_entity: Entity) -> TextSpanIter<'a, R, S> {
+    pub fn iter<'a>(&'a mut self, root_entity: Entity) -> TextSpanIter<'a, R> {
         let stack = self.scratch.take();
 
         TextSpanIter {
@@ -99,16 +113,24 @@ impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextReader<'w, 's, R, S> {
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
-pub struct TextSpanIter<'a, R: TextSpanAccess, S: TextSpanAccess> {
+pub struct TextSpanIter<'a, R: TextRoot> {
     scratch: &'a mut TextIterScratch,
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
     roots: &'a Query<'a, 'a, (&'static R, &'static TextStyle, Option<&'static Children>)>,
-    spans: &'a Query<'a, 'a, (&'static S, &'static TextStyle, Option<&'static Children>)>,
+    spans: &'a Query<
+        'a,
+        'a,
+        (
+            &'static <R as TextRoot>::Span,
+            &'static TextStyle,
+            Option<&'static Children>,
+        ),
+    >,
 }
 
-impl<'a, R: TextSpanAccess, S: TextSpanAccess> Iterator for TextSpanIter<'a, R, S> {
+impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
     type Item = (Entity, usize, &'a str, &'a TextStyle);
     fn next(&mut self) -> Option<Self::Item> {
@@ -156,7 +178,7 @@ impl<'a, R: TextSpanAccess, S: TextSpanAccess> Iterator for TextSpanIter<'a, R, 
     }
 }
 
-impl<'a, R: TextSpanAccess, S: TextSpanAccess> Drop for TextSpanIter<'a, R, S> {
+impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
     fn drop(&mut self) {
         // Return the internal stack.
         let stack = std::mem::take(&mut self.stack);
@@ -168,14 +190,14 @@ impl<'a, R: TextSpanAccess, S: TextSpanAccess> Drop for TextSpanIter<'a, R, S> {
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
-pub struct TextWriter<'w, 's, R: TextSpanAccess, S: TextSpanAccess> {
+pub struct TextWriter<'w, 's, R: TextRoot> {
     scratch: ResMut<'w, TextIterScratch>,
-    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<S>>,
-    spans: Query<'w, 's, (&'static mut S, &'static mut TextStyle), Without<R>>,
+    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<<R as TextRoot>::Span>>,
+    spans: Query<'w, 's, (&'static mut <R as TextRoot>::Span, &'static mut TextStyle), Without<R>>,
     children: Query<'w, 's, &'static Children>,
 }
 
-impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextWriter<'w, 's, R, S> {
+impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,

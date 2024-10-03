@@ -20,7 +20,7 @@ use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
-    TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
+    TextRoot, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -114,6 +114,10 @@ impl TextNEW {
     pub fn empty() -> Self {
         Self::new("")
     }
+}
+
+impl TextRoot for TextNEW {
+    type Span = TextSpan;
 }
 
 impl TextSpanAccess for TextNEW {
@@ -214,10 +218,10 @@ fn hidden_visibility() -> Visibility {
 }
 
 /// UI alias for [`TextReader`].
-pub type UiTextReader<'w, 's> = TextReader<'w, 's, TextNEW, TextSpan>;
+pub type UiTextReader<'w, 's> = TextReader<'w, 's, TextNEW>;
 
 /// UI alias for [`TextWriter`].
-pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, TextNEW, TextSpan>;
+pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, TextNEW>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -350,7 +354,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    mut text_reader: TextReader<TextNEW, TextSpan>,
+    mut text_reader: UiTextReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -413,7 +417,7 @@ fn queue_text(
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut TextReader<TextNEW, TextSpan>,
+    text_reader: &mut UiTextReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -493,7 +497,7 @@ pub fn text_system(
         &mut ComputedTextBlock,
         Option<&TargetCamera>,
     )>,
-    mut text_reader: TextReader<TextNEW, TextSpan>,
+    mut text_reader: UiTextReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {

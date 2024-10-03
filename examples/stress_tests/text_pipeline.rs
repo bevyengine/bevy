@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{LineBreak, TextBounds},
+    text::{LineBreak, TextBounds, TextBuilderExt},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -77,26 +77,19 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         ]
     };
 
-    let [t1, p1] = make_spans(1);
-    commands
-        .spawn((
-            Text2d::new(t1.0),
-            t1.1,
-            TextBlock {
-                justify: JustifyText::Center,
-                linebreak: LineBreak::AnyCharacter,
-                ..Default::default()
-            },
-            TextBounds::default(),
-        ))
-        .with_children(|parent| {
-            parent.spawn((TextSpan2d(p1.0), p1.1));
-            for i in 2..=50 {
-                let [t, p] = make_spans(i);
-                parent.spawn((TextSpan2d(t.0), t.1));
-                parent.spawn((TextSpan2d(p.0), p.1));
-            }
-        });
+    let spans = (1..50)
+        .into_iter()
+        .flat_map(|i| make_spans(i).into_iter())
+        .collect();
+
+    commands.spawn_text_block::<Text2d>(spans).insert((
+        TextBlock {
+            justify: JustifyText::Center,
+            linebreak: LineBreak::AnyCharacter,
+            ..Default::default()
+        },
+        TextBounds::default(),
+    ));
 }
 
 // changing the bounds of the text will cause a recomputation

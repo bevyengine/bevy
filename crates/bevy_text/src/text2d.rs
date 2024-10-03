@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextStyle,
-    TextWriter, YAxisOrientation,
+    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -100,6 +100,10 @@ impl Text2d {
     }
 }
 
+impl TextRoot for Text2d {
+    type Span = TextSpan2d;
+}
+
 impl TextSpanAccess for Text2d {
     fn read_span(&self) -> &str {
         self.as_str()
@@ -156,7 +160,7 @@ world.spawn((
 */
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextStyle, Visibility(visibility_hidden), Transform)]
+#[require(TextStyle)]
 pub struct TextSpan2d(pub String);
 
 impl TextSpan2d {
@@ -192,15 +196,11 @@ impl From<String> for TextSpan2d {
     }
 }
 
-fn visibility_hidden() -> Visibility {
-    Visibility::Hidden
-}
-
 /// 2d alias for [`TextReader`].
-pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d, TextSpan2d>;
+pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
-pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d, TextSpan2d>;
+pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -313,7 +313,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextReader<Text2d, TextSpan2d>,
+    mut text_reader: TextReader2d,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
