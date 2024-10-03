@@ -1,6 +1,6 @@
 //! Text pipeline benchmark.
 //!
-//! Continuously recomputes a large `Text` component with 100 sections.
+//! Continuously recomputes a large block of text with 100 text spans.
 
 use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
@@ -38,6 +38,7 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
+<<<<<<< HEAD
     commands.spawn(Camera2d);
     let sections = (1..=50)
         .flat_map(|i| {
@@ -49,27 +50,52 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         font_size: (4 + i % 10) as f32,
                         color: BLUE.into(),
                     },
+=======
+    commands.spawn(Camera2d);
+
+    let make_spans = |i| {
+        [
+            (
+                "text".repeat(i),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: (4 + i % 10) as f32,
+                    color: BLUE.into(),
+                    ..Default::default()
+>>>>>>> 4f86a970a (Update text stress tests (#4))
                 },
-                TextSection {
-                    value: "pipeline".repeat(i),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: (4 + i % 11) as f32,
-                        color: YELLOW.into(),
-                    },
+            ),
+            (
+                "pipeline".repeat(i),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: (4 + i % 11) as f32,
+                    color: YELLOW.into(),
                 },
-            ]
-        })
-        .collect::<Vec<_>>();
-    commands.spawn(Text2dBundle {
-        text: Text {
-            sections,
-            justify: JustifyText::Center,
-            linebreak: LineBreak::AnyCharacter,
-            ..default()
-        },
-        ..Default::default()
-    });
+            ),
+        ]
+    };
+
+    let [t1, p1] = make_spans(1);
+    commands
+        .spawn((
+            Text2d::new(t1.0),
+            t1.1,
+            TextBlock {
+                justify: JustifyText::Center,
+                linebreak: LineBreak::AnyCharacter,
+                ..Default::default()
+            },
+            TextBounds::default(),
+        ))
+        .with_children(|parent| {
+            parent.spawn((TextSpan2d(p1.0), p1.1));
+            for i in 2..=50 {
+                let [t, p] = make_spans(i);
+                parent.spawn((TextSpan2d(t.0), t.1));
+                parent.spawn((TextSpan2d(p.0), p.1));
+            }
+        });
 }
 
 // changing the bounds of the text will cause a recomputation

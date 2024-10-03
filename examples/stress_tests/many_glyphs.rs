@@ -1,6 +1,6 @@
 //! Simple text rendering benchmark.
 //!
-//! Creates a `Text` with a single `TextSection` containing `100_000` glyphs,
+//! Creates a text block with a single span containing `100_000` glyphs,
 //! and renders it with the UI in a white color and with Text2d in a red color.
 //!
 //! To recompute all text each frame run
@@ -44,6 +44,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
+<<<<<<< HEAD
     commands.spawn(Camera2d);
     let mut text = Text {
         sections: vec![TextSection {
@@ -53,9 +54,18 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
         }],
+=======
+    commands.spawn(Camera2d);
+    let text_string = "0123456789".repeat(10_000);
+    let text_style = TextStyle {
+        font_size: 4.,
+        ..Default::default()
+    };
+    let text_block = TextBlock {
+>>>>>>> 4f86a970a (Update text stress tests (#4))
         justify: JustifyText::Left,
         linebreak: LineBreak::AnyCharacter,
-        ..default()
+        ..Default::default()
     };
 
     commands
@@ -69,28 +79,35 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .with_children(|commands| {
-            commands.spawn(TextBundle {
-                text: text.clone(),
-                style: Style {
-                    width: Val::Px(1000.),
+            commands
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Px(1000.),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            });
+                })
+                .with_child((
+                    TextNEW(text_string.clone()),
+                    text_style.clone(),
+                    text_block.clone(),
+                ));
         });
 
-    text.sections[0].style.color = RED.into();
-
-    commands.spawn(Text2dBundle {
-        text,
-        text_anchor: bevy::sprite::Anchor::Center,
-        text_2d_bounds: TextBounds::new_horizontal(1000.),
-        ..Default::default()
-    });
+    commands.spawn((
+        Text2d::new(text_string),
+        TextStyle {
+            color: RED.into(),
+            ..text_style
+        },
+        bevy::sprite::Anchor::Center,
+        TextBounds::new_horizontal(1000.),
+        text_block,
+    ));
 }
 
-fn force_text_recomputation(mut text_query: Query<&mut Text>) {
-    for mut text in &mut text_query {
-        text.set_changed();
+fn force_text_recomputation(mut text_query: Query<&mut TextBlock>) {
+    for mut block in &mut text_query {
+        block.set_changed();
     }
 }

@@ -24,13 +24,8 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-<<<<<<< HEAD
     commands.spawn(Camera2d);
-    // Text with one section
-=======
-    commands.spawn(Camera2dBundle::default());
     // Text with one span
->>>>>>> 4ca3b9e8a (ui examples migrated)
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         TextNEW::new("Hit 'P' then scroll/click around!"),
