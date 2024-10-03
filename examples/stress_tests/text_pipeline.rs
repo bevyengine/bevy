@@ -39,36 +39,44 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera2dBundle::default());
-    let sections = (1..=50)
-        .flat_map(|i| {
-            [
-                TextSection {
-                    value: "text".repeat(i),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: (4 + i % 10) as f32,
-                        color: BLUE.into(),
-                    },
-                },
-                TextSection {
-                    value: "pipeline".repeat(i),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: (4 + i % 11) as f32,
-                        color: YELLOW.into(),
-                    },
-                },
-            ]
-        })
-        .collect::<Vec<_>>();
-    commands.spawn(Text2dBundle {
-        text: Text {
-            sections,
-            justify: JustifyText::Center,
-            linebreak: LineBreak::AnyCharacter,
-            ..default()
-        },
+
+    let text_block = TextBlock {
+        justify: JustifyText::Center,
+        linebreak: LineBreak::AnyCharacter,
         ..Default::default()
+    };
+
+    let make_spans = |i| {
+        [
+            (
+                Text2d::new("text".repeat(i)),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font_size: (4 + i % 10) as f32,
+                    color: BLUE.into(),
+                },
+                text_block.clone(),
+            ),
+            (
+                Text2d::new("pipeline".repeat(i)),
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: (4 + i % 11) as f32,
+                    color: YELLOW.into(),
+                },
+                text_block.clone(),
+            ),
+        ]
+    };
+
+    let [t1, p1] = make_spans(1);
+    commands.spawn(t1).with_children(|parent| {
+        parent.spawn(p1);
+        for i in 2..=50 {
+            let [t, p] = make_spans(i);
+            parent.spawn(t);
+            parent.spawn(p);
+        }
     });
 }
 
