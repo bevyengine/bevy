@@ -6,11 +6,7 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{
-    prelude::*,
-    render::camera::SubCameraView,
-    sprite::MeshMaterial2d,
-};
+use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
