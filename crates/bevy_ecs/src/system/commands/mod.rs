@@ -1415,8 +1415,8 @@ impl EntityCommands<'_> {
     /// This will not emit a warning if the entity does not exist, essentially performing
     /// the same function as [`Self::despawn`] without emitting warnings.
     #[track_caller]
-    pub fn try_despawn(self) -> Self {
-        self.queue(try_despawn())
+    pub fn try_despawn(&mut self) {
+        self.queue(try_despawn());
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
