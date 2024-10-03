@@ -260,7 +260,7 @@ use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    system::{Commands, In, IntoSystem, ReadOnlySystem, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, ReadOnlySystem, ResMut, Resource, System, SystemId},
     world::World,
 };
 use bevy_utils::{prelude::default, HashMap};
@@ -402,7 +402,11 @@ impl Plugin for RemotePlugin {
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(
                 Update,
-                (process_remote_requests, process_ongoing_streaming_requests),
+                (
+                    process_remote_requests,
+                    process_ongoing_streaming_requests,
+                    remove_closed_streaming_requests,
+                ),
             );
     }
 }
@@ -670,7 +674,7 @@ pub struct BrpMessage {
     /// The value sent here is serialized and sent back to the client.
     pub sender: Sender<BrpResult>,
 
-    /// An option to continute to send results when related data changes.
+    /// An option to continue to send results when related data changes.
     pub stream: bool,
 }
 
@@ -791,4 +795,10 @@ fn process_single_ongoing_streaming_request(
         })??;
 
     Ok(Some(result))
+}
+
+fn remove_closed_streaming_requests(mut requests: ResMut<RemoteStreamingRequests>) {
+    requests
+        .0
+        .retain(|(message, _)| !message.sender.is_closed());
 }
