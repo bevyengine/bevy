@@ -3,7 +3,7 @@
 #import bevy_pbr::mesh_types::Mesh
 #import bevy_render::view::View
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
-#import bevy_pbr::utils::octahedral_decode
+#import bevy_pbr::utils::octahedral_decode_signed
 
 struct Meshlet {
     start_vertex_position_bit: u32,
@@ -199,7 +199,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 
 fn get_meshlet_vertex_normal(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
     let packed_normal = meshlet_vertex_normals[(*meshlet).start_vertex_attribute_id + vertex_id];
-    return octahedral_decode(unpack2x16unorm(packed_normal));
+    return octahedral_decode_signed(unpack2x16snorm(packed_normal));
 }
 
 fn get_meshlet_vertex_uv(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec2<f32> {

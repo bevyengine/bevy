@@ -379,7 +379,7 @@ fn build_and_compress_meshlet_vertex_data(
         vertex_uvs.push(uv);
 
         // Compress normal
-        vertex_normals.push(pack2x16unorm(octahedral_encode(normal)));
+        vertex_normals.push(pack2x16snorm(octahedral_encode(normal)));
 
         // Quantize position to a fixed-point IVec3
         let quantized_position = (position * quantization_factor + 0.5).as_ivec3();
@@ -442,19 +442,21 @@ fn octahedral_encode(v: Vec3) -> Vec2 {
     let n = v / (v.x.abs() + v.y.abs() + v.z.abs());
     let octahedral_wrap = (1.0 - n.yx().abs())
         * Vec2::new(
-            if n.x > 0.0 { 1.0 } else { -1.0 },
-            if n.y > 0.0 { 1.0 } else { -1.0 },
+            if n.x >= 0.0 { 1.0 } else { -1.0 },
+            if n.y >= 0.0 { 1.0 } else { -1.0 },
         );
-    let n_xy = if n.z >= 0.0 { n.xy() } else { octahedral_wrap };
-    n_xy * 0.5 + 0.5
+    if n.z >= 0.0 {
+        n.xy()
+    } else {
+        octahedral_wrap
+    }
 }
 
-// https://www.w3.org/TR/WGSL/#pack2x16unorm-builtin
-fn pack2x16unorm(v: Vec2) -> u32 {
-    let v = (v.clamp(Vec2::ZERO, Vec2::ONE) * 65535.0)
-        .round()
-        .as_u16vec2();
-    bytemuck::cast([v.y, v.x])
+// https://www.w3.org/TR/WGSL/#pack2x16snorm-builtin
+fn pack2x16snorm(v: Vec2) -> u32 {
+    let v = v.clamp(Vec2::NEG_ONE, Vec2::ONE);
+    let v = (v * 32767.0 + 0.5).floor().as_i16vec2();
+    bytemuck::cast(v)
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].
