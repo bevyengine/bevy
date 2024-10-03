@@ -15,6 +15,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
+use bevy_render::world_sync::TemporaryRenderEntity;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -115,9 +116,8 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
-                entity,
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
