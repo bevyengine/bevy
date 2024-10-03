@@ -276,9 +276,8 @@ async fn process_single_request(
         )));
     }
 
-    let stream = request.method.contains("+stream");
-
-    let size = if stream { 8 } else { 1 };
+    let watch = request.method.contains("+watch");
+    let size = if watch { 8 } else { 1 };
     let (result_sender, result_receiver) = async_channel::bounded(size);
 
     let _ = request_sender
@@ -286,11 +285,10 @@ async fn process_single_request(
             method: request.method,
             params: request.params,
             sender: result_sender,
-            stream,
         })
         .await;
 
-    if stream {
+    if watch {
         Ok(BrpHttpResponse::Stream(BrpStream {
             id: request.id,
             rx: Box::pin(result_receiver),

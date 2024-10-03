@@ -46,6 +46,9 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
+/// The method path for a `bevy/get` request.
+pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
+
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
@@ -301,6 +304,78 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     let type_registry = app_type_registry.read();
     let entity_ref = get_entity(world, entity)?;
 
+    let response =
+        reflect_components_to_response(components, strict, entity, entity_ref, &type_registry)?;
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Handles a `bevy/get+stream` request coming from a client.
+pub fn process_remote_get_watching_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult<Option<Value>> {
+    let BrpGetParams {
+        entity,
+        components,
+        strict,
+    } = parse_some(params)?;
+
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let entity_ref = get_entity(world, entity)?;
+
+    let mut changed_components = Vec::new();
+
+    'component_loop: for component_path in components {
+        let type_registration = get_component_type_registration(&type_registry, &component_path)
+            .map_err(BrpError::component_error)?;
+        let component_id = world
+            .components()
+            .get_id(type_registration.type_id())
+            .ok_or(BrpError::component_error(format!(
+                "Unknown component: `{component_path}`"
+            )))?;
+
+        if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
+            if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
+                changed_components.push(component_path);
+                continue;
+            }
+        };
+
+        for event in world.removed_with_id(component_id) {
+            if event == entity {
+                changed_components.push(component_path);
+                continue 'component_loop;
+            }
+        }
+    }
+
+    if changed_components.is_empty() {
+        return Ok(None);
+    }
+
+    let response = reflect_components_to_response(
+        changed_components,
+        strict,
+        entity,
+        entity_ref,
+        &type_registry,
+    )?;
+
+    Ok(Some(
+        serde_json::to_value(response).map_err(BrpError::internal)?,
+    ))
+}
+
+/// Reflect a list of components on an entity into a [`BrpGetResponse`].
+fn reflect_components_to_response(
+    components: Vec<String>,
+    strict: bool,
+    entity: Entity,
+    entity_ref: EntityRef,
+    type_registry: &TypeRegistry,
+) -> BrpResult<BrpGetResponse> {
     let mut response = if strict {
         BrpGetResponse::Strict(Default::default())
     } else {
@@ -311,7 +386,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
     };
 
     for component_path in components {
-        match handle_get_component(&component_path, entity, entity_ref, &type_registry) {
+        match reflect_component(&component_path, entity, entity_ref, type_registry) {
             Ok(serialized_object) => match response {
                 BrpGetResponse::Strict(ref mut components)
                 | BrpGetResponse::Lenient {
@@ -330,16 +405,16 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
         }
     }
 
-    serde_json::to_value(response).map_err(BrpError::internal)
+    Ok(response)
 }
 
-/// Handle a single component for [`process_remote_get_request`].
-fn handle_get_component(
+/// Reflect a single component on an entity with the given component path.
+fn reflect_component(
     component_path: &str,
     entity: Entity,
     entity_ref: EntityRef,
     type_registry: &TypeRegistry,
-) -> Result<Map<String, Value>, BrpError> {
+) -> BrpResult<Map<String, Value>> {
     let reflect_component =
         get_reflect_component(type_registry, component_path).map_err(BrpError::component_error)?;
 
@@ -365,45 +440,6 @@ fn handle_get_component(
     };
 
     Ok(serialized_object)
-}
-
-/// Handles checking for changes in a `bevy/get` request.
-pub fn check_changes_remote_get_request(
-    In(params): In<Option<Value>>,
-    world: &World,
-) -> BrpResult<bool> {
-    let BrpGetParams {
-        entity, components, ..
-    } = parse_some(params)?;
-
-    let app_type_registry = world.resource::<AppTypeRegistry>();
-    let type_registry = app_type_registry.read();
-    let entity_ref = get_entity(world, entity)?;
-
-    for component_path in components {
-        let type_registration = get_component_type_registration(&type_registry, &component_path)
-            .map_err(BrpError::component_error)?;
-        let component_id = world
-            .components()
-            .get_id(type_registration.type_id())
-            .ok_or(BrpError::component_error(format!(
-                "Unknown component: `{component_path}`"
-            )))?;
-
-        if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
-            if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
-                return Ok(true);
-            }
-        };
-
-        for event in world.removed_with_id(component_id) {
-            if event == entity {
-                return Ok(true);
-            }
-        }
-    }
-
-    Ok(false)
 }
 
 /// Handles a `bevy/query` request coming from a client.
