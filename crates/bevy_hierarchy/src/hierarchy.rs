@@ -11,6 +11,8 @@ use bevy_utils::tracing::debug;
 pub struct DespawnRecursive {
     /// Target entity
     pub entity: Entity,
+    /// Whether or not this command should output a warning if the entity does not exist
+    pub warn: bool,
 }
 
 /// Despawns the given entity's children recursively
@@ -18,33 +20,38 @@ pub struct DespawnRecursive {
 pub struct DespawnChildrenRecursive {
     /// Target entity
     pub entity: Entity,
+    /// Whether or not this command should output a warning if the entity does not exist
+    pub warn: bool,
 }
 
 /// Function for despawning an entity and all its children
-pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
-    despawn_with_children_recursive_inner(world, entity);
-
-    world.flush();
+pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: bool) {
+    despawn_with_children_recursive_inner(world, entity, warn);
 }
 
 // Should only be called by `despawn_with_children_recursive`!
-fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
+fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn: bool) {
     if let Some(children) = world.get::<Children>(entity) {
-        let children = children.iter().copied().collect::<Vec<_>>();
+        let children = children.as_slice().to_vec();
         for e in children {
-            despawn_with_children_recursive_inner(world, e);
+            despawn_with_children_recursive_inner(world, e, warn);
         }
     }
 
-    if !world.despawn(entity) {
+    if warn {
+        if !world.despawn(entity) {
+            debug!("Failed to despawn entity {:?}", entity);
+        }
+    } else if !world.try_despawn(entity) {
         debug!("Failed to despawn entity {:?}", entity);
     }
 }
 
-fn despawn_children_recursive(world: &mut World, entity: Entity) {
-    if let Some(children) = world.entity_mut(entity).take::<Children>() {
-        for &e in children.iter().collect::<Vec<_>>() {
-            despawn_with_children_recursive_inner(world, e);
+fn despawn_children_recursive(world: &mut World, entity: Entity, warn: bool) {
+    if let Some(children) = world.entity_mut(entity).get::<Children>() {
+        let children = children.as_slice().to_vec();
+        for e in children {
+            despawn_with_children_recursive_inner(world, e, warn);
         }
     }
 
@@ -57,10 +64,11 @@ impl Command for DespawnRecursive {
         let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity)
+            entity = bevy_utils::tracing::field::debug(self.entity),
+            warn = bevy_utils::tracing::field::debug(self.warn)
         )
         .entered();
-        despawn_with_children_recursive(world, self.entity);
+        despawn_with_children_recursive(world, self.entity, self.warn);
     }
 }
 
@@ -70,10 +78,12 @@ impl Command for DespawnChildrenRecursive {
         let _span = bevy_utils::tracing::info_span!(
             "command",
             name = "DespawnChildrenRecursive",
-            entity = bevy_utils::tracing::field::debug(self.entity)
+            entity = bevy_utils::tracing::field::debug(self.entity),
+            warn = bevy_utils::tracing::field::debug(self.warn)
         )
         .entered();
-        despawn_children_recursive(world, self.entity);
+
+        despawn_children_recursive(world, self.entity, self.warn);
     }
 }
 
@@ -84,6 +94,12 @@ pub trait DespawnRecursiveExt {
 
     /// Despawns all descendants of the given entity.
     fn despawn_descendants(&mut self) -> &mut Self;
+
+    /// Similar to [`Self::despawn_recursive`] but does not emit warnings
+    fn try_despawn_recursive(self);
+
+    /// Similar to [`Self::despawn_descendants`] but does not emit warnings
+    fn try_despawn_descendants(&mut self) -> &mut Self;
 }
 
 impl DespawnRecursiveExt for EntityCommands<'_> {
@@ -91,46 +107,90 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(mut self) {
         let entity = self.id();
-        self.commands().queue(DespawnRecursive { entity });
+        self.commands()
+            .queue(DespawnRecursive { entity, warn: true });
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
         let entity = self.id();
-        self.commands().queue(DespawnChildrenRecursive { entity });
+        self.commands()
+            .queue(DespawnChildrenRecursive { entity, warn: true });
         self
     }
+
+    /// Despawns the provided entity and its children.
+    /// This will never emit warnings.
+    fn try_despawn_recursive(mut self) {
+        let entity = self.id();
+        self.commands().queue(DespawnRecursive {
+            entity,
+            warn: false,
+        });
+    }
+
+    fn try_despawn_descendants(&mut self) -> &mut Self {
+        let entity = self.id();
+        self.commands().queue(DespawnChildrenRecursive {
+            entity,
+            warn: false,
+        });
+        self
+    }
+}
+
+fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
+    let entity = world.id();
+
+    #[cfg(feature = "trace")]
+    let _span = bevy_utils::tracing::info_span!(
+        "despawn_recursive",
+        entity = bevy_utils::tracing::field::debug(entity),
+        warn = bevy_utils::tracing::field::debug(warn)
+    )
+    .entered();
+
+    despawn_with_children_recursive(world.into_world_mut(), entity, warn);
+}
+
+fn despawn_descendants_inner<'v, 'w>(
+    world: &'v mut EntityWorldMut<'w>,
+    warn: bool,
+) -> &'v mut EntityWorldMut<'w> {
+    let entity = world.id();
+
+    #[cfg(feature = "trace")]
+    let _span = bevy_utils::tracing::info_span!(
+        "despawn_descendants",
+        entity = bevy_utils::tracing::field::debug(entity),
+        warn = bevy_utils::tracing::field::debug(warn)
+    )
+    .entered();
+
+    world.world_scope(|world| {
+        despawn_children_recursive(world, entity, warn);
+    });
+    world
 }
 
 impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     /// Despawns the provided entity and its children.
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(self) {
-        let entity = self.id();
-
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
-            "despawn_recursive",
-            entity = bevy_utils::tracing::field::debug(entity)
-        )
-        .entered();
-
-        despawn_with_children_recursive(self.into_world_mut(), entity);
+        despawn_recursive_inner(self, true);
     }
 
     fn despawn_descendants(&mut self) -> &mut Self {
-        let entity = self.id();
+        despawn_descendants_inner(self, true)
+    }
 
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!(
-            "despawn_descendants",
-            entity = bevy_utils::tracing::field::debug(entity)
-        )
-        .entered();
+    /// Despawns the provided entity and its children.
+    /// This will not emit warnings.
+    fn try_despawn_recursive(self) {
+        despawn_recursive_inner(self, false);
+    }
 
-        self.world_scope(|world| {
-            despawn_children_recursive(world, entity);
-        });
-        self
+    fn try_despawn_descendants(&mut self) -> &mut Self {
+        despawn_descendants_inner(self, false)
     }
 }
 

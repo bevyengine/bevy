@@ -5,6 +5,7 @@ mod component_constants;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
+mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
@@ -22,6 +23,7 @@ pub use entity_ref::{
     EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
     FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
 };
+pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
@@ -1385,7 +1387,15 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(entity, Location::caller())
+        self.despawn_with_caller(entity, Location::caller(), true)
+    }
+
+    /// Performs the same function as [`Self::despawn`] but does not emit a warning if
+    /// the entity does not exist.
+    #[track_caller]
+    #[inline]
+    pub fn try_despawn(&mut self, entity: Entity) -> bool {
+        self.despawn_with_caller(entity, Location::caller(), false)
     }
 
     #[inline]
@@ -1393,13 +1403,16 @@ impl World {
         &mut self,
         entity: Entity,
         caller: &'static Location,
+        log_warning: bool,
     ) -> bool {
         self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            if log_warning {
+                warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            }
             false
         }
     }
