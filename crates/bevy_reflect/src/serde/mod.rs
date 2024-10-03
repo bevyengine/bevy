@@ -194,7 +194,7 @@ mod tests {
         use core::fmt::{Debug, Formatter};
         use serde::de::{SeqAccess, Visitor};
         use serde::ser::SerializeSeq;
-        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+        use serde::{Deserializer, Serialize, Serializer};
         use std::any::TypeId;
 
         #[reflect_trait]
