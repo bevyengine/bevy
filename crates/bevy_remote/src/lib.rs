@@ -225,13 +225,20 @@
 //! If `strict` is false:
 //!
 //! `result`:
-//! - `components`: A map associating each type name to its value on the requested entity.
+//! - `components`: A map of components added or changed in the last tick associating each type
+//!   name to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
 //! - `errors`: A map associating each type name with an error if it was not on the entity
 //!   or could not be reflected.
 //!
 //! If `strict` is true:
 //!
-//! `result`: A map associating each type name to its value on the requested entity.
+//! `result`:
+//! - `components`: A map of components added or changed in the last tick associating each type
+//!   name to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
 //!
 //! ### bevy/list+watch
 //!

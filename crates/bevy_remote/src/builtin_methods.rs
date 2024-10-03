@@ -254,6 +254,31 @@ pub enum BrpGetResponse {
     Strict(HashMap<String, Value>),
 }
 
+/// A single response from a `bevy/get+watch` request.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BrpGetWatchingResponse {
+    /// The non-strict response that reports errors separately without failing the entire request.
+    Lenient {
+        /// A map of successful components with their values that were added or changes in the last
+        /// tick.
+        components: HashMap<String, Value>,
+        /// An array of components that were been removed in the last tick.
+        removed: Vec<String>,
+        /// A map of unsuccessful components with their errors.
+        errors: HashMap<String, Value>,
+    },
+    /// The strict response that will fail if any components are not present or aren't
+    /// reflect-able.
+    Strict {
+        /// A map of successful components with their values that were added or changes in the last
+        /// tick.
+        components: HashMap<String, Value>,
+        /// An array of components that were been removed in the last tick.
+        removed: Vec<String>,
+    },
+}
+
 /// The response to a `bevy/list` request.
 pub type BrpListResponse = Vec<String>;
 
@@ -334,7 +359,8 @@ pub fn process_remote_get_watching_request(
     let type_registry = app_type_registry.read();
     let entity_ref = get_entity(world, entity)?;
 
-    let mut changed_components = Vec::new();
+    let mut changed = Vec::new();
+    let mut removed = Vec::new();
 
     'component_loop: for component_path in components {
         let type_registration = get_component_type_registration(&type_registry, &component_path)
@@ -348,30 +374,37 @@ pub fn process_remote_get_watching_request(
 
         if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
             if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
-                changed_components.push(component_path);
+                changed.push(component_path);
                 continue;
             }
         };
 
         for event in world.removed_with_id(component_id) {
             if event == entity {
-                changed_components.push(component_path);
+                removed.push(component_path);
                 continue 'component_loop;
             }
         }
     }
 
-    if changed_components.is_empty() {
+    if changed.is_empty() && removed.is_empty() {
         return Ok(None);
     }
 
-    let response = reflect_components_to_response(
-        changed_components,
-        strict,
-        entity,
-        entity_ref,
-        &type_registry,
-    )?;
+    let response =
+        reflect_components_to_response(changed, strict, entity, entity_ref, &type_registry)?;
+
+    let response = match response {
+        BrpGetResponse::Lenient { components, errors } => BrpGetWatchingResponse::Lenient {
+            components,
+            removed,
+            errors,
+        },
+        BrpGetResponse::Strict(components) => BrpGetWatchingResponse::Strict {
+            components,
+            removed,
+        },
+    };
 
     Ok(Some(
         serde_json::to_value(response).map_err(BrpError::internal)?,
