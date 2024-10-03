@@ -1,6 +1,6 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, SwashCache, Text, TextBounds,
+    CosmicBuffer, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, Text, TextBounds,
     TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
@@ -15,6 +15,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
+use bevy_render::world_sync::TemporaryRenderEntity;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -115,9 +116,8 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
-                entity,
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
@@ -176,7 +176,7 @@ pub fn update_text2d_layout(
     for (entity, text, bounds, text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = TextBounds {
-                width: if text.linebreak_behavior == BreakLineOn::NoWrap {
+                width: if text.linebreak == LineBreak::NoWrap {
                     None
                 } else {
                     bounds.width.map(|width| scale_value(width, scale_factor))
@@ -193,7 +193,7 @@ pub fn update_text2d_layout(
                 &text.sections,
                 scale_factor.into(),
                 text.justify,
-                text.linebreak_behavior,
+                text.linebreak,
                 text.font_smoothing,
                 text_bounds,
                 &mut font_atlas_sets,

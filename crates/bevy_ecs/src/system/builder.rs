@@ -6,7 +6,10 @@ use crate::{
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
     },
-    world::{FromWorld, World},
+    world::{
+        FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
+        FilteredResourcesMutBuilder, FromWorld, World,
+    },
 };
 use core::fmt::Debug;
 
@@ -76,6 +79,10 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 /// You can also use a [`QueryState`] to build a [`Query`].
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
+///
+/// [`FilteredResourcesParamBuilder`] can build a [`FilteredResources`],
+/// and [`FilteredResourcesMutParamBuilder`] can build a [`FilteredResourcesMut`],
+/// to configure the resources that can be accessed.
 ///
 /// [`DynParamBuilder`] can build a [`DynSystemParam`] to determine the type of the inner parameter,
 /// and to supply any `SystemParamBuilder` it needs.
@@ -526,6 +533,147 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
     }
 }
 
+/// A [`SystemParamBuilder`] for a [`FilteredResources`].
+/// See the [`FilteredResources`] docs for examples.
+pub struct FilteredResourcesParamBuilder<T>(T);
+
+impl<T> FilteredResourcesParamBuilder<T> {
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
+    pub fn new(f: T) -> Self
+    where
+        T: FnOnce(&mut FilteredResourcesBuilder),
+    {
+        Self(f)
+    }
+}
+
+impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
+    /// This boxes the callback so that it has a common type.
+    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder) + 'a) -> Self {
+        Self(Box::new(f))
+    }
+}
+
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// conflicts with any prior access, a panic will occur.
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
+    SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <FilteredResources<'w, 's> as SystemParam>::State {
+        let mut builder = FilteredResourcesBuilder::new(world);
+        (self.0)(&mut builder);
+        let access = builder.build();
+
+        let combined_access = meta.component_access_set.combined_access();
+        let conflicts = combined_access.get_conflicts(&access);
+        if !conflicts.is_empty() {
+            let accesses = conflicts.format_conflict_list(world);
+            let system_name = &meta.name;
+            panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
+        }
+
+        if access.has_read_all_resources() {
+            meta.component_access_set
+                .add_unfiltered_read_all_resources();
+            meta.archetype_component_access.read_all_resources();
+        } else {
+            for component_id in access.resource_reads_and_writes() {
+                meta.component_access_set
+                    .add_unfiltered_resource_read(component_id);
+
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_read(archetype_component_id);
+            }
+        }
+
+        access
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`FilteredResourcesMut`].
+/// See the [`FilteredResourcesMut`] docs for examples.
+pub struct FilteredResourcesMutParamBuilder<T>(T);
+
+impl<T> FilteredResourcesMutParamBuilder<T> {
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
+    pub fn new(f: T) -> Self
+    where
+        T: FnOnce(&mut FilteredResourcesMutBuilder),
+    {
+        Self(f)
+    }
+}
+
+impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
+    /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
+    /// This boxes the callback so that it has a common type.
+    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder) + 'a) -> Self {
+        Self(Box::new(f))
+    }
+}
+
+// SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
+// conflicts with any prior access, a panic will occur.
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
+    SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
+{
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <FilteredResourcesMut<'w, 's> as SystemParam>::State {
+        let mut builder = FilteredResourcesMutBuilder::new(world);
+        (self.0)(&mut builder);
+        let access = builder.build();
+
+        let combined_access = meta.component_access_set.combined_access();
+        let conflicts = combined_access.get_conflicts(&access);
+        if !conflicts.is_empty() {
+            let accesses = conflicts.format_conflict_list(world);
+            let system_name = &meta.name;
+            panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002");
+        }
+
+        if access.has_read_all_resources() {
+            meta.component_access_set
+                .add_unfiltered_read_all_resources();
+            meta.archetype_component_access.read_all_resources();
+        } else {
+            for component_id in access.resource_reads() {
+                meta.component_access_set
+                    .add_unfiltered_resource_read(component_id);
+
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_read(archetype_component_id);
+            }
+        }
+
+        if access.has_write_all_resources() {
+            meta.component_access_set
+                .add_unfiltered_write_all_resources();
+            meta.archetype_component_access.write_all_resources();
+        } else {
+            for component_id in access.resource_writes() {
+                meta.component_access_set
+                    .add_unfiltered_resource_write(component_id);
+
+                let archetype_component_id = world.initialize_resource_internal(component_id).id();
+                meta.archetype_component_access
+                    .add_resource_write(archetype_component_id);
+            }
+        }
+
+        access
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_reflect::{FromType, Reflect, ReflectRef};
@@ -782,6 +930,116 @@ mod tests {
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 101);
+    }
+
+    #[test]
+    fn filtered_resource_conflicts_read_with_res() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource(),
+            FilteredResourcesParamBuilder::new(|builder| {
+                builder.add_read::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: Res<R>, _fr: FilteredResources| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_conflicts_read_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesParamBuilder::new(|builder| {
+                builder.add_read::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_conflicts_read_all_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesParamBuilder::new(|builder| {
+                builder.add_read_all();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
+    }
+
+    #[test]
+    fn filtered_resource_mut_conflicts_read_with_res() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_read::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_read_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_read::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_write_with_res() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_write::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_write_all_with_res() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_write_all();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_write_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_write::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
     }
 
     #[test]

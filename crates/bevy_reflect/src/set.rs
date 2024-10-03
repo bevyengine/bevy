@@ -3,9 +3,11 @@ use core::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, PartialReflect,
-    Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, Generics,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -61,7 +63,9 @@ pub trait Set: PartialReflect {
     fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
+    ///
+    /// After calling this function, `self` will be empty.
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -86,6 +90,7 @@ pub trait Set: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct SetInfo {
     ty: Type,
+    generics: Generics,
     value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -96,6 +101,7 @@ impl SetInfo {
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
+            generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -122,6 +128,8 @@ impl SetInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An ordered set of reflected values.
@@ -187,8 +195,8 @@ impl Set for DynamicSet {
         Box::new(iter)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
-        self.hash_table.into_iter().collect::<Vec<_>>()
+    fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
+        self.hash_table.drain().collect::<Vec<_>>()
     }
 
     fn clone_dynamic(&self) -> DynamicSet {

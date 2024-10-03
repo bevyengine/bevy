@@ -58,13 +58,13 @@ pub mod prelude {
         },
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut,
-            Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
+            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
-            OnReplace, World,
+            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
 
@@ -82,6 +82,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -92,7 +93,8 @@ mod tests {
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::sync::Arc;
+    use alloc::{sync::Arc, vec};
+    use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
     use core::{
@@ -2027,6 +2029,391 @@ mod tests {
         assert!(e.contains::<Y>());
     }
 
+    #[test]
+    fn remove_component_and_his_runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_component_and_his_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        #[require(Z)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_bundle_and_his_required_components() {
+        #[derive(Component, Default)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        #[require(W)]
+        struct Z;
+
+        #[derive(Component, Default)]
+        struct W;
+
+        #[derive(Component)]
+        struct V;
+
+        #[derive(Bundle, Default)]
+        struct TestBundle {
+            x: X,
+            z: Z,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn((TestBundle::default(), V)).id();
+
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).remove_with_requires::<TestBundle>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(!world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn runtime_required_components() {
+        // Same as `required_components` test but with runtime registration
+
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component)]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        let mut world = World::new();
+
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(7));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_1() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - Y requires Z with custom constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<Y, Z>(|| Z(5));
+        world.register_required_components_with::<X, Z>(|| Z(7));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_override_2() {
+        // Same as `runtime_required_components_override_1` test but with different registration order
+
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        let mut world = World::new();
+
+        // - X requires Y with default constructor
+        // - X requires Z with custom constructor (more specific than X -> Y -> Z)
+        // - Y requires Z with custom constructor
+        world.register_required_components::<X, Y>();
+        world.register_required_components_with::<X, Z>(|| Z(7));
+        world.register_required_components_with::<Y, Z>(|| Z(5));
+
+        let id = world.spawn(X).id();
+
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in X"
+        );
+    }
+
+    #[test]
+    fn runtime_required_components_existing_archetype() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // Registering required components after the archetype has already been created should panic.
+        // This may change in the future.
+        world.spawn(X);
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::ArchetypeExists(_))
+        ));
+    }
+
+    #[test]
+    fn runtime_required_components_fail_with_duplicate() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+
+        // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
+        assert!(matches!(
+            world.try_register_required_components::<X, Y>(),
+            Err(RequiredComponentsError::DuplicateRegistration(_, _))
+        ));
+    }
+
+    #[test]
+    fn required_components_inheritance_depth() {
+        // Test that inheritance depths are computed correctly for requirements.
+        //
+        // Requirements with `require` attribute:
+        //
+        // A -> B -> C
+        //   0    1
+        //
+        // Runtime requirements:
+        //
+        // X -> A -> B -> C
+        //   0    1    2
+        //
+        // X -> Y -> Z -> B -> C
+        //   0    1    2    3
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+
+        let a = world.register_component::<A>();
+        let b = world.register_component::<B>();
+        let c = world.register_component::<C>();
+        let y = world.register_component::<Y>();
+        let z = world.register_component::<Z>();
+
+        world.register_required_components::<X, A>();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+        world.register_required_components::<Z, B>();
+
+        world.spawn(X);
+
+        let required_a = world.get_required_components::<A>().unwrap();
+        let required_b = world.get_required_components::<B>().unwrap();
+        let required_c = world.get_required_components::<C>().unwrap();
+        let required_x = world.get_required_components::<X>().unwrap();
+        let required_y = world.get_required_components::<Y>().unwrap();
+        let required_z = world.get_required_components::<Z>().unwrap();
+
+        /// Returns the component IDs and inheritance depths of the required components
+        /// in ascending order based on the component ID.
+        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+            let mut vec = required
+                .0
+                .iter()
+                .map(|(id, component)| (*id, component.inheritance_depth))
+                .collect::<Vec<_>>();
+            vec.sort_by_key(|(id, _)| *id);
+            vec
+        }
+
+        // Check that the inheritance depths are correct for each component.
+        assert_eq!(to_vec(required_a), vec![(b, 0), (c, 1)]);
+        assert_eq!(to_vec(required_b), vec![(c, 0)]);
+        assert_eq!(to_vec(required_c), vec![]);
+        assert_eq!(
+            to_vec(required_x),
+            vec![(a, 0), (b, 1), (c, 2), (y, 0), (z, 1)]
+        );
+        assert_eq!(to_vec(required_y), vec![(b, 1), (c, 2), (z, 0)]);
+        assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]
@@ -2051,4 +2438,18 @@ mod tests {
         field0: Simple,
         field1: ComponentB,
     }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntities {
+        entities: Vec<Entity>,
+        another_one: Entity,
+        maybe_entity: Option<Entity>,
+        #[visit_entities(ignore)]
+        something_else: String,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Component, VisitEntities, VisitEntitiesMut)]
+    struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }
