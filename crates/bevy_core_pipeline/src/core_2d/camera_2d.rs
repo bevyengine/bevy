@@ -54,7 +54,7 @@ impl Camera2d {
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Camera2d` directly instead. Inserting it will now automatically add the other components required by it."
+    note = "Use the `Camera2d` component instead. Inserting it will now also insert the other components required by it automatically."
 )]
 pub struct Camera2dBundle {
     pub camera: Camera,
