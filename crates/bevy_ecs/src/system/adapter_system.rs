@@ -35,7 +35,8 @@ use crate::{
 ///         input: <Self::In as SystemInput>::Inner<'_>,
 ///         run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
 ///     ) -> Option<Self::Out> {
-///         Some(!(run_system(input)?))
+///         let out = run_system(input)?;
+///         Some(!out)
 ///     }
 /// }
 /// # let mut world = World::new();

@@ -235,7 +235,7 @@ pub unsafe trait SystemParam: Sized {
 
     /// Check if param can be acquired.
     /// The default implementation relies on [`Self::get_param`],
-    /// but has to be overwriten in cases like [`NonSend`].
+    /// but has to be overwritten in cases like [`NonSend`].
     ///
     /// # Safety
     ///
@@ -946,10 +946,10 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// write_system.initialize(world);
 /// read_system.initialize(world);
 ///
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// write_system.run((), world);
 /// // Note how the read local is still 0 due to the locals not being shared.
-/// assert_eq!(read_system.run((), world), 0);
+/// assert_eq!(read_system.run((), world).unwrap(), 0);
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
