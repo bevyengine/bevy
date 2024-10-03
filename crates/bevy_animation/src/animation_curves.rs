@@ -1021,14 +1021,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, <T as Animatable>::interpolate)
     }
 
     #[inline]
-    fn sample_clamped(&self, t: f32) -> T {
-        // Sampling by keyframes is automatically clamped to the keyframe bounds.
-        self.sample_unchecked(t)
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 

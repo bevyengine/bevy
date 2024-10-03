@@ -105,6 +105,8 @@
 //! In addition, the following parameters can be used when constructing a dynamic system with [`SystemParamBuilder`],
 //! but will only provide an empty value when used with an ordinary system:
 //!
+//! - [`FilteredResources`](crate::world::FilteredResources)
+//! - [`FilteredResourcesMut`](crate::world::FilteredResourcesMut)
 //! - [`DynSystemParam`]
 //! - [`Vec<P>`] where `P: SystemParam`
 //! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
