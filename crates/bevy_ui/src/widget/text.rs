@@ -20,7 +20,7 @@ use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
-    TextRoot, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
+    TextRoot, TextSpanAccess, TextSpanComponent, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -191,6 +191,8 @@ impl TextSpan {
         Self::new("")
     }
 }
+
+impl TextSpanComponent for TextSpan {}
 
 impl TextSpanAccess for TextSpan {
     fn read_span(&self) -> &str {

@@ -17,8 +17,11 @@ pub trait TextSpanAccess: Component {
 /// Helper trait for the root text component in a text block.
 pub trait TextRoot: TextSpanAccess + From<String> {
     /// Component type for spans of text blocks starting with the root component.
-    type Span: TextSpanAccess + From<String>;
+    type Span: TextSpanComponent;
 }
+
+/// Helper trait for the text span components in a text block.
+pub trait TextSpanComponent: TextSpanAccess + From<String> {}
 
 #[derive(Resource, Default)]
 pub(crate) struct TextIterScratch {

@@ -9,7 +9,7 @@ use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{Font, TextLayoutInfo, TextRoot};
+use crate::{Font, TextLayoutInfo, TextRoot, TextSpanComponent};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -286,15 +286,18 @@ pub trait TextBuilderExt {
     /// If no spans are provided then a default text entity will be spawned.
     ///
     /// Returns an [`EntityCommands`] for the root entity.
-    fn spawn_text_block<R: TextRoot>(&mut self, spans: Vec<(String, TextStyle)>) -> EntityCommands;
+    fn spawn_text_block<R: TextRoot>(
+        &mut self,
+        spans: impl IntoIterator<Item = (String, TextStyle)>,
+    ) -> EntityCommands;
 }
 
 impl TextBuilderExt for Commands<'_, '_> {
     fn spawn_text_block<R: TextRoot>(
         &mut self,
-        mut spans: Vec<(String, TextStyle)>,
+        spans: impl IntoIterator<Item = (String, TextStyle)>,
     ) -> EntityCommands {
-        let mut spans = spans.drain(..);
+        let mut spans = spans.into_iter();
 
         // Root of the block.
         let first = spans.next().unwrap_or_default();
@@ -312,9 +315,9 @@ impl TextBuilderExt for Commands<'_, '_> {
 impl TextBuilderExt for EntityCommands<'_> {
     fn spawn_text_block<R: TextRoot>(
         &mut self,
-        mut spans: Vec<(String, TextStyle)>,
+        spans: impl IntoIterator<Item = (String, TextStyle)>,
     ) -> EntityCommands {
-        let mut spans = spans.drain(..);
+        let mut spans = spans.into_iter();
 
         // Root of the block.
         let first = spans.next().unwrap_or_default();
@@ -332,13 +335,19 @@ impl TextBuilderExt for EntityCommands<'_> {
 /// Provides convenience methods for adding text spans to a text block.
 pub trait TextSpanBuilderExt {
     /// Adds a flat list of spans as children of the current entity.
-    fn with_spans<S: Component>(&mut self, spans: Vec<(S, TextStyle)>) -> &mut Self;
+    fn with_spans<S: TextSpanComponent>(
+        &mut self,
+        spans: impl IntoIterator<Item = (String, TextStyle)>,
+    ) -> &mut Self;
 }
 
 impl TextSpanBuilderExt for EntityCommands<'_> {
-    fn with_spans<S: Component>(&mut self, mut spans: Vec<(S, TextStyle)>) -> &mut Self {
-        for (span, style) in spans.drain(..) {
-            self.with_child((span, style));
+    fn with_spans<S: TextSpanComponent>(
+        &mut self,
+        spans: impl IntoIterator<Item = (String, TextStyle)>,
+    ) -> &mut Self {
+        for (span, style) in spans.into_iter() {
+            self.with_child((S::from(span), style));
         }
         self
     }
