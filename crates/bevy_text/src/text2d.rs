@@ -14,7 +14,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
+use bevy_math::{FloatOrd, Vec2};
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -212,7 +212,21 @@ pub fn update_text2d_layout(
                 Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
+
                 Ok(()) => {
+                    // Translate all the glyphs horizontally so that the left edge of the leftmost glyph is at 0.
+                    // This a temporary fix for layout issues with the `Text2d` API (https://github.com/bevyengine/bevy/issues/14266)
+                    if let Some(min_x) = text_layout_info
+                        .glyphs
+                        .iter()
+                        .map(|glyph| FloatOrd(glyph.position.x - 0.5 * glyph.size.x))
+                        .min()
+                    {
+                        for glyph in text_layout_info.glyphs.iter_mut() {
+                            glyph.position.x -= min_x.0;
+                        }
+                    }
+
                     text_layout_info.size.x =
                         scale_value(text_layout_info.size.x, inverse_scale_factor);
                     text_layout_info.size.y =
