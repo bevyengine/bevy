@@ -164,17 +164,17 @@ pub trait DetectChangesMut: DetectChanges {
     /// # world.insert_resource(Score(1));
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
-    /// # score_changed.run((), &mut world);
+    /// # score_changed.run((), &mut world).unwrap();
     /// #
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(reset_score);
     /// #
     /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(score_changed.run((), &mut world));
+    /// # assert!(score_changed.run((), &mut world).unwrap());
     /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!score_changed.run((), &mut world));
+    /// # assert!(!score_changed.run((), &mut world).unwrap());
     /// ```
     #[inline]
     #[track_caller]
@@ -235,23 +235,23 @@ pub trait DetectChangesMut: DetectChanges {
     /// # world.insert_resource(Score(1));
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
-    /// # score_changed.run((), &mut world);
+    /// # score_changed.run((), &mut world).unwrap();
     /// #
     /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>);
     /// # score_changed_event.initialize(&mut world);
-    /// # score_changed_event.run((), &mut world);
+    /// # score_changed_event.run((), &mut world).unwrap();
     /// #
     /// # let mut schedule = Schedule::default();
     /// # schedule.add_systems(reset_score);
     /// #
     /// # // first time `reset_score` runs, the score is changed.
     /// # schedule.run(&mut world);
-    /// # assert!(score_changed.run((), &mut world));
-    /// # assert!(score_changed_event.run((), &mut world));
+    /// # assert!(score_changed.run((), &mut world).unwrap());
+    /// # assert!(score_changed_event.run((), &mut world).unwrap());
     /// # // second time `reset_score` runs, the score is not changed.
     /// # schedule.run(&mut world);
-    /// # assert!(!score_changed.run((), &mut world));
-    /// # assert!(!score_changed_event.run((), &mut world));
+    /// # assert!(!score_changed.run((), &mut world).unwrap());
+    /// # assert!(!score_changed_event.run((), &mut world).unwrap());
     /// ```
     #[inline]
     #[must_use = "If you don't need to handle the previous value, use `set_if_neq` instead."]

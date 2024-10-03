@@ -38,10 +38,10 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 ///     fn combine(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> A::Out,
-///         b: impl FnOnce(B::In) -> B::Out,
-///     ) -> Self::Out {
-///         a(()) ^ b(())
+///         a: impl FnOnce(A::In) -> Option<A::Out>,
+///         b: impl FnOnce(B::In) -> Option<B::Out>,
+///     ) -> Option<Self::Out> {
+///         Some(a(())? ^ b(())?)
 ///     }
 /// }
 ///

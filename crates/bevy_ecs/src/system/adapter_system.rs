@@ -33,15 +33,15 @@ use crate::{
 ///     fn adapt(
 ///         &mut self,
 ///         input: <Self::In as SystemInput>::Inner<'_>,
-///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-///     ) -> Self::Out {
-///         !run_system(input)
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
+///     ) -> Option<Self::Out> {
+///         Some(!(run_system(input)?))
 ///     }
 /// }
 /// # let mut world = World::new();
 /// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
 /// # system.initialize(&mut world);
-/// # assert!(system.run((), &mut world));
+/// # assert!(system.run((), &mut world).unwrap());
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not adapt a system of type `{S}`",
