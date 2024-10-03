@@ -95,7 +95,7 @@ fn cycle_scenes(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    q: Query<Entity, With<Handle<StandardMaterial>>>,
+    q: Query<Entity, With<Mesh3d>>,
     mut scene_id: Local<usize>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
