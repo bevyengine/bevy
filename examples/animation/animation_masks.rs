@@ -136,18 +136,15 @@ fn setup_scene(
 // Creates the UI.
 fn setup_ui(mut commands: Commands) {
     // Add help text.
-    commands.spawn(
-        TextBundle::from_section(
-            "Click on a button to toggle animations for its associated bones",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        TextNEW::new("Click on a button to toggle animations for its associated bones"),
+        Style {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // Add the buttons that allow the user to toggle mask groups on and off.
     commands
@@ -238,8 +235,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
             group_id: mask_group_id,
             enabled: true,
         })
-        .with_child(TextBundle::from_section(
-            label,
+        .with_child((
+            TextNEW::new(label),
             TextStyle {
                 font_size: 14.0,
                 color: Color::BLACK,
@@ -301,7 +298,7 @@ fn handle_button_toggles(
         ),
         Changed<Interaction>,
     >,
-    mut texts: Query<&mut Text>,
+    mut writer: UiTextWriter,
     mut animation_players: Query<(&Handle<AnimationGraph>, &AnimationPlayer)>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
 ) {
@@ -325,15 +322,14 @@ fn handle_button_toggles(
 
         // Update the text color of the button.
         for &kid in children.iter() {
-            if let Ok(mut text) = texts.get_mut(kid) {
-                for section in &mut text.sections {
-                    section.style.color = if mask_group_control.enabled {
-                        Color::BLACK
-                    } else {
-                        Color::WHITE
-                    };
-                }
-            }
+            writer.for_each(kid, |_, _, _, mut style| {
+                style.color = if mask_group_control.enabled {
+                    Color::BLACK
+                } else {
+                    Color::WHITE
+                };
+                true
+            });
         }
 
         // Now grab the animation player. (There's only one in our case, but we

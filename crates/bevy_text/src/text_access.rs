@@ -263,4 +263,66 @@ impl<'w, 's, R: TextSpanAccess, S: TextSpanAccess> TextWriter<'w, 's, R, S> {
     pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextStyle> {
         self.get_style(root_entity, index).unwrap()
     }
+
+    /// Invokes a callback on each span in a text block, starting with the root entity.
+    // TODO: find a way to consolidate get and for_each, or provide a real iterator. Lifetime issues are challenging here.
+    pub fn for_each(
+        &mut self,
+        root_entity: Entity,
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>) -> bool,
+    ) {
+        // Root
+        let Ok((text, style)) = self.roots.get_mut(root_entity) else {
+            return;
+        };
+        if !(callback)(
+            root_entity,
+            0,
+            text.map_unchanged(|t| t.write_span()),
+            style,
+        ) {
+            return;
+        }
+
+        // Prep stack.
+        let mut stack: Vec<(&Children, usize)> = self.scratch.take();
+        if let Ok(children) = self.children.get(root_entity) {
+            stack.push((children, 0));
+        }
+
+        // Span
+        loop {
+            let depth = stack.len();
+            let Some((children, idx)) = stack.last_mut() else {
+                self.scratch.recover(stack);
+                return;
+            };
+
+            loop {
+                let Some(child) = children.get(*idx) else {
+                    // All children at this stack entry have been iterated.
+                    stack.pop();
+                    break;
+                };
+
+                // Increment to prep the next entity in this stack level.
+                *idx += 1;
+
+                let entity = *child;
+                let Ok((text, style)) = self.spans.get_mut(entity) else {
+                    continue;
+                };
+
+                if !(callback)(entity, depth, text.map_unchanged(|t| t.write_span()), style) {
+                    self.scratch.recover(stack);
+                    return;
+                }
+
+                if let Ok(children) = self.children.get(entity) {
+                    stack.push((children, 0));
+                    break;
+                }
+            }
+        }
+    }
 }
