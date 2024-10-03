@@ -55,6 +55,16 @@ impl LayoutContext {
     }
 }
 
+#[cfg(test)]
+impl LayoutContext {
+    pub const TEST_CONTEXT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::new(1000.0, 1000.0),
+        min_size: 0.0,
+        max_size: 1000.0,
+    };
+}
+
 impl Default for LayoutContext {
     fn default() -> Self {
         Self::DEFAULT
@@ -1241,7 +1251,7 @@ mod tests {
             #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
             ui_surface.upsert_node(
-                &LayoutContext::default(),
+                &LayoutContext::TEST_CONTEXT,
                 params.root_node_entity,
                 &Style::default(),
                 None,
