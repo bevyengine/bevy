@@ -43,7 +43,7 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
-mod text_spans;
+mod text_blocks;
 
 pub use cosmic_text;
 
@@ -57,7 +57,7 @@ pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
-pub use text_spans::*;
+pub use text_blocks::*;
 
 /// The text prelude.
 ///
@@ -105,10 +105,6 @@ pub enum YAxisOrientation {
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Update2dText;
-
-/// A convenient alias for `With<Text>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithText = With<Text>;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {

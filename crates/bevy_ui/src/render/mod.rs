@@ -39,11 +39,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::PositionedGlyph;
-#[cfg(feature = "bevy_text")]
-use bevy_text::Text;
-#[cfg(feature = "bevy_text")]
-use bevy_text::TextLayoutInfo;
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextStyle};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -609,6 +605,7 @@ pub fn extract_uinode_text(
                         computed_block
                             .entities()
                             .get(*span_index)
+                            .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|style| LinearRgba::from(style.color))

@@ -10,15 +10,6 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[cfg(feature = "bevy_text")]
-use {
-    crate::widget::TextNodeFlags,
-    bevy_color::Color,
-    bevy_text::{
-        CosmicBuffer, JustifyText, LineBreak, Text, TextLayoutInfo, TextSection, TextStyle,
-    },
-};
-
 /// The basic UI node.
 ///
 /// Contains the [`Node`] component and other components required to make a container.

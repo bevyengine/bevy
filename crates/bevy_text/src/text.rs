@@ -1,13 +1,14 @@
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
-use bevy_utils::default;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
-use crate::Font;
+use crate::{Font, TextLayoutInfo};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -26,8 +27,9 @@ impl Default for CosmicBuffer {
 /// A sub-entity of a [`TextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TextEntity {
+    /// The entity.
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextBlock`.
     pub depth: usize,
@@ -99,7 +101,7 @@ impl Default for ComputedTextBlock {
 /// See [`Text2d`] for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[requires(ComputedTextBlock, TextLayoutInfo)]
+#[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextBlock {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -125,24 +127,24 @@ impl TextBlock {
     }
 
     /// Makes a new [`TextBlock`] with the specified [`JustifyText`].
-    pub const fn new_with_justify(justify: JustifyText) -> Self {
+    pub fn new_with_justify(justify: JustifyText) -> Self {
         Self::default().with_justify(justify)
     }
 
     /// Makes a new [`TextBlock`] with the specified [`LineBreak`].
-    pub const fn new_with_linebreak(linebreak: LineBreak) -> Self {
+    pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
     }
 
     /// Makes a new [`TextBlock`] with the specified [`FontSmoothing`].
-    pub const fn new_with_font_smoothing(font_smoothing: FontSmoothing) -> Self {
+    pub fn new_with_font_smoothing(font_smoothing: FontSmoothing) -> Self {
         Self::default().with_font_smoothing(font_smoothing)
     }
 
     /// Makes a new [`TextBlock`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
-    pub const fn new_with_no_wrap() -> Self {
-        Self::default().with_no_wrap(linebreak)
+    pub fn new_with_no_wrap() -> Self {
+        Self::default().with_no_wrap()
     }
 
     /// Returns this [`TextBlock`] with the specified [`JustifyText`].
@@ -307,9 +309,11 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     >,
     changed_spans: Query<
         &Parent,
-        Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>)>,
-        With<Span>,
-        With<TextStyle>,
+        (
+            Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>)>,
+            With<Span>,
+            With<TextStyle>,
+        ),
     >,
     mut computed: Query<(Option<&Parent>, Option<&mut ComputedTextBlock>)>,
 ) {
@@ -341,7 +345,7 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
             let Ok((maybe_parent, maybe_computed)) = computed.get_mut(parent) else {
                 break;
             };
-            if let Some(computed) = maybe_computed {
+            if let Some(mut computed) = maybe_computed {
                 computed.needs_rerender = true;
                 break;
             }

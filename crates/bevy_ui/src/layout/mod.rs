@@ -22,7 +22,7 @@ use thiserror::Error;
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
-use bevy_text::CosmicBuffer;
+use bevy_text::ComputedTextBlock;
 #[cfg(feature = "bevy_text")]
 use bevy_text::CosmicFontSystem;
 
@@ -125,7 +125,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
+    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
     #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {

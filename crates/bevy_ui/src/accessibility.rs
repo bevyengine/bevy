@@ -1,5 +1,6 @@
 use crate::{
     prelude::{Button, Label},
+    widget::{TextNEW, TextSpan},
     Node, UiChildren, UiImage,
 };
 use bevy_a11y::{
@@ -15,18 +16,20 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_text::Text;
+use bevy_text::TextBlocks;
 use bevy_transform::prelude::GlobalTransform;
 
-fn calc_name(texts: &Query<&Text>, children: impl Iterator<Item = Entity>) -> Option<Box<str>> {
+fn calc_name(
+    blocks: &mut TextBlocks<TextNEW, TextSpan>,
+    children: impl Iterator<Item = Entity>,
+) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        if let Ok(text) = texts.get(child) {
-            let values = text
-                .sections
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<String>>();
+        let values = blocks
+            .iter(child)
+            .map(|(_, _, text, _)| text.into())
+            .collect::<Vec<String>>();
+        if values.len() > 0 {
             name = Some(values.join(" "));
         }
     }
@@ -60,10 +63,10 @@ fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
     ui_children: UiChildren,
-    texts: Query<&Text>,
+    mut blocks: TextBlocks<TextNEW, TextSpan>,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&texts, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut blocks, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -87,10 +90,10 @@ fn image_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
     ui_children: UiChildren,
-    texts: Query<&Text>,
+    mut blocks: TextBlocks<TextNEW, TextSpan>,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&texts, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut blocks, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {
@@ -112,13 +115,13 @@ fn image_changed(
 
 fn label_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, &Text, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut blocks: TextBlocks<TextNEW, TextSpan>,
 ) {
-    for (entity, text, accessible) in &mut query {
-        let values = text
-            .sections
-            .iter()
-            .map(|v| v.value.to_string())
+    for (entity, accessible) in &mut query {
+        let values = blocks
+            .iter(entity)
+            .map(|(_, _, text, _)| text.into())
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {

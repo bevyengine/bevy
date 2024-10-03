@@ -1,4 +1,9 @@
-/// Helper trait for using the [`TextSpans`] system param.
+use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_hierarchy::Children;
+
+use crate::TextStyle;
+
+/// Helper trait for using the [`TextBlocks`] system param.
 pub trait TextSpanReader: Component {
     /// Gets the text span's string.
     fn read_span(&self) -> &str;
@@ -9,76 +14,80 @@ pub(crate) struct TextSpansScratch {
     stack: Vec<(&'static Children, usize)>,
 }
 
+/// System parameter for iterating over text spans in a [`TextBlock`].
+///
+/// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
-pub struct TextSpans<'w, 's, T: TextSpanReader> {
+pub struct TextBlocks<'w, 's, R: TextSpanReader, S: TextSpanReader> {
     scratch: ResMut<'w, TextSpansScratch>,
+    roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
     spans: Query<
         'w,
         's,
         (
             Entity,
-            &'static T,
+            &'static S,
             &'static TextStyle,
             Option<&'static Children>,
         ),
     >,
 }
 
-impl<'w, 's, T: TextSpanReader> TextSpans<'w, 's, T> {
+impl<'w, 's, R: TextSpanReader, S: TextSpanReader> TextBlocks<'w, 's, R, S> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
-    pub fn iter_from_base(
-        &'s mut self,
-        root_entity: Entity,
-        root_text: &str,
-        root_style: &TextStyle,
-        root_children: Option<&Children>,
-    ) -> TextSpanIter<'w, 's, T> {
-        let mut stack = core::mem::take(&mut self.scratch.stack)
+    pub fn iter<'a>(&'a mut self, root_entity: Entity) -> TextSpanIter<'a, R, S> {
+        let stack = core::mem::take(&mut self.scratch.stack)
             .into_iter()
             .map(|_| -> (&Children, usize) { unreachable!() })
             .collect();
 
         TextSpanIter {
             scratch: &mut self.scratch,
-            root: Some((root_entity, root_text, root_style, root_children)),
+            root_entity: Some(root_entity),
             stack,
+            roots: &self.roots,
             spans: &self.spans,
         }
     }
 }
 
-/// Iterator returned by [`TextSpans::iter_from_base`].
+/// Iterator returned by [`TextBlocks::iter`].
 ///
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
-pub struct TextSpanIter<'w, 's, T: TextSpanReader> {
-    scratch: &'s mut TextSpansScratch,
-    root: Option<(Entity, &'s str, &'s TextStyle, Option<&'s Children>)>,
+pub struct TextSpanIter<'a, R: TextSpanReader, S: TextSpanReader> {
+    scratch: &'a mut TextSpansScratch,
+    root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
-    stack: Vec<(&'s Children, usize)>,
-    spans: &'s Query<
-        'w,
-        's,
+    stack: Vec<(&'a Children, usize)>,
+    roots: &'a Query<'a, 'a, (&'static R, &'static TextStyle, Option<&'static Children>)>,
+    spans: &'a Query<
+        'a,
+        'a,
         (
             Entity,
-            &'static T,
+            &'static S,
             &'static TextStyle,
             Option<&'static Children>,
         ),
     >,
 }
 
-impl<'w, 's, T: TextSpanReader> Iterator for TextSpanIter<'w, 's, T> {
+impl<'a, R: TextSpanReader, S: TextSpanReader> Iterator for TextSpanIter<'a, R, S> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
-    type Item = (Entity, usize, &str, &TextStyle);
+    type Item = (Entity, usize, &'a str, &'a TextStyle);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
-        if let Some((entity, text, style, maybe_children)) = self.root.take() {
-            if let Some(children) = maybe_children {
-                self.stack.push((children, 0));
+        if let Some(root_entity) = self.root_entity.take() {
+            if let Ok((text, style, maybe_children)) = self.roots.get(root_entity) {
+                if let Some(children) = maybe_children {
+                    self.stack.push((children, 0));
+                }
+                return Some((root_entity, 0, text.read_span(), style));
+            } else {
+                return None;
             }
-            return Some((entity, 0, text, style));
         }
 
         // Span
@@ -88,14 +97,14 @@ impl<'w, 's, T: TextSpanReader> Iterator for TextSpanIter<'w, 's, T> {
             };
 
             loop {
-                let Some(child) = children.get(idx) else {
+                let Some(child) = children.get(*idx) else {
                     break;
                 };
 
                 // Increment to prep the next entity in this stack level.
                 *idx += 1;
 
-                let Some((entity, span, style, maybe_children)) = self.spans.get(*child) else {
+                let Ok((entity, span, style, maybe_children)) = self.spans.get(*child) else {
                     continue;
                 };
 
@@ -112,7 +121,7 @@ impl<'w, 's, T: TextSpanReader> Iterator for TextSpanIter<'w, 's, T> {
     }
 }
 
-impl<'w, 's> Drop for TextSpanIter {
+impl<'a, R: TextSpanReader, S: TextSpanReader> Drop for TextSpanIter<'a, R, S> {
     fn drop(&mut self) {
         // Return the internal stack.
         let mut stack = std::mem::take(&mut self.stack);

@@ -218,17 +218,18 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
+    use widget::{TextNEW, TextSpan};
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<Text>()
+        .register_type::<TextNEW>()
         .register_type::<TextSpan>();
 
     app.add_systems(
         PostUpdate,
         (
             (
-                bevy_text::detect_text_needs_rerender::<Text, TextSpan>,
+                bevy_text::detect_text_needs_rerender::<TextNEW, TextSpan>,
                 widget::measure_text_system,
             )
                 .chain()
