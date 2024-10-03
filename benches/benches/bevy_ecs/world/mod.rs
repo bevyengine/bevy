@@ -3,6 +3,12 @@ use criterion::criterion_group;
 mod commands;
 use commands::*;
 
+mod despawn;
+use despawn::*;
+
+mod despawn_recursive;
+use despawn_recursive::*;
+
 mod spawn;
 use spawn::*;
 
@@ -28,6 +34,8 @@ criterion_group!(
     world_query_iter,
     world_query_for_each,
     world_spawn,
+    world_despawn,
+    world_despawn_recursive,
     query_get,
     query_get_many::<2>,
     query_get_many::<5>,

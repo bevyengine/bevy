@@ -399,6 +399,11 @@ impl RemoteMethods {
     ) -> Option<RemoteMethod> {
         self.0.insert(method_name.into(), handler)
     }
+
+    /// Retrieves a handler by method name.
+    pub fn get(&self, method_name: &str) -> Option<&RemoteMethod> {
+        self.0.get(method_name)
+    }
 }
 
 /// A single request from a Bevy Remote Protocol client to the server,
