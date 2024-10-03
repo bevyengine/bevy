@@ -5,6 +5,7 @@ mod component_constants;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
+mod filtered_resource;
 mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
@@ -22,6 +23,7 @@ pub use entity_ref::{
     EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, EntityWorldMut, Entry,
     FilteredEntityMut, FilteredEntityRef, OccupiedEntry, VacantEntry,
 };
+pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
 
