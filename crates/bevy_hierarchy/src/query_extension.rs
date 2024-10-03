@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use alloc::collections::VecDeque;
 
@@ -32,7 +32,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
 
-    /// Returns an [`Iterator`] of [`Entity`]s over the leaves of the hierarchy that are underneath this `entity``.
+    /// Returns an [`Iterator`] of [`Entity`]s over the leaves of the hierarchy that are underneath this `entity`.
     ///
     /// Only entities which have no children are considered leaves.
     /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
