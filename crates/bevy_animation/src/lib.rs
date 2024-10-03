@@ -1506,8 +1506,10 @@ mod tests {
             repeat: RepeatAnimation::Forever,
             ..Default::default()
         };
-        let mut clip = AnimationClip::default();
-        clip.duration = 1.0;
+        let mut clip = AnimationClip {
+            duration: 1.0,
+            ..Default::default()
+        };
         clip.add_event(0.5, A);
         clip.add_event(0.5, A);
         clip.add_event(0.5, A);
