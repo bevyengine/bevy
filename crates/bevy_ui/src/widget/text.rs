@@ -19,8 +19,8 @@ use bevy_render::{camera::Camera, texture::Image, view::Visibility};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBlock, TextBlocks, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextSpanAccess, TextStyle, YAxisOrientation,
+    TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
+    TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -192,6 +192,12 @@ fn hidden_visibility() -> Visibility {
     Visibility::Hidden
 }
 
+/// UI alias for [`TextReader`].
+pub type UiTextReader<'w, 's> = TextReader<'w, 's, TextNEW, TextSpan>;
+
+/// UI alias for [`TextWriter`].
+pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, TextNEW, TextSpan>;
+
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
@@ -323,7 +329,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    mut blocks: TextBlocks<TextNEW, TextSpan>,
+    mut text_reader: TextReader<TextNEW, TextSpan>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -357,7 +363,7 @@ pub fn measure_text_system(
                 entity,
                 &fonts,
                 scale_factor.into(),
-                blocks.iter(entity),
+                text_reader.iter(entity),
                 block,
                 &mut text_pipeline,
                 content_size,
@@ -386,7 +392,7 @@ fn queue_text(
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    blocks: &mut TextBlocks<TextNEW, TextSpan>,
+    text_reader: &mut TextReader<TextNEW, TextSpan>,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -410,7 +416,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
-        blocks.iter(entity),
+        text_reader.iter(entity),
         scale_factor.into(),
         block,
         physical_node_size,
@@ -466,7 +472,7 @@ pub fn text_system(
         &mut ComputedTextBlock,
         Option<&TargetCamera>,
     )>,
-    mut blocks: TextBlocks<TextNEW, TextSpan>,
+    mut text_reader: TextReader<TextNEW, TextSpan>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -512,7 +518,7 @@ pub fn text_system(
                 text_flags,
                 text_layout_info,
                 computed.as_mut(),
-                &mut blocks,
+                &mut text_reader,
                 &mut font_system,
                 &mut swash_cache,
             );

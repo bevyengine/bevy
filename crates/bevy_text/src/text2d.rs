@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBlocks, TextBounds, TextError, TextLayoutInfo, TextPipeline, TextSpanAccess, TextStyle,
-    YAxisOrientation,
+    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextSpanAccess, TextStyle,
+    TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -167,6 +167,12 @@ fn visibility_hidden() -> Visibility {
     Visibility::Hidden
 }
 
+/// 2d alias for [`TextReader`].
+pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d, TextSpan2d>;
+
+/// 2d alias for [`TextWriter`].
+pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d, TextSpan2d>;
+
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
 pub fn extract_text2d_sprite(
@@ -278,7 +284,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut blocks: TextBlocks<Text2d, TextSpan2d>,
+    mut text_reader: TextReader<Text2d, TextSpan2d>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -314,7 +320,7 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                blocks.iter(entity),
+                text_reader.iter(entity),
                 scale_factor.into(),
                 &block,
                 text_bounds,
