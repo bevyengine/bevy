@@ -180,7 +180,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     color: RED.into(),
                 },
             ))
-            .with_child((TextSpan::default(), 
+            .with_child((TextSpan::default(),
             TextStyle {
                 font: font.clone(),
                 font_size: 21.0,

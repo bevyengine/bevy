@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    widget::{TextNEW, TextSpan},
+    widget::UiTextReader,
     Node, UiChildren, UiImage,
 };
 use bevy_a11y::{
@@ -16,16 +16,15 @@ use bevy_ecs::{
     world::Ref,
 };
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_text::TextBlocks;
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(
-    blocks: &mut TextBlocks<TextNEW, TextSpan>,
+    text_reader: &mut UiTextReader,
     children: impl Iterator<Item = Entity>,
 ) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        let values = blocks
+        let values = text_reader
             .iter(child)
             .map(|(_, _, text, _)| text.into())
             .collect::<Vec<String>>();
@@ -63,10 +62,10 @@ fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
     ui_children: UiChildren,
-    mut blocks: TextBlocks<TextNEW, TextSpan>,
+    mut text_reader: UiTextReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut blocks, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -90,10 +89,10 @@ fn image_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
     ui_children: UiChildren,
-    mut blocks: TextBlocks<TextNEW, TextSpan>,
+    mut text_reader: UiTextReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut blocks, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {
@@ -116,10 +115,10 @@ fn image_changed(
 fn label_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
-    mut blocks: TextBlocks<TextNEW, TextSpan>,
+    mut text_reader: UiTextReader,
 ) {
     for (entity, accessible) in &mut query {
-        let values = blocks
+        let values = text_reader
             .iter(entity)
             .map(|(_, _, text, _)| text.into())
             .collect::<Vec<String>>();
