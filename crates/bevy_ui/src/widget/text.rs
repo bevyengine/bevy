@@ -110,6 +110,11 @@ impl TextNEW {
     pub fn new(text: impl Into<String>) -> Self {
         Self(text.into())
     }
+
+    /// Makes an empty 2d text component.
+    pub fn empty() -> Self {
+        Self::new("")
+    }
 }
 
 impl TextSpanAccess for TextNEW {

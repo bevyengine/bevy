@@ -176,6 +176,7 @@ fn setup(
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,
                         color: Color::Srgba(Srgba::RED),
+                        ..default()
                     },
                     TextBlock::new_with_justify(JustifyText::Center),
                 ))

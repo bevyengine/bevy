@@ -77,6 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 33.0,
                     color: GOLD.into(),
+                    ..default()
                 }
             },
             FpsText,

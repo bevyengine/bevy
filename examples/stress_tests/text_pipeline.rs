@@ -71,6 +71,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,
                     color: YELLOW.into(),
+                    ..default()
                 },
             ),
         ]

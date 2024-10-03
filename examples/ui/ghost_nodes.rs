@@ -94,6 +94,7 @@ fn create_label(text: &str, font: Handle<Font>) -> (TextNEW, TextStyle) {
             font,
             font_size: 33.0,
             color: Color::srgb(0.9, 0.9, 0.9),
+            ..default()
         },
     )
 }

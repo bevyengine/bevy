@@ -75,6 +75,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font: font.clone(),
                 font_size: 25.0,
                 color: YELLOW.into(),
+                ..default()
             },
             TextBlock::new_with_justify(JustifyText::Right),
             Style {
@@ -117,6 +118,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font: font.clone(),
                 font_size: 33.0,
                 color: Color::srgb(0.8, 0.2, 0.7),
+                ..default()
             },
             TextBlock::new_with_justify(JustifyText::Center),
             Style {
@@ -132,6 +134,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font: font.clone(),
                 font_size: 29.0,
                 color: YELLOW.into(),
+                ..default()
             },
             TextBlock::new_with_justify(JustifyText::Left),
             Style {
@@ -148,6 +151,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font: font.clone(),
                 font_size: 29.0,
                 color: GREEN_YELLOW.into(),
+                ..default()
             },
             TextBlock::new_with_justify(JustifyText::Justified),
             Style {
@@ -159,7 +163,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
 
         builder.spawn((
-            TextNEW::new(""),
+            TextNEW::empty(),
             TextStyle {
                 font: font.clone(),
                 font_size: 21.0,
@@ -182,6 +186,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 0.0,
                     color: BLUE.into(),
+                    ..default()
                 },
             ))
             .with_child((
@@ -190,6 +195,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 21.0,
                     color: RED.into(),
+                    ..default()
                 },
             ))
             .with_child((
@@ -198,6 +204,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 21.0,
                     color: ORANGE_RED.into(),
+                    ..default()
                 }
             ))
             .with_child((
@@ -206,6 +213,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 10.0,
                     color: YELLOW.into(),
+                    ..default()
                 },
             ))
             .with_child((
@@ -214,6 +222,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 21.0,
                     color: LIME.into(),
+                    ..default()
                 }
             ))
             .with_child((
@@ -222,6 +231,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 42.0,
                     color: BLUE.into(),
+                    ..default()
                 },
             ))
             .with_child((
@@ -230,6 +240,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: -42.0,
                     color: BLUE.into(),
+                    ..default()
                 },
             ));
     })

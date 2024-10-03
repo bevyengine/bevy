@@ -48,6 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 33.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            ..default()
                         },
                     ));
                 });
@@ -74,6 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 33.0,
                             // Alpha channel of the color controls transparency.
                             color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            ..default()
                         },
                     ));
                 });

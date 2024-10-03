@@ -102,6 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                     font: font_handle,
                     font_size: 50.0,
                     color: YELLOW.into(),
+                    ..default()
                 },
             ));
         });

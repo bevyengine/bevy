@@ -272,7 +272,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        TextNEW::new(""),
+        TextNEW::empty(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),

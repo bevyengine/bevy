@@ -82,8 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
                 slightly_smaller_text_style.clone(),
-                TextBlock::new_with_justify(JustifyText::Left)
-                    .with_linebreak(LineBreak::WordBoundary),
+                TextBlock::new(JustifyText::Left, LineBreak::WordBoundary),
                 // Wrap text in the rectangle
                 TextBounds::from(box_size),
                 // ensure the text is drawn on top of the box
@@ -102,8 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
                 slightly_smaller_text_style.clone(),
-                TextBlock::new_with_justify(JustifyText::Left)
-                    .with_linebreak(LineBreak::AnyCharacter),
+                TextBlock::new(JustifyText::Left, LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
                 TextBounds::from(other_box_size),
                 // ensure the text is drawn on top of the box
@@ -114,8 +112,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate font smoothing off
     commands.spawn((
         Text2d::new("FontSmoothing::None"),
-        slightly_smaller_text_style.clone(),
-        TextBlock::new_with_font_smoothing(FontSmoothing::None),
+        slightly_smaller_text_style
+            .clone()
+            .with_font_smoothing(FontSmoothing::None),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 

@@ -71,8 +71,8 @@ pub struct TextPipeline {
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextStyle, FontFaceInfo)>,
-    /// Buffered vec for collecting font ids for glyph assembly.
-    font_ids: Vec<AssetId<Font>>,
+    /// Buffered vec for collecting info for glyph assembly.
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing)>,
 }
 
 impl TextPipeline {
@@ -220,10 +220,10 @@ impl TextPipeline {
         computed.needs_rerender = false;
 
         // Extract font ids from the iterator while traversing it.
-        let mut font_ids = std::mem::take(&mut self.font_ids);
-        font_ids.clear();
+        let mut glyph_info = std::mem::take(&mut self.glyph_info);
+        glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, style)| {
-            font_ids.push(style.font.id());
+            glyph_info.push((style.font.id(), style.font_smoothing));
         });
 
         let update_result = self.update_buffer(
@@ -237,7 +237,7 @@ impl TextPipeline {
             font_system,
         );
         if let Err(err) = update_result {
-            self.font_ids = font_ids;
+            self.glyph_info = glyph_info;
             return Err(err);
         }
 
@@ -253,8 +253,11 @@ impl TextPipeline {
             })
             .try_for_each(|(layout_glyph, line_y)| {
                 let mut temp_glyph;
+                let span_index = layout_glyph.metadata;
+                let font_id = glyph_info[span_index].0;
+                let font_smoothing = glyph_info[span_index].1;
 
-                let layout_glyph = if block.font_smoothing == FontSmoothing::None {
+                let layout_glyph = if font_smoothing == FontSmoothing::None {
                     // If font smoothing is disabled, round the glyph positions and sizes,
                     // effectively discarding all subpixel layout.
                     temp_glyph = layout_glyph.clone();
@@ -270,17 +273,12 @@ impl TextPipeline {
                     layout_glyph
                 };
 
-                let span_index = layout_glyph.metadata;
-
-                let font_atlas_set = font_atlas_sets
-                    .sets
-                    .entry(font_ids[span_index])
-                    .or_default();
+                let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
 
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                 let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(physical_glyph.cache_key, block.font_smoothing)
+                    .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
@@ -289,7 +287,7 @@ impl TextPipeline {
                             &mut font_system.0,
                             &mut swash_cache.0,
                             layout_glyph,
-                            block.font_smoothing,
+                            font_smoothing,
                         )
                     })?;
 
@@ -319,7 +317,7 @@ impl TextPipeline {
             });
 
         // Return the scratch vec.
-        self.font_ids = font_ids;
+        self.glyph_info = glyph_info;
 
         // Check result.
         result?;

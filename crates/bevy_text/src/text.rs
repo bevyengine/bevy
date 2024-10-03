@@ -108,22 +108,12 @@ pub struct TextBlock {
     pub justify: JustifyText,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
-    /// The antialiasing method to use when rendering text.
-    pub font_smoothing: FontSmoothing,
 }
 
 impl TextBlock {
     /// Makes a new [`TextBlock`].
-    pub const fn new(
-        justify: JustifyText,
-        linebreak: LineBreak,
-        font_smoothing: FontSmoothing,
-    ) -> Self {
-        Self {
-            justify,
-            linebreak,
-            font_smoothing,
-        }
+    pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
+        Self { justify, linebreak }
     }
 
     /// Makes a new [`TextBlock`] with the specified [`JustifyText`].
@@ -134,11 +124,6 @@ impl TextBlock {
     /// Makes a new [`TextBlock`] with the specified [`LineBreak`].
     pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
-    }
-
-    /// Makes a new [`TextBlock`] with the specified [`FontSmoothing`].
-    pub fn new_with_font_smoothing(font_smoothing: FontSmoothing) -> Self {
-        Self::default().with_font_smoothing(font_smoothing)
     }
 
     /// Makes a new [`TextBlock`] with soft wrapping disabled.
@@ -156,12 +141,6 @@ impl TextBlock {
     /// Returns this [`TextBlock`] with the specified [`LineBreak`].
     pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
         self.linebreak = linebreak;
-        self
-    }
-
-    /// Returns this [`TextBlock`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.font_smoothing = font_smoothing;
         self
     }
 
@@ -232,6 +211,16 @@ pub struct TextStyle {
     pub font_size: f32,
     /// The color of the text for this section.
     pub color: Color,
+    /// The antialiasing method to use when rendering text.
+    pub font_smoothing: FontSmoothing,
+}
+
+impl TextStyle {
+    /// Returns this [`TextBlock`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.font_smoothing = font_smoothing;
+        self
+    }
 }
 
 impl Default for TextStyle {
@@ -240,6 +229,7 @@ impl Default for TextStyle {
             font: Default::default(),
             font_size: 20.0,
             color: Color::WHITE,
+            font_smoothing: Default::default(),
         }
     }
 }

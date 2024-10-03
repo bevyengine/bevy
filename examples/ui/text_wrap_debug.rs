@@ -122,7 +122,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands.entity(column_id).with_child((
                     TextNEW(message.clone()),
                     text_style.clone(),
-                    TextBlock::new_with_justify(JustifyText::Left).with_linebreak(linebreak),
+                    TextBlock::new(JustifyText::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into()),
                 ));
             }

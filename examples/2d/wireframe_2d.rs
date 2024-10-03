@@ -89,7 +89,7 @@ fn setup(
 
     // Text used to show controls
     commands.spawn((
-        TextNEW::new(""),
+        TextNEW::empty(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
