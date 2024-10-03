@@ -1,6 +1,6 @@
 //! Text pipeline benchmark.
 //!
-//! Continuously recomputes a large `Text` component with 100 sections.
+//! Continuously recomputes a large block of text with 100 text spans.
 
 use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
