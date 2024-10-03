@@ -2,14 +2,14 @@ use core::marker::PhantomData;
 
 use bevy_ecs::{entity::Entity, event::Event};
 
-/// An [`Event`] that is fired whenever there is a change in [`OneToMany`] relationship `R`.
+/// An [`Event`] that is fired whenever there is a change in One-to-Many relationship `R`.
 ///
 /// [`Event`]: bevy_ecs::event::Event
 #[derive(Event)]
 pub enum OneToManyEvent<R> {
-    /// Fired whenever a [`OneToOne`] relationship of type `R` is added between two [entities](Entity)
+    /// Fired whenever a One-to-Many relationship of type `R` is added between two [entities](Entity)
     Added(Entity, Entity, PhantomData<fn(R)>),
-    /// Fired whenever a [`OneToOne`] relationship of type `R` is remove from two [entities](Entity)
+    /// Fired whenever a One-to-Many relationship of type `R` is remove from two [entities](Entity)
     Removed(Entity, Entity, PhantomData<fn(R)>),
 }
 

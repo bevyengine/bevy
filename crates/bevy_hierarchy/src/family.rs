@@ -15,7 +15,6 @@ pub struct Family;
 ///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
-/// [`Children`]: super::children::Children
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
 pub type Parent = OneToManyOne<Family>;
 
@@ -30,7 +29,6 @@ pub type Parent = OneToManyOne<Family>;
 ///
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
-/// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
 pub type Children = OneToManyMany<Family>;
 
