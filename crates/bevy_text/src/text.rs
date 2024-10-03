@@ -4,6 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
+use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -298,9 +299,13 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
         ),
     >,
     changed_spans: Query<
-        &Parent,
         (
-            Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>)>,
+            Entity,
+            &Parent,
+            Has<TextBlock>
+        ),
+        (
+            Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>, Added<TextBlock>)>,
             With<Span>,
             With<TextStyle>,
         ),
@@ -324,7 +329,12 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     // - Span component changed.
     // - Span TextStyle changed.
     // - Span children changed (can include additions and removals).
-    for span_parent in changed_spans.iter() {
+    for (entity, span_parent, has_text_block) in changed_spans.iter() {
+        if has_text_block {
+            warn_once!("found entity {:?} with a text span ({}) that has a TextBlock, which should only be on root \
+                nodes (that have {}); this warning only prints once",
+                entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
+        }
         let mut parent: Entity = **span_parent;
 
         // Search for the nearest ancestor with ComputedTextBlock.
