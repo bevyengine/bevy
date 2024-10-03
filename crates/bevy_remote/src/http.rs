@@ -18,6 +18,11 @@ use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::system::{Res, Resource};
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::net::{IpAddr, Ipv4Addr};
+use core::{
+    convert::Infallible,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
     body::{Body, Bytes, Frame, Incoming},
@@ -27,12 +32,7 @@ use hyper::{
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::{convert::Infallible, net::TcpStream};
-use std::{
-    net::TcpListener,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::net::{TcpListener, TcpStream};
 
 /// The default port that Bevy will listen on.
 ///
@@ -197,7 +197,7 @@ async fn process_request_batch(
                                 message: "Streaming can not be used in batch requests".to_string(),
                                 data: None,
                             }),
-                        ))
+                        ));
                     }
                 }
             }
@@ -321,7 +321,8 @@ impl Body for BrpStream {
                 Some(result) => {
                     let response = BrpResponse::new(self.id.clone(), result);
                     let serialized = serde_json::to_string(&response).unwrap();
-                    let bytes = Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
+                    let bytes =
+                        Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
                     let frame = Frame::data(bytes);
                     Poll::Ready(Some(Ok(frame)))
                 }
