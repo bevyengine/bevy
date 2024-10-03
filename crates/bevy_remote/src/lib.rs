@@ -506,7 +506,7 @@ impl RemoteMethods {
         self.0.insert(method_name.into(), handler)
     }
 
-    /// Get a [`RemoteMethod`] with its method name.
+    /// Get a [`RemoteMethodSystemId`] with its method name.
     pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
         self.0.get(method)
     }
