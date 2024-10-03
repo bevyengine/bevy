@@ -1,5 +1,5 @@
 use crate::{
-    BackgroundColor, ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure,
+    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure,
     MeasureArgs, Node, NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
 };
 use bevy_asset::Assets;
@@ -99,7 +99,6 @@ world.spawn((
     ContentSize, // TODO: Remove when Node uses required components.
     FocusPolicy, // TODO: Remove when Node uses required components.
     ZIndex, // TODO: Remove when Node uses required components.
-    BackgroundColor, // TODO: Remove when Node uses required components.
     Visibility, // TODO: Remove when Node uses required components.
     Transform // TODO: Remove when Node uses required components.
 )]

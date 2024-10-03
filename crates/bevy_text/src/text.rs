@@ -99,7 +99,7 @@ impl Default for ComputedTextBlock {
 /// to [`TextLayoutInfo`] for rendering.
 ///
 /// See [`Text2d`] for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextBlock {
