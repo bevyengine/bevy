@@ -1,4 +1,4 @@
-use crate::components::{Children, Parent};
+use crate::Children;
 use bevy_ecs::{
     entity::Entity,
     system::EntityCommands,
@@ -22,21 +22,16 @@ pub struct DespawnChildrenRecursive {
 
 /// Function for despawning an entity and all its children
 pub fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
-    // first, make the entity's own parent forget about it
-    if let Some(parent) = world.get::<Parent>(entity).map(|parent| parent.0) {
-        if let Some(mut children) = world.get_mut::<Children>(parent) {
-            children.0.retain(|c| *c != entity);
-        }
-    }
-
-    // then despawn the entity and all of its children
     despawn_with_children_recursive_inner(world, entity);
+
+    world.flush();
 }
 
 // Should only be called by `despawn_with_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
-    if let Some(mut children) = world.get_mut::<Children>(entity) {
-        for e in core::mem::take(&mut children.0) {
+    if let Some(children) = world.get::<Children>(entity) {
+        let children = children.iter().copied().collect::<Vec<_>>();
+        for e in children {
             despawn_with_children_recursive_inner(world, e);
         }
     }
@@ -48,10 +43,12 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
 
 fn despawn_children_recursive(world: &mut World, entity: Entity) {
     if let Some(children) = world.entity_mut(entity).take::<Children>() {
-        for e in children.0 {
+        for &e in children.iter().collect::<Vec<_>>() {
             despawn_with_children_recursive_inner(world, e);
         }
     }
+
+    world.flush();
 }
 
 impl Command for DespawnRecursive {
@@ -148,7 +145,7 @@ mod tests {
     use super::DespawnRecursiveExt;
     use crate::{
         child_builder::{BuildChildren, ChildBuild},
-        components::Children,
+        Children,
     };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
@@ -214,9 +211,9 @@ mod tests {
         results.sort_unstable_by_key(|(_, index)| *index);
 
         {
-            let children = world.get::<Children>(grandparent_entity).unwrap();
+            let children = world.get::<Children>(grandparent_entity);
             assert!(
-                !children.iter().any(|&i| i == parent_entity),
+                children.is_none(),
                 "grandparent should no longer know about its child which has been removed"
             );
         }
