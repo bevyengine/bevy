@@ -26,7 +26,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
+/// The bundle of components needed to draw text in a 2D scene via a `Camera2d`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
