@@ -6,6 +6,7 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    ui::widget::UiTextWriter,
     window::PresentMode,
 };
 
@@ -133,13 +134,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
         );
 
-        builder.spawn((TextNEW::new(
-                "This text is fully justified and is positioned in the same way."),
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 29.0,
-                    color: GREEN_YELLOW.into(),
-                },
+        builder.spawn((
+            TextNEW::new("This text is fully justified and is positioned in the same way."),
+            TextStyle {
+                font: font.clone(),
+                font_size: 29.0,
+                color: GREEN_YELLOW.into(),
+            },
             TextBlock::new_with_justify(JustifyText::Justified),
             Style {
                 max_width: Val::Px(300.),
@@ -156,60 +157,64 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextChanges
         ))
-            .with_child((TextSpan::new(
-                "\nThis text changes in the bottom right"),
+            .with_child((
+                TextSpan::new("\nThis text changes in the bottom right"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     ..default()
                 },
             ))
-            .with_child((TextSpan::new(
-                " this text has zero fontsize"),
+            .with_child((
+                TextSpan::new(" this text has zero fontsize"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 0.0,
                     color: BLUE.into(),
                 },
             ))
-            .with_child((TextSpan::new(
-                "\nThis text changes in the bottom right - "),
+            .with_child((
+                TextSpan::new("\nThis text changes in the bottom right - "),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: RED.into(),
                 },
             ))
-            .with_child((TextSpan::default(),
-            TextStyle {
-                font: font.clone(),
-                font_size: 21.0,
-                color: ORANGE_RED.into(),
-            }))
-            .with_child((TextSpan::new(
-                " fps, "),
+            .with_child((
+                TextSpan::default(),
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    color: ORANGE_RED.into(),
+                }
+            ))
+            .with_child((
+                TextSpan::new(" fps, "),
                 TextStyle {
                     font: font.clone(),
                     font_size: 10.0,
                     color: YELLOW.into(),
                 },
             ))
-            .with_child((TextSpan::default(),
-            TextStyle {
-                font: font.clone(),
-                font_size: 21.0,
-                color: LIME.into(),
-            }))
-            .with_child((TextSpan::new(
-                " ms/frame"),
+            .with_child((
+                TextSpan::default(),
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    color: LIME.into(),
+                }
+            ))
+            .with_child((
+                TextSpan::new(" ms/frame"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 42.0,
                     color: BLUE.into(),
                 },
             ))
-            .with_child((TextSpan::new(
-                " this text has negative fontsize"),
+            .with_child((
+                TextSpan::new(" this text has negative fontsize"),
                 TextStyle {
                     font: font.clone(),
                     font_size: -42.0,
@@ -229,7 +234,8 @@ fn change_text_system(
     mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut Text, With<TextChanges>>,
+    query: Query<Entity, With<TextChanges>>,
+    mut writer: UiTextWriter,
 ) {
     time_history.push_front(time.elapsed());
     time_history.truncate(120);
@@ -242,7 +248,7 @@ fn change_text_system(
     fps_history.truncate(120);
     let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
 
-    for mut text in &mut query {
+    for entity in &query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
@@ -259,16 +265,16 @@ fn change_text_system(
             }
         }
 
-        text.sections[0].value =
+        *writer.text(entity, 0) =
             format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
 
-        text.sections[1].value = format!(
+        *writer.text(entity, 1) = format!(
             "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[4].value = format!("{fps:.1}");
+        *writer.text(entity, 4) = format!("{fps:.1}");
 
-        text.sections[6].value = format!("{frame_time:.3}");
+        *writer.text(entity, 6) = format!("{frame_time:.3}");
     }
 }
 
