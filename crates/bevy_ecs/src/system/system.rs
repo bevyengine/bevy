@@ -94,6 +94,13 @@ pub trait System: Send + Sync + 'static {
         result
     }
 
+    /// Checks if all parameters can be acquired.
+    ///
+    /// # Safety
+    ///
+    /// - Same as [`System::run_unsafe`]
+    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool;
+
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
     ///
     /// This is where [`Commands`](crate::system::Commands) get applied.

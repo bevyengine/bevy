@@ -163,6 +163,12 @@ where
     }
 
     #[inline]
+    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.system.try_acquire_params(world)
+    }
+
+    #[inline]
     fn run(
         &mut self,
         input: SystemIn<'_, Self>,

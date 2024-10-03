@@ -639,6 +639,26 @@ where
     }
 
     #[inline]
+    unsafe fn try_acquire_params(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        let change_tick = world.change_tick();
+        // SAFETY:
+        // - The caller has invoked `update_archetype_component_access`, which will panic
+        //   if the world does not match.
+        // - All world accesses used by `F::Param` have been registered, so the caller
+        //   will ensure that there are no data access conflicts.
+        F::Param::get_param(
+            self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
+            &self.system_meta,
+            world,
+            change_tick,
+        )
+        .is_some()
+    }
+
+    #[inline]
     fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::apply(param_state, &self.system_meta, world);

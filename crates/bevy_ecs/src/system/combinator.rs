@@ -186,6 +186,12 @@ where
         )
     }
 
+    #[inline]
+    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.a.try_acquire_params(world) && self.b.try_acquire_params(world)
+    }
+
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
         let world = world.as_unsafe_world_cell();
         Func::combine(
@@ -408,6 +414,12 @@ where
     ) -> Option<Self::Out> {
         let value = self.a.run_unsafe(input, world)?;
         self.b.run_unsafe(value, world)
+    }
+
+    #[inline]
+    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.a.try_acquire_params(world) && self.b.try_acquire_params(world)
     }
 
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {

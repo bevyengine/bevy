@@ -117,6 +117,11 @@ where
         panic!("Cannot run exclusive systems with a shared World reference");
     }
 
+    #[inline]
+    unsafe fn try_acquire_params(&mut self, _world: UnsafeWorldCell) -> bool {
+        true
+    }
+
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
         world.last_change_tick_scope(self.system_meta.last_run, |world| {
             #[cfg(feature = "trace")]
