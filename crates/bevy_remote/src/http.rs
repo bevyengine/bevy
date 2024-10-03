@@ -12,12 +12,11 @@ use crate::{
     error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
 };
 use anyhow::Result as AnyhowResult;
-use async_channel::{Receiver, Sender, TryRecvError};
+use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::system::{Res, Resource};
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
-use bevy_utils::{Duration, Instant};
 use core::net::{IpAddr, Ipv4Addr};
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
@@ -287,15 +286,14 @@ async fn process_single_request(
             method: request.method,
             params: request.params,
             sender: result_sender,
-            stream: false,
+            stream,
         })
         .await;
 
     if stream {
         Ok(BrpHttpResponse::Stream(BrpStream {
             id: request.id,
-            rx: Box::new(result_receiver),
-            last_msg: Instant::now(),
+            rx: Box::pin(result_receiver),
         }))
     } else {
         let result = result_receiver.recv().await?;
@@ -307,8 +305,7 @@ async fn process_single_request(
 
 struct BrpStream {
     id: Option<Value>,
-    rx: Box<Receiver<BrpResult>>,
-    last_msg: Instant,
+    rx: Pin<Box<Receiver<BrpResult>>>,
 }
 
 impl Body for BrpStream {
@@ -316,37 +313,28 @@ impl Body for BrpStream {
     type Error = Infallible;
 
     fn poll_frame(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        if self.last_msg.elapsed() > Duration::from_secs(15) {
-            self.get_mut().last_msg = Instant::now();
-            return Poll::Ready(Some(Ok(Frame::data(Bytes::from(":keepalive\n")))));
-        }
-        let result = match self.rx.try_recv() {
-            Ok(result) => {
-                let response = BrpResponse::new(self.id.clone(), result);
-                let serialized = serde_json::to_string(&response).unwrap();
-                let bytes = Bytes::from(format!("data: {serialized}\n").as_bytes().to_owned());
-                let frame = Frame::data(bytes);
-                self.get_mut().last_msg = Instant::now();
-                Poll::Ready(Some(Ok(frame)))
-            }
-            Err(error) => match error {
-                TryRecvError::Closed => todo!("Close connection"),
-                TryRecvError::Empty => Poll::Pending,
+        match self.as_mut().rx.poll_next(cx) {
+            Poll::Ready(result) => match result {
+                Some(result) => {
+                    let response = BrpResponse::new(self.id.clone(), result);
+                    let serialized = serde_json::to_string(&response).unwrap();
+                    let bytes = Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
+                    let frame = Frame::data(bytes);
+                    Poll::Ready(Some(Ok(frame)))
+                }
+                None => Poll::Ready(None),
             },
-        };
-        println!("Result: {result:?}");
-        result
+            Poll::Pending => Poll::Pending,
+        }
     }
 
     fn is_end_stream(&self) -> bool {
         dbg!(self.rx.is_closed())
     }
 }
-
-//impl Stream for BrpStream {}
 
 enum BrpHttpResponse<C, S> {
     Complete(C),
