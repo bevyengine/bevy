@@ -932,14 +932,14 @@ mod tests {
         let parent = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent")
+                res.observed("parent");
             })
             .id();
 
         let child = world
             .spawn(Parent(parent))
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("child")
+                res.observed("child");
             })
             .id();
 
@@ -959,14 +959,14 @@ mod tests {
         let parent = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent")
+                res.observed("parent");
             })
             .id();
 
         let child = world
             .spawn(Parent(parent))
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("child")
+                res.observed("child");
             })
             .id();
 
@@ -989,14 +989,14 @@ mod tests {
         let parent = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent")
+                res.observed("parent");
             })
             .id();
 
         let child = world
             .spawn(Parent(parent))
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("child")
+                res.observed("child");
             })
             .id();
 
@@ -1019,7 +1019,7 @@ mod tests {
         let parent = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent")
+                res.observed("parent");
             })
             .id();
 
@@ -1049,7 +1049,7 @@ mod tests {
         let parent = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("parent")
+                res.observed("parent");
             })
             .id();
 
@@ -1086,7 +1086,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("event")
+                res.observed("event");
             })
             .id();
 
@@ -1130,7 +1130,7 @@ mod tests {
         let child_b = world
             .spawn(Parent(parent_b))
             .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-                res.observed("child_b")
+                res.observed("child_b");
             })
             .id();
 
