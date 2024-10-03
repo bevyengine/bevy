@@ -31,6 +31,7 @@ use core::{
     panic::AssertUnwindSafe,
 };
 use crossbeam_channel::{Receiver, Sender};
+use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
@@ -382,23 +383,60 @@ impl AssetServer {
         );
 
         if should_load {
-            let owned_handle = Some(handle.clone().untyped());
-            let server = self.clone();
-            let task = IoTaskPool::get().spawn(async move {
-                if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
-                    error!("{}", err);
-                }
-                drop(guard);
-            });
-
-            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-            infos.pending_tasks.insert(handle.id().untyped(), task);
-
-            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-            task.detach();
+            self.spawn_load_task(handle.clone().untyped(), path, &mut infos, guard);
         }
 
         handle
+    }
+
+    pub(crate) fn load_erased_with_meta_transform<'a, G: Send + Sync + 'static>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        type_id: TypeId,
+        meta_transform: Option<MetaTransform>,
+        guard: G,
+    ) -> UntypedHandle {
+        let path = path.into().into_owned();
+        let mut infos = self.data.infos.write();
+        let (handle, should_load) = infos.get_or_create_path_handle_erased(
+            path.clone(),
+            type_id,
+            None,
+            HandleLoadingMode::Request,
+            meta_transform,
+        );
+
+        if should_load {
+            self.spawn_load_task(handle.clone(), path, &mut infos, guard);
+        }
+
+        handle
+    }
+
+    pub(crate) fn spawn_load_task<G: Send + Sync + 'static>(
+        &self,
+        handle: UntypedHandle,
+        path: AssetPath<'static>,
+        infos: &mut AssetInfos,
+        guard: G,
+    ) {
+        let owned_handle = handle.clone();
+        let server = self.clone();
+        let task = IoTaskPool::get().spawn(async move {
+            if let Err(err) = server
+                .load_internal(Some(owned_handle), path, false, None)
+                .await
+            {
+                error!("{}", err);
+            }
+            drop(guard);
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(handle.id(), task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
     }
 
     /// Asynchronously load an asset that you do not know the type of statically. If you _do_ know the type of the asset,
@@ -413,7 +451,7 @@ impl AssetServer {
         self.load_internal(None, path, false, None).await
     }
 
-    pub(crate) fn load_untyped_with_meta_transform<'a>(
+    pub(crate) fn load_unknown_type_with_meta_transform<'a>(
         &self,
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
@@ -492,7 +530,7 @@ impl AssetServer {
     /// required to figure out the asset type before a handle can be created.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
     pub fn load_untyped<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedUntypedAsset> {
-        self.load_untyped_with_meta_transform(path, None)
+        self.load_unknown_type_with_meta_transform(path, None)
     }
 
     /// Performs an async asset load.
@@ -558,7 +596,7 @@ impl AssetServer {
                     HandleLoadingMode::Request,
                     meta_transform,
                 );
-                unwrap_with_context(result, loader.asset_type_name())
+                unwrap_with_context(result, Either::Left(loader.asset_type_name()))
             }
         };
 
@@ -588,10 +626,10 @@ impl AssetServer {
         let (base_handle, base_path) = if path.label().is_some() {
             let mut infos = self.data.infos.write();
             let base_path = path.without_label().into_owned();
-            let (base_handle, _) = infos.get_or_create_path_handle_untyped(
+            let (base_handle, _) = infos.get_or_create_path_handle_erased(
                 base_path.clone(),
                 loader.asset_type_id(),
-                loader.asset_type_name(),
+                Some(loader.asset_type_name()),
                 HandleLoadingMode::Force,
                 None,
             );
@@ -707,10 +745,10 @@ impl AssetServer {
     ) -> UntypedHandle {
         let loaded_asset = asset.into();
         let handle = if let Some(path) = path {
-            let (handle, _) = self.data.infos.write().get_or_create_path_handle_untyped(
+            let (handle, _) = self.data.infos.write().get_or_create_path_handle_erased(
                 path,
                 loaded_asset.asset_type_id(),
-                loaded_asset.asset_type_name(),
+                Some(loaded_asset.asset_type_name()),
                 HandleLoadingMode::NotLoading,
                 None,
             );
@@ -1125,6 +1163,28 @@ impl AssetServer {
         infos
             .get_or_create_path_handle::<A>(
                 path.into().into_owned(),
+                HandleLoadingMode::NotLoading,
+                meta_transform,
+            )
+            .0
+    }
+
+    /// Retrieve a handle for the given path, where the asset type ID and name
+    /// are not known statically.
+    ///
+    /// This will create a handle (and [`AssetInfo`]) if it does not exist.
+    pub(crate) fn get_or_create_path_handle_erased<'a>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        type_id: TypeId,
+        meta_transform: Option<MetaTransform>,
+    ) -> UntypedHandle {
+        let mut infos = self.data.infos.write();
+        infos
+            .get_or_create_path_handle_erased(
+                path.into().into_owned(),
+                type_id,
+                None,
                 HandleLoadingMode::NotLoading,
                 meta_transform,
             )

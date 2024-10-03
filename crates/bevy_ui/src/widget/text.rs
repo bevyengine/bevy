@@ -16,7 +16,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText,
+    scale_value, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText, LineBreak,
     SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
     YAxisOrientation,
 };
@@ -120,13 +120,13 @@ fn create_text_measure(
         fonts,
         &text.sections,
         scale_factor,
-        text.linebreak_behavior,
+        text.linebreak,
         buffer,
         text_alignment,
         font_system,
     ) {
         Ok(measure) => {
-            if text.linebreak_behavior == BreakLineOn::NoWrap {
+            if text.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
@@ -239,7 +239,7 @@ fn queue_text(
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
+        let physical_node_size = if text.linebreak == LineBreak::NoWrap {
             // With `NoWrap` set, no constraints are placed on the width of the text.
             TextBounds::UNBOUNDED
         } else {
@@ -257,7 +257,7 @@ fn queue_text(
             &text.sections,
             scale_factor.into(),
             text.justify,
-            text.linebreak_behavior,
+            text.linebreak,
             text.font_smoothing,
             physical_node_size,
             font_atlas_sets,

@@ -224,11 +224,8 @@ fn setup_scene(
 
     // Plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-            material: materials.add(Color::srgb(0.7, 0.2, 0.2)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.2))),
         Loading,
     ));
 }
@@ -250,12 +247,11 @@ fn wait_on_load(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Change color of plane to green
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_translation(Vec3::Z * -0.01),
-        ..default()
-    },));
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_translation(Vec3::Z * -0.01),
+    ));
 
     // Spawn our scenes.
     for i in 0..10 {
@@ -265,11 +261,7 @@ fn wait_on_load(
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
             let scene = gltf.scenes.first().unwrap().clone();
-            commands.spawn(SceneBundle {
-                scene,
-                transform: Transform::from_translation(position),
-                ..Default::default()
-            });
+            commands.spawn((SceneRoot(scene), Transform::from_translation(position)));
         }
     }
 }

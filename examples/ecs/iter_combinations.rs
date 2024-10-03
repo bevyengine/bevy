@@ -28,7 +28,8 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    pbr: PbrBundle,
+    mesh: Mesh3d,
+    material: MeshMaterial3d<StandardMaterial>,
     mass: Mass,
     last_pos: LastPos,
     acceleration: Acceleration,
@@ -61,32 +62,31 @@ fn generate_bodies(
             * ops::cbrt(rng.gen_range(0.2f32..1.0))
             * 15.;
 
-        commands.spawn(BodyBundle {
-            pbr: PbrBundle {
-                transform: Transform {
-                    translation: position,
-                    scale: Vec3::splat(radius),
-                    ..default()
-                },
-                mesh: mesh.clone(),
-                material: materials.add(Color::srgb(
+        commands.spawn((
+            BodyBundle {
+                mesh: Mesh3d(mesh.clone()),
+                material: MeshMaterial3d(materials.add(Color::srgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
-                )),
+                ))),
+                mass: Mass(mass_value),
+                acceleration: Acceleration(Vec3::ZERO),
+                last_pos: LastPos(
+                    position
+                        - Vec3::new(
+                            rng.gen_range(vel_range.clone()),
+                            rng.gen_range(vel_range.clone()),
+                            rng.gen_range(vel_range.clone()),
+                        ) * time.timestep().as_secs_f32(),
+                ),
+            },
+            Transform {
+                translation: position,
+                scale: Vec3::splat(radius),
                 ..default()
             },
-            mass: Mass(mass_value),
-            acceleration: Acceleration(Vec3::ZERO),
-            last_pos: LastPos(
-                position
-                    - Vec3::new(
-                        rng.gen_range(vel_range.clone()),
-                        rng.gen_range(vel_range.clone()),
-                        rng.gen_range(vel_range.clone()),
-                    ) * time.timestep().as_secs_f32(),
-            ),
-        });
+        ));
     }
 
     // add bigger "star" body in the center
@@ -94,19 +94,17 @@ fn generate_bodies(
     commands
         .spawn((
             BodyBundle {
-                pbr: PbrBundle {
-                    transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
-                    material: materials.add(StandardMaterial {
-                        base_color: ORANGE_RED.into(),
-                        emissive: LinearRgba::from(ORANGE_RED) * 2.,
-                        ..default()
-                    }),
+                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
+                material: MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: ORANGE_RED.into(),
+                    emissive: LinearRgba::from(ORANGE_RED) * 2.,
                     ..default()
-                },
+                })),
+
                 mass: Mass(500.0),
                 ..default()
             },
+            Transform::from_scale(Vec3::splat(star_radius)),
             Star,
         ))
         .with_child(PointLight {

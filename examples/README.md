@@ -72,7 +72,9 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -139,6 +141,7 @@ Example | Description
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
+[Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
@@ -493,6 +496,7 @@ Example | Description
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
+[Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
@@ -542,33 +546,51 @@ Example | Description
 ### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
+Alternatively, you can install Android Studio.
+
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
+
+See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+After this you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your Android project.
+
+#### About `libc++_shared.so`
+
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -588,17 +610,21 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
+[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
+
+Then build it as the [Build & Run](#build--run) section stated above.
+
+#### About `cargo-apk`
+
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
 Example | File | Description
 --- | --- | ---

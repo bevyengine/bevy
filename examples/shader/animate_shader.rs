@@ -23,12 +23,11 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {}),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {})),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

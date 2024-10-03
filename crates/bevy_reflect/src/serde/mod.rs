@@ -8,11 +8,10 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
-        self as bevy_reflect,
-        serde::{ReflectDeserializer, ReflectSerializer},
-        type_registry::TypeRegistry,
-        DynamicStruct, DynamicTupleStruct, FromReflect, PartialReflect, Reflect, Struct,
+        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
+        FromReflect, PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
@@ -182,5 +181,222 @@ mod tests {
         assert!(expected
             .reflect_partial_eq(result.as_partial_reflect())
             .unwrap());
+    }
+
+    mod type_data {
+        use super::*;
+        use crate::from_reflect::FromReflect;
+        use crate::serde::{DeserializeWithRegistry, ReflectDeserializeWithRegistry};
+        use crate::serde::{ReflectSerializeWithRegistry, SerializeWithRegistry};
+        use crate::{ReflectFromReflect, TypePath};
+        use alloc::sync::Arc;
+        use bevy_reflect_derive::reflect_trait;
+        use core::fmt::{Debug, Formatter};
+        use serde::de::{SeqAccess, Visitor};
+        use serde::ser::SerializeSeq;
+        use serde::{Deserializer, Serializer};
+
+        #[reflect_trait]
+        trait Enemy: Reflect + Debug {
+            #[allow(dead_code, reason = "this method is purely for testing purposes")]
+            fn hp(&self) -> u8;
+        }
+
+        // This is needed to support Arc<dyn Enemy>
+        impl TypePath for dyn Enemy {
+            fn type_path() -> &'static str {
+                "dyn bevy_reflect::serde::tests::type_data::Enemy"
+            }
+
+            fn short_type_path() -> &'static str {
+                "dyn Enemy"
+            }
+        }
+
+        #[derive(Reflect, Debug)]
+        #[reflect(Enemy)]
+        struct Skeleton(u8);
+
+        impl Enemy for Skeleton {
+            fn hp(&self) -> u8 {
+                self.0
+            }
+        }
+
+        #[derive(Reflect, Debug)]
+        #[reflect(Enemy)]
+        struct Zombie {
+            health: u8,
+            walk_speed: f32,
+        }
+
+        impl Enemy for Zombie {
+            fn hp(&self) -> u8 {
+                self.health
+            }
+        }
+
+        #[derive(Reflect, Debug)]
+        struct Level {
+            name: String,
+            enemies: EnemyList,
+        }
+
+        #[derive(Reflect, Debug)]
+        #[reflect(SerializeWithRegistry, DeserializeWithRegistry)]
+        // Note that we have to use `Arc` instead of `Box` here due to the
+        // former being the only one between the two to implement `Reflect`.
+        struct EnemyList(Vec<Arc<dyn Enemy>>);
+
+        impl SerializeWithRegistry for EnemyList {
+            fn serialize<S>(
+                &self,
+                serializer: S,
+                registry: &TypeRegistry,
+            ) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                let mut state = serializer.serialize_seq(Some(self.0.len()))?;
+                for enemy in &self.0 {
+                    state.serialize_element(&ReflectSerializer::new(
+                        (**enemy).as_partial_reflect(),
+                        registry,
+                    ))?;
+                }
+                state.end()
+            }
+        }
+
+        impl<'de> DeserializeWithRegistry<'de> for EnemyList {
+            fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct EnemyListVisitor<'a> {
+                    registry: &'a TypeRegistry,
+                }
+
+                impl<'a, 'de> Visitor<'de> for EnemyListVisitor<'a> {
+                    type Value = Vec<Arc<dyn Enemy>>;
+
+                    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+                        write!(formatter, "a list of enemies")
+                    }
+
+                    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                    where
+                        A: SeqAccess<'de>,
+                    {
+                        let mut enemies = Vec::new();
+                        while let Some(enemy) =
+                            seq.next_element_seed(ReflectDeserializer::new(self.registry))?
+                        {
+                            let registration = self
+                                .registry
+                                .get_with_type_path(
+                                    enemy.get_represented_type_info().unwrap().type_path(),
+                                )
+                                .unwrap();
+
+                            // 1. Convert any possible dynamic values to concrete ones
+                            let enemy = registration
+                                .data::<ReflectFromReflect>()
+                                .unwrap()
+                                .from_reflect(&*enemy)
+                                .unwrap();
+
+                            // 2. Convert the concrete value to a boxed trait object
+                            let enemy = registration
+                                .data::<ReflectEnemy>()
+                                .unwrap()
+                                .get_boxed(enemy)
+                                .unwrap();
+
+                            enemies.push(enemy.into());
+                        }
+
+                        Ok(enemies)
+                    }
+                }
+
+                deserializer
+                    .deserialize_seq(EnemyListVisitor { registry })
+                    .map(EnemyList)
+            }
+        }
+
+        fn create_registry() -> TypeRegistry {
+            let mut registry = TypeRegistry::default();
+            registry.register::<Level>();
+            registry.register::<EnemyList>();
+            registry.register::<Skeleton>();
+            registry.register::<Zombie>();
+            registry
+        }
+
+        #[test]
+        fn should_serialize_with_serialize_with_registry() {
+            let registry = create_registry();
+
+            let level = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(10)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 0.5,
+                    }),
+                ]),
+            };
+
+            let serializer = ReflectSerializer::new(&level, &registry);
+            let serialized = ron::ser::to_string(&serializer).unwrap();
+
+            let expected = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(health:20,walk_speed:0.5)}])}"#;
+
+            assert_eq!(expected, serialized);
+        }
+
+        #[test]
+        fn should_deserialize_with_deserialize_with_registry() {
+            let registry = create_registry();
+
+            let input = r#"{"bevy_reflect::serde::tests::type_data::Level":(name:"Level 1",enemies:[{"bevy_reflect::serde::tests::type_data::Skeleton":(10)},{"bevy_reflect::serde::tests::type_data::Zombie":(health:20,walk_speed:0.5)}])}"#;
+
+            let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+
+            let output = Level::from_reflect(&*value).unwrap();
+
+            let expected = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(10)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 0.5,
+                    }),
+                ]),
+            };
+
+            // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
+            assert_eq!(format!("{:?}", expected), format!("{:?}", output));
+
+            let unexpected = Level {
+                name: String::from("Level 1"),
+                enemies: EnemyList(vec![
+                    Arc::new(Skeleton(20)),
+                    Arc::new(Zombie {
+                        health: 20,
+                        walk_speed: 5.0,
+                    }),
+                ]),
+            };
+
+            // Poor man's comparison since we can't derive PartialEq for Arc<dyn Enemy>
+            assert_ne!(format!("{:?}", unexpected), format!("{:?}", output));
+        }
     }
 }

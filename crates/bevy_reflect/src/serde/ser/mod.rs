@@ -1,12 +1,15 @@
 pub use serializable::*;
+pub use serialize_with_registry::*;
 pub use serializer::*;
 
 mod arrays;
+mod custom_serialization;
 mod enums;
 mod error_utils;
 mod lists;
 mod maps;
 mod serializable;
+mod serialize_with_registry;
 mod serializer;
 mod sets;
 mod structs;
@@ -459,7 +462,7 @@ mod tests {
         assert_eq!(
             error,
             ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
             )
         );
         #[cfg(not(feature = "debug_stack"))]

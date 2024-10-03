@@ -59,12 +59,11 @@ fn setup(
     });
 
     // A plane that we can sit on top of
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0., -2., 0.),
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     // A light source
     commands.spawn((
@@ -82,11 +81,10 @@ fn setup(
 
     // Finally, our ship that is going to rotate
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
-            ..default()
-        },
+        ),
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()

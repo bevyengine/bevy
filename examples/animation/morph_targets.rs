@@ -46,11 +46,9 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
             .from_asset("models/animated/MorphStressTest.gltf"),
         ),
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"),
+    )));
     commands.spawn((
         DirectionalLight::default(),
         Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),

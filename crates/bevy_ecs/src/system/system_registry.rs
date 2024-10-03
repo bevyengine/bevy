@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::ReflectComponent;
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -7,6 +9,8 @@ use crate::{
     world::{Command, World},
 };
 use bevy_ecs_macros::{Component, Resource};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -19,6 +23,8 @@ struct RegisteredSystem<I, O> {
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
