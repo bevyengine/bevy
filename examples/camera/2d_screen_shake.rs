@@ -11,7 +11,6 @@ use bevy::{
     render::camera::SubCameraView,
     sprite::MeshMaterial2d,
 };
-use bevy_render::mesh::Mesh2d;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
