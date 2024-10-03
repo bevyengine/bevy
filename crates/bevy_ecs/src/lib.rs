@@ -1637,13 +1637,13 @@ mod tests {
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
-        assert!(world_b.get_entity(e1).is_none());
+        assert!(world_b.get_entity(e1).is_err());
 
         assert!(world_b.get::<A>(e2).is_none());
-        assert!(world_b.get_entity(e2).is_none());
+        assert!(world_b.get_entity(e2).is_err());
 
         assert!(world_b.get::<A>(e3).is_none());
-        assert!(world_b.get_entity(e3).is_none());
+        assert!(world_b.get_entity(e3).is_err());
 
         world_b.get_or_spawn(e1).unwrap().insert(B(1));
         assert_eq!(
@@ -1694,7 +1694,7 @@ mod tests {
 
         let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
-            world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
+            world_b.get_entity(high_non_existent_but_reserved_entity).is_err(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
         );
 
