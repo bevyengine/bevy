@@ -45,6 +45,7 @@ crates=(
     bevy_gizmos
     bevy_text
     bevy_a11y
+    bevy_input_focus
     bevy_ui
     bevy_winit
     bevy_dev_tools
