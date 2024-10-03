@@ -81,8 +81,8 @@ fn setup(
             TargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "This is a cube",
+            parent.spawn((
+                TextNEW::new("This is a cube"),
                 TextStyle {
                     font_size: 40.0,
                     color: Color::BLACK,

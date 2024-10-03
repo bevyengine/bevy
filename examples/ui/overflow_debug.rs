@@ -1,6 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::UiTextWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -83,22 +83,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_style = TextStyle::default();
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
+    commands
+        .spawn((
+            TextNEW::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
-                text_style.clone(),
             ),
-            TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-        Instructions,
-    ));
+            text_style.clone(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            Instructions,
+        ))
+        .with_child((
+            TextSpan::new(format!("{:?}", Overflow::clip())),
+            text_style.clone(),
+        ));
 
     // Overflow Debug
 
@@ -164,8 +166,8 @@ fn spawn_text(
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(TextBundle::from_section(
-            "Bevy",
+        parent.spawn((
+            TextNEW::new("Bevy"),
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
@@ -256,7 +258,8 @@ fn update_transform<T: UpdateTransform + Component>(
 
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<&mut Text, With<Instructions>>,
+    mut instructions: Query<Entity, With<Instructions>>,
+    mut writer: UiTextWriter,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {
@@ -275,8 +278,8 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let mut text = instructions.single_mut();
-        text.sections[1].value = format!("{:?}", style.overflow);
+        let entity = instructions.single_mut();
+        *writer.text(entity, 1) = format!("{:?}", style.overflow);
     }
 }
 

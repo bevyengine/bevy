@@ -87,9 +87,9 @@ fn create_button() -> ButtonBundle {
     }
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> TextBundle {
-    TextBundle::from_section(
-        text,
+fn create_label(text: &str, font: Handle<Font>) -> (TextNEW, TextStyle) {
+    (
+        TextNEW::new(text),
         TextStyle {
             font,
             font_size: 33.0,
@@ -101,7 +101,7 @@ fn create_label(text: &str, font: Handle<Font>) -> TextBundle {
 fn button_system(
     mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<Button>)>,
     labels_query: Query<(&Children, &Parent), With<Button>>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextNEW>,
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click
@@ -117,6 +117,6 @@ fn button_system(
         let counter = counter_query.get(parent.get()).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
-        text.sections[0].value = counter.0.to_string();
+        **text = counter.0.to_string();
     }
 }

@@ -173,8 +173,8 @@ fn spawn_nested_text_bundle(
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                text,
+            builder.spawn((
+                TextNEW::new(text),
                 TextStyle {
                     font,
                     color: Color::BLACK,

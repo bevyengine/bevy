@@ -65,13 +65,13 @@ fn atlas_render_system(
 fn text_update_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    mut query: Query<&mut Text>,
+    mut query: Query<&mut TextNEW>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
             let c = seeded_rng.gen::<u8>() as char;
-            let string = &mut text.sections[0].value;
+            let string = &mut **text;
             if !string.contains(c) {
                 string.push(c);
             }
@@ -96,8 +96,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
+            parent.spawn((
+                TextNEW::new("a"),
                 TextStyle {
                     font: font_handle,
                     font_size: 50.0,
