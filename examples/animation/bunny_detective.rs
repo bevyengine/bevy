@@ -96,19 +96,9 @@ impl FromWorld for ParticleAssets {
     }
 }
 
-#[derive(Event, Reflect, Clone)]
+#[derive(Event, AnimationEvent, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 struct OnJumped;
-
-impl AnimationEvent for OnJumped {
-    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
-        world.entity_mut(target).trigger(Self);
-    }
-
-    fn clone_value(&self) -> Box<dyn AnimationEvent> {
-        Box::new(Self)
-    }
-}
 
 impl OnJumped {
     // Spawn particles once the detective jumps.
@@ -151,19 +141,9 @@ impl OnJumped {
     }
 }
 
-#[derive(Event, Reflect, Clone)]
+#[derive(Event, AnimationEvent, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 struct OnLanded;
-
-impl AnimationEvent for OnLanded {
-    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
-        world.entity_mut(target).trigger(Self);
-    }
-
-    fn clone_value(&self) -> Box<dyn AnimationEvent> {
-        Box::new(Self)
-    }
-}
 
 impl OnLanded {
     // Spawn particles once the detective lands.
@@ -199,21 +179,11 @@ impl OnLanded {
     }
 }
 
-#[derive(Event, Resource, Reflect, Clone)]
+#[derive(Event, AnimationEvent, Resource, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 enum OnStep {
     Start,
     End,
-}
-
-impl AnimationEvent for OnStep {
-    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
-        world.entity_mut(target).trigger(self.clone());
-    }
-
-    fn clone_value(&self) -> Box<dyn AnimationEvent> {
-        Box::new(self.clone())
-    }
 }
 
 impl OnStep {

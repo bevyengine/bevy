@@ -1,7 +1,6 @@
 //! Demonstrate how to use animation events.
 
 use bevy::{
-    animation::animation_event::{AnimationEvent, ReflectAnimationEvent},
     color::palettes::css::{ALICE_BLUE, BLACK, CRIMSON},
     core_pipeline::bloom::Bloom,
     prelude::*,
@@ -16,7 +15,7 @@ fn main() {
         .run();
 }
 
-#[derive(Event, Reflect, Clone)]
+#[derive(Event, AnimationEvent, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 enum Say {
     Hello,
@@ -38,17 +37,6 @@ impl Say {
                 println!("BYE");
             }
         }
-    }
-}
-
-// TODO: this should be derived
-impl AnimationEvent for Say {
-    fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
-        world.entity_mut(target).trigger(self.clone());
-    }
-
-    fn clone_value(&self) -> Box<dyn AnimationEvent> {
-        Box::new(self.clone())
     }
 }
 

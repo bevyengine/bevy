@@ -9,6 +9,8 @@ use bevy_reflect::{
     TupleStructFieldIter, TupleStructInfo, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 
+pub use bevy_animation_derive::AnimationEvent;
+
 pub(crate) fn trigger_animation_event(
     entity: Entity,
     time: f32,
