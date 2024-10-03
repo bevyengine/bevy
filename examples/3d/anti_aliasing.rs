@@ -5,15 +5,15 @@ use std::{f32::consts::PI, fmt::Write};
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-        },
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
+        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
         texture::{ImageSampler, ImageSamplerDescriptor},
@@ -27,6 +27,13 @@ fn main() {
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
+
+type TaaComponents = (
+    TemporalAntiAliasing,
+    TemporalJitter,
+    DepthPrepass,
+    MotionVectorPrepass,
+);
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
@@ -48,18 +55,18 @@ fn modify_aa(
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
 
         *msaa = Msaa::Sample4;
     }
@@ -80,9 +87,9 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Fxaa::default());
     }
 
@@ -113,9 +120,9 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Smaa::default());
     }
 
@@ -141,7 +148,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .insert(TemporalAntiAliasBundle::default());
+            .insert(TemporalAntiAliasing::default());
     }
 }
 

@@ -1,9 +1,9 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::prelude::*;
+use bevy_utils::HashSet;
 
-use crate::{GlobalZIndex, Node, ZIndex};
+use crate::{GlobalZIndex, Node, UiChildren, UiRootNodes, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -39,35 +39,38 @@ impl ChildBufferCache {
 pub fn ui_stack_system(
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
+    mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<
-        (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
-        (With<Node>, Without<Parent>),
-    >,
-    zindex_global_node_query: Query<
-        (Entity, &GlobalZIndex, Option<&ZIndex>),
-        (With<Node>, With<Parent>),
-    >,
-    children_query: Query<&Children>,
+    ui_root_nodes: UiRootNodes,
+    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<Node>>,
+    ui_children: UiChildren,
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut Node>,
 ) {
     ui_stack.uinodes.clear();
-    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
-        root_nodes.push((
-            id,
-            (
-                global_zindex.0,
-                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
-            ),
-        ));
-    }
+    visited_root_nodes.clear();
 
-    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter() {
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
         root_nodes.push((
             id,
             (
                 maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+            ),
+        ));
+        visited_root_nodes.insert_unique_unchecked(id);
+    }
+
+    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+        if visited_root_nodes.contains(&id) {
+            continue;
+        }
+
+        root_nodes.push((
+            id,
+            (
+                global_zindex.0,
                 maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
             ),
         ));
@@ -79,7 +82,7 @@ pub fn ui_stack_system(
         update_uistack_recursive(
             &mut cache,
             root_entity,
-            &children_query,
+            &ui_children,
             &zindex_query,
             &mut ui_stack.uinodes,
         );
@@ -95,26 +98,28 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
-    children_query: &Query<&Children>,
+    ui_children: &UiChildren,
     zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);
 
-    if let Ok(children) = children_query.get(node_entity) {
-        let mut child_buffer = cache.pop();
-        child_buffer.extend(children.iter().filter_map(|child_entity| {
-            zindex_query
-                .get(*child_entity)
-                .ok()
-                .map(|zindex| (*child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-        }));
-        child_buffer.sort_by_key(|k| k.1);
-        for (child_entity, _) in child_buffer.drain(..) {
-            update_uistack_recursive(cache, child_entity, children_query, zindex_query, ui_stack);
-        }
-        cache.push(child_buffer);
+    let mut child_buffer = cache.pop();
+    child_buffer.extend(
+        ui_children
+            .iter_ui_children(node_entity)
+            .filter_map(|child_entity| {
+                zindex_query
+                    .get(child_entity)
+                    .ok()
+                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            }),
+    );
+    child_buffer.sort_by_key(|k| k.1);
+    for (child_entity, _) in child_buffer.drain(..) {
+        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
     }
+    cache.push(child_buffer);
 }
 
 #[cfg(test)]

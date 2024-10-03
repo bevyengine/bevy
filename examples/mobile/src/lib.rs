@@ -157,10 +157,10 @@ fn button_handler(
 }
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioBundle {
-        source: asset_server.load("sounds/Windless Slopes.ogg"),
-        settings: PlaybackSettings::LOOP,
-    });
+    commands.spawn((
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP,
+    ));
 }
 
 // Pause audio when app goes into background and resume when it returns.

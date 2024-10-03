@@ -13,7 +13,7 @@
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     },
     pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
@@ -59,7 +59,7 @@ fn setup(
             msaa: Msaa::Off,
             ..default()
         },
-        TemporalAntiAliasBundle::default(),
+        TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {
             ambient_intensity: 0.0,

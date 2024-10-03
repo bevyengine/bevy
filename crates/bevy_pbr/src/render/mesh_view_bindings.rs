@@ -44,7 +44,7 @@ use crate::{
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures,
+    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
     ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
@@ -462,7 +462,7 @@ pub fn prepare_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         &Msaa,
-        Option<&ScreenSpaceAmbientOcclusionTextures>,
+        Option<&ScreenSpaceAmbientOcclusionResources>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
         &Tonemapping,
@@ -507,7 +507,7 @@ pub fn prepare_mesh_view_bind_groups(
             shadow_bindings,
             cluster_bindings,
             msaa,
-            ssao_textures,
+            ssao_resources,
             prepass_textures,
             transmission_texture,
             tonemapping,
@@ -519,7 +519,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .image_for_samplecount(1, TextureFormat::bevy_default())
                 .texture_view
                 .clone();
-            let ssao_view = ssao_textures
+            let ssao_view = ssao_resources
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 

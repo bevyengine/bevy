@@ -1211,4 +1211,27 @@ mod tests {
 
         assert!(world.get_resource::<ResB>().is_none());
     }
+
+    #[test]
+    fn observer_apply_deferred_from_param_set() {
+        #[derive(Event)]
+        struct EventA;
+
+        #[derive(Resource)]
+        struct ResA;
+
+        let mut world = World::new();
+        world.observe(
+            |_: Trigger<EventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
+                params.p1().insert_resource(ResA);
+            },
+        );
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger(EventA);
+        world.flush();
+
+        assert!(world.get_resource::<ResA>().is_some());
+    }
 }
