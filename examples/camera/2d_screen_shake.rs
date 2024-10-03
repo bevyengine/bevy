@@ -9,8 +9,9 @@
 use bevy::{
     prelude::*,
     render::camera::SubCameraView,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::MeshMaterial2d,
 };
+use bevy_render::mesh::Mesh2d;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -39,44 +40,30 @@ fn setup_scene(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // World where we move the player
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000., 700.))),
-        material: materials.add(Color::srgb(0.2, 0.2, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(1000., 700.))),
+        MeshMaterial2d(materials.add(Color::srgb(0.2, 0.2, 0.3))),
+    ));
 
     // Player
     commands.spawn((
         Player,
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::new(50.0, 100.0)).into(), // Rectangle size (width, height)
-            material: materials.add(Color::srgb(0.25, 0.94, 0.91)), // RGB values must be in range 0.0 to 1.0
-            transform: Transform {
-                translation: Vec3::new(0., 0., 2.),
-                ..default()
-            },
-            ..default()
-        },
+        Mesh2d(meshes.add(Rectangle::new(50.0, 100.0)).into()), // Rectangle size (width, height)
+        MeshMaterial2d(materials.add(Color::srgb(0.25, 0.94, 0.91))), // RGB values must be in range 0.0 to 1.0
+        Transform::from_xyz(0., 0., 2.),
     ));
 
-    commands.spawn((MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::new(50.0, 50.0)).into(), // Rectangle size (width, height)
-        material: materials.add(Color::srgb(0.85, 0.0, 0.2)), // RGB values must be in range 0.0 to 1.0
-        transform: Transform {
-            translation: Vec3::new(-450.0, 200.0, 2.),
-            ..default()
-        },
-        ..default()
-    },));
-    commands.spawn((MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::new(70.0, 50.0)).into(), // Rectangle size (width, height)
-        material: materials.add(Color::srgb(0.5, 0.8, 0.2)), // RGB values must be in range 0.0 to 1.0
-        transform: Transform {
-            translation: Vec3::new(450.0, -150.0, 2.),
-            ..default()
-        },
-        ..default()
-    },));
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(50.0, 50.0)).into()), // Rectangle size (width, height)
+        MeshMaterial2d(materials.add(Color::srgb(0.85, 0.0, 0.2))), // RGB values must be in range 0.0 to 1.0
+        Transform::from_xyz(-450.0, 200.0, 2.),
+    ));
+
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(70.0, 50.0)).into()), // Rectangle size (width, height)
+        MeshMaterial2d(materials.add(Color::srgb(0.5, 0.8, 0.2))), // RGB values must be in range 0.0 to 1.0
+        Transform::from_xyz(450.0, -150.0, 2.),
+    ));
     commands.init_resource::<ScreenShake>();
 }
 
