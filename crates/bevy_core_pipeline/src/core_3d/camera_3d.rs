@@ -18,8 +18,9 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-/// Configuration for the "main 3d render graph".
-/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
+///
+/// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]

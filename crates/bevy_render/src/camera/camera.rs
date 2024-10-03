@@ -17,13 +17,14 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     event::EventReader,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
+    world::DeferredWorld,
 };
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -225,10 +226,16 @@ pub enum ViewportConversionError {
 /// to transform the 3D objects into a 2D image, as well as the render target into which that image
 /// is produced.
 ///
-/// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
-/// `Camera3dBundle`.
+/// Note that a [`Camera`] needs a [`CameraRenderGraph`] to render anything.
+/// This is typically provided by adding a [`Camera2d`] or [`Camera3d`] component,
+/// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
+/// graph will emit an error at runtime.
+///
+/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
+#[component(on_add = warn_on_no_render_graph)]
 #[require(
     Frustum,
     CameraMainTextureUsages,
@@ -266,6 +273,12 @@ pub struct Camera {
     pub msaa_writeback: bool,
     /// The clear color operation to perform on the render target.
     pub clear_color: ClearColorConfig,
+}
+
+fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+    if !world.entity(entity).contains::<CameraRenderGraph>() {
+        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+    }
 }
 
 impl Default for Camera {
