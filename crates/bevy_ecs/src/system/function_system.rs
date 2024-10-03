@@ -727,25 +727,23 @@ where
     }
 
     #[inline]
-    unsafe fn try_acquire_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         let change_tick = world.change_tick();
-        // TODO: Reduce `get_param` used for validation.
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.
         // - All world accesses used by `F::Param` have been registered, so the caller
         //   will ensure that there are no data access conflicts.
-        let maybe_param = F::Param::get_param(
+        let is_valid = F::Param::validate_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
             change_tick,
         );
-        let can_acquire = maybe_param.is_some();
-        if !can_acquire {
+        if !is_valid {
             self.system_meta.advance_param_warn_policy();
         }
-        can_acquire
+        is_valid
     }
 
     #[inline]

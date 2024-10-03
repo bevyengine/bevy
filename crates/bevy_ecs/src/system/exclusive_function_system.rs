@@ -118,7 +118,8 @@ where
     }
 
     #[inline]
-    unsafe fn try_acquire_params_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_params_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+        // All exclusive system parameters are always available.
         true
     }
 

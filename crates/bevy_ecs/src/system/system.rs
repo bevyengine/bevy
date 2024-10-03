@@ -99,16 +99,16 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - Same as [`System::run_unsafe`]
-    unsafe fn try_acquire_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
 
     /// Like [`System::try_acquire_params_unsafe`] if all parameters can be acquired.
-    fn try_acquire_params(&mut self, world: &mut World) -> bool {
+    fn validate_params(&mut self, world: &mut World) -> bool {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        unsafe { self.try_acquire_params_unsafe(world_cell) }
+        unsafe { self.validate_params_unsafe(world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.

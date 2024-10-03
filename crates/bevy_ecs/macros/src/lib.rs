@@ -389,8 +389,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     world: UnsafeWorldCell<'w>,
                     change_tick: Tick,
                 ) -> Option<Self::Item<'w, 's>> {
-                    // TODO: Reduce `get_param` used for validation.
-                    <(#(#param,)*) as SystemParam>::get_param(state, system_meta, world, change_tick)?;
                     let param = ParamSet {
                         param_states: state,
                         system_meta: system_meta.clone(),
@@ -398,6 +396,16 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                         change_tick,
                     };
                     Some(param)
+                }
+
+                #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s mut Self::State,
+                    system_meta: &SystemMeta,
+                    world: UnsafeWorldCell<'w>,
+                    change_tick: Tick,
+                ) -> bool {
+                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world, change_tick)
                 }
             }
 
@@ -636,6 +644,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     let (#(#tuple_patterns,)*) = <(#(#tuple_types,)*) as #path::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick)?;
                     let param = #struct_name { #(#fields: #field_locals,)* };
                     Some(param)
+                }
+
+                #[inline]
+                unsafe fn validate_param<'w, 's>(
+                    state: &'s mut Self::State,
+                    system_meta: &#path::system::SystemMeta,
+                    world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
+                    change_tick: #path::component::Tick,
+                ) -> bool {
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::validate_param(&mut state.state, system_meta, world, change_tick)
                 }
             }
 

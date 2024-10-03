@@ -81,7 +81,7 @@ impl SystemExecutor for SimpleExecutor {
 
             let system = &mut schedule.systems[system_index];
             if should_run {
-                let valid_params = system.try_acquire_params(world);
+                let valid_params = system.validate_params(world);
                 should_run &= valid_params;
             }
 
@@ -135,7 +135,7 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            if !condition.try_acquire_params(world) {
+            if !condition.validate_params(world) {
                 return false;
             }
             let maybe_out = __rust_begin_short_backtrace::readonly_run(&mut **condition, world);
