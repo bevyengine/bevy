@@ -2386,10 +2386,12 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Option<Self::Item<'world, 'state>> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
-        unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
+        let param =
+            unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) };
+        Some(param)
     }
 }
 
@@ -2413,10 +2415,12 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
+    ) -> Option<Self::Item<'world, 'state>> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
-        unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
+        let param =
+            unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) };
+        Some(param)
     }
 }
 
