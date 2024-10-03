@@ -79,6 +79,7 @@
 use core::{
     any::TypeId,
     fmt::{self, Debug, Formatter},
+    iter,
     marker::PhantomData,
 };
 
@@ -96,7 +97,9 @@ use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
 use crate::{
-    graph::AnimationNodeIndex, prelude::Animatable, AnimationEntityMut, AnimationEvaluationError,
+    graph::AnimationNodeIndex,
+    prelude::{Animatable, BlendInput},
+    AnimationEntityMut, AnimationEvaluationError,
 };
 
 /// A value on a component that Bevy can animate.
@@ -297,7 +300,11 @@ where
     P: AnimatableProperty,
 {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -393,7 +400,11 @@ where
 
 impl AnimationCurveEvaluator for TranslationCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -487,7 +498,11 @@ where
 
 impl AnimationCurveEvaluator for RotationCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -581,7 +596,11 @@ where
 
 impl AnimationCurveEvaluator for ScaleCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -708,8 +727,12 @@ where
     }
 }
 
-impl AnimationCurveEvaluator for WeightsCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+impl WeightsCurveEvaluator {
+    fn combine(
+        &mut self,
+        graph_node: AnimationNodeIndex,
+        additive: bool,
+    ) -> Result<(), AnimationEvaluationError> {
         let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
             return Ok(());
         };
@@ -736,12 +759,26 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
                     .iter_mut()
                     .zip(stack_iter)
                 {
-                    *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                    if additive {
+                        *dest += src * weight_to_blend;
+                    } else {
+                        *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                    }
                 }
             }
         }
 
         Ok(())
+    }
+}
+
+impl AnimationCurveEvaluator for WeightsCurveEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -826,7 +863,11 @@ impl<A> BasicAnimationCurveEvaluator<A>
 where
     A: Animatable,
 {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn combine(
+        &mut self,
+        graph_node: AnimationNodeIndex,
+        additive: bool,
+    ) -> Result<(), AnimationEvaluationError> {
         let Some(top) = self.stack.last() else {
             return Ok(());
         };
@@ -844,11 +885,20 @@ where
             None => self.blend_register = Some((value_to_blend, weight_to_blend)),
             Some((ref mut current_value, ref mut current_weight)) => {
                 *current_weight += weight_to_blend;
-                *current_value = A::interpolate(
-                    current_value,
-                    &value_to_blend,
-                    weight_to_blend / *current_weight,
-                );
+
+                if additive {
+                    *current_value = A::blend(iter::once(BlendInput {
+                        weight: weight_to_blend,
+                        value: value_to_blend,
+                        additive: true,
+                    }));
+                } else {
+                    *current_value = A::interpolate(
+                        current_value,
+                        &value_to_blend,
+                        weight_to_blend / *current_weight,
+                    );
+                }
             }
         }
 
@@ -966,6 +1016,22 @@ pub trait AnimationCurveEvaluator: Reflect {
     ///
     /// 4. Return success.
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+
+    /// Additively blends the top element of the stack with the blend register.
+    ///
+    /// The semantics of this method are as follows:
+    ///
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
+    ///    wₘ. If the stack was empty, return success.
+    ///
+    /// 2. If the blend register is empty, set the blend register value to vₘ
+    ///    and the blend register weight to wₘ; then, return success.
+    ///
+    /// 3. If the blend register is nonempty, call its current value vₙ.
+    ///    Then, set the value of the blend register to vₙ + vₘwₘ.
+    ///
+    /// 4. Return success.
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
 
     /// Pushes the current value of the blend register onto the stack.
     ///
