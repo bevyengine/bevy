@@ -1380,7 +1380,7 @@ impl<'a> TriggeredEvents<'a> {
 
                 let upper = &events[upper_start..];
                 let lower = &events[..lower_end];
-                (upper, lower)
+                (lower, upper)
             }
             // The animation is looping this tick and we have to return events where
             // either last_tick >= event.time or event.time > this_tick.
@@ -1481,13 +1481,13 @@ mod tests {
     }
 
     #[track_caller]
-    fn assert_triggered_times(
+    fn assert_triggered_events_with(
         active_animation: &ActiveAnimation,
         clip: &AnimationClip,
         expected: impl Into<Vec<f32>>,
     ) {
         let Some(events) = TriggeredEvents::new(None, clip, active_animation) else {
-            assert_eq!(expected.into(), vec![]);
+            assert_eq!(expected.into(), Vec::<f32>::new());
             return;
         };
         let got: Vec<_> = events.iter().map(|t| t.time).collect();
@@ -1501,38 +1501,63 @@ mod tests {
     }
 
     #[test]
-    fn test_events_triggers_on_animation() {
+    fn test_multiple_events_triggers() {
+        let mut active_animation = ActiveAnimation {
+            repeat: RepeatAnimation::Forever,
+            ..Default::default()
+        };
+        let mut clip = AnimationClip::default();
+        clip.duration = 1.0;
+        clip.add_event(0.5, A);
+        clip.add_event(0.5, A);
+        clip.add_event(0.5, A);
+
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.8, clip.duration); // 0.0 : 0.8
+        assert_triggered_events_with(&active_animation, &clip, [0.5, 0.5, 0.5]);
+
+        clip.add_event(1.0, A);
+        clip.add_event(1.0, A);
+        clip.add_event(0.0, A);
+        clip.add_event(0.0, A);
+
+        active_animation.update(0.4, clip.duration); // 0.8 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, [1.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_events_triggers() {
         let mut active_animation = ActiveAnimation::default();
         let mut clip = AnimationClip::default();
         clip.add_event(0.0, A);
         clip.add_event(0.2, A);
         assert_eq!(0.2, clip.duration);
 
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.0 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.0]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.2
-        assert_triggered_times(&active_animation, &clip, [0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
         active_animation.update(0.1, clip.duration); // 0.2 : 0.2
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.2 : 0.2
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.speed = -1.0;
         active_animation.completions = 0;
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.2 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.0
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.0 : 0.0
-        assert_triggered_times(&active_animation, &clip, [0.0]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
         active_animation.update(0.1, clip.duration); // 0.0 : 0.0
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
     }
 
     #[test]
-    fn test_events_triggers_on_looping_animation() {
+    fn test_events_triggers_looping() {
         let mut active_animation = ActiveAnimation {
             repeat: RepeatAnimation::Forever,
             ..Default::default()
@@ -1543,38 +1568,38 @@ mod tests {
         clip.add_event(0.3, A);
         assert_eq!(0.3, clip.duration);
 
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.0 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.0]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.2
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.2 : 0.3
-        assert_triggered_times(&active_animation, &clip, [0.2, 0.3]);
+        assert_triggered_events_with(&active_animation, &clip, [0.2, 0.3]);
         active_animation.update(0.1, clip.duration); // 0.3 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.0]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.2
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.speed = -1.0;
         active_animation.update(0.1, clip.duration); // 0.2 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.0
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
         active_animation.update(0.1, clip.duration); // 0.0 : 0.2
-        assert_triggered_times(&active_animation, &clip, [0.0, 0.3]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3]);
         active_animation.update(0.1, clip.duration); // 0.2 : 0.1
-        assert_triggered_times(&active_animation, &clip, [0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
         active_animation.update(0.1, clip.duration); // 0.1 : 0.0
-        assert_triggered_times(&active_animation, &clip, []);
+        assert_triggered_events_with(&active_animation, &clip, []);
 
         active_animation.replay();
         active_animation.update(clip.duration, clip.duration); // 0.0 : 0.0
-        assert_triggered_times(&active_animation, &clip, [0.0, 0.3, 0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3, 0.2]);
 
         active_animation.replay();
         active_animation.seek_time = clip.duration;
         active_animation.last_seek_time = Some(clip.duration);
         active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
-        assert_triggered_times(&active_animation, &clip, [0.3, 0.2]);
+        assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
     }
 }
