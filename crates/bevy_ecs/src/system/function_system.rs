@@ -727,7 +727,7 @@ where
     }
 
     #[inline]
-    unsafe fn validate_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         let change_tick = world.change_tick();
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
