@@ -16,8 +16,8 @@ use bevy_utils::HashMap;
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, CosmicBuffer, Font, FontAtlasSets, FontSmoothing, JustifyText, LineBreak,
-    PositionedGlyph, TextBounds, TextSection, TextStyle, YAxisOrientation,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
+    LineBreak, PositionedGlyph, TextBlock, TextBounds, TextEntity, TextStyle, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -83,7 +83,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        mut text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         linebreak: LineBreak,
         justify: JustifyText,
         bounds: TextBounds,
@@ -197,7 +197,7 @@ impl TextPipeline {
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
     #[allow(clippy::too_many_arguments)]
-    pub fn queue_text(
+    pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
@@ -333,7 +333,7 @@ impl TextPipeline {
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
     #[allow(clippy::too_many_arguments)]
-    pub fn create_text_measure(
+    pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
@@ -360,6 +360,7 @@ impl TextPipeline {
             font_system,
         )?;
 
+        let buffer = &mut computed.buffer;
         let min_width_content_size = buffer_dimensions(buffer);
 
         let max_width_content_size = {
@@ -414,13 +415,15 @@ impl TextMeasureInfo {
     pub fn compute_size(
         &mut self,
         bounds: TextBounds,
-        buffer: &mut Buffer,
+        computed: &mut ComputedTextBlock,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
-        buffer.set_size(font_system, bounds.width, bounds.height);
-        buffer_dimensions(buffer)
+        computed
+            .buffer
+            .set_size(font_system, bounds.width, bounds.height);
+        buffer_dimensions(&computed.buffer)
     }
 }
 

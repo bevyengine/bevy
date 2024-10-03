@@ -1,29 +1,34 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    CosmicBuffer, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, Text, TextBounds,
-    TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
+    TextBlocks, TextBounds, TextError, TextLayoutInfo, TextPipeline, TextSpanReader, TextStyle,
+    YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Component;
 use bevy_ecs::{
-    bundle::Bundle,
     change_detection::{DetectChanges, Ref},
     entity::Entity,
     event::EventReader,
-    prelude::With,
+    prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::view::Visibility;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
-    view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
+    view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
+use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
@@ -90,6 +95,12 @@ impl Text2d {
     }
 }
 
+impl TextSpanReader for Text2d {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl From<&str> for Text2d {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -135,15 +146,19 @@ world.spawn((
 ));
 ```
 */
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextStyle, Visibility = Visibility::Hidden, Transform)]
+#[require(TextStyle, Visibility(visibility_hidden), Transform)]
 pub struct TextSpan2d(pub String);
 
 impl TextSpanReader for TextSpan2d {
     fn read_span(&self) -> &str {
         self.as_str()
     }
+}
+
+fn visibility_hidden() -> Visibility {
+    Visibility::Hidden
 }
 
 /// This system extracts the sprites from the 2D text components and adds them to the
@@ -205,6 +220,7 @@ pub fn extract_text2d_sprite(
                         computed_block
                             .entities()
                             .get(*span_index)
+                            .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|style| LinearRgba::from(style.color))
@@ -251,13 +267,12 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<Text2d>,
         Ref<TextBlock>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut spans: TextSpans<TextSpan2d>,
+    mut blocks: TextBlocks<Text2d, TextSpan2d>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -272,14 +287,14 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, block, bounds, text_layout_info, mut computed) in &mut text_query {
+    for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
             || queue.remove(&entity)
         {
             let text_bounds = TextBounds {
-                width: if text.linebreak == LineBreak::NoWrap {
+                width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
                     bounds.width.map(|width| scale_value(width, scale_factor))
@@ -293,9 +308,9 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                spans.iter_from_base(entity, text.as_str(), text_style, maybe_children),
+                blocks.iter(entity),
                 scale_factor.into(),
-                block,
+                &block,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,

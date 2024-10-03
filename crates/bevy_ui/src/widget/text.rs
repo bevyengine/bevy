@@ -1,11 +1,13 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    TargetCamera, UiScale,
+    BackgroundColor, ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure,
+    MeasureArgs, Node, NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
 };
 use bevy_asset::Assets;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::{Entity, EntityHashMap},
-    prelude::{Component, DetectChanges},
+    prelude::Component,
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
@@ -13,13 +15,14 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image};
+use bevy_render::{camera::Camera, texture::Image, view::Visibility};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText, LineBreak,
-    SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    YAxisOrientation,
+    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
+    TextBlock, TextBlocks, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    TextSpanReader, TextStyle, YAxisOrientation,
 };
+use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
@@ -109,6 +112,12 @@ impl TextNEW {
     }
 }
 
+impl TextSpanReader for TextNEW {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl From<&str> for TextNEW {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -157,13 +166,17 @@ world.spawn((
 */
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextStyle, GhostNode, Visibility = Visibility::Hidden)]
+#[require(TextStyle, GhostNode, Visibility(hidden_visibility))]
 pub struct TextSpan(pub String);
 
 impl TextSpanReader for TextSpan {
     fn read_span(&self) -> &str {
         self.as_str()
     }
+}
+
+fn hidden_visibility() -> Visibility {
+    Visibility::Hidden
 }
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
@@ -230,7 +243,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<(Entity, usize, &'a str, &'a TextStyle)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
     block: Ref<TextBlock>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -243,8 +256,8 @@ fn create_text_measure<'a>(
         fonts,
         spans,
         scale_factor,
-        block,
-        computed,
+        &block,
+        computed.as_mut(),
         font_system,
     ) {
         Ok(measure) => {
@@ -289,35 +302,21 @@ pub fn measure_text_system(
     mut text_query: Query<
         (
             Entity,
-            Ref<Text>,
-            Ref<TextStyle>,
             Ref<TextBlock>,
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
             Option<&TargetCamera>,
-            Option<&Children>,
         ),
         With<Node>,
     >,
-    mut spans: TextSpans<TextSpan>,
+    mut blocks: TextBlocks<TextNEW, TextSpan>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
     scale_factors_buffer.clear();
 
-    for (
-        entity,
-        text,
-        text_style,
-        block,
-        content_size,
-        text_flags,
-        computed,
-        maybe_camera,
-        maybe_children,
-    ) in &mut text_query
-    {
+    for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
             .map(TargetCamera::entity)
             .or(default_ui_camera.get())
@@ -345,7 +344,7 @@ pub fn measure_text_system(
                 entity,
                 &fonts,
                 scale_factor.into(),
-                spans.iter_from_base(entity, text.as_str(), text_style, maybe_children),
+                blocks.iter(entity),
                 block,
                 &mut text_pipeline,
                 content_size,
@@ -369,15 +368,12 @@ fn queue_text(
     textures: &mut Assets<Image>,
     scale_factor: f32,
     inverse_scale_factor: f32,
-    text: &Text,
-    text_style: &TextStyle,
     block: &TextBlock,
-    maybe_children: Option<&Children>,
     node: Ref<Node>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    spans: &mut TextSpans<TextSpan>,
+    blocks: &mut TextBlocks<TextNEW, TextSpan>,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -386,7 +382,7 @@ fn queue_text(
         return;
     }
 
-    let physical_node_size = if text.linebreak == LineBreak::NoWrap {
+    let physical_node_size = if block.linebreak == LineBreak::NoWrap {
         // With `NoWrap` set, no constraints are placed on the width of the text.
         TextBounds::UNBOUNDED
     } else {
@@ -401,7 +397,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
-        spans.iter_from_base(entity, text.as_str(), text_style, maybe_children),
+        blocks.iter(entity),
         scale_factor.into(),
         block,
         physical_node_size,
@@ -451,33 +447,20 @@ pub fn text_system(
     mut text_query: Query<(
         Entity,
         Ref<Node>,
-        &Text,
-        &TextStyle,
         &TextBlock,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         Option<&TargetCamera>,
-        Option<&Children>,
     )>,
-    mut spans: TextSpans<TextSpan>,
+    mut blocks: TextBlocks<TextNEW, TextSpan>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
     scale_factors_buffer.clear();
 
-    for (
-        entity,
-        node,
-        text,
-        text_style,
-        block,
-        text_layout_info,
-        text_flags,
-        mut computed,
-        maybe_camera,
-        maybe_children,
-    ) in &mut text_query
+    for (entity, node, block, text_layout_info, text_flags, mut computed, maybe_camera) in
+        &mut text_query
     {
         let Some(camera_entity) = maybe_camera
             .map(TargetCamera::entity)
@@ -511,15 +494,12 @@ pub fn text_system(
                 &mut textures,
                 scale_factor,
                 inverse_scale_factor,
-                text,
-                text_style,
                 block,
-                maybe_children,
                 node,
                 text_flags,
                 text_layout_info,
                 computed.as_mut(),
-                &mut spans,
+                &mut blocks,
                 &mut font_system,
                 &mut swash_cache,
             );
