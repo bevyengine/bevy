@@ -10,11 +10,46 @@ use crate::{Children, Parent};
 
 /// An extension trait for [`Query`] that adds hierarchy related methods.
 pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
+    /// Returns the parent [`Entity`] of the given `entity`, if any.
+    fn parent(&'w self, entity: Entity) -> Option<Entity>
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+
+    /// Returns a slice over the [`Children`] of the given `entity`.
+    ///
+    /// This may be empty if the `entity` has no children.
+    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+
+    /// Returns the topmost ancestor of the given `entity`.
+    ///
+    /// This may be the entity itself if it has no parent.
+    fn root_parent(&'w self, entity: Entity) -> Entity
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+
+    /// Returns an [`Iterator`] of [`Entity`]s over the leaves of the hierarchy that are underneath this `entity``.
+    ///
+    /// Only entities which have no children are considered leaves.
+    /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
+    /// even if they are leaves in the same hierarchical tree.
+    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+
+    /// Returns an [`Iterator`] of [`Entity`]s over the `entity`s immediate siblings, who share them same parent.
+    ///
+    /// The entity itself is not included in the iterator.
+    fn iter_siblings(&'w self, entity: Entity) -> SiblingIter<'w, 's, D, F>
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>;
+
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
     /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
     ///
-    /// Traverses the hierarchy breadth-first.
+    /// Traverses the hierarchy breadth-first and does not include the entity itself.
     ///
     /// # Examples
     /// ```
@@ -36,6 +71,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
+    /// Does not include the entity itself.
     /// Can only be called on a [`Query`] of [`Parent`] (i.e. `Query<&Parent>`).
     ///
     /// # Examples
@@ -58,6 +94,77 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
+    fn parent(&'w self, entity: Entity) -> Option<Entity>
+    where
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    {
+        self.get(entity).map(Parent::get).ok()
+    }
+
+    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
+    where
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    {
+        // We must return the same type from both branches of the match
+        // So we've defined a throwaway enum to wrap the two types
+        enum MaybeChildrenIter {
+            Children { cursor: usize, vec: Vec<Entity> },
+            None,
+        }
+
+        impl Iterator for MaybeChildrenIter {
+            type Item = Entity;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self {
+                    MaybeChildrenIter::Children { cursor, vec } => {
+                        if *cursor < vec.len() {
+                            let entity = vec[*cursor];
+                            *cursor += 1;
+                            Some(entity)
+                        } else {
+                            None
+                        }
+                    }
+                    MaybeChildrenIter::None => None,
+                }
+            }
+        }
+
+        match self.get(entity) {
+            Ok(children) => MaybeChildrenIter::Children {
+                cursor: 0,
+                vec: children.to_vec(),
+            },
+            Err(_) => MaybeChildrenIter::None,
+        }
+    }
+
+    fn root_parent(&'w self, entity: Entity) -> Entity
+    where
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+    {
+        // Recursively search up the tree until we're out of parents
+        match self.get(entity) {
+            Ok(parent) => self.root_parent(parent.get()),
+            Err(_) => entity,
+        }
+    }
+
+    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    where
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    {
+        LeafIter::new(self, entity)
+    }
+
+    fn iter_siblings(&'w self, entity: Entity) -> SiblingIter<'w, 's, D, F>
+    where
+        D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
+    {
+        SiblingIter::new(self, entity)
+    }
+
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
@@ -70,6 +177,98 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         AncestorIter::new(self, entity)
+    }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the leaf descendants of an [`Entity`].
+pub struct LeafIter<'w, 's, D: QueryData, F: QueryFilter>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+{
+    _children_query: &'w Query<'w, 's, D, F>,
+    vecdeque: VecDeque<Entity>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> LeafIter<'w, 's, D, F>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+{
+    /// Returns a new [`LeafIter`].
+    pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
+        let leaf_children = children_query.iter_descendants(entity).filter(|entity| {
+            children_query
+                .get(*entity)
+                // These are leaf nodes if they have the `Children` component but it's empty
+                .map(|children| children.is_empty())
+                // Or if they don't have the `Children` component at all
+                .unwrap_or(true)
+        });
+
+        LeafIter {
+            _children_query: children_query,
+            vecdeque: leaf_children.collect(),
+        }
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for LeafIter<'w, 's, D, F>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entity: Entity = self.vecdeque.pop_front()?;
+        Some(entity)
+    }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the siblings of an [`Entity`].
+pub struct SiblingIter<'w, 's, D: QueryData, F: QueryFilter>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
+{
+    _hierarchy_query: &'w Query<'w, 's, D, F>,
+    vecdeque: VecDeque<Entity>,
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> SiblingIter<'w, 's, D, F>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
+{
+    /// Returns a new [`SiblingIter`].
+    pub fn new(hierarchy_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
+        match hierarchy_query.get(entity) {
+            Ok((parent, _)) => {
+                let children_of_parent = hierarchy_query
+                    .get(parent.get())
+                    .map(|(_, children)| children.to_vec())
+                    .unwrap_or_default();
+
+                let siblings = children_of_parent.iter().filter(|child| **child != entity);
+
+                SiblingIter {
+                    _hierarchy_query: hierarchy_query,
+                    vecdeque: VecDeque::from_iter(siblings.copied()),
+                }
+            }
+            Err(_) => SiblingIter {
+                _hierarchy_query: hierarchy_query,
+                vecdeque: VecDeque::new(),
+            },
+        }
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for SiblingIter<'w, 's, D, F>
+where
+    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entity: Entity = self.vecdeque.pop_front()?;
+        Some(entity)
     }
 }
 
