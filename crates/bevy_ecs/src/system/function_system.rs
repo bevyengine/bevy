@@ -165,7 +165,7 @@ impl ParamWarnPolicy {
         }
 
         bevy_utils::tracing::warn!(
-            "System {0} will not run because it requested inaccessible system parameter {1}",
+            "{0} did not run because it requested inaccessible system parameter {1}",
             name,
             disqualified::ShortName::of::<P>()
         );
