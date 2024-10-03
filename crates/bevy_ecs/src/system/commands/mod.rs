@@ -1369,6 +1369,34 @@ impl EntityCommands<'_> {
         self.queue(remove::<T>)
     }
 
+    /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// #[require(B)]
+    /// struct A;
+    /// #[derive(Component, Default)]
+    /// struct B;
+    ///
+    /// #[derive(Resource)]
+    /// struct PlayerEntity { entity: Entity }
+    ///
+    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // Remove both A and B components from the entity, because B is required by A
+    ///         .remove_with_requires::<A>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
+    /// ```
+    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+        self.queue(remove_with_requires::<T>)
+    }
+
     /// Removes a component from the entity.
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.queue(remove_by_id(component_id))
@@ -1826,6 +1854,13 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     }
 }
 
+/// An [`EntityCommand`] that remove all components in the bundle and remove all required components for each component in the bundle.
+fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove_with_requires::<T>();
+    }
+}
+
 /// An [`EntityCommand`] that removes all components associated with a provided entity.
 fn clear() -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
@@ -2188,6 +2223,42 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn remove_component_with_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z;
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let e = {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.spawn((X, Z)).id()
+        };
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_some());
+        assert!(world.get::<X>(e).is_some());
+        assert!(world.get::<Z>(e).is_some());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(e).remove_with_requires::<X>();
+        }
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_none());
+        assert!(world.get::<X>(e).is_none());
+
+        assert!(world.get::<Z>(e).is_some());
     }
 
     fn is_send<T: Send>() {}

@@ -2030,6 +2030,138 @@ mod tests {
     }
 
     #[test]
+    fn remove_component_and_his_runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_component_and_his_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        #[require(Z)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_bundle_and_his_required_components() {
+        #[derive(Component, Default)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        #[require(W)]
+        struct Z;
+
+        #[derive(Component, Default)]
+        struct W;
+
+        #[derive(Component)]
+        struct V;
+
+        #[derive(Bundle, Default)]
+        struct TestBundle {
+            x: X,
+            z: Z,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn((TestBundle::default(), V)).id();
+
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).remove_with_requires::<TestBundle>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(!world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
     fn runtime_required_components() {
         // Same as `required_components` test but with runtime registration
 
