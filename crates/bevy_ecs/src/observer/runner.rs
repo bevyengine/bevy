@@ -228,12 +228,12 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let e2 = world.spawn_empty().id();
 /// # #[derive(Event)]
 /// # struct Explode;
-/// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.entity_mut(e1).observe_entity(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
 ///     commands.entity(trigger.entity()).despawn();
 /// });
 ///
-/// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.entity_mut(e2).observe_entity(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("The explosion fizzles! This entity is immune!");
 /// });
 /// ```
