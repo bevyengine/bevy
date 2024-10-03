@@ -256,7 +256,7 @@ where
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
-/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world).unwrap();
 ///
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
@@ -286,7 +286,7 @@ where
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
-///     let mut event_reader = cached_state.event_state.get_mut(world);
+///     let mut event_reader = cached_state.event_state.get_mut(world).unwrap();
 ///
 ///     for events in event_reader.read() {
 ///         println!("Hello World!");
@@ -865,7 +865,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
