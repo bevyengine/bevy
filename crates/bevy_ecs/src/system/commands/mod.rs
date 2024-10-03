@@ -1886,7 +1886,7 @@ fn observe<E: Event, B: Bundle, M>(
 ) -> impl EntityCommand {
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.observe(observer);
+            entity.observe_entity(observer);
         }
     }
 }
