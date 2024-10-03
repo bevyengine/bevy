@@ -572,7 +572,7 @@ impl ExecutorState {
             // - The caller ensures that `world` has permission to read any data
             //   required by the system.
             // - `update_archetype_component_access` has been called for system.
-            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            let valid_params = unsafe { system.try_acquire_params_unsafe(world) };
             if !valid_params {
                 self.skipped_systems.insert(system_index);
             }
@@ -748,14 +748,18 @@ unsafe fn evaluate_and_fold_conditions(
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
-            if !unsafe { condition.validate_param_unsafe(world) } {
+            if !unsafe { condition.try_acquire_params_unsafe(world) } {
                 return false;
             }
             // SAFETY:
             // - The caller ensures that `world` has permission to read any data
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
-            unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
+            let maybe_out = unsafe {
+                __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
+            };
+            // We checked params can be acquired.
+            maybe_out.unwrap()
         })
         .fold(true, |acc, res| acc && res)
 }

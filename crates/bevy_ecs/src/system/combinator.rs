@@ -187,9 +187,9 @@ where
     }
 
     #[inline]
-    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn try_acquire_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegate to existing `System` implementations.
-        self.a.try_acquire_params(world) && self.b.try_acquire_params(world)
+        self.a.try_acquire_params_unsafe(world) && self.b.try_acquire_params_unsafe(world)
     }
 
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
@@ -417,9 +417,9 @@ where
     }
 
     #[inline]
-    unsafe fn try_acquire_params(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn try_acquire_params_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegate to existing `System` implementations.
-        self.a.try_acquire_params(world) && self.b.try_acquire_params(world)
+        self.a.try_acquire_params_unsafe(world) && self.b.try_acquire_params_unsafe(world)
     }
 
     fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
