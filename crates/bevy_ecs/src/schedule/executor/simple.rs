@@ -79,6 +79,12 @@ impl SystemExecutor for SimpleExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -129,8 +135,10 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            let result = __rust_begin_short_backtrace::readonly_run(&mut **condition, world);
-            result.unwrap_or(false)
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })
         .fold(true, |acc, res| acc && res)
 }
