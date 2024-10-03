@@ -112,7 +112,8 @@ fn get_meshlet_vertex_id(index_id: u32) -> u32 {
 
 fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
     // Get bitstream start for the vertex
-    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    let unpacked = unpack4xU8((*meshlet).packed_b);
+    let bits_per_channel = unpacked.xyz;
     let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
     var start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
 
@@ -137,7 +138,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     );
 
     // Reverse vertex quantization
-    let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
+    let meshlet_quantization_factor = unpacked.w;
     vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;
@@ -164,7 +165,8 @@ fn get_meshlet_vertex_id(index_id: u32) -> u32 {
 
 fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> vec3<f32> {
     // Get bitstream start for the vertex
-    let bits_per_channel = unpack4xU8((*meshlet).packed_b).xyz;
+    let unpacked = unpack4xU8((*meshlet).packed_b);
+    let bits_per_channel = unpacked.xyz;
     let bits_per_vertex = bits_per_channel.x + bits_per_channel.y + bits_per_channel.z;
     var start_bit = (*meshlet).start_vertex_position_bit + (vertex_id * bits_per_vertex);
 
@@ -189,7 +191,7 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     );
 
     // Reverse vertex quantization
-    let meshlet_quantization_factor = extractBits((*meshlet).packed_a, 16u, 8u);
+    let meshlet_quantization_factor = unpacked.w;
     vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;

@@ -131,7 +131,6 @@ impl MeshletMesh {
         }
 
         // Copy vertex attributes per meshlet and compress
-        let mut quantized_positions = Vec::new();
         let mut vertex_positions = BitVec::<u8, Lsb0>::new();
         let mut vertex_normals = Vec::new();
         let mut vertex_uvs = Vec::new();
@@ -141,7 +140,6 @@ impl MeshletMesh {
                 meshlet,
                 meshlets.get(i).vertices,
                 &vertex_buffer,
-                &mut quantized_positions,
                 &mut vertex_positions,
                 &mut vertex_normals,
                 &mut vertex_uvs,
@@ -352,7 +350,6 @@ fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
     vertex_buffer: &[u8],
-    quantized_positions: &mut Vec<IVec3>,
     vertex_positions: &mut BitVec<u8, Lsb0>,
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
@@ -368,7 +365,8 @@ fn build_and_compress_meshlet_vertex_data(
     let mut max_quantized_position_channels = IVec3::MIN;
 
     // Lossy vertex compression
-    for vertex_id in meshlet_vertex_ids {
+    let mut quantized_positions = [IVec3::ZERO; 255];
+    for (i, vertex_id) in meshlet_vertex_ids.iter().enumerate() {
         // Load source vertex attributes
         let vertex_id_byte = *vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
         let vertex_data =
@@ -385,7 +383,7 @@ fn build_and_compress_meshlet_vertex_data(
 
         // Quantize position to a fixed-point IVec3
         let quantized_position = (position * quantization_factor + 0.5).as_ivec3();
-        quantized_positions.push(quantized_position);
+        quantized_positions[i] = quantized_position;
 
         // Compute per X/Y/Z-channel quantized position min/max for this meshlet
         min_quantized_position_channels = min_quantized_position_channels.min(quantized_position);
@@ -399,9 +397,9 @@ fn build_and_compress_meshlet_vertex_data(
     let bits_per_vertex_position_channel_z = range.as_vec3().z.log2().ceil() as u8;
 
     // Lossless encoding of vertex positions in the minimum number of bits per channel
-    for position in quantized_positions.drain(..) {
+    for i in 0..meshlet_vertex_ids.len() {
         // Remap [range_min, range_max] IVec3 to [0, range_max - range_min] UVec3
-        let position = (position - min_quantized_position_channels).as_uvec3();
+        let position = (quantized_positions[i] - min_quantized_position_channels).as_uvec3();
 
         // Store as a packed bitstream
         vertex_positions.extend_from_bitslice(
@@ -421,12 +419,11 @@ fn build_and_compress_meshlet_vertex_data(
         start_index_id: meshlet.triangle_offset,
         vertex_count: meshlet.vertex_count as u8,
         triangle_count: meshlet.triangle_count as u8,
-        quantization_factor: VERTEX_POSITION_QUANTIZATION_FACTOR,
-        padding1: 0,
+        padding: 0,
         bits_per_vertex_position_channel_x,
         bits_per_vertex_position_channel_y,
         bits_per_vertex_position_channel_z,
-        padding2: 0,
+        quantization_factor: VERTEX_POSITION_QUANTIZATION_FACTOR,
         min_vertex_position_channel_x: min_quantized_position_channels.x as f32,
         min_vertex_position_channel_y: min_quantized_position_channels.y as f32,
         min_vertex_position_channel_z: min_quantized_position_channels.z as f32,
