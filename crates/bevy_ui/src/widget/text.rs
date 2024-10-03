@@ -16,8 +16,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
-    TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
+    scale_value, CosmicBuffer, CosmicFontSystem, Font, FontAtlasSets, JustifyText, LineBreak,
+    SwashCache, Text, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    YAxisOrientation,
 };
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
@@ -112,18 +113,20 @@ fn create_text_measure(
     mut text_flags: Mut<TextFlags>,
     buffer: &mut CosmicBuffer,
     text_alignment: JustifyText,
+    font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
         entity,
         fonts,
         &text.sections,
         scale_factor,
-        text.linebreak_behavior,
+        text.linebreak,
         buffer,
         text_alignment,
+        font_system,
     ) {
         Ok(measure) => {
-            if text.linebreak_behavior == BreakLineOn::NoWrap {
+            if text.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
                 content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
@@ -173,6 +176,7 @@ pub fn measure_text_system(
         With<Node>,
     >,
     mut text_pipeline: ResMut<TextPipeline>,
+    mut font_system: ResMut<CosmicFontSystem>,
 ) {
     scale_factors_buffer.clear();
 
@@ -208,6 +212,7 @@ pub fn measure_text_system(
                 text_flags,
                 buffer.as_mut(),
                 text_alignment,
+                &mut font_system,
             );
         }
     }
@@ -229,10 +234,12 @@ fn queue_text(
     mut text_flags: Mut<TextFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     buffer: &mut CosmicBuffer,
+    font_system: &mut CosmicFontSystem,
+    swash_cache: &mut SwashCache,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
-        let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
+        let physical_node_size = if text.linebreak == LineBreak::NoWrap {
             // With `NoWrap` set, no constraints are placed on the width of the text.
             TextBounds::UNBOUNDED
         } else {
@@ -250,7 +257,7 @@ fn queue_text(
             &text.sections,
             scale_factor.into(),
             text.justify,
-            text.linebreak_behavior,
+            text.linebreak,
             text.font_smoothing,
             physical_node_size,
             font_atlas_sets,
@@ -258,6 +265,8 @@ fn queue_text(
             textures,
             YAxisOrientation::TopToBottom,
             buffer,
+            font_system,
+            swash_cache,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
@@ -305,6 +314,8 @@ pub fn text_system(
         Option<&TargetCamera>,
         &mut CosmicBuffer,
     )>,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
     scale_factors_buffer.clear();
 
@@ -343,6 +354,8 @@ pub fn text_system(
                 text_flags,
                 text_layout_info,
                 buffer.as_mut(),
+                &mut font_system,
+                &mut swash_cache,
             );
         }
     }

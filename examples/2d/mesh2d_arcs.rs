@@ -12,7 +12,6 @@ use bevy::{
     },
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
-    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
@@ -68,14 +67,11 @@ fn setup(
                 angle: sector_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(sector_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(sector_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(sector_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
+                rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
             },
             DrawBounds(sector),
@@ -95,14 +91,11 @@ fn setup(
                 angle: -segment_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(segment_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(segment_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(segment_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
+                rotation: Quat::from_rotation_z(segment_angle),
                 ..default()
             },
             DrawBounds(segment),

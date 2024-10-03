@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{BreakLineOn, FontSmoothing, TextBounds},
+    text::{FontSmoothing, LineBreak, TextBounds},
 };
 
 fn main() {
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::WordBoundary,
+                    linebreak: LineBreak::WordBoundary,
                     ..default()
                 },
                 // Wrap text in the rectangle
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::AnyCharacter,
+                    linebreak: LineBreak::AnyCharacter,
                     ..default()
                 },
                 // Wrap text in the rectangle

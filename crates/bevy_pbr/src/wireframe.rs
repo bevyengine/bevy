@@ -1,11 +1,13 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin};
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
+    extract_resource::ExtractResource,
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef},
+    prelude::*,
     render_resource::*,
 };
 
@@ -129,12 +131,12 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
-        (&mut Handle<WireframeMaterial>, &WireframeColor),
+        (&mut MeshMaterial3d<WireframeMaterial>, &WireframeColor),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
 ) {
     for (mut handle, wireframe_color) in &mut colors_changed {
-        *handle = materials.add(WireframeMaterial {
+        handle.0 = materials.add(WireframeMaterial {
             color: wireframe_color.color.into(),
         });
     }
@@ -147,27 +149,27 @@ fn apply_wireframe_material(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     wireframes: Query<
         (Entity, Option<&WireframeColor>),
-        (With<Wireframe>, Without<Handle<WireframeMaterial>>),
+        (With<Wireframe>, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
-    no_wireframes: Query<Entity, (With<NoWireframe>, With<Handle<WireframeMaterial>>)>,
+    no_wireframes: Query<Entity, (With<NoWireframe>, With<MeshMaterial3d<WireframeMaterial>>)>,
     mut removed_wireframes: RemovedComponents<Wireframe>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(commands) = commands.get_entity(e) {
-            commands.remove::<Handle<WireframeMaterial>>();
+        if let Some(mut commands) = commands.get_entity(e) {
+            commands.remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
 
     let mut material_to_spawn = vec![];
     for (e, maybe_color) in &wireframes {
         let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
-        material_to_spawn.push((e, material));
+        material_to_spawn.push((e, MeshMaterial3d(material)));
     }
     commands.insert_or_spawn_batch(material_to_spawn);
 }
 
-type WireframeFilter = (With<Handle<Mesh>>, Without<Wireframe>, Without<NoWireframe>);
+type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
@@ -175,9 +177,12 @@ fn apply_global_wireframe_material(
     config: Res<WireframeConfig>,
     meshes_without_material: Query<
         (Entity, Option<&WireframeColor>),
-        (WireframeFilter, Without<Handle<WireframeMaterial>>),
+        (WireframeFilter, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
-    meshes_with_global_material: Query<Entity, (WireframeFilter, With<Handle<WireframeMaterial>>)>,
+    meshes_with_global_material: Query<
+        Entity,
+        (WireframeFilter, With<MeshMaterial3d<WireframeMaterial>>),
+    >,
     global_material: Res<GlobalWireframeMaterial>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
 ) {
@@ -187,12 +192,14 @@ fn apply_global_wireframe_material(
             let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, material));
+            material_to_spawn.push((e, MeshMaterial3d(material)));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
-            commands.entity(e).remove::<Handle<WireframeMaterial>>();
+            commands
+                .entity(e)
+                .remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
 }
