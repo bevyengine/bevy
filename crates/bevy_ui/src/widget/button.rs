@@ -12,7 +12,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// Information about whether or not this button is currently pressed or hovered is gathered from
 /// user input, processed via [`bevy_picking`] and set during [`UiSystem::Focus`](crate::UiSystem::Focus).
 ///
-/// See [`FocusPolicy`](crate::focus::FocusPolicy) to configure whether or not the button should block interactions with lower nodes.
+/// Use the [`Pickable`](bevy_picking::Pickable) component to configure whether or not the button should block interactions with lower nodes.
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct Button {

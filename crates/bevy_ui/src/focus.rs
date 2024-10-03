@@ -1,35 +1,5 @@
 use crate::ResolvedBorderRadius;
-use bevy_ecs::prelude::*;
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-
-#[cfg(feature = "serialize")]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-
-/// Describes whether the node should block interactions with lower nodes
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq, Debug)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum FocusPolicy {
-    /// Blocks interaction
-    Block,
-    /// Lets interaction pass through
-    Pass,
-}
-
-impl FocusPolicy {
-    const DEFAULT: Self = Self::Pass;
-}
-
-impl Default for FocusPolicy {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
 
 // Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
 // the given size and border radius.

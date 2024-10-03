@@ -2,11 +2,12 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Node, ScrollPosition,
-    Style, UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, Node, ScrollPosition, Style, UiImage,
+    UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
+use bevy_picking::Pickable;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -37,8 +38,6 @@ pub struct NodeBundle {
     pub border_color: BorderColor,
     /// The border radius of the node
     pub border_radius: BorderRadius,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
     /// The scroll position of the node,
     pub scroll_position: ScrollPosition,
     /// The transform of the node
@@ -89,8 +88,6 @@ pub struct ImageBundle {
     ///
     /// This component is set automatically
     pub image_size: UiImageSize,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -132,8 +129,6 @@ pub struct TextBundle {
     pub text_flags: TextFlags,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -229,8 +224,6 @@ pub struct ButtonBundle {
     /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
     /// The color of the Node's border
     pub border_color: BorderColor,
     /// The border radius of the node
@@ -256,6 +249,10 @@ pub struct ButtonBundle {
     pub view_visibility: ViewVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+    /// Controls the picking policy for this button.
+    ///
+    /// By default, this blocks interactions with lower nodes when the button is pressed.
+    pub pickable: Pickable,
 }
 
 impl Default for ButtonBundle {
@@ -264,7 +261,6 @@ impl Default for ButtonBundle {
             node: Default::default(),
             button: Default::default(),
             style: Default::default(),
-            focus_policy: FocusPolicy::Block,
             border_color: Default::default(),
             border_radius: Default::default(),
             image: Default::default(),
@@ -275,6 +271,10 @@ impl Default for ButtonBundle {
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
             z_index: Default::default(),
+            pickable: Pickable {
+                should_block_lower: true,
+                ..Default::default()
+            },
         }
     }
 }
@@ -292,8 +292,6 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     pub style: Style,
     /// The [`UiMaterial`] used to render the node.
     pub material: Handle<M>,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
@@ -320,7 +318,6 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),
-            focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

@@ -32,7 +32,6 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub use focus::*;
 pub use geometry::*;
 pub use ghost_hierarchy::*;
 pub use layout::*;
@@ -131,8 +130,6 @@ impl Plugin for UiPlugin {
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Node>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
