@@ -17,8 +17,6 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
-use core::panic::Location;
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
