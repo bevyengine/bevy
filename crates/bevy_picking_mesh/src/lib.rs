@@ -1,4 +1,4 @@
-//! A raycasting backend for `bevy_mod_picking` that uses `bevy_mod_raycast` for raycasting.
+//! A ray casting backend for `bevy_picking`.
 //!
 //! # Usage
 //!
@@ -6,10 +6,9 @@
 //! the scene and will be able to pick things.
 //!
 //! To ignore an entity, you can add [`Pickable::IGNORE`] to it, and it will be ignored during
-//! raycasting.
+//! ray casting.
 //!
-//! For fine-grained control, see the [`RaycastBackendSettings::require_markers`] setting.
-//!
+//! For fine-grained control, see the [`RayCastBackendSettings::require_markers`] setting.
 
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 #![warn(missing_docs)]
@@ -23,65 +22,71 @@ use bevy_picking::{
 };
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use raycast::immediate::{Raycast, RaycastSettings, RaycastVisibility};
+use ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility};
 
-pub mod raycast;
+pub mod ray_cast;
 
 /// Commonly used imports for the [`bevy_picking_raycast`](crate) crate.
 pub mod prelude {
-    pub use crate::RaycastBackend;
+    pub use crate::{
+        ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility, RayTriangleHit},
+        RayCastBackend,
+    };
 }
 
-/// Runtime settings for the [`RaycastBackend`].
+/// Runtime settings for the [`RayCastBackend`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
-pub struct RaycastBackendSettings {
-    /// When set to `true` raycasting will only happen between cameras and entities marked with
-    /// [`RaycastPickable`]. Off by default. This setting is provided to give you fine-grained
-    /// control over which cameras and entities should be used by the raycast backend at runtime.
+pub struct RayCastBackendSettings {
+    /// When set to `true` ray casting will only happen between cameras and entities marked with
+    /// [`RayCastPickable`]. Off by default. This setting is provided to give you fine-grained
+    /// control over which cameras and entities should be used by the ray cast backend at runtime.
     pub require_markers: bool,
     /// When set to Ignore, hidden items can be raycasted against.
-    /// See [`RaycastSettings::visibility`] for more information.
-    pub raycast_visibility: RaycastVisibility,
+    /// See [`RayCastSettings::visibility`] for more information.
+    pub raycast_visibility: RayCastVisibility,
+    /// When set to [`Backfaces::Cull`], backfaces will be ignored during ray casting.
+    pub backfaces: Backfaces,
 }
 
-impl Default for RaycastBackendSettings {
+impl Default for RayCastBackendSettings {
     fn default() -> Self {
         Self {
             require_markers: false,
-            raycast_visibility: RaycastVisibility::MustBeVisibleAndInView,
+            raycast_visibility: RayCastVisibility::VisibleAndInView,
+            backfaces: Backfaces::default(),
         }
     }
 }
 
-/// Optional. Marks cameras and target entities that should be used in the raycast picking backend.
-/// Only needed if [`RaycastBackendSettings::require_markers`] is set to true.
+/// Optional. Marks cameras and target entities that should be used in the ray cast picking backend.
+/// Only needed if [`RayCastBackendSettings::require_markers`] is set to true.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
-pub struct RaycastPickable;
+pub struct RayCastPickable;
 
-/// Adds the raycasting picking backend to your app.
+/// Adds the ray casting picking backend to your app.
 #[derive(Clone, Default)]
-pub struct RaycastBackend;
-impl Plugin for RaycastBackend {
+pub struct RayCastBackend;
+impl Plugin for RayCastBackend {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RaycastBackendSettings>()
+        app.init_resource::<RayCastBackendSettings>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend))
-            .register_type::<RaycastPickable>()
-            .register_type::<RaycastBackendSettings>();
+            .register_type::<RayCastPickable>()
+            .register_type::<RayCastBackendSettings>();
     }
 }
 
-/// Raycasts into the scene using [`RaycastBackendSettings`] and [`PointerLocation`]s, then outputs
+/// Raycasts into the scene using [`RayCastBackendSettings`] and [`PointerLocation`]s, then outputs
 /// [`PointerHits`].
 pub fn update_hits(
-    backend_settings: Res<RaycastBackendSettings>,
+    backend_settings: Res<RayCastBackendSettings>,
     ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RaycastPickable>, Option<&RenderLayers>)>,
+    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
     pickables: Query<&Pickable>,
-    marked_targets: Query<&RaycastPickable>,
+    marked_targets: Query<&RayCastPickable>,
     layers: Query<&RenderLayers>,
-    mut raycast: Raycast,
+    mut ray_cast: MeshRayCast,
     mut output_events: EventWriter<PointerHits>,
 ) {
     for (&ray_id, &ray) in ray_map.map().iter() {
@@ -94,8 +99,9 @@ pub fn update_hits(
 
         let cam_layers = cam_layers.to_owned().unwrap_or_default();
 
-        let settings = RaycastSettings {
+        let settings = RayCastSettings {
             visibility: backend_settings.raycast_visibility,
+            backfaces: backend_settings.backfaces,
             filter: &|entity| {
                 let marker_requirement =
                     !backend_settings.require_markers || marked_targets.get(entity).is_ok();
@@ -117,7 +123,7 @@ pub fn update_hits(
                     .is_ok_and(|pickable| pickable.should_block_lower)
             },
         };
-        let picks = raycast
+        let picks = ray_cast
             .cast_ray(ray, &settings)
             .iter()
             .map(|(entity, hit)| {

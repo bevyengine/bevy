@@ -8,10 +8,14 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+2d = []
+
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev", default-features = false }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
+bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false }
 bevy_picking = { path = "../bevy_picking", version = "0.15.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false }
