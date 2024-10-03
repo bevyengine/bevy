@@ -1,4 +1,5 @@
 use core::any::Any;
+use core::panic::Location;
 
 use crate::{
     component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
@@ -64,12 +65,12 @@ impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, entity, _| {
+        hooks.on_add(|mut world, entity, _, _| {
             world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
         });
-        hooks.on_remove(|mut world, entity, _| {
+        hooks.on_remove(|mut world, entity, _, _| {
             let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
@@ -315,12 +316,12 @@ impl Observer {
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _id| {
+        hooks.on_add(|world, entity, id, caller| {
             let Some(observe) = world.get::<Self>(entity) else {
                 return;
             };
             let hook = observe.hook_on_add;
-            hook(world, entity, _id);
+            hook(world, entity, id, caller);
         });
     }
 }
@@ -393,6 +394,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
     entity: Entity,
     _: ComponentId,
+    _: &'static Location<'static>,
 ) {
     world.commands().queue(move |world: &mut World| {
         let event_type = world.register_component::<E>();

@@ -1683,7 +1683,12 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
-            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_replace(
+                archetype,
+                self.entity,
+                archetype.components(),
+                Location::caller(),
+            );
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
@@ -1692,7 +1697,12 @@ impl<'w> EntityWorldMut<'w> {
                     Location::caller(),
                 );
             }
-            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_remove(
+                archetype,
+                self.entity,
+                archetype.components(),
+                Location::caller(),
+            );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
@@ -1915,7 +1925,12 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     bundle_info: &BundleInfo,
     caller: &'static Location<'static>,
 ) {
-    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_replace(
+        archetype,
+        entity,
+        bundle_info.iter_explicit_components(),
+        caller,
+    );
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
@@ -1924,7 +1939,12 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
             caller,
         );
     }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_remove(
+        archetype,
+        entity,
+        bundle_info.iter_explicit_components(),
+        caller,
+    );
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(
             ON_REMOVE,

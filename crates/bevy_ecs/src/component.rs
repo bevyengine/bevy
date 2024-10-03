@@ -26,6 +26,7 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
+    panic::Location,
 };
 use thiserror::Error;
 
@@ -414,7 +415,8 @@ pub enum StorageType {
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+pub type ComponentHook =
+    for<'w> fn(DeferredWorld<'w>, Entity, ComponentId, &'static Location<'static>);
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
 ///
