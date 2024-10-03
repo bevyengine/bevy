@@ -373,12 +373,13 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
         ),
     >,
     changed_spans: Query<
-        (Entity, &Parent, Has<TextBlock>),
+        (Entity, Option<&Parent>, Has<TextBlock>),
         (
             Or<(
                 Changed<Span>,
                 Changed<TextStyle>,
                 Changed<Children>,
+                Changed<Parent>, // Included to detect broken text block hierarchies.
                 Added<TextBlock>,
             )>,
             With<Span>,
@@ -393,8 +394,9 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     // - TextBlock changed.
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
-        // TODO: ComputedTextBlock *should* be here. Log a warning?
         let Ok((_, Some(mut computed))) = computed.get_mut(root) else {
+            warn_once!("found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once", root, std::any::type_name::<Root>());
             continue;
         };
         computed.needs_rerender = true;
@@ -404,28 +406,39 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     // - Span component changed.
     // - Span TextStyle changed.
     // - Span children changed (can include additions and removals).
-    for (entity, span_parent, has_text_block) in changed_spans.iter() {
+    for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
             warn_once!("found entity {:?} with a text span ({}) that has a TextBlock, which should only be on root \
-                nodes (that have {}); this warning only prints once",
+                text entities (that have {}); this warning only prints once",
                 entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
         }
+
+        let Some(span_parent) = maybe_span_parent else {
+            warn_once!("found entity {:?} with a text span ({}) that has no parent; it should have an ancestor \
+                with a root text component ({}); this warning only prints once",
+                entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
+            continue;
+        };
         let mut parent: Entity = **span_parent;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
-            // TODO: If this lookup fails then there is a hierarchy error. Log a warning?
             let Ok((maybe_parent, maybe_computed)) = computed.get_mut(parent) else {
+                warn_once!("found entity {:?} with a text span ({}) that is part of a broken hierarchy with a Parent \
+                    component that points at non-existent entity {:?}; this warning only prints once",
+                    entity, std::any::type_name::<Span>(), parent);
                 break;
             };
             if let Some(mut computed) = maybe_computed {
                 computed.needs_rerender = true;
                 break;
             }
-            // TODO: If there is no parent then a span is floating without an owning TextBlock. Log a warning?
             let Some(next_parent) = maybe_parent else {
+                warn_once!("found entity {:?} with a text span ({}) that has no ancestor with the root text \
+                    component ({}); this warning only prints once",
+                    entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
                 break;
             };
             parent = **next_parent;

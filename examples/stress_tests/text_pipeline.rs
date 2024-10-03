@@ -38,19 +38,6 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
-<<<<<<< HEAD
-    commands.spawn(Camera2d);
-    let sections = (1..=50)
-        .flat_map(|i| {
-            [
-                TextSection {
-                    value: "text".repeat(i),
-                    style: TextStyle {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: (4 + i % 10) as f32,
-                        color: BLUE.into(),
-                    },
-=======
     commands.spawn(Camera2d);
 
     let make_spans = |i| {
@@ -62,7 +49,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: (4 + i % 10) as f32,
                     color: BLUE.into(),
                     ..Default::default()
->>>>>>> 4f86a970a (Update text stress tests (#4))
                 },
             ),
             (

@@ -44,17 +44,6 @@ fn main() {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-<<<<<<< HEAD
-    commands.spawn(Camera2d);
-    let mut text = Text {
-        sections: vec![TextSection {
-            value: "0123456789".repeat(10_000),
-            style: TextStyle {
-                font_size: 4.,
-                ..default()
-            },
-        }],
-=======
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
     let text_style = TextStyle {
@@ -62,7 +51,6 @@ fn setup(mut commands: Commands) {
         ..Default::default()
     };
     let text_block = TextBlock {
->>>>>>> 4f86a970a (Update text stress tests (#4))
         justify: JustifyText::Left,
         linebreak: LineBreak::AnyCharacter,
         ..Default::default()
