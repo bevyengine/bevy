@@ -1,6 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure,
-    MeasureArgs, Node, NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
+    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure, MeasureArgs, Node,
+    NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
 };
 use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
@@ -110,7 +110,7 @@ impl TextNEW {
         Self(text.into())
     }
 
-    /// Makes an empty 2d text component.
+    /// Makes an empty UI text component.
     pub fn empty() -> Self {
         Self::new("")
     }
@@ -181,6 +181,11 @@ impl TextSpan {
     pub fn new(text: impl Into<String>) -> Self {
         Self(text.into())
     }
+
+    /// Makes an empty UI text span component.
+    pub fn empty() -> Self {
+        Self::new("")
+    }
 }
 
 impl TextSpanAccess for TextSpan {
@@ -189,6 +194,18 @@ impl TextSpanAccess for TextSpan {
     }
     fn write_span(&mut self) -> &mut String {
         &mut *self
+    }
+}
+
+impl From<&str> for TextSpan {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for TextSpan {
+    fn from(value: String) -> Self {
+        Self(value)
     }
 }
 

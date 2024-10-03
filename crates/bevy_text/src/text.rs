@@ -2,7 +2,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{Children, Parent};
+use bevy_hierarchy::{BuildChildren, Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
@@ -279,6 +279,21 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
+/// Provides convenience methods for constructing text blocks.
+pub trait TextBuilderExt {
+    /// Adds a flat list of spans as children of the current entity.
+    fn with_spans<S: Component>(&mut self, spans: Vec<(S, TextStyle)>) -> &mut Self;
+}
+
+impl TextBuilderExt for EntityCommands<'_> {
+    fn with_spans<S: Component>(&mut self, mut spans: Vec<(S, TextStyle)>) -> &mut Self {
+        for (span, style) in spans.drain(..) {
+            self.with_child((span, style));
+        }
+        self
+    }
+}
+
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
 /// Generic over the root text component and text span component. For example, [`Text2d`]/[`TextSpan2d`] for 2d or
@@ -299,13 +314,14 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
         ),
     >,
     changed_spans: Query<
+        (Entity, &Parent, Has<TextBlock>),
         (
-            Entity,
-            &Parent,
-            Has<TextBlock>
-        ),
-        (
-            Or<(Changed<Span>, Changed<TextStyle>, Changed<Children>, Added<TextBlock>)>,
+            Or<(
+                Changed<Span>,
+                Changed<TextStyle>,
+                Changed<Children>,
+                Added<TextBlock>,
+            )>,
             With<Span>,
             With<TextStyle>,
         ),

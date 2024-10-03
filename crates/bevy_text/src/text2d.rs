@@ -159,12 +159,36 @@ world.spawn((
 #[require(TextStyle, Visibility(visibility_hidden), Transform)]
 pub struct TextSpan2d(pub String);
 
+impl TextSpan2d {
+    /// Makes a new 2d span text component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+
+    /// Makes an empty 2d span text component.
+    pub fn empty() -> Self {
+        Self::new("")
+    }
+}
+
 impl TextSpanAccess for TextSpan2d {
     fn read_span(&self) -> &str {
         self.as_str()
     }
     fn write_span(&mut self) -> &mut String {
         &mut *self
+    }
+}
+
+impl From<&str> for TextSpan2d {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for TextSpan2d {
+    fn from(value: String) -> Self {
+        Self(value)
     }
 }
 

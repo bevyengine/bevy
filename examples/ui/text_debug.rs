@@ -6,6 +6,7 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::TextBuilderExt,
     ui::widget::UiTextWriter,
     window::PresentMode,
 };
@@ -172,77 +173,87 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextChanges,
             BackgroundColor(background_color)
         ))
-            .with_child((
-                TextSpan::new("\nThis text changes in the bottom right"),
+        .with_spans::<TextSpan>(vec![
+            (
+                "\nThis text changes in the bottom right".into(),
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    ..default()
+                }
+            ),
+            (
+                "\nThis text changes in the bottom right".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     ..default()
                 },
-            ))
-            .with_child((
-                TextSpan::new(" this text has zero fontsize"),
+            ),
+            (
+                " this text has zero fontsize".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 0.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            ))
-            .with_child((
-                TextSpan::new("\nThis text changes in the bottom right - "),
+            ),
+            (
+                "\nThis text changes in the bottom right - ".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: RED.into(),
                     ..default()
                 },
-            ))
-            .with_child((
-                TextSpan::default(),
+            ),
+            (
+                TextSpan::empty(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: ORANGE_RED.into(),
                     ..default()
                 }
-            ))
-            .with_child((
-                TextSpan::new(" fps, "),
+            ),
+            (
+                " fps, ".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 10.0,
                     color: YELLOW.into(),
                     ..default()
                 },
-            ))
-            .with_child((
-                TextSpan::default(),
+            ),
+            (
+                TextSpan::empty(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: LIME.into(),
                     ..default()
                 }
-            ))
-            .with_child((
-                TextSpan::new(" ms/frame"),
+            ),
+            (
+                " ms/frame".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 42.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            ))
-            .with_child((
-                TextSpan::new(" this text has negative fontsize"),
+            ),
+            (
+                " this text has negative fontsize".into(),
                 TextStyle {
                     font: font.clone(),
                     font_size: -42.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            ));
+            )
+        ]);
     })
     .id();
     commands
