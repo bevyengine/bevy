@@ -563,11 +563,20 @@ where
                 .short_arc_3d_between(lower_center, start, lower_apex, self.color);
         });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
-            self.gizmos.line(start, end, self.color);
-        });
+        let circle_rotation = self
+            .isometry
+            .rotation
+            .mul_quat(Quat::from_rotation_x(core::f32::consts::FRAC_PI_2));
+        self.gizmos.circle(
+            Isometry3d::new(upper_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
+        self.gizmos.circle(
+            Isometry3d::new(lower_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
 
         let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
         connection_lines.for_each(|(start, end)| {
