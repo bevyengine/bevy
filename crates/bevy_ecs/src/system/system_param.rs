@@ -1459,6 +1459,16 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         };
         Some(param)
     }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+        change_tick: Tick,
+    ) -> bool {
+        NonSend::<T>::validate_param(state, system_meta, world, change_tick)
+    }
 }
 
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
@@ -1486,6 +1496,16 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
                 changed_by: _caller.deref_mut(),
             });
         Some(param)
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        &mut _component_id: &mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell,
+        _change_tick: Tick,
+    ) -> bool {
+        true
     }
 }
 
