@@ -5,6 +5,7 @@ use bevy_ecs::{
     query::{QueryData, QueryFilter, WorldQuery},
     system::Query,
 };
+use smallvec::SmallVec;
 
 use crate::{Children, Parent};
 
@@ -229,7 +230,7 @@ where
     D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
 {
     _hierarchy_query: &'w Query<'w, 's, D, F>,
-    vecdeque: VecDeque<Entity>,
+    small_vec: SmallVec<[Entity; 8]>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> SiblingIter<'w, 's, D, F>
@@ -240,21 +241,23 @@ where
     pub fn new(hierarchy_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
         match hierarchy_query.get(entity) {
             Ok((parent, _)) => {
-                let children_of_parent = hierarchy_query
-                    .get(parent.get())
-                    .map(|(_, children)| children.to_vec())
-                    .unwrap_or_default();
+                let Ok((_, children_of_parent)) = hierarchy_query.get(parent.get()) else {
+                    return SiblingIter {
+                        _hierarchy_query: hierarchy_query,
+                        small_vec: SmallVec::new(),
+                    };
+                };
 
                 let siblings = children_of_parent.iter().filter(|child| **child != entity);
 
                 SiblingIter {
                     _hierarchy_query: hierarchy_query,
-                    vecdeque: VecDeque::from_iter(siblings.copied()),
+                    small_vec: SmallVec::from_iter(siblings.copied()),
                 }
             }
             Err(_) => SiblingIter {
                 _hierarchy_query: hierarchy_query,
-                vecdeque: VecDeque::new(),
+                small_vec: SmallVec::new(),
             },
         }
     }
@@ -267,7 +270,7 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let entity: Entity = self.vecdeque.pop_front()?;
+        let entity: Entity = self.small_vec.pop()?;
         Some(entity)
     }
 }
