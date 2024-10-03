@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use alloc::collections::VecDeque;
 
 use bevy_ecs::{
@@ -163,7 +165,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
     where
         D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
     {
-        SiblingIter::new(self, entity)
+        SiblingIter::<D, F>::new(self, entity)
     }
 
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
@@ -229,8 +231,8 @@ pub struct SiblingIter<'w, 's, D: QueryData, F: QueryFilter>
 where
     D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
 {
-    _hierarchy_query: &'w Query<'w, 's, D, F>,
     small_vec: SmallVec<[Entity; 8]>,
+    _phantom: PhantomData<(&'w D, &'s F)>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> SiblingIter<'w, 's, D, F>
@@ -243,21 +245,21 @@ where
             Ok((parent, _)) => {
                 let Ok((_, children_of_parent)) = hierarchy_query.get(parent.get()) else {
                     return SiblingIter {
-                        _hierarchy_query: hierarchy_query,
                         small_vec: SmallVec::new(),
+                        _phantom: PhantomData,
                     };
                 };
 
                 let siblings = children_of_parent.iter().filter(|child| **child != entity);
 
                 SiblingIter {
-                    _hierarchy_query: hierarchy_query,
                     small_vec: SmallVec::from_iter(siblings.copied()),
+                    _phantom: PhantomData,
                 }
             }
             Err(_) => SiblingIter {
-                _hierarchy_query: hierarchy_query,
                 small_vec: SmallVec::new(),
+                _phantom: PhantomData,
             },
         }
     }
