@@ -188,8 +188,10 @@ pub struct LeafIter<'w, 's, D: QueryData, F: QueryFilter>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
 {
-    _children_query: &'w Query<'w, 's, D, F>,
     vecdeque: VecDeque<Entity>,
+    // PERF: if this ends up resulting in too much memory being allocated, we can store the query instead
+    // like in IterDescendants
+    _phantom: PhantomData<(&'w D, &'s F)>,
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> LeafIter<'w, 's, D, F>
@@ -208,8 +210,8 @@ where
         });
 
         LeafIter {
-            _children_query: children_query,
             vecdeque: leaf_children.collect(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -231,6 +233,8 @@ pub struct SiblingIter<'w, 's, D: QueryData, F: QueryFilter>
 where
     D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
 {
+    // Unlike other iterators, we don't need to store the query here,
+    // as the number of siblings is likely to be much smaller than the number of descendants.
     small_vec: SmallVec<[Entity; 8]>,
     _phantom: PhantomData<(&'w D, &'s F)>,
 }
