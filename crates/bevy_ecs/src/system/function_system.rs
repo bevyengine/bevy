@@ -151,9 +151,7 @@ impl ParamWarnPolicy {
     /// Advances the warn policy after validation failed.
     #[inline]
     fn advance(&mut self) {
-        *self = match self {
-            Self::Never | Self::Once => Self::Never,
-        };
+        *self = Self::Never;
     }
 
     /// Emits a warning about inaccessible system param if policy allows it.
