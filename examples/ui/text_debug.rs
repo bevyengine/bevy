@@ -230,7 +230,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ),
             ]).with_background_color(background_color),
             TextChanges,
-        ));        
+        ));
     })
     .id();
     commands
