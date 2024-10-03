@@ -1238,7 +1238,7 @@ impl World {
     /// let mut world = World::new();
     /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
     /// assert!(world.despawn(entity));
-    /// assert!(world.get_entity(entity).is_none());
+    /// assert!(world.get_entity(entity).is_err());
     /// assert!(world.get::<Position>(entity).is_none());
     /// ```
     #[track_caller]
