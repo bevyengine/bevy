@@ -290,6 +290,7 @@ use thiserror::Error;
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
+/// # use core::panic::Location;
 /// #
 /// #[derive(Component)]
 /// #[component(on_add = my_on_add_hook)]
@@ -301,12 +302,12 @@ use thiserror::Error;
 /// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId, caller: &'static Location<'static>) {
 ///     // ...
 /// }
 ///
 /// // You can also omit writing some types using generics.
-/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2, caller: &'static Location<'static>) {
 ///     // ...
 /// }
 /// ```
@@ -451,12 +452,12 @@ pub type ComponentHook =
 /// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
 /// assert!(tracked_component_query.iter(&world).next().is_none());
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id, _caller| {
 ///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
 ///   tracked_entities.0.insert(entity);
 /// });
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id, _caller| {
 ///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
 ///   tracked_entities.0.remove(&entity);
 /// });
