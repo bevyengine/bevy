@@ -6,16 +6,14 @@ use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    TypeIdMap,
-};
+use bevy_utils::tracing::{error, info, warn};
 use thiserror::Error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;
 
 use crate as bevy_ecs;
+use crate::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -46,9 +44,10 @@ enum SystemBehavior {
     /// When [`Action::Waiting`] this system will not be run
     /// When [`Action::Step`] this system will be stepped
     /// When [`Action::Continue`] system execution will stop before executing
-    /// this system unless its the first system run when continuing
+    /// this system unless it's the first system run when continuing
     Break,
 
+    #[allow(dead_code)]
     /// When [`Action::Waiting`] this system will not be run
     /// When [`Action::Step`] this system will be stepped
     /// When [`Action::Continue`] this system will be run
@@ -64,9 +63,14 @@ struct Cursor {
     pub system: usize,
 }
 
-// Two methods of referring to Systems, via TypeId, or per-Schedule NodeId
+/// Identifies a node that we want to apply stepping-behavior to
+#[derive(Hash, PartialEq, Eq)]
 enum SystemIdentifier {
+    /// A system set
+    Set(InternedSystemSet),
+    /// A system identified by its type
     Type(TypeId),
+    /// A node in the schedule graph
     Node(NodeId),
 }
 
@@ -262,7 +266,22 @@ impl Stepping {
         self
     }
 
-    /// Ensure this system instance always runs when stepping is enabled
+    /// Ensure this [`SystemSet`] always runs when stepping is enabled
+    pub fn always_run_set<Marker>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        system_set: impl IntoSystemSet<Marker>,
+    ) -> &mut Self {
+        self.updates.push(Update::SetBehavior(
+            schedule.intern(),
+            SystemIdentifier::Set(system_set.into_system_set().intern()),
+            SystemBehavior::AlwaysRun,
+        ));
+
+        self
+    }
+
+    /// Ensure this node (system or system set) always runs when stepping is enabled
     pub fn always_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
@@ -288,7 +307,22 @@ impl Stepping {
         self
     }
 
-    /// Ensure this system instance never runs when stepping is enabled
+    /// Ensure this [`SystemSet`] never runs when stepping is enabled
+    pub fn never_run_set<Marker>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        system_set: impl IntoSystemSet<Marker>,
+    ) -> &mut Self {
+        self.updates.push(Update::SetBehavior(
+            schedule.intern(),
+            SystemIdentifier::Set(system_set.into_system_set().intern()),
+            SystemBehavior::NeverRun,
+        ));
+
+        self
+    }
+
+    /// Ensure this node (system or system set) never runs when stepping is enabled
     pub fn never_run_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::SetBehavior(
             schedule.intern(),
@@ -360,7 +394,21 @@ impl Stepping {
         self
     }
 
-    /// clear a breakpoint for system instance
+    /// Clear any behavior set for the system set
+    pub fn clear_system_set<Marker>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        system_set: impl IntoSystemSet<Marker>,
+    ) -> &mut Self {
+        self.updates.push(Update::ClearBehavior(
+            schedule.intern(),
+            SystemIdentifier::Set(system_set.into_system_set().intern()),
+        ));
+
+        self
+    }
+
+    /// clear a breakpoint for the node (system or system set)
     pub fn clear_node(&mut self, schedule: impl ScheduleLabel, node: NodeId) -> &mut Self {
         self.updates.push(Update::ClearBehavior(
             schedule.intern(),
@@ -615,7 +663,7 @@ struct ScheduleState {
 
     /// changes to system behavior that should be applied the next time
     /// [`ScheduleState::skipped_systems()`] is called
-    behavior_updates: TypeIdMap<Option<SystemBehavior>>,
+    behavior_updates: HashMap<SystemIdentifier, Option<SystemBehavior>>,
 
     /// This field contains the first steppable system in the schedule.
     first: Option<usize>,
@@ -626,14 +674,30 @@ impl ScheduleState {
     fn set_behavior(&mut self, system: SystemIdentifier, behavior: SystemBehavior) {
         self.first = None;
         match system {
+            SystemIdentifier::Set(_) => {
+                // for sets, we want to apply the behavior to all systems in the set,
+                // which we can only do when we have the `Schedule`, so queue this update
+                // to be processed the next time `skipped_systems()` is called
+                self.behavior_updates.insert(system, Some(behavior));
+            }
             SystemIdentifier::Node(node_id) => {
-                self.behaviors.insert(node_id, behavior);
+                match node_id {
+                    NodeId::System(_) => {
+                        self.behaviors.insert(node_id, behavior);
+                    }
+                    NodeId::Set(_) => {
+                        // for sets, we want to apply the behavior to all systems in the set,
+                        // which we can only do when we have the `Schedule`, so queue this update
+                        // to be processed the next time `skipped_systems()` is called
+                        self.behavior_updates.insert(system, Some(behavior));
+                    }
+                }
             }
             // Behaviors are indexed by NodeId, but we cannot map a system
             // TypeId to a NodeId without the `Schedule`.  So queue this update
             // to be processed the next time `skipped_systems()` is called.
-            SystemIdentifier::Type(type_id) => {
-                self.behavior_updates.insert(type_id, Some(behavior));
+            SystemIdentifier::Type(_) => {
+                self.behavior_updates.insert(system, Some(behavior));
             }
         }
     }
@@ -642,12 +706,28 @@ impl ScheduleState {
     fn clear_behavior(&mut self, system: SystemIdentifier) {
         self.first = None;
         match system {
+            SystemIdentifier::Set(_) => {
+                // for sets, we want to apply the behavior to all systems in the set,
+                // which we can only do when we have the `Schedule`, so queue this update
+                // to be processed the next time `skipped_systems()` is called
+                self.behavior_updates.insert(system, None);
+            }
             SystemIdentifier::Node(node_id) => {
-                self.behaviors.remove(&node_id);
+                match node_id {
+                    NodeId::System(_) => {
+                        self.behaviors.remove(&node_id);
+                    }
+                    NodeId::Set(_) => {
+                        // for sets, we want to apply the behavior to all systems in the set,
+                        // which we can only do when we have the `Schedule`, so queue this update
+                        // to be processed the next time `skipped_systems()` is called
+                        self.behavior_updates.insert(system, None);
+                    }
+                }
             }
             // queue TypeId updates to be processed later when we have Schedule
-            SystemIdentifier::Type(type_id) => {
-                self.behavior_updates.insert(type_id, None);
+            SystemIdentifier::Type(_) => {
+                self.behavior_updates.insert(system, None);
             }
         }
     }
@@ -662,13 +742,37 @@ impl ScheduleState {
     // apply system behavior updates by looking up the node id of the system in
     // the schedule, and updating `systems`
     fn apply_behavior_updates(&mut self, schedule: &Schedule) {
+        // For system sets, we will apply the behaviour to every system inside the system set
+        for (node_id, set, _) in schedule.graph().system_sets() {
+            // get the system_set behaviour by node or type_id
+            if let Some(behavior) = self
+                .behavior_updates
+                .get(&SystemIdentifier::Node(node_id))
+                .or_else(|| {
+                    self.behavior_updates
+                        .get(&SystemIdentifier::Set(set.intern()))
+                })
+            {
+                let systems_in_set = schedule.graph().sets_to_systems.get(&node_id).unwrap();
+                for node_id in systems_in_set {
+                    if let Some(behavior) = behavior {
+                        self.behaviors.insert(*node_id, *behavior);
+                    } else {
+                        self.behaviors.remove(node_id);
+                    }
+                }
+            }
+        }
+
         // Systems may be present multiple times within a schedule, so we
         // iterate through all systems in the schedule, and check our behavior
         // updates for the system TypeId.
         // PERF: If we add a way to efficiently query schedule systems by their TypeId, we could remove the full
         // system scan here
         for (node_id, system) in schedule.systems().unwrap() {
-            let behavior = self.behavior_updates.get(&system.type_id());
+            let behavior = self
+                .behavior_updates
+                .get(&SystemIdentifier::Type(system.type_id()));
             match behavior {
                 None => continue,
                 Some(None) => {
@@ -685,6 +789,8 @@ impl ScheduleState {
         debug!("apply_updates(): {:?}", self.behaviors);
     }
 
+    /// Get the list of systems to skip in this [`Schedule`],
+    /// and the index of the next system to run in this Schedule, if there is any
     fn skipped_systems(
         &mut self,
         schedule: &Schedule,
@@ -706,7 +812,7 @@ impl ScheduleState {
             self.apply_behavior_updates(schedule);
         }
 
-        // if we don't have a first system set, set it now
+        // if we don't have a first system, set it now
         if self.first.is_none() {
             for (i, (node_id, _)) in schedule.systems().unwrap().enumerate() {
                 match self.behaviors.get(&node_id) {
@@ -846,6 +952,13 @@ mod tests {
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestScheduleD;
 
+    #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+    enum TestSets {
+        Alpha,
+        Bravo,
+        Charlie,
+    }
+
     fn first_system() {}
     fn second_system() {}
     fn third_system() {}
@@ -853,7 +966,12 @@ mod tests {
     fn setup() -> (Schedule, World) {
         let mut world = World::new();
         let mut schedule = Schedule::new(TestSchedule);
-        schedule.add_systems((first_system, second_system).chain());
+        schedule.add_systems(
+            (first_system.in_set(TestSets::Alpha), second_system)
+                .chain()
+                .in_set(TestSets::Bravo),
+        );
+        schedule.configure_sets(TestSets::Bravo.in_set(TestSets::Charlie));
         schedule.initialize(&mut world).unwrap();
         (schedule, world)
     }
@@ -996,6 +1114,45 @@ mod tests {
     }
 
     #[test]
+    fn waiting_always_run_set() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run_set(TestSchedule, TestSets::Alpha);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system);
+    }
+
+    #[test]
+    fn waiting_always_run_set_multiple_systems() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run_set(TestSchedule, TestSets::Bravo);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn waiting_always_run_nested_set() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .always_run_set(TestSchedule, TestSets::Charlie);
+
+        assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
     fn step_always_run() {
         let (schedule, _world) = setup();
 
@@ -1057,6 +1214,20 @@ mod tests {
             .add_schedule(TestSchedule)
             .enable()
             .never_run(TestSchedule, first_system)
+            .step_frame();
+
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
+    }
+
+    #[test]
+    fn step_never_run_set() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .never_run_set(TestSchedule, TestSets::Alpha)
             .step_frame();
 
         assert_schedule_runs!(&schedule, &mut stepping, second_system);
@@ -1206,6 +1377,23 @@ mod tests {
         stepping.clear_system(TestSchedule, second_system);
         stepping.continue_frame();
         assert_schedule_runs!(&schedule, &mut stepping, first_system, second_system);
+    }
+
+    #[test]
+    fn clear_set() {
+        let (schedule, _world) = setup();
+
+        let mut stepping = Stepping::new();
+        stepping
+            .add_schedule(TestSchedule)
+            .enable()
+            .never_run_set(TestSchedule, TestSets::Bravo)
+            .continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping,);
+
+        stepping.clear_system(TestSchedule, second_system);
+        stepping.continue_frame();
+        assert_schedule_runs!(&schedule, &mut stepping, second_system);
     }
 
     #[test]

@@ -615,6 +615,8 @@ pub struct ScheduleGraph {
     /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
+    /// Map from a system-set to all the systems that are in it
+    pub(crate) sets_to_systems: HashMap<NodeId, Vec<NodeId>>,
 }
 
 impl ScheduleGraph {
@@ -637,6 +639,7 @@ impl ScheduleGraph {
             settings: default(),
             no_sync_edges: BTreeSet::new(),
             auto_sync_node_ids: HashMap::new(),
+            sets_to_systems: HashMap::new(),
         }
     }
 
@@ -694,10 +697,12 @@ impl ScheduleGraph {
 
     /// Returns an iterator over all system sets in this schedule, along with the conditions for each
     /// system set.
-    pub fn system_sets(&self) -> impl Iterator<Item = (NodeId, &dyn SystemSet, &[BoxedCondition])> {
+    pub fn system_sets(
+        &self,
+    ) -> impl Iterator<Item = (NodeId, &InternedSystemSet, &[BoxedCondition])> {
         self.system_set_ids.iter().map(|(_, &node_id)| {
             let set_node = &self.system_sets[node_id.index()];
-            let set = &*set_node.inner;
+            let set = &set_node.inner;
             let conditions = self.system_set_conditions[node_id.index()].as_slice();
             (node_id, set, conditions)
         })
@@ -1133,6 +1138,8 @@ impl ScheduleGraph {
         );
         self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
+
+        self.sets_to_systems = set_systems;
 
         // build the schedule
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
