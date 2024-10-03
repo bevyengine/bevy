@@ -586,12 +586,11 @@ impl ActiveAnimation {
     #[inline]
     fn update(&mut self, delta: f32, clip_duration: f32) {
         self.just_completed = false;
+        self.last_seek_time = Some(self.seek_time);
 
         if self.is_finished() {
             return;
         }
-
-        self.last_seek_time = Some(self.seek_time);
 
         self.elapsed += delta;
         self.seek_time += delta * self.speed;
@@ -907,168 +906,13 @@ impl AnimationPlayer {
     }
 }
 
-enum TriggeredEventsIterInner<'a> {
-    None,
-    Forward(slice::Iter<'a, AnimationEventKey>),
-    Reverse(iter::Rev<slice::Iter<'a, AnimationEventKey>>),
-    ForwardLooping {
-        a: slice::Iter<'a, AnimationEventKey>,
-        b: slice::Iter<'a, AnimationEventKey>,
-    },
-    ReverseLooping {
-        a: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
-        b: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
-    },
-}
-
-struct TriggeredEventsIter<'a, 'b> {
-    inner: TriggeredEventsIterInner<'a>,
-    active_animation: &'b ActiveAnimation,
-}
-
-impl<'a, 'b> TriggeredEventsIter<'a, 'b> {
-    fn new(
-        target_id: Option<AnimationTargetId>,
-        clip: &'a AnimationClip,
-        active_animation: &'b ActiveAnimation,
-    ) -> Self {
-        let Some(events) = clip.events.get(&target_id) else {
-            return Self {
-                inner: TriggeredEventsIterInner::None,
-                active_animation,
-            };
-        };
-        let reverse = active_animation.is_playback_reversed();
-        // the animation completed this tick, while still playing
-        let looping = active_animation.just_completed && !active_animation.is_finished();
-        let inner = match (reverse, looping) {
-            (false, false) => TriggeredEventsIterInner::Forward(events.iter()),
-            (true, false) => TriggeredEventsIterInner::Reverse(events.iter().rev()),
-            (false, true) => TriggeredEventsIterInner::ForwardLooping {
-                a: events.iter(),
-                b: events.iter(),
-            },
-            (true, true) => TriggeredEventsIterInner::ReverseLooping {
-                a: events.iter().rev(),
-                b: events.iter().rev(),
-            },
-        };
-        Self {
-            inner,
-            active_animation,
-        }
-    }
-}
-
-impl<'a, 'b> Iterator for TriggeredEventsIter<'a, 'b> {
-    type Item = &'a AnimationEventKey;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // if the animation was finished earlier, return early
-        if !self.active_animation.just_completed && self.active_animation.is_finished() {
-            return None;
-        }
-        let &ActiveAnimation {
-            last_seek_time,
-            seek_time,
-            ..
-        } = self.active_animation;
-        // loop until we find a triggered event or return `None`
-        loop {
-            match &mut self.inner {
-                TriggeredEventsIterInner::None => return None,
-                // the event should trigger if `event.time >= seek_time`
-                // we also have to check if `event.time < last_seek_time`
-                // to make sure the event is only triggered once
-                TriggeredEventsIterInner::Forward(iter) => {
-                    let event = iter.next()?;
-                    if event.time <= seek_time
-                        && last_seek_time.map(|lst| event.time > lst).unwrap_or(true)
-                    {
-                        return Some(event);
-                    }
-                }
-                TriggeredEventsIterInner::Reverse(rev) => {
-                    let event = rev.next()?;
-                    if event.time >= seek_time
-                        && last_seek_time.map(|lst| event.time < lst).unwrap_or(true)
-                    {
-                        return Some(event);
-                    }
-                }
-                // when looping, we first trigger events where `event.time > last_seek_time`
-                // until the iterator is exhausted
-                // then we use the other iterator to trigger events where `event.time <= seek_time`
-                // this is to make sure all events are triggered in the correct order that they occurred
-                //
-                // Note: this is unlikely to work well if the animation somehow
-                // finished multiple times in one tick, should be rare enough though
-                TriggeredEventsIterInner::ForwardLooping { a, b } => {
-                    let event = match a.next() {
-                        Some(event)
-                            if last_seek_time.map(|lst| event.time > lst).unwrap_or(true) =>
-                        {
-                            event
-                        }
-                        None => match b.next() {
-                            Some(event) if event.time <= seek_time => event,
-                            None => return None,
-                            _ => continue,
-                        },
-                        _ => continue,
-                    };
-                    return Some(event);
-                }
-                TriggeredEventsIterInner::ReverseLooping { a, b } => {
-                    let event = match a.next() {
-                        Some(event)
-                            if last_seek_time.map(|lst| event.time < lst).unwrap_or(true) =>
-                        {
-                            event
-                        }
-                        None => match b.next() {
-                            Some(event) if event.time >= seek_time => event,
-                            None => return None,
-                            _ => continue,
-                        },
-                        _ => continue,
-                    };
-                    return Some(event);
-                }
-            }
-        }
-    }
-}
-
-/// A system that triggers animation events for the currently-playing animations.
-fn trigger_animation_events(
+/// A system that triggers untargeted animation events for the currently-playing animations.
+fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
-    targets: Query<(Entity, &AnimationTarget)>,
 ) {
-    let mut trigger_events_loop =
-        |target_id, entity, player: &AnimationPlayer, graph: &AnimationGraph| {
-            for (index, active_animation) in player.active_animations.iter() {
-                let Some(clip) = graph
-                    .get(*index)
-                    .and_then(|node| node.clip.as_ref())
-                    .and_then(|id| clips.get(id))
-                else {
-                    continue;
-                };
-
-                for trigger in TriggeredEventsIter::new(target_id, clip, active_animation) {
-                    commands.queue(trigger_animation_event(
-                        entity,
-                        trigger.time,
-                        trigger.event.clone().0,
-                    ));
-                }
-            }
-        };
-
     // untargeted events
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -1076,26 +920,23 @@ fn trigger_animation_events(
             return;
         };
 
-        trigger_events_loop(None, entity, player, graph);
-    }
+        for (index, active_animation) in player.active_animations.iter() {
+            let Some(clip) = graph
+                .get(*index)
+                .and_then(|node| node.clip.as_ref())
+                .and_then(|id| clips.get(id))
+            else {
+                continue;
+            };
 
-    // targeted events
-    for (entity, target) in &targets {
-        let &AnimationTarget {
-            id: target_id,
-            player: player_entity,
-        } = target;
+            let Some(triggered_events) = TriggeredEvents::new(None, clip, active_animation) else {
+                continue;
+            };
 
-        let Ok((_, player, graph_handle)) = players.get(player_entity) else {
-            return;
-        };
-
-        // The graph might not have loaded yet. Safely bail.
-        let Some(graph) = graphs.get(graph_handle) else {
-            return;
-        };
-
-        trigger_events_loop(Some(target_id), entity, player, graph);
+            for AnimationEventKey { time, event } in triggered_events.iter() {
+                commands.queue(trigger_animation_event(entity, *time, event.clone().0));
+            }
+        }
     }
 }
 
@@ -1195,15 +1036,21 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
+    par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTarget,
+        Option<&mut Transform>,
+        AnimationEntityMut,
+    )>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(target, mut transform, mut entity_mut)| {
+        .for_each(|(entity, target, mut transform, mut entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -1271,6 +1118,23 @@ pub fn animate_targets(
                     continue;
                 };
 
+                // Trigger all animation events that occurred this tick, if any.
+                if let Some(triggered_events) =
+                    TriggeredEvents::new(Some(target_id), clip, active_animation)
+                {
+                    if !triggered_events.is_empty() {
+                        par_commands.command_scope(move |mut commands| {
+                            for AnimationEventKey { time, event } in triggered_events.iter() {
+                                commands.queue(trigger_animation_event(
+                                    entity,
+                                    *time,
+                                    event.clone().0,
+                                ));
+                            }
+                        });
+                    }
+                }
+
                 let Some(curves) = clip.curves_for_target(target_id) else {
                     continue;
                 };
@@ -1313,9 +1177,6 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    // `trigger_animation_events` has to run before `advance_animations` and `advance_transitions`
-                    // because if not, it won't trigger events that occur on the first tick of an animation.
-                    trigger_animation_events,
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -1327,6 +1188,7 @@ impl Plugin for AnimationPlugin {
                     animate_targets
                         .after(bevy_render::mesh::morph::inherit_weights)
                         .ambiguous_with_all(),
+                    trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
                     .chain()
@@ -1394,6 +1256,155 @@ impl AnimationGraphEvaluator {
     }
 }
 
+/// All the events from an [`AnimationClip`] that occurred this tick.
+#[derive(Debug, Clone)]
+struct TriggeredEvents<'a> {
+    direction: TriggeredEventsDir,
+    lower: &'a [AnimationEventKey],
+    upper: &'a [AnimationEventKey],
+}
+
+impl<'a> TriggeredEvents<'a> {
+    fn new(
+        target_id: Option<AnimationTargetId>,
+        clip: &'a AnimationClip,
+        active_animation: &ActiveAnimation,
+    ) -> Option<Self> {
+        let events = clip.events.get(&target_id)?;
+        let reverse = active_animation.is_playback_reversed();
+        let is_finished = active_animation.is_finished();
+
+        // Return eatly if the animation have finished on a previous tick.
+        if is_finished && !active_animation.just_completed {
+            return None;
+        }
+
+        // The animation completed this tick, while still playing.
+        let looping = active_animation.just_completed && !is_finished;
+        let direction = match (reverse, looping) {
+            (false, false) => TriggeredEventsDir::Forward,
+            (false, true) => TriggeredEventsDir::ForwardLooping,
+            (true, false) => TriggeredEventsDir::Reverse,
+            (true, true) => TriggeredEventsDir::ReverseLooping,
+        };
+
+        let last_time = active_animation.last_seek_time?;
+        let this_time = active_animation.seek_time;
+
+        let (lower, upper) = match direction {
+            // Return all events where last_time <= event.time < this_time.
+            TriggeredEventsDir::Forward => {
+                let start = events.partition_point(|event| event.time < last_time);
+                // The animation finished this tick, return any remaining events.
+                if is_finished {
+                    (&events[start..], &events[0..0])
+                } else {
+                    let end = events.partition_point(|event| event.time < this_time);
+                    (&events[start..end], &events[0..0])
+                }
+            }
+            // Return all events where this_time < event.time <= last_time.
+            TriggeredEventsDir::Reverse => {
+                let end = events.partition_point(|event| event.time <= last_time);
+                // The animation finished, return any remaining events.
+                if is_finished {
+                    (&events[..end], &events[0..0])
+                } else {
+                    let start = events.partition_point(|event| event.time <= this_time);
+                    (&events[start..end], &events[0..0])
+                }
+            }
+            // The animation is looping this tick and we have to return events where
+            // either last_tick <= event.time or event.time < this_tick.
+            TriggeredEventsDir::ForwardLooping => {
+                let upper_start = events.partition_point(|event| event.time < last_time); // First index where t >= last_tick
+                let lower_end = events.partition_point(|event| event.time < this_time); // First index where t >= this_tick
+
+                let upper = &events[upper_start..];
+                let lower = &events[..lower_end];
+                (upper, lower)
+            }
+            // The animation is looping this tick and we have to return events where
+            // either last_tick >= event.time or event.time > this_tick.
+            TriggeredEventsDir::ReverseLooping => {
+                let lower_end = events.partition_point(|event| event.time <= last_time); // First index where t > last_tick
+                let upper_start = events.partition_point(|event| event.time <= this_time); // First index where t > this_tick
+
+                let upper = &events[upper_start..];
+                let lower = &events[..lower_end];
+                (lower, upper)
+            }
+        };
+        Some(Self {
+            direction,
+            lower,
+            upper,
+        })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.lower.is_empty() && self.upper.is_empty()
+    }
+
+    fn iter(&self) -> TriggeredEventsIter {
+        match self.direction {
+            TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
+            TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),
+            TriggeredEventsDir::ForwardLooping => TriggeredEventsIter::ForwardLooping {
+                upper: self.upper.iter(),
+                lower: self.lower.iter(),
+            },
+            TriggeredEventsDir::ReverseLooping => TriggeredEventsIter::ReverseLooping {
+                lower: self.lower.iter().rev(),
+                upper: self.upper.iter().rev(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TriggeredEventsDir {
+    /// The animation is playing normally
+    Forward,
+    /// The animation is playing in reverse
+    Reverse,
+    /// The animation is looping this tick
+    ForwardLooping,
+    /// The animation playing in reverse and looping this tick
+    ReverseLooping,
+}
+
+#[derive(Debug, Clone)]
+enum TriggeredEventsIter<'a> {
+    Forward(slice::Iter<'a, AnimationEventKey>),
+    Reverse(iter::Rev<slice::Iter<'a, AnimationEventKey>>),
+    ForwardLooping {
+        upper: slice::Iter<'a, AnimationEventKey>,
+        lower: slice::Iter<'a, AnimationEventKey>,
+    },
+    ReverseLooping {
+        lower: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
+        upper: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
+    },
+}
+
+impl<'a> Iterator for TriggeredEventsIter<'a> {
+    type Item = &'a AnimationEventKey;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            TriggeredEventsIter::Forward(iter) => iter.next(),
+            TriggeredEventsIter::Reverse(rev) => rev.next(),
+            TriggeredEventsIter::ForwardLooping { upper, lower } => {
+                upper.next().or_else(|| lower.next())
+            }
+            TriggeredEventsIter::ReverseLooping { lower, upper } => {
+                lower.next().or_else(|| upper.next())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1411,6 +1422,26 @@ mod tests {
         }
     }
 
+    #[track_caller]
+    fn assert_triggered_times(
+        active_animation: &ActiveAnimation,
+        clip: &AnimationClip,
+        expected: impl Into<Vec<f32>>,
+    ) {
+        let Some(events) = TriggeredEvents::new(None, clip, active_animation) else {
+            assert_eq!(expected.into(), vec![]);
+            return;
+        };
+        let got: Vec<_> = events.iter().map(|t| t.time).collect();
+        assert_eq!(
+            expected.into(),
+            got,
+            "\n{events:#?}\nlast_time: {:?}\nthis_time:{}",
+            active_animation.last_seek_time,
+            active_animation.seek_time
+        );
+    }
+
     #[test]
     fn test_events_triggers_on_animation() {
         let mut active_animation = ActiveAnimation::default();
@@ -1419,45 +1450,27 @@ mod tests {
         clip.add_event(0.2, A);
         assert_eq!(0.2, clip.duration);
 
-        assert_eq!(None, active_animation.last_seek_time);
-        assert_eq!(0.0, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            vec![0.0],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_times(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        assert_triggered_times(&active_animation, &clip, []);
 
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.0), active_animation.last_seek_time);
-        assert_eq!(0.1, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert!(TriggeredEventsIter::new(None, &clip, &active_animation)
-            .next()
-            .is_none());
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.1), active_animation.last_seek_time);
-        assert_eq!(0.2, active_animation.seek_time);
-        assert!(active_animation.just_completed);
-        assert_eq!(
-            vec![0.2],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.1), active_animation.last_seek_time);
-        assert_eq!(0.2, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            Vec::<f32>::new(),
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
+        active_animation.speed = -1.0;
+        active_animation.completions = 0;
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        assert_triggered_times(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        assert_triggered_times(&active_animation, &clip, []);
     }
 
     #[test]
@@ -1472,81 +1485,38 @@ mod tests {
         clip.add_event(0.3, A);
         assert_eq!(0.3, clip.duration);
 
-        assert_eq!(None, active_animation.last_seek_time);
-        assert_eq!(0.0, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            vec![0.0],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.0), active_animation.last_seek_time);
-        assert_eq!(0.1, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            Vec::<f32>::new(),
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.1), active_animation.last_seek_time);
-        assert_eq!(0.2, active_animation.seek_time);
-        assert_eq!(
-            vec![0.2],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.2), active_animation.last_seek_time);
-        assert_eq!(0.0, active_animation.seek_time);
-        assert!(active_animation.just_completed);
-        assert_eq!(
-            vec![0.3, 0.0,],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
-
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.0), active_animation.last_seek_time);
-        assert_eq!(0.1, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            Vec::<f32>::new(),
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.3
+        assert_triggered_times(&active_animation, &clip, [0.2, 0.3]);
+        active_animation.update(0.1, clip.duration); // 0.3 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_times(&active_animation, &clip, []);
 
         active_animation.speed = -1.0;
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.1), active_animation.last_seek_time);
-        assert_eq!(0.0, active_animation.seek_time);
-        assert!(!active_animation.just_completed);
-        assert_eq!(
-            vec![0.0],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_times(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.2
+        assert_triggered_times(&active_animation, &clip, [0.0, 0.3]);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_times(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_times(&active_animation, &clip, []);
 
-        active_animation.update(0.1, clip.duration);
-        assert_eq!(Some(0.0), active_animation.last_seek_time);
-        // float precision becomes an issue when wrapping around backwards for some reason
-        assert!(active_animation.seek_time > 0.2 && active_animation.seek_time < 0.201);
-        assert!(active_animation.just_completed);
-        assert_eq!(
-            vec![0.3],
-            TriggeredEventsIter::new(None, &clip, &active_animation)
-                .map(|t| t.time)
-                .collect::<Vec<f32>>()
-        );
+        active_animation.replay();
+        active_animation.update(clip.duration, clip.duration); // 0.0 : 0.0
+        assert_triggered_times(&active_animation, &clip, [0.0, 0.3, 0.2]);
+
+        active_animation.replay();
+        active_animation.seek_time = clip.duration;
+        active_animation.last_seek_time = Some(clip.duration);
+        active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
+        assert_triggered_times(&active_animation, &clip, [0.3, 0.2]);
     }
 }
