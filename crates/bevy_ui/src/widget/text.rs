@@ -20,7 +20,7 @@ use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBlock, TextBlocks, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextSpanReader, TextStyle, YAxisOrientation,
+    TextSpanAccess, TextStyle, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -112,9 +112,12 @@ impl TextNEW {
     }
 }
 
-impl TextSpanReader for TextNEW {
+impl TextSpanAccess for TextNEW {
     fn read_span(&self) -> &str {
         self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
     }
 }
 
@@ -169,9 +172,19 @@ world.spawn((
 #[require(TextStyle, GhostNode, Visibility(hidden_visibility))]
 pub struct TextSpan(pub String);
 
-impl TextSpanReader for TextSpan {
+impl TextSpan {
+    /// Makes a new text span component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
+
+impl TextSpanAccess for TextSpan {
     fn read_span(&self) -> &str {
         self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
     }
 }
 
