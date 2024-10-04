@@ -139,8 +139,9 @@ impl<T: Event> WinitAppRunnerState<T> {
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
-    /// An AssetId to a cursor.
+    /// An `AssetId` to a cursor.
     Asset(AssetId<Image>),
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     /// An URL to a cursor.
     Url(String),
 }

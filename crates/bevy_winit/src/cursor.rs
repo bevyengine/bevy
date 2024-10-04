@@ -1,8 +1,9 @@
 //! Components to customize winit cursor
 
 use crate::{
-    convert_system_cursor_icon, CursorSource, CustomCursorCache, CustomCursorCacheKey,
-    PendingCursor,
+    converters::convert_system_cursor_icon,
+    state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor},
+    WinitCustomCursor,
 };
 use bevy_app::{App, Last, Plugin};
 use bevy_asset::{Assets, Handle};
@@ -118,7 +119,7 @@ fn update_cursors(
 
                     let width = image.texture_descriptor.size.width;
                     let height = image.texture_descriptor.size.height;
-                    let source = match crate::WinitCustomCursor::from_rgba(
+                    let source = match WinitCustomCursor::from_rgba(
                         rgba,
                         width as u16,
                         height as u16,
@@ -143,8 +144,7 @@ fn update_cursors(
                     CursorSource::CustomCached(cache_key)
                 } else {
                     use crate::CustomCursorExtWebSys;
-                    let source =
-                        crate::WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                    let source = WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }
