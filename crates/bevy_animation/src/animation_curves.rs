@@ -79,7 +79,6 @@
 use core::{
     any::TypeId,
     fmt::{self, Debug, Formatter},
-    iter,
     marker::PhantomData,
 };
 
@@ -881,24 +880,36 @@ where
             graph_node: _,
         } = self.stack.pop().unwrap();
 
-        match self.blend_register {
+        match self.blend_register.take() {
             None => self.blend_register = Some((value_to_blend, weight_to_blend)),
-            Some((ref mut current_value, ref mut current_weight)) => {
-                *current_weight += weight_to_blend;
+            Some((mut current_value, mut current_weight)) => {
+                current_weight += weight_to_blend;
 
                 if additive {
-                    *current_value = A::blend(iter::once(BlendInput {
-                        weight: weight_to_blend,
-                        value: value_to_blend,
-                        additive: true,
-                    }));
+                    current_value = A::blend(
+                        [
+                            BlendInput {
+                                weight: 1.0,
+                                value: current_value,
+                                additive: true,
+                            },
+                            BlendInput {
+                                weight: weight_to_blend,
+                                value: value_to_blend,
+                                additive: true,
+                            },
+                        ]
+                        .into_iter(),
+                    );
                 } else {
-                    *current_value = A::interpolate(
-                        current_value,
+                    current_value = A::interpolate(
+                        &current_value,
                         &value_to_blend,
-                        weight_to_blend / *current_weight,
+                        weight_to_blend / current_weight,
                     );
                 }
+
+                self.blend_register = Some((current_value, current_weight));
             }
         }
 
