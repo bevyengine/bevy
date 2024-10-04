@@ -476,6 +476,24 @@ impl<'a> TypedReflectDeserializer<'a, ()> {
             processor: None,
         }
     }
+
+    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`
+    /// without a processor.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is not registered in the given [`TypeRegistry`].
+    pub fn of<T: TypePath>(registry: &'a TypeRegistry) -> Self {
+        let registration = registry
+            .get(core::any::TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("no registration found for type `{}`", T::type_path()));
+
+        Self {
+            registration,
+            registry,
+            processor: None,
+        }
+    }
 }
 
 impl<'a, P: ReflectDeserializerProcessor> TypedReflectDeserializer<'a, P> {
@@ -497,23 +515,6 @@ impl<'a, P: ReflectDeserializerProcessor> TypedReflectDeserializer<'a, P> {
             registration,
             registry,
             processor: Some(processor),
-        }
-    }
-
-    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `T` is not registered in the given [`TypeRegistry`].
-    pub fn of<T: TypePath>(registry: &'a TypeRegistry) -> Self {
-        let registration = registry
-            .get(core::any::TypeId::of::<T>())
-            .unwrap_or_else(|| panic!("no registration found for type `{}`", T::type_path()));
-
-        Self {
-            registration,
-            registry,
-            processor: None,
         }
     }
 
