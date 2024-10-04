@@ -20,7 +20,7 @@ use core::ops::Range;
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.
 #[derive(Resource)]
 pub struct MeshletMeshManager {
-    pub vertex_positions: PersistentGpuBuffer<Arc<[u8]>>,
+    pub vertex_positions: PersistentGpuBuffer<Arc<[u32]>>,
     pub vertex_normals: PersistentGpuBuffer<Arc<[u32]>>,
     pub vertex_uvs: PersistentGpuBuffer<Arc<[Vec2]>>,
     pub indices: PersistentGpuBuffer<Arc<[u8]>>,

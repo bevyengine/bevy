@@ -3,11 +3,11 @@ use alloc::borrow::Cow;
 use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
-    render_resource::{PrimitiveTopology, COPY_BUFFER_ALIGNMENT},
+    render_resource::PrimitiveTopology,
 };
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::{iter, ops::Range};
+use core::ops::Range;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
@@ -131,7 +131,7 @@ impl MeshletMesh {
         }
 
         // Copy vertex attributes per meshlet and compress
-        let mut vertex_positions = BitVec::<u8, Lsb0>::new();
+        let mut vertex_positions = BitVec::<u32, Lsb0>::new();
         let mut vertex_normals = Vec::new();
         let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
@@ -146,16 +146,10 @@ impl MeshletMesh {
                 &mut bevy_meshlets,
             );
         }
-
-        // Pad vertex positions buffer if needed
         vertex_positions.set_uninitialized(false);
-        let mut vertex_positions = vertex_positions.into_vec();
-        let padding = COPY_BUFFER_ALIGNMENT as usize
-            - (vertex_positions.len() % COPY_BUFFER_ALIGNMENT as usize);
-        vertex_positions.extend(iter::repeat(0).take(padding));
 
         Ok(Self {
-            vertex_positions: vertex_positions.into(),
+            vertex_positions: vertex_positions.into_vec().into(),
             vertex_normals: vertex_normals.into(),
             vertex_uvs: vertex_uvs.into(),
             indices: meshlets.triangles.into(),
@@ -350,7 +344,7 @@ fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
     vertex_buffer: &[u8],
-    vertex_positions: &mut BitVec<u8, Lsb0>,
+    vertex_positions: &mut BitVec<u32, Lsb0>,
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
     meshlets: &mut Vec<Meshlet>,
