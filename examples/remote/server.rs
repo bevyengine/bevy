@@ -1,5 +1,6 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
+use bevy::math::ops::cos;
 use bevy::{
     input::common_conditions::input_just_pressed,
     prelude::*,
@@ -57,7 +58,7 @@ fn setup(
 
 fn move_cube(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
     for mut transform in &mut query {
-        transform.translation.y = -time.elapsed_seconds().cos() + 1.5;
+        transform.translation.y = -cos(time.elapsed_seconds()) + 1.5;
     }
 }
 
