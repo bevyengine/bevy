@@ -17,7 +17,9 @@ use meshopt::{
 use metis::Graph;
 use smallvec::SmallVec;
 
-/// Snap vertices to the nearest 1/16th of a centimeter (1/2^4).
+/// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
+///
+/// Snaps vertices to the nearest 1/16th of a centimeter (1/2^4).
 pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
@@ -28,7 +30,7 @@ impl MeshletMesh {
     ///
     /// This process is very slow, and should be done ahead of time, and not at runtime.
     ///
-    /// ## Requirements
+    /// # Requirements
     ///
     /// This function requires the `meshlet_processor` cargo feature.
     ///
@@ -37,7 +39,7 @@ impl MeshletMesh {
     /// 2. Use indices
     /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0}` (tangents can be used in material shaders, but are calculated at runtime and are not stored in the mesh)
     ///
-    /// ## Vertex precision
+    /// # Vertex precision
     ///
     /// `vertex_position_quantization_factor` is the amount of precision to to use when quantizing vertex positions.
     ///
@@ -47,8 +49,10 @@ impl MeshletMesh {
     /// Use [`DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
     ///
     /// To ensure that two different meshes do not have cracks between them when placed directly next to each other:
-    ///   * Use the same quantization factor when converting each mesh
-    ///   * Ensure that their [`bevy_transform::components::Transform`] components use values that are multiples of 1/2^x (remember that this value is in centimeters, and that transform values are in meters)
+    ///   * Use the same quantization factor when converting each mesh to a meshlet mesh
+    ///   * Ensure that their [`bevy_transform::components::Transform::translation`]s are a multiple of 1/2^x centimeters (note that translations are in meters)
+    ///   * Ensure that their [`bevy_transform::components::Transform::scale`]s are the same
+    ///   * Ensure that their [`bevy_transform::components::Transform::rotation`]s are a multiple of 90 degrees
     pub fn from_mesh(
         mesh: &Mesh,
         vertex_position_quantization_factor: u8,
