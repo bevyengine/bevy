@@ -397,12 +397,8 @@ pub fn process_remote_get_watching_request(
             }
         };
 
-        let Some(removed_events) = world.removed_components().get(component_id) else {
-            continue;
-        };
-
-        for event in removed_events.iter_current_update_events() {
-            if Entity::from(event.clone()) == entity {
+        for event in world.removed_with_id(component_id) {
+            if event == entity {
                 removed.push(component_path);
                 continue 'component_loop;
             }
