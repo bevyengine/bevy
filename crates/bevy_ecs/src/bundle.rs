@@ -1300,6 +1300,8 @@ pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
+    /// Cache bundles, which contains both explicit and required components of [`Bundle`]
+    contributed_bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
@@ -1347,6 +1349,36 @@ impl Bundles {
             id
         });
         id
+    }
+
+    /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
+    ///
+    /// Also registers all the components in the bundle.
+    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+        &mut self,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> BundleId {
+        if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
+            id
+        } else {
+            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
+            let id = unsafe {
+                let (ptr, len) = {
+                    // SAFETY: `explicit_bundle_id` is valid and defined above
+                    let contributed = self
+                        .get_unchecked(explicit_bundle_id)
+                        .contributed_components();
+                    (contributed.as_ptr(), contributed.len())
+                };
+                // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
+                // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
+                self.init_dynamic_info(components, core::slice::from_raw_parts(ptr, len))
+            };
+            self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
+            id
+        }
     }
 
     /// # Safety

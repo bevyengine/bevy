@@ -1558,6 +1558,20 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes all components in the [`Bundle`] and remove all required components for each component in the bundle
+    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let bundles = &mut self.world.bundles;
+
+        let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
+
+        // SAFETY: the dynamic `BundleInfo` is initialized above
+        self.location = unsafe { self.remove_bundle(bundle_id) };
+
+        self
+    }
+
     /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
@@ -1840,7 +1854,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe_entity<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

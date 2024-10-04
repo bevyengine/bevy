@@ -146,25 +146,33 @@ use thiserror::Error;
 /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// You can also define a custom constructor:
+/// You can also define a custom constructor function or closure:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
-/// #[require(B(init_b))]
+/// #[require(C(init_c))]
 /// struct A;
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
-/// struct B(usize);
+/// #[require(C(|| C(20)))]
+/// struct B;
 ///
-/// fn init_b() -> B {
-///     B(10)
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(usize);
+///
+/// fn init_c() -> C {
+///     C(10)
 /// }
 ///
 /// # let mut world = World::default();
-/// // This will implicitly also insert B with the init_b() constructor
+/// // This will implicitly also insert C with the init_c() constructor
 /// let id = world.spawn(A).id();
-/// assert_eq!(&B(10), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
+///
+/// // This will implicitly also insert C with the `|| C(20)` constructor closure
+/// let id = world.spawn(B).id();
+/// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
@@ -202,23 +210,15 @@ use thiserror::Error;
 /// struct X(usize);
 ///
 /// #[derive(Component, Default)]
-/// #[require(X(x1))]
+/// #[require(X(|| X(1)))]
 /// struct Y;
-///
-/// fn x1() -> X {
-///     X(1)
-/// }
 ///
 /// #[derive(Component)]
 /// #[require(
 ///     Y,
-///     X(x2),
+///     X(|| X(2)),
 /// )]
 /// struct Z;
-///
-/// fn x2() -> X {
-///     X(2)
-/// }
 ///
 /// # let mut world = World::default();
 /// // In this case, the x2 constructor is used for X
