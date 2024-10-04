@@ -181,11 +181,11 @@ pub struct Image {
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
+/// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
-    /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
+    /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
@@ -316,9 +316,9 @@ pub enum ImageSamplerBorderColor {
     Zero,
 }
 
-/// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+/// Indicates to an `ImageLoader` how an [`Image`] should be sampled.
 ///
-/// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
+/// As this type is part of the `ImageLoaderSettings`,
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.
 ///
@@ -370,7 +370,7 @@ impl Default for ImageSamplerDescriptor {
 }
 
 impl ImageSamplerDescriptor {
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -381,7 +381,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](ImageFilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
