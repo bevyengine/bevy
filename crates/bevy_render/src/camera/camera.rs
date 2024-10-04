@@ -1073,7 +1073,7 @@ pub fn extract_cameras(
             }
 
             let mut commands = commands.entity(render_entity.id());
-            commands = commands.insert((
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -1109,15 +1109,15 @@ pub fn extract_cameras(
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
-                commands = commands.insert(temporal_jitter.clone());
+                commands.insert(temporal_jitter.clone());
             }
 
             if let Some(render_layers) = render_layers {
-                commands = commands.insert(render_layers.clone());
+                commands.insert(render_layers.clone());
             }
 
             if let Some(perspective) = projection {
-                commands = commands.insert(perspective.clone());
+                commands.insert(perspective.clone());
             }
             if gpu_culling {
                 if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {

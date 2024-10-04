@@ -55,7 +55,7 @@ fn modify_aa(
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>();
@@ -63,7 +63,7 @@ fn modify_aa(
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>();
@@ -87,7 +87,7 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Smaa>()
             .remove::<TaaComponents>()
             .insert(Fxaa::default());
@@ -120,7 +120,7 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<TaaComponents>()
             .insert(Smaa::default());

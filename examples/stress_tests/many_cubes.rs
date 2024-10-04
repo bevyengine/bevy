@@ -177,7 +177,7 @@ fn setup(
             // camera
             let mut camera = commands.spawn(Camera3d::default());
             if args.gpu_culling {
-                camera = camera.insert(GpuCulling);
+                camera.insert(GpuCulling);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
