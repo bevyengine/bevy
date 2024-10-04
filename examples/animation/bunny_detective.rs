@@ -50,16 +50,16 @@ struct BoneTargets {
 impl Default for BoneTargets {
     fn default() -> Self {
         Self {
-            root: AnimationTargetId::from_iter(["Armature"]),
+            root: AnimationTargetId::from_iter(["Bunny"]),
             right_foot: AnimationTargetId::from_iter([
-                "Armature",
+                "Bunny",
                 "pelvis",
                 "upperleg.r",
                 "lowerleg.r",
                 "foot.r",
             ]),
             left_foot: AnimationTargetId::from_iter([
-                "Armature",
+                "Bunny",
                 "pelvis",
                 "upperleg.l",
                 "lowerleg.l",
