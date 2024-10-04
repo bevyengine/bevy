@@ -25,15 +25,14 @@ fn setup(
     });
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+    ));
 
     const COUNT: usize = 6;
     let position_range = -2.0..2.0;
@@ -48,17 +47,16 @@ fn setup(
 
         // sphere light
         commands
-            .spawn(PbrBundle {
-                mesh: mesh.clone(),
-                material: materials.add(StandardMaterial {
+            .spawn((
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
                     ..default()
-                }),
-                transform: Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
+                })),
+                Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
-                ..default()
-            })
+            ))
             .with_child(PointLight {
                 radius,
                 color: Color::srgb(0.2, 0.2, 1.0),

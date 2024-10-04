@@ -16,7 +16,6 @@ pub mod graph;
 pub mod transition;
 mod util;
 
-use alloc::collections::BTreeMap;
 use core::{
     any::{Any, TypeId},
     cell::RefCell,
@@ -24,6 +23,10 @@ use core::{
     hash::{Hash, Hasher},
     iter,
 };
+use graph::AnimationNodeType;
+use prelude::AnimationCurveEvaluator;
+
+use crate::graph::ThreadedAnimationGraphs;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
@@ -42,15 +45,12 @@ use bevy_reflect::{
 };
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_ui::UiSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
-    NoOpHash,
+    NoOpHash, TypeIdMap,
 };
-use fixedbitset::FixedBitSet;
-use graph::AnimationMask;
-use petgraph::{graph::NodeIndex, Direction};
+use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
@@ -461,6 +461,14 @@ pub enum AnimationEvaluationError {
     /// The component to be animated was present, but the property on the
     /// component wasn't present.
     PropertyNotPresent(TypeId),
+
+    /// An internal error occurred in the implementation of
+    /// [`AnimationCurveEvaluator`].
+    ///
+    /// You shouldn't ordinarily see this error unless you implemented
+    /// [`AnimationCurveEvaluator`] yourself. The contained [`TypeId`] is the ID
+    /// of the curve evaluator.
+    InconsistentEvaluatorImplementation(TypeId),
 }
 
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
@@ -471,12 +479,6 @@ pub enum AnimationEvaluationError {
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
-    /// The actual weight of this animation this frame, taking the
-    /// [`AnimationGraph`] into account.
-    computed_weight: f32,
-    /// The mask groups that are masked out (i.e. won't be animated) this frame,
-    /// taking the `AnimationGraph` into account.
-    computed_mask: AnimationMask,
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -497,8 +499,6 @@ impl Default for ActiveAnimation {
     fn default() -> Self {
         Self {
             weight: 1.0,
-            computed_weight: 1.0,
-            computed_mask: 0,
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
@@ -653,14 +653,12 @@ impl ActiveAnimation {
 
 /// Animation controls.
 ///
-/// Automatically added to any root animations of a `SceneBundle` when it is
+/// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct AnimationPlayer {
-    /// We use a `BTreeMap` instead of a `HashMap` here to ensure a consistent
-    /// ordering when applying the animations.
-    active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
+    active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
@@ -679,27 +677,29 @@ impl Clone for AnimationPlayer {
     }
 }
 
-/// Information needed during the traversal of the animation graph in
-/// [`advance_animations`].
+/// Temporary data that the [`animate_targets`] system maintains.
 #[derive(Default)]
-pub struct AnimationGraphEvaluator {
-    /// The stack used for the depth-first search of the graph.
-    dfs_stack: Vec<NodeIndex>,
-    /// The list of visited nodes during the depth-first traversal.
-    dfs_visited: FixedBitSet,
-    /// Accumulated weights and masks for each node.
-    nodes: Vec<EvaluatedAnimationGraphNode>,
-}
+pub struct AnimationEvaluationState {
+    /// Stores all [`AnimationCurveEvaluator`]s corresponding to properties that
+    /// we've seen so far.
+    ///
+    /// This is a mapping from the type ID of an animation curve evaluator to
+    /// the animation curve evaluator itself.
+    ///
+    /// For efficiency's sake, the [`AnimationCurveEvaluator`]s are cached from
+    /// frame to frame and animation target to animation target. Therefore,
+    /// there may be entries in this list corresponding to properties that the
+    /// current [`AnimationPlayer`] doesn't animate. To iterate only over the
+    /// properties that are currently being animated, consult the
+    /// [`Self::current_curve_evaluator_types`] set.
+    curve_evaluators: TypeIdMap<Box<dyn AnimationCurveEvaluator>>,
 
-/// The accumulated weight and computed mask for a single node.
-#[derive(Clone, Copy, Default, Debug)]
-struct EvaluatedAnimationGraphNode {
-    /// The weight that has been accumulated for this node, taking its
-    /// ancestors' weights into account.
-    weight: f32,
-    /// The mask that has been computed for this node, taking its ancestors'
-    /// masks into account.
-    mask: AnimationMask,
+    /// The set of [`AnimationCurveEvaluator`] types that the current
+    /// [`AnimationPlayer`] is animating.
+    ///
+    /// This is built up as new curve evaluators are encountered during graph
+    /// traversal.
+    current_curve_evaluator_types: TypeIdMap<()>,
 }
 
 impl AnimationPlayer {
@@ -845,7 +845,6 @@ pub fn advance_animations(
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
     mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
-    animation_graph_evaluator: Local<ThreadLocal<RefCell<AnimationGraphEvaluator>>>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -856,67 +855,25 @@ pub fn advance_animations(
             };
 
             // Tick animations, and schedule them.
-            //
-            // We use a thread-local here so we can reuse allocations across
-            // frames.
-            let mut evaluator = animation_graph_evaluator.get_or_default().borrow_mut();
 
             let AnimationPlayer {
                 ref mut active_animations,
-                ref blend_weights,
                 ..
             } = *player;
 
-            // Reset our state.
-            evaluator.reset(animation_graph.root, animation_graph.graph.node_count());
-
-            while let Some(node_index) = evaluator.dfs_stack.pop() {
-                // Skip if we've already visited this node.
-                if evaluator.dfs_visited.put(node_index.index()) {
-                    continue;
-                }
-
+            for node_index in animation_graph.graph.node_indices() {
                 let node = &animation_graph[node_index];
-
-                // Calculate weight and mask from the graph.
-                let (mut weight, mut mask) = (node.weight, node.mask);
-                for parent_index in animation_graph
-                    .graph
-                    .neighbors_directed(node_index, Direction::Incoming)
-                {
-                    let evaluated_parent = &evaluator.nodes[parent_index.index()];
-                    weight *= evaluated_parent.weight;
-                    mask |= evaluated_parent.mask;
-                }
-                evaluator.nodes[node_index.index()] = EvaluatedAnimationGraphNode { weight, mask };
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
                     if !active_animation.paused {
-                        if let Some(ref clip_handle) = node.clip {
+                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
                                 active_animation.update(delta_seconds, clip.duration);
                             }
                         }
                     }
-
-                    weight *= active_animation.weight;
-                } else if let Some(&blend_weight) = blend_weights.get(&node_index) {
-                    weight *= blend_weight;
                 }
-
-                // Write in the computed weight and mask for this node.
-                if let Some(active_animation) = active_animations.get_mut(&node_index) {
-                    active_animation.computed_weight = weight;
-                    active_animation.computed_mask = mask;
-                }
-
-                // Push children.
-                evaluator.dfs_stack.extend(
-                    animation_graph
-                        .graph
-                        .neighbors_directed(node_index, Direction::Outgoing),
-                );
             }
         });
 }
@@ -937,13 +894,15 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
+    threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
     mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
+    animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(target, mut transform, mut entity_mut)| {
+        .for_each(|(target, transform, entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -955,7 +914,7 @@ pub fn animate_targets(
                 } else {
                     trace!(
                         "Either an animation player {:?} or a graph was missing for the target \
-                                 entity {:?} ({:?}); no animations will play this frame",
+                         entity {:?} ({:?}); no animations will play this frame",
                         player_id,
                         entity_mut.id(),
                         entity_mut.get::<Name>(),
@@ -968,6 +927,12 @@ pub fn animate_targets(
                 return;
             };
 
+            let Some(threaded_animation_graph) =
+                threaded_animation_graphs.0.get(&animation_graph_id)
+            else {
+                return;
+            };
+
             // Determine which mask groups this animation target belongs to.
             let target_mask = animation_graph
                 .mask_groups
@@ -975,65 +940,110 @@ pub fn animate_targets(
                 .cloned()
                 .unwrap_or_default();
 
-            // Apply the animations one after another. The way we accumulate
-            // weights ensures that the order we apply them in doesn't matter.
-            //
-            // Proof: Consider three animations A₀, A₁, A₂, … with weights w₀,
-            // w₁, w₂, … respectively. We seek the value:
-            //
-            //     A₀w₀ + A₁w₁ + A₂w₂ + ⋯
-            //
-            // Defining lerp(a, b, t) = a + t(b - a), we have:
-            //
-            //                                    ⎛    ⎛          w₁   ⎞           w₂     ⎞
-            //     A₀w₀ + A₁w₁ + A₂w₂ + ⋯ = ⋯ lerp⎜lerp⎜A₀, A₁, ⎯⎯⎯⎯⎯⎯⎯⎯⎟, A₂, ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎟ ⋯
-            //                                    ⎝    ⎝        w₀ + w₁⎠      w₀ + w₁ + w₂⎠
-            //
-            // Each step of the following loop corresponds to one of the lerp
-            // operations above.
-            let mut total_weight = 0.0;
-            for (&animation_graph_node_index, active_animation) in
-                animation_player.active_animations.iter()
-            {
-                // If the weight is zero or the current animation target is
-                // masked out, stop here.
-                if active_animation.weight == 0.0
-                    || (target_mask & active_animation.computed_mask) != 0
-                {
-                    continue;
-                }
+            let mut evaluation_state = animation_evaluation_state.get_or_default().borrow_mut();
+            let evaluation_state = &mut *evaluation_state;
 
-                let Some(clip) = animation_graph
-                    .get(animation_graph_node_index)
-                    .and_then(|animation_graph_node| animation_graph_node.clip.as_ref())
-                    .and_then(|animation_clip_handle| clips.get(animation_clip_handle))
+            // Evaluate the graph.
+            for &animation_graph_node_index in threaded_animation_graph.threaded_graph.iter() {
+                let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
                 else {
                     continue;
                 };
 
-                let Some(curves) = clip.curves_for_target(target_id) else {
-                    continue;
-                };
+                match animation_graph_node.node_type {
+                    AnimationNodeType::Blend | AnimationNodeType::Add => {
+                        // This is a blend node.
+                        for edge_index in threaded_animation_graph.sorted_edge_ranges
+                            [animation_graph_node_index.index()]
+                        .clone()
+                        {
+                            if let Err(err) = evaluation_state.blend_all(
+                                threaded_animation_graph.sorted_edges[edge_index as usize],
+                            ) {
+                                warn!("Failed to blend animation: {:?}", err);
+                            }
+                        }
 
-                let weight = active_animation.computed_weight;
-                total_weight += weight;
+                        if let Err(err) = evaluation_state.push_blend_register_all(
+                            animation_graph_node.weight,
+                            animation_graph_node_index,
+                        ) {
+                            warn!("Animation blending failed: {:?}", err);
+                        }
+                    }
 
-                let weight = weight / total_weight;
-                let seek_time = active_animation.seek_time;
+                    AnimationNodeType::Clip(ref animation_clip_handle) => {
+                        // This is a clip node.
+                        let Some(active_animation) = animation_player
+                            .active_animations
+                            .get(&animation_graph_node_index)
+                        else {
+                            continue;
+                        };
 
-                for curve in curves {
-                    if let Err(err) = curve.0.apply(
-                        seek_time,
-                        transform.as_mut().map(|transform| transform.reborrow()),
-                        entity_mut.reborrow(),
-                        weight,
-                    ) {
-                        warn!("Animation application failed: {:?}", err);
+                        // If the weight is zero or the current animation target is
+                        // masked out, stop here.
+                        if active_animation.weight == 0.0
+                            || (target_mask
+                                & threaded_animation_graph.computed_masks
+                                    [animation_graph_node_index.index()])
+                                != 0
+                        {
+                            continue;
+                        }
+
+                        let Some(clip) = clips.get(animation_clip_handle) else {
+                            continue;
+                        };
+
+                        let Some(curves) = clip.curves_for_target(target_id) else {
+                            continue;
+                        };
+
+                        let weight = active_animation.weight;
+                        let seek_time = active_animation.seek_time;
+
+                        for curve in curves {
+                            // Fetch the curve evaluator. Curve evaluator types
+                            // are unique to each property, but shared among all
+                            // curve types. For example, given two curve types A
+                            // and B, `RotationCurve<A>` and `RotationCurve<B>`
+                            // will both yield a `RotationCurveEvaluator` and
+                            // therefore will share the same evaluator in this
+                            // table.
+                            let curve_evaluator_type_id = (*curve.0).evaluator_type();
+                            let curve_evaluator = evaluation_state
+                                .curve_evaluators
+                                .entry(curve_evaluator_type_id)
+                                .or_insert_with(|| curve.0.create_evaluator());
+
+                            evaluation_state
+                                .current_curve_evaluator_types
+                                .insert(curve_evaluator_type_id, ());
+
+                            if let Err(err) = AnimationCurve::apply(
+                                &*curve.0,
+                                &mut **curve_evaluator,
+                                seek_time,
+                                weight,
+                                animation_graph_node_index,
+                            ) {
+                                warn!("Animation application failed: {:?}", err);
+                            }
+                        }
                     }
                 }
             }
+
+            if let Err(err) = evaluation_state.commit_all(transform, entity_mut) {
+                warn!("Animation application failed: {:?}", err);
+            }
         });
 }
+
+/// Animation system set
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
 
 /// Adds animation support to an app
 #[derive(Default)]
@@ -1050,9 +1060,12 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
             .register_type::<NodeIndex>()
+            .register_type::<ThreadedAnimationGraphs>()
+            .init_resource::<ThreadedAnimationGraphs>()
             .add_systems(
                 PostUpdate,
                 (
+                    graph::thread_animation_graphs,
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -1067,8 +1080,8 @@ impl Plugin for AnimationPlugin {
                     expire_completed_transitions,
                 )
                     .chain()
-                    .before(TransformSystem::TransformPropagate)
-                    .before(UiSystem::Prepare),
+                    .in_set(Animation)
+                    .before(TransformSystem::TransformPropagate),
             );
     }
 }
@@ -1100,17 +1113,63 @@ impl From<&Name> for AnimationTargetId {
     }
 }
 
-impl AnimationGraphEvaluator {
-    // Starts a new depth-first search.
-    fn reset(&mut self, root: AnimationNodeIndex, node_count: usize) {
-        self.dfs_stack.clear();
-        self.dfs_stack.push(root);
+impl AnimationEvaluationState {
+    /// Calls [`AnimationCurveEvaluator::blend`] on all curve evaluator types
+    /// that we've been building up for a single target.
+    ///
+    /// The given `node_index` is the node that we're evaluating.
+    fn blend_all(
+        &mut self,
+        node_index: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
+            self.curve_evaluators
+                .get_mut(curve_evaluator_type)
+                .unwrap()
+                .blend(node_index)?;
+        }
+        Ok(())
+    }
 
-        self.dfs_visited.grow(node_count);
-        self.dfs_visited.clear();
+    /// Calls [`AnimationCurveEvaluator::push_blend_register`] on all curve
+    /// evaluator types that we've been building up for a single target.
+    ///
+    /// The `weight` parameter is the weight that should be pushed onto the
+    /// stack, while the `node_index` parameter is the node that we're
+    /// evaluating.
+    fn push_blend_register_all(
+        &mut self,
+        weight: f32,
+        node_index: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
+            self.curve_evaluators
+                .get_mut(curve_evaluator_type)
+                .unwrap()
+                .push_blend_register(weight, node_index)?;
+        }
+        Ok(())
+    }
 
-        self.nodes.clear();
-        self.nodes
-            .extend(iter::repeat(EvaluatedAnimationGraphNode::default()).take(node_count));
+    /// Calls [`AnimationCurveEvaluator::commit`] on all curve evaluator types
+    /// that we've been building up for a single target.
+    ///
+    /// This is the call that actually writes the computed values into the
+    /// components being animated.
+    fn commit_all(
+        &mut self,
+        mut transform: Option<Mut<Transform>>,
+        mut entity_mut: AnimationEntityMut,
+    ) -> Result<(), AnimationEvaluationError> {
+        for (curve_evaluator_type, _) in self.current_curve_evaluator_types.drain() {
+            self.curve_evaluators
+                .get_mut(&curve_evaluator_type)
+                .unwrap()
+                .commit(
+                    transform.as_mut().map(|transform| transform.reborrow()),
+                    entity_mut.reborrow(),
+                )?;
+        }
+        Ok(())
     }
 }

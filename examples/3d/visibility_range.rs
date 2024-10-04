@@ -94,31 +94,30 @@ fn setup(
     app_status: Res<AppStatus>,
 ) {
     // Spawn a plane.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     // Spawn the two HLODs.
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
+    commands.spawn((
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
-        })
-        .insert(MainModel::HighPoly);
+        ),
+        MainModel::HighPoly,
+    ));
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
             ),
-            ..default()
-        })
-        .insert(MainModel::LowPoly);
+        ),
+        MainModel::LowPoly,
+    ));
 
     // Spawn a light.
     commands.spawn((
@@ -170,7 +169,7 @@ fn setup(
 // component as appropriate.
 fn set_visibility_ranges(
     mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    mut new_meshes: Query<Entity, Added<Mesh3d>>,
     parents: Query<(Option<&Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.

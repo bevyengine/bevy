@@ -1,4 +1,4 @@
-use crate::texture::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
+use super::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 use bevy_asset::saver::{AssetSaver, SavedAsset};
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
