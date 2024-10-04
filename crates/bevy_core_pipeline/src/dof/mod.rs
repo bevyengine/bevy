@@ -830,7 +830,9 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        commands.get_or_spawn(entity).insert((
+        commands.get_entity(entity)
+                .expect("Depth of field entity wasn't synced.")
+                .insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,

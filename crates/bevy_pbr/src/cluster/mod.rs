@@ -554,7 +554,9 @@ pub fn extract_clusters(
             }
         }
 
-        commands.get_or_spawn(entity.id()).insert((
+        commands.get_entity(entity.id())
+                .expect("Clusters entity wasn't synced.")
+                .insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
@@ -617,7 +619,7 @@ pub fn prepare_clusters(
 
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
-        commands.get_or_spawn(entity).insert(view_clusters_bindings);
+        commands.entity(entity).insert(view_clusters_bindings);
     }
 }
 

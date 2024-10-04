@@ -403,7 +403,9 @@ pub fn extract_lights(
             }
         }
 
-        commands.get_or_spawn(entity.id()).insert((
+        commands.get_entity(entity.id())
+                .expect("Light entity wasn't synced.")
+                .insert((
             ExtractedDirectionalLight {
                 color: directional_light.color.into(),
                 illuminance: directional_light.illuminance,
