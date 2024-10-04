@@ -1371,7 +1371,7 @@ impl<'a> TriggeredEvents<'a> {
         let reverse = active_animation.is_playback_reversed();
         let is_finished = active_animation.is_finished();
 
-        // Return eatly if the animation have finished on a previous tick.
+        // Return early if the animation have finished on a previous tick.
         if is_finished && !active_animation.just_completed {
             return None;
         }
