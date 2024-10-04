@@ -713,6 +713,57 @@ mod tests {
         assert_eq!(1, values_found);
     }
 
+    #[test]
+    fn should_fail_from_reflect_if_processor_returns_wrong_typed_value() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo {
+            bar: i32,
+            qux: i64,
+        }
+
+        struct WrongTypeProcessor;
+
+        impl ReflectDeserializerProcessor for WrongTypeProcessor {
+            fn try_deserialize<'de, D>(
+                &mut self,
+                registration: &TypeRegistration,
+                _registry: &TypeRegistry,
+                deserializer: D,
+            ) -> Result<Result<Box<dyn PartialReflect>, D>, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                if registration.type_id() == TypeId::of::<i32>() {
+                    let _ = deserializer.deserialize_ignored_any(IgnoredAny);
+                    return Ok(Ok(Box::new(42_i64)));
+                } else {
+                    return Ok(Err(deserializer));
+                }
+            }
+        }
+
+        let input = r#"(
+            bar: 123,
+            qux: 123,
+        )"#;
+
+        let mut registry = get_registry();
+        registry.register::<Foo>();
+        let registration = registry.get(TypeId::of::<Foo>()).unwrap();
+        let mut processor = WrongTypeProcessor;
+        let reflect_deserializer =
+            TypedReflectDeserializer::with_processor(registration, &registry, &mut processor);
+        let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let dynamic_output = reflect_deserializer
+            .deserialize(&mut ron_deserializer)
+            .unwrap();
+
+        assert!(
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
+                .is_none()
+        );
+    }
+
     #[cfg(feature = "functions")]
     mod functions {
         use super::*;
