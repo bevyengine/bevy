@@ -41,10 +41,14 @@ impl MeshletMesh {
     ///
     /// `vertex_position_quantization_factor` is the amount of precision to to use when quantizing vertex positions.
     ///
-    /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = vertex_position_quantization_factor.
+    /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = `vertex_position_quantization_factor`.
     /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.
     ///
     /// Use [`DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
+    ///
+    /// To ensure that two different meshes do not have cracks between them when placed directly next to each other:
+    ///   * Use the same quantization factor when converting each mesh
+    ///   * Ensure that their [`bevy_transform::components::Transform`] components use values that are multiples of 1/2^x (remember that this value is in centimeters, and that transform values are in meters)
     pub fn from_mesh(
         mesh: &Mesh,
         vertex_position_quantization_factor: u8,
@@ -406,9 +410,9 @@ fn build_and_compress_meshlet_vertex_data(
     let bits_per_vertex_position_channel_z = range.as_vec3().z.log2().ceil() as u8;
 
     // Lossless encoding of vertex positions in the minimum number of bits per channel
-    for i in 0..meshlet_vertex_ids.len() {
+    for quantized_position in quantized_positions.iter().take(meshlet_vertex_ids.len()) {
         // Remap [range_min, range_max] IVec3 to [0, range_max - range_min] UVec3
-        let position = (quantized_positions[i] - min_quantized_position_channels).as_uvec3();
+        let position = (quantized_position - min_quantized_position_channels).as_uvec3();
 
         // Store as a packed bitstream
         vertex_positions.extend_from_bitslice(
