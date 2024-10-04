@@ -2,6 +2,7 @@ use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin, SubApp};
+pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
@@ -9,7 +10,6 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
-pub use bevy_image::RenderAssetUsages;
 use bevy_render_macros::ExtractResource;
 use bevy_utils::{
     tracing::{debug, error},

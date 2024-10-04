@@ -33,6 +33,7 @@ atomicow = "1.0"
 async-broadcast = "0.5"
 async-fs = "2.0"
 async-lock = "3.0"
+bitflags = { version = "2.3", features = ["serde"] }
 crossbeam-channel = "0.5"
 downcast-rs = "1.2"
 disqualified = "1.0"

@@ -1,10 +1,10 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_image::{Image, ImageSampler, RenderAssetUsages};
+use bevy_image::{Image, ImageSampler};
 use bevy_math::UVec2;
 use wgpu::{TextureFormat, TextureViewDescriptor};
 
