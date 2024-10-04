@@ -3401,8 +3401,10 @@ mod tests {
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
+        entity::EntityHashSet,
         ptr::OwningPtr,
         system::Resource,
+        world::error::EntityFetchError,
     };
     use alloc::sync::Arc;
     use bevy_ecs_macros::Component;
@@ -3938,5 +3940,105 @@ mod tests {
     fn spawn_empty_bundle() {
         let mut world = World::new();
         world.spawn(());
+    }
+
+    #[test]
+    fn get_entity() {
+        let mut world = World::new();
+
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+
+        assert!(world.get_entity(e1).is_ok());
+        assert!(world.get_entity([e1, e2]).is_ok());
+        assert!(world
+            .get_entity(&[e1, e2] /* this is an array not a slice */)
+            .is_ok());
+        assert!(world.get_entity(&vec![e1, e2][..]).is_ok());
+        assert!(world
+            .get_entity(&EntityHashSet::from_iter([e1, e2]))
+            .is_ok());
+
+        world.entity_mut(e1).despawn();
+
+        assert_eq!(Err(e1), world.get_entity(e1).map(|_| {}));
+        assert_eq!(Err(e1), world.get_entity([e1, e2]).map(|_| {}));
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&[e1, e2] /* this is an array not a slice */)
+                .map(|_| {})
+        );
+        assert_eq!(Err(e1), world.get_entity(&vec![e1, e2][..]).map(|_| {}));
+        assert_eq!(
+            Err(e1),
+            world
+                .get_entity(&EntityHashSet::from_iter([e1, e2]))
+                .map(|_| {})
+        );
+    }
+
+    #[test]
+    fn get_entity_mut() {
+        let mut world = World::new();
+
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+
+        assert!(world.get_entity_mut(e1).is_ok());
+        assert!(world.get_entity_mut([e1, e2]).is_ok());
+        assert!(world
+            .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
+            .is_ok());
+        assert!(world.get_entity_mut(&vec![e1, e2][..]).is_ok());
+        assert!(world
+            .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
+            .is_ok());
+
+        assert_eq!(
+            Err(EntityFetchError::AliasedMutability(e1)),
+            world.get_entity_mut([e1, e2, e1]).map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::AliasedMutability(e1)),
+            world
+                .get_entity_mut(&[e1, e2, e1] /* this is an array not a slice */)
+                .map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::AliasedMutability(e1)),
+            world.get_entity_mut(&vec![e1, e2, e1][..]).map(|_| {})
+        );
+        // Aliased mutability isn't allowed by HashSets
+        assert!(world
+            .get_entity_mut(&EntityHashSet::from_iter([e1, e2, e1]))
+            .is_ok());
+
+        world.entity_mut(e1).despawn();
+
+        assert_eq!(
+            Err(EntityFetchError::NoSuchEntity(e1)),
+            world.get_entity_mut(e1).map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::NoSuchEntity(e1)),
+            world.get_entity_mut([e1, e2]).map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::NoSuchEntity(e1)),
+            world
+                .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
+                .map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::NoSuchEntity(e1)),
+            world.get_entity_mut(&vec![e1, e2][..]).map(|_| {})
+        );
+        assert_eq!(
+            Err(EntityFetchError::NoSuchEntity(e1)),
+            world
+                .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
+                .map(|_| {})
+        );
     }
 }
