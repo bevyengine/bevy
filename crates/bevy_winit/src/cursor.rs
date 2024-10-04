@@ -5,7 +5,7 @@ use crate::{
     PendingCursor,
 };
 use bevy_app::{App, Last, Plugin};
-use bevy_asset::{AssetId, Assets, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -99,12 +99,7 @@ fn update_cursors(
 
         let cursor_source = match cursor.as_ref() {
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
-                let cache_key = match handle.id() {
-                    AssetId::Index { index, .. } => {
-                        CustomCursorCacheKey::AssetIndex(index.to_bits())
-                    }
-                    AssetId::Uuid { uuid } => CustomCursorCacheKey::AssetUuid(uuid.as_u128()),
-                };
+                let cache_key = CustomCursorCacheKey::Asset(handle.id());
 
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)

@@ -1,5 +1,6 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
+use bevy_asset::AssetId;
 use bevy_ecs::{
     change_detection::{DetectChanges, NonSendMut, Res},
     entity::Entity,
@@ -14,6 +15,7 @@ use bevy_input::{
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_render::texture::Image;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::{HashMap, Instant};
@@ -137,11 +139,9 @@ impl<T: Event> WinitAppRunnerState<T> {
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
-    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetIndex(u64),
-    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetUuid(u128),
-    /// A URL to a cursor.
+    /// An AssetId to a cursor.
+    Asset(AssetId<Image>),
+    /// An URL to a cursor.
     Url(String),
 }
 
@@ -150,7 +150,7 @@ pub enum CustomCursorCacheKey {
 #[derive(Debug, Clone, Default, Resource)]
 pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
 
-/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+/// A source for a cursor. Consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
     /// A custom cursor was identified to be cached, no reason to recreate it.
