@@ -9,7 +9,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    DeriveInput, ExprPath, Ident, LitStr, Path, Result,
+    DeriveInput, ExprClosure, ExprPath, Ident, LitStr, Path, Result,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -90,24 +90,37 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     inheritance_depth + 1
                 );
             });
-            if let Some(func) = &require.func {
-                register_required.push(quote! {
-                    components.register_required_components_manual::<Self, #ident>(
-                        storages,
-                        required_components,
-                        || { let x: #ident = #func().into(); x },
-                        inheritance_depth
-                    );
-                });
-            } else {
-                register_required.push(quote! {
-                    components.register_required_components_manual::<Self, #ident>(
-                        storages,
-                        required_components,
-                        <#ident as Default>::default,
-                        inheritance_depth
-                    );
-                });
+            match &require.func {
+                Some(RequireFunc::Path(func)) => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            || { let x: #ident = #func().into(); x },
+                            inheritance_depth
+                        );
+                    });
+                }
+                Some(RequireFunc::Closure(func)) => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            || { let x: #ident = (#func)().into(); x },
+                            inheritance_depth
+                        );
+                    });
+                }
+                None => {
+                    register_required.push(quote! {
+                        components.register_required_components_manual::<Self, #ident>(
+                            storages,
+                            required_components,
+                            <#ident as Default>::default,
+                            inheritance_depth
+                        );
+                    });
+                }
             }
         }
     }
@@ -180,7 +193,12 @@ enum StorageTy {
 
 struct Require {
     path: Path,
-    func: Option<Path>,
+    func: Option<RequireFunc>,
+}
+
+enum RequireFunc {
+    Path(Path),
+    Closure(ExprClosure),
 }
 
 // values for `storage` attribute
@@ -256,8 +274,12 @@ impl Parse for Require {
         let func = if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
-            let func = content.parse::<Path>()?;
-            Some(func)
+            if let Ok(func) = content.parse::<ExprClosure>() {
+                Some(RequireFunc::Closure(func))
+            } else {
+                let func = content.parse::<Path>()?;
+                Some(RequireFunc::Path(func))
+            }
         } else {
             None
         };
