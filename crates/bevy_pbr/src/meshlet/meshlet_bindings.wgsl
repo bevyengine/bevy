@@ -138,8 +138,8 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     );
 
     // Reverse vertex quantization
-    let meshlet_quantization_factor = unpacked.w;
-    vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
+    let vertex_position_quantization_factor = unpacked.w;
+    vertex_position /= f32(1u << vertex_position_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;
 }
@@ -191,8 +191,8 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
     );
 
     // Reverse vertex quantization
-    let meshlet_quantization_factor = unpacked.w;
-    vertex_position /= f32(1u << meshlet_quantization_factor) * CENTIMETERS_PER_METER;
+    let vertex_position_quantization_factor = unpacked.w;
+    vertex_position /= f32(1u << vertex_position_quantization_factor) * CENTIMETERS_PER_METER;
 
     return vertex_position;
 }

@@ -76,7 +76,7 @@ pub struct Meshlet {
     /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_z: u8,
     /// Power of 2 factor used to quantize vertex positions within this meshlet.
-    pub quantization_factor: u8,
+    pub vertex_position_quantization_factor: u8,
     /// Minimum quantized X channel value of vertex positions within this meshlet.
     pub min_vertex_position_channel_x: f32,
     /// Minimum quantized Y channel value of vertex positions within this meshlet.

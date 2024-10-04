@@ -34,7 +34,9 @@ pub(crate) use self::{
 
 pub use self::asset::{MeshletMesh, MeshletMeshLoader, MeshletMeshSaver};
 #[cfg(feature = "meshlet_processor")]
-pub use self::from_mesh::MeshToMeshletMeshConversionError;
+pub use self::from_mesh::{
+    MeshToMeshletMeshConversionError, DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
+};
 
 use self::{
     graph::NodeMeshlet,

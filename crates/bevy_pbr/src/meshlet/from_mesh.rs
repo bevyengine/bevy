@@ -17,8 +17,8 @@ use meshopt::{
 use metis::Graph;
 use smallvec::SmallVec;
 
-// Snap vertices to the nearest 1/16th of a centimeter (1/2^4).
-const VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
+/// Snap vertices to the nearest 1/16th of a centimeter (1/2^4).
+pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 const CENTIMETERS_PER_METER: f32 = 100.0;
@@ -28,13 +28,27 @@ impl MeshletMesh {
     ///
     /// This process is very slow, and should be done ahead of time, and not at runtime.
     ///
+    /// ## Requirements
+    ///
     /// This function requires the `meshlet_processor` cargo feature.
     ///
     /// The input mesh must:
     /// 1. Use [`PrimitiveTopology::TriangleList`]
     /// 2. Use indices
     /// 3. Have the exact following set of vertex attributes: `{POSITION, NORMAL, UV_0}` (tangents can be used in material shaders, but are calculated at runtime and are not stored in the mesh)
-    pub fn from_mesh(mesh: &Mesh) -> Result<Self, MeshToMeshletMeshConversionError> {
+    ///
+    /// ## Vertex precision
+    ///
+    /// `vertex_position_quantization_factor` is the amount of precision to to use when quantizing vertex positions.
+    ///
+    /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = vertex_position_quantization_factor.
+    /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.
+    ///
+    /// Use [`DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
+    pub fn from_mesh(
+        mesh: &Mesh,
+        vertex_position_quantization_factor: u8,
+    ) -> Result<Self, MeshToMeshletMeshConversionError> {
         // Validate mesh format
         let indices = validate_input_mesh(mesh)?;
 
@@ -144,6 +158,7 @@ impl MeshletMesh {
                 &mut vertex_normals,
                 &mut vertex_uvs,
                 &mut bevy_meshlets,
+                vertex_position_quantization_factor,
             );
         }
         vertex_positions.set_uninitialized(false);
@@ -339,7 +354,6 @@ fn split_simplified_group_into_new_meshlets(
     new_meshlets_count
 }
 
-// TODO: User-configurable VERTEX_POSITION_QUANTIZATION_FACTOR
 fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
@@ -348,12 +362,13 @@ fn build_and_compress_meshlet_vertex_data(
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
     meshlets: &mut Vec<Meshlet>,
+    vertex_position_quantization_factor: u8,
 ) {
     let start_vertex_position_bit = vertex_positions.len() as u32;
     let start_vertex_attribute_id = vertex_normals.len() as u32;
 
     let quantization_factor =
-        (1 << VERTEX_POSITION_QUANTIZATION_FACTOR) as f32 * CENTIMETERS_PER_METER;
+        (1 << vertex_position_quantization_factor) as f32 * CENTIMETERS_PER_METER;
 
     let mut min_quantized_position_channels = IVec3::MAX;
     let mut max_quantized_position_channels = IVec3::MIN;
@@ -417,7 +432,7 @@ fn build_and_compress_meshlet_vertex_data(
         bits_per_vertex_position_channel_x,
         bits_per_vertex_position_channel_y,
         bits_per_vertex_position_channel_z,
-        quantization_factor: VERTEX_POSITION_QUANTIZATION_FACTOR,
+        vertex_position_quantization_factor,
         min_vertex_position_channel_x: min_quantized_position_channels.x as f32,
         min_vertex_position_channel_y: min_quantized_position_channels.y as f32,
         min_vertex_position_channel_z: min_quantized_position_channels.z as f32,
