@@ -465,6 +465,29 @@ impl<'a> AssetPath<'a> {
         Some(extension)
     }
 
+    /// Returns whether the asset file exists using the std [`Path::exists`] method.
+    ///
+    /// Returns false when the asset does not exist or if the [`AssetPath`] uses a custom [`AssetSourceId`].
+    pub fn exists(&self) -> bool {
+        if let AssetSourceId::Name(_) = self.source {
+            return false;
+        }
+        let path = self.path();
+        let path = if path.is_absolute() {
+            match path.strip_prefix("/") {
+                Ok(path) => path,
+                Err(_) => {
+                    return false;
+                }
+            }
+        } else {
+            path
+        };
+        Path::new(crate::AssetPlugin::DEFAULT_UNPROCESSED_FILE_PATH)
+            .join(path)
+            .exists()
+    }
+
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
         full_extension.chars().enumerate().filter_map(|(i, c)| {
             if c == '.' {
