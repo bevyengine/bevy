@@ -147,13 +147,11 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
+            parent.spawn(TextNEW::new(
                 "Space: swap meshes by mutating a Handle<Mesh>",
-                TextStyle::default(),
             ));
-            parent.spawn(TextBundle::from_section(
+            parent.spawn(TextNEW::new(
                 "Return: mutate the mesh itself, changing all copies of it",
-                TextStyle::default(),
             ));
         });
 }

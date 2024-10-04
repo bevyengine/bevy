@@ -58,18 +58,15 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        TextNEW::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // camera
     commands.spawn((

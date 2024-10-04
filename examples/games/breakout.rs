@@ -5,6 +5,7 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
+    text::TextBuilderExt,
 };
 
 mod stepping;
@@ -216,30 +217,34 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn((
-        ScoreboardUi,
-        TextBundle::from_sections([
-            TextSection::new(
-                "Score: ",
+    commands
+        .spawn_text_block::<TextNEW>([
+            (
+                "Score: ".into(),
                 TextStyle {
                     font_size: SCOREBOARD_FONT_SIZE,
                     color: TEXT_COLOR,
                     ..default()
                 },
             ),
-            TextSection::from_style(TextStyle {
-                font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
-                ..default()
-            }),
+            (
+                "".into(),
+                TextStyle {
+                    font_size: SCOREBOARD_FONT_SIZE,
+                    color: SCORE_COLOR,
+                    ..default()
+                },
+            ),
         ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: SCOREBOARD_TEXT_PADDING,
-            left: SCOREBOARD_TEXT_PADDING,
-            ..default()
-        }),
-    ));
+        .insert((
+            ScoreboardUi,
+            Style {
+                position_type: PositionType::Absolute,
+                top: SCOREBOARD_TEXT_PADDING,
+                left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+        ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -334,9 +339,12 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
-    let mut text = query.single_mut();
-    text.sections[1].value = score.to_string();
+fn update_scoreboard(
+    score: Res<Score>,
+    query: Query<Entity, (With<ScoreboardUi>, With<TextNEW>)>,
+    mut writer: UiTextWriter,
+) {
+    *writer.text(query.single(), 1) = score.to_string();
 }
 
 fn check_for_collisions(

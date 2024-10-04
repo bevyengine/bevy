@@ -181,21 +181,13 @@ fn setup_ui(mut commands: Commands) {
         })
         .with_children(|b| {
             b.spawn((
-                TextBundle {
-                    text: Text {
-                        sections: vec![TextSection {
-                            value: "Loading...".to_owned(),
-                            style: TextStyle {
-                                font_size: 53.0,
-                                color: Color::BLACK,
-                                ..Default::default()
-                            },
-                        }],
-                        justify: JustifyText::Right,
-                        ..Default::default()
-                    },
+                TextNEW::new("Loading...".to_owned()),
+                TextStyle {
+                    font_size: 53.0,
+                    color: Color::BLACK,
                     ..Default::default()
                 },
+                TextBlock::new_with_justify(JustifyText::Right),
                 LoadingText,
             ));
         });
@@ -269,7 +261,7 @@ fn wait_on_load(
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
     mut next_loading_state: ResMut<NextState<LoadingState>>,
-    mut text: Query<&mut Text, With<LoadingText>>,
+    mut text: Query<&mut TextNEW, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
     let is_loaded = state.0.load(Ordering::Acquire);
@@ -278,7 +270,7 @@ fn get_async_loading_state(
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
         if let Ok(mut text) = text.get_single_mut() {
-            "Loaded!".clone_into(&mut text.sections[0].value);
+            "Loaded!".clone_into(&mut **text);
         }
     }
 }

@@ -1,6 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
+use bevy::{math::bounding::Aabb2d, prelude::*, text::TextBuilderExt, utils::HashMap};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -134,30 +134,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new("Contributor showcase", text_style.clone()),
-            TextSection::from_style(TextStyle {
-                font_size: 30.,
-                ..text_style
-            }),
+    commands
+        .spawn_text_block::<TextNEW>([
+            ("Contributor showcase".into(), text_style.clone()),
+            (
+                "".into(),
+                TextStyle {
+                    font_size: 30.,
+                    ..text_style
+                },
+            ),
         ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
-            ..default()
-        }),
-        ContributorDisplay,
-    ));
+        .insert((
+            ContributorDisplay,
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.),
+                left: Val::Px(12.),
+                ..default()
+            },
+        ));
 }
 
 /// Finds the next contributor to display and selects the entity
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    mut text_query: Query<&mut Text, With<ContributorDisplay>>,
+    text_query: Query<Entity, (With<ContributorDisplay>, With<TextNEW>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
+    mut writer: UiTextWriter,
     time: Res<Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
@@ -182,8 +187,14 @@ fn selection(
     let entity = contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-        let mut text = text_query.single_mut();
-        select(&mut sprite, contributor, &mut transform, &mut text);
+        let entity = text_query.single();
+        select(
+            &mut sprite,
+            contributor,
+            &mut transform,
+            entity,
+            &mut writer,
+        );
     }
 }
 
@@ -193,19 +204,20 @@ fn select(
     sprite: &mut Sprite,
     contributor: &Contributor,
     transform: &mut Transform,
-    text: &mut Text,
+    entity: Entity,
+    writer: &mut UiTextWriter,
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z = 100.0;
 
-    text.sections[0].value.clone_from(&contributor.name);
-    text.sections[1].value = format!(
+    writer.text(entity, 0).clone_from(&contributor.name);
+    *writer.text(entity, 1) = format!(
         "\n{} commit{}",
         contributor.num_commits,
         if contributor.num_commits > 1 { "s" } else { "" }
     );
-    text.sections[0].style.color = sprite.color;
+    writer.style(entity, 0).color = sprite.color;
 }
 
 /// Change the tint color to the "deselected" color and push

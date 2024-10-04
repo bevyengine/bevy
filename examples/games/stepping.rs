@@ -1,4 +1,4 @@
-use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*};
+use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*, text::TextBuilderExt};
 
 /// Independent [`Schedule`] for stepping systems.
 ///
@@ -103,7 +103,7 @@ fn build_ui(
     mut stepping: ResMut<Stepping>,
     mut state: ResMut<State>,
 ) {
-    let mut text_sections = Vec::new();
+    let mut text_spans = Vec::new();
     let mut always_run = Vec::new();
 
     let Ok(schedule_order) = stepping.schedules() else {
@@ -114,7 +114,7 @@ fn build_ui(
     // each label
     for label in schedule_order {
         let schedule = schedules.get(*label).unwrap();
-        text_sections.push(TextSection::new(
+        text_spans.push((
             format!("{label:?}\n"),
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
@@ -138,11 +138,11 @@ fn build_ui(
 
             // Add an entry to our systems list so we can find where to draw
             // the cursor when the stepping cursor is at this system
-            state.systems.push((*label, node_id, text_sections.len()));
+            state.systems.push((*label, node_id, text_spans.len()));
 
             // Add a text section for displaying the cursor for this system
-            text_sections.push(TextSection::new(
-                "   ",
+            text_spans.push((
+                "   ".into(),
                 TextStyle {
                     color: FONT_COLOR,
                     ..default()
@@ -150,7 +150,7 @@ fn build_ui(
             ));
 
             // add the name of the system to the ui
-            text_sections.push(TextSection::new(
+            text_spans.push((
                 format!("{}\n", system.name()),
                 TextStyle {
                     color: FONT_COLOR,
@@ -164,21 +164,17 @@ fn build_ui(
         stepping.always_run_node(label, node);
     }
 
-    commands.spawn((
+    commands.spawn_text_block::<TextNEW>(text_spans).insert((
         SteppingUi,
-        TextBundle {
-            text: Text::from_sections(text_sections),
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: state.ui_top,
-                left: state.ui_left,
-                padding: UiRect::all(Val::Px(10.0)),
-                ..default()
-            },
-            background_color: BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
-            visibility: Visibility::Hidden,
+        Style {
+            position_type: PositionType::Absolute,
+            top: state.ui_top,
+            left: state.ui_left,
+            padding: UiRect::all(Val::Px(10.0)),
             ..default()
         },
+        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
+        Visibility::Hidden,
     ));
 }
 
@@ -190,20 +186,20 @@ fn build_stepping_hint(mut commands: Commands) {
     };
     info!("{}", hint_text);
     // stepping description box
-    commands.spawn((TextBundle::from_sections([TextSection::new(
-        hint_text,
+    commands.spawn((
+        TextNEW::new(hint_text),
         TextStyle {
             font_size: 15.0,
             color: FONT_COLOR,
             ..default()
         },
-    )])
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        bottom: Val::Px(5.0),
-        left: Val::Px(5.0),
-        ..default()
-    }),));
+        Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            left: Val::Px(5.0),
+            ..default()
+        },
+    ));
 }
 
 fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut stepping: ResMut<Stepping>) {
@@ -239,14 +235,15 @@ fn update_ui(
     mut commands: Commands,
     state: Res<State>,
     stepping: Res<Stepping>,
-    mut ui: Query<(Entity, &mut Text, &Visibility), With<SteppingUi>>,
+    ui: Query<(Entity, &Visibility), With<SteppingUi>>,
+    mut writer: UiTextWriter,
 ) {
     if ui.is_empty() {
         return;
     }
 
     // ensure the UI is only visible when stepping is enabled
-    let (ui, mut text, vis) = ui.single_mut();
+    let (ui, vis) = ui.single();
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
             commands.entity(ui).insert(Visibility::Inherited);
@@ -274,6 +271,6 @@ fn update_ui(
         } else {
             "   "
         };
-        text.sections[*text_index].value = mark.to_string();
+        *writer.text(ui, *text_index) = mark.to_string();
     }
 }

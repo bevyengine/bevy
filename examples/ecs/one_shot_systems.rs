@@ -11,6 +11,7 @@
 use bevy::{
     ecs::system::{RunSystemOnce, SystemId},
     prelude::*,
+    text::TextBuilderExt,
 };
 
 fn main() {
@@ -79,40 +80,47 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[2].value = String::from("A");
+fn system_a(query: Query<Entity, With<TextNEW>>, mut writer: UiTextWriter) {
+    *writer.text(query.single(), 2) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[2].value = String::from("B");
+fn system_b(query: Query<Entity, With<TextNEW>>, mut writer: UiTextWriter) {
+    *writer.text(query.single(), 2) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
 fn setup_ui(mut commands: Commands) {
+<<<<<<< HEAD
     commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_sections([
             TextSection::new(
                 "Press A or B to trigger a one-shot system\n",
+=======
+    commands.spawn(Camera2d);
+    commands
+        .spawn_text_block::<TextNEW>([
+            (
+                "Press A or B to trigger a one-shot system\n".into(),
+>>>>>>> 2bbba2493 (app/asset/async_tasks/audio/camera/ecs/games examples migrated)
                 TextStyle::default(),
             ),
-            TextSection::new("Last Triggered: ", TextStyle::default()),
-            TextSection::new(
-                "-",
+            ("Last Triggered: ".into(), TextStyle::default()),
+            (
+                "-".into(),
                 TextStyle {
                     color: bevy::color::palettes::css::ORANGE.into(),
                     ..default()
                 },
             ),
         ])
-        .with_text_justify(JustifyText::Center)
-        .with_style(Style {
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
-            ..default()
-        }),
-    );
+        .insert((
+            TextBlock::new_with_justify(JustifyText::Center),
+            Style {
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
+                ..default()
+            },
+        ));
 }

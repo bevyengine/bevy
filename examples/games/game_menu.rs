@@ -118,6 +118,7 @@ mod game {
     use bevy::{
         color::palettes::basic::{BLUE, LIME},
         prelude::*,
+        text::TextBuilderExt,
     };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
@@ -173,54 +174,48 @@ mod game {
                         background_color: Color::BLACK.into(),
                         ..default()
                     })
-                    .with_children(|parent| {
-                        // Display two lines of text, the second one with the current settings
-                        parent.spawn(
-                            TextBundle::from_section(
-                                "Will be back to the menu shortly...",
-                                TextStyle {
-                                    font_size: 67.0,
-                                    color: TEXT_COLOR,
-                                    ..default()
-                                },
-                            )
-                            .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                    // Display two lines of text, the second one with the current settings
+                    .with_child((
+                        TextNEW::new("Will be back to the menu shortly..."),
+                        TextStyle {
+                            font_size: 67.0,
+                            color: TEXT_COLOR,
+                            ..default()
+                        },
+                        Style {
+                            margin: UiRect::all(Val::Px(50.0)),
+                            ..default()
+                        },
+                    ))
+                    .spawn_text_block::<TextNEW>([
+                        (
+                            format!("quality: {:?}", *display_quality),
+                            TextStyle {
+                                font_size: 50.0,
+                                color: BLUE.into(),
                                 ..default()
-                            }),
-                        );
-                        parent.spawn(
-                            TextBundle::from_sections([
-                                TextSection::new(
-                                    format!("quality: {:?}", *display_quality),
-                                    TextStyle {
-                                        font_size: 50.0,
-                                        color: BLUE.into(),
-                                        ..default()
-                                    },
-                                ),
-                                TextSection::new(
-                                    " - ",
-                                    TextStyle {
-                                        font_size: 50.0,
-                                        color: TEXT_COLOR,
-                                        ..default()
-                                    },
-                                ),
-                                TextSection::new(
-                                    format!("volume: {:?}", *volume),
-                                    TextStyle {
-                                        font_size: 50.0,
-                                        color: LIME.into(),
-                                        ..default()
-                                    },
-                                ),
-                            ])
-                            .with_style(Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                            },
+                        ),
+                        (
+                            " - ".into(),
+                            TextStyle {
+                                font_size: 50.0,
+                                color: TEXT_COLOR,
                                 ..default()
-                            }),
-                        );
+                            },
+                        ),
+                        (
+                            format!("volume: {:?}", *volume),
+                            TextStyle {
+                                font_size: 50.0,
+                                color: LIME.into(),
+                                ..default()
+                            },
+                        ),
+                    ])
+                    .insert(Style {
+                        margin: UiRect::all(Val::Px(50.0)),
+                        ..default()
                     });
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
@@ -433,20 +428,18 @@ mod menu {
                     })
                     .with_children(|parent| {
                         // Display the game name
-                        parent.spawn(
-                            TextBundle::from_section(
-                                "Bevy Game Menu UI",
-                                TextStyle {
-                                    font_size: 67.0,
-                                    color: TEXT_COLOR,
-                                    ..default()
-                                },
-                            )
-                            .with_style(Style {
+                        parent.spawn((
+                            TextNEW::new("Bevy Game Menu UI"),
+                            TextStyle {
+                                font_size: 67.0,
+                                color: TEXT_COLOR,
+                                ..default()
+                            },
+                            Style {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
-                            }),
-                        );
+                            },
+                        ));
 
                         // Display three buttons for each action available from the main menu:
                         // - new game
@@ -468,10 +461,7 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn(TextBundle::from_section(
-                                    "New Game",
-                                    button_text_style.clone(),
-                                ));
+                                parent.spawn((TextNEW::new("New Game"), button_text_style.clone()));
                             });
                         parent
                             .spawn((
@@ -489,10 +479,7 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn(TextBundle::from_section(
-                                    "Settings",
-                                    button_text_style.clone(),
-                                ));
+                                parent.spawn((TextNEW::new("Settings"), button_text_style.clone()));
                             });
                         parent
                             .spawn((
@@ -510,7 +497,7 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn(TextBundle::from_section("Quit", button_text_style));
+                                parent.spawn((TextNEW::new("Quit"), button_text_style));
                             });
                     });
             });
@@ -573,10 +560,7 @@ mod menu {
                                     action,
                                 ))
                                 .with_children(|parent| {
-                                    parent.spawn(TextBundle::from_section(
-                                        text,
-                                        button_text_style.clone(),
-                                    ));
+                                    parent.spawn((TextNEW::new(text), button_text_style.clone()));
                                 });
                         }
                     });
@@ -637,8 +621,8 @@ mod menu {
                             })
                             .with_children(|parent| {
                                 // Display a label for the current setting
-                                parent.spawn(TextBundle::from_section(
-                                    "Display Quality",
+                                parent.spawn((
+                                    TextNEW::new("Display Quality"),
                                     button_text_style.clone(),
                                 ));
                                 // Display a button for each possible value
@@ -660,8 +644,8 @@ mod menu {
                                         quality_setting,
                                     ));
                                     entity.with_children(|parent| {
-                                        parent.spawn(TextBundle::from_section(
-                                            format!("{quality_setting:?}"),
+                                        parent.spawn((
+                                            TextNEW::new(format!("{quality_setting:?}")),
                                             button_text_style.clone(),
                                         ));
                                     });
@@ -681,7 +665,7 @@ mod menu {
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_children(|parent| {
-                                parent.spawn(TextBundle::from_section("Back", button_text_style));
+                                parent.spawn((TextNEW::new("Back"), button_text_style));
                             });
                     });
             });
@@ -738,10 +722,7 @@ mod menu {
                                 ..default()
                             })
                             .with_children(|parent| {
-                                parent.spawn(TextBundle::from_section(
-                                    "Volume",
-                                    button_text_style.clone(),
-                                ));
+                                parent.spawn((TextNEW::new("Volume"), button_text_style.clone()));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
                                         ButtonBundle {
@@ -769,9 +750,7 @@ mod menu {
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
-                            .with_children(|parent| {
-                                parent.spawn(TextBundle::from_section("Back", button_text_style));
-                            });
+                            .with_child((TextNEW::new("Back"), button_text_style));
                     });
             });
     }
