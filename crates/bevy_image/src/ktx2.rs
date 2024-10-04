@@ -1496,7 +1496,7 @@ pub fn ktx2_format_to_texture_format(
 
 #[cfg(test)]
 mod tests {
-    use crate::texture::CompressedImageFormats;
+    use crate::CompressedImageFormats;
 
     use super::ktx2_buffer_to_image;
 
