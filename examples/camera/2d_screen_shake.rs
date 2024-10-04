@@ -122,7 +122,7 @@ fn trigger_shake_on_space(
         screen_shake.start_shake(
             MAX_ANGLE,
             MAX_OFFSET,
-            screen_shake_clone.trauma + TRAUMA_INCREMENT*time.delta_seconds(),
+            screen_shake_clone.trauma + TRAUMA_INCREMENT * time.delta_seconds(),
             Vec2 { x: 0.0, y: 0.0 },
         ); // final_position should be your current player position
     }
