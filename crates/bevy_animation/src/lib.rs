@@ -1379,8 +1379,8 @@ impl<'a> TriggeredEvents<'a> {
             // The animation is looping this tick and we have to return events where
             // either last_tick <= event.time or event.time < this_tick.
             TriggeredEventsDir::ForwardLooping => {
-                let upper_start = events.partition_point(|event| event.time < last_time); // First index where t >= last_tick
-                let lower_end = events.partition_point(|event| event.time < this_time); // First index where t >= this_tick
+                let upper_start = events.partition_point(|event| event.time < last_time);
+                let lower_end = events.partition_point(|event| event.time < this_time);
 
                 let upper = &events[upper_start..];
                 let lower = &events[..lower_end];
@@ -1389,8 +1389,8 @@ impl<'a> TriggeredEvents<'a> {
             // The animation is looping this tick and we have to return events where
             // either last_tick >= event.time or event.time > this_tick.
             TriggeredEventsDir::ReverseLooping => {
-                let lower_end = events.partition_point(|event| event.time <= last_time); // First index where t > last_tick
-                let upper_start = events.partition_point(|event| event.time <= this_time); // First index where t > this_tick
+                let lower_end = events.partition_point(|event| event.time <= last_time);
+                let upper_start = events.partition_point(|event| event.time <= this_time);
 
                 let upper = &events[upper_start..];
                 let lower = &events[..lower_end];
