@@ -26,8 +26,8 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component, Default)]
 #[require(
     Camera,
-    DebandDither(Camera3d::default_deband_dither),
-    CameraRenderGraph(Camera3d::default_render_graph),
+    DebandDither(|| DebandDither::Enabled),
+    CameraRenderGraph(|| CameraRenderGraph::new(Core3d)),
     Projection,
     Tonemapping,
     ColorGrading,
@@ -73,16 +73,6 @@ impl Default for Camera3d {
             screen_space_specular_transmission_steps: 1,
             screen_space_specular_transmission_quality: Default::default(),
         }
-    }
-}
-
-impl Camera3d {
-    fn default_render_graph() -> CameraRenderGraph {
-        CameraRenderGraph::new(Core3d)
-    }
-
-    fn default_deband_dither() -> DebandDither {
-        DebandDither::Enabled
     }
 }
 

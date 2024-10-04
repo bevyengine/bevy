@@ -26,30 +26,12 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[require(
     Camera,
     DebandDither,
-    CameraRenderGraph(Camera2d::default_render_graph),
-    OrthographicProjection(Camera2d::default_projection),
-    Frustum(Camera2d::default_frustum),
-    Tonemapping(Camera2d::default_tonemapping)
+    CameraRenderGraph(|| CameraRenderGraph::new(Core2d)),
+    OrthographicProjection(OrthographicProjection::default_2d),
+    Frustum(|| OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default()))),
+    Tonemapping(|| Tonemapping::None),
 )]
 pub struct Camera2d;
-
-impl Camera2d {
-    fn default_render_graph() -> CameraRenderGraph {
-        CameraRenderGraph::new(Core2d)
-    }
-
-    fn default_projection() -> OrthographicProjection {
-        OrthographicProjection::default_2d()
-    }
-
-    fn default_frustum() -> Frustum {
-        Self::default_projection().compute_frustum(&GlobalTransform::from(Transform::default()))
-    }
-
-    fn default_tonemapping() -> Tonemapping {
-        Tonemapping::None
-    }
-}
 
 #[derive(Bundle, Clone)]
 #[deprecated(
