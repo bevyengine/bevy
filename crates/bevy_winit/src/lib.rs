@@ -17,6 +17,7 @@ extern crate alloc;
 use bevy_derive::Deref;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
+use cursor::CursorPlugin;
 use winit::event_loop::EventLoop;
 
 use bevy_a11y::AccessibilityRequested;
@@ -44,6 +45,7 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
+pub mod cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -130,7 +132,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
                     .chain(),
             );
 
-        app.add_plugins(AccessKitPlugin);
+        app.add_plugins((AccessKitPlugin, CursorPlugin));
 
         let event_loop = event_loop_builder
             .build()

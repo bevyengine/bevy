@@ -2,11 +2,9 @@
 
 use bevy::{
     prelude::*,
-    render::view::{
-        cursor::CursorIcon,
-        screenshot::{save_to_disk, Capturing, Screenshot},
-    },
+    render::view::screenshot::{save_to_disk, Capturing, Screenshot},
     window::SystemCursorIcon,
+    winit::cursor::CursorIcon,
 };
 
 fn main() {
