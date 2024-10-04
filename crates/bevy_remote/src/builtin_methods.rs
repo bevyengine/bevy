@@ -6,9 +6,11 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
+    event::EventCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent},
-    system::In,
+    removal_detection::RemovedComponentEntity,
+    system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildChildren as _;
@@ -348,6 +350,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 pub fn process_remote_get_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
+    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpGetParams {
         entity,
@@ -397,8 +400,14 @@ pub fn process_remote_get_watching_request(
             }
         };
 
-        for event in world.removed_with_id(component_id) {
-            if event == entity {
+        let Some(events) = world.removed_components().get(component_id) else {
+            continue;
+        };
+        let cursor = removal_cursors
+            .entry(component_id)
+            .or_insert_with(|| events.get_cursor());
+        for event in cursor.read(events) {
+            if Entity::from(event.clone()) == entity {
                 removed.push(component_path);
                 continue 'component_loop;
             }
@@ -742,6 +751,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
 pub fn process_remote_list_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
+    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpListParams { entity } = parse_some(params)?;
     let entity_ref = get_entity(world, entity)?;
@@ -761,7 +771,10 @@ pub fn process_remote_list_watching_request(
     }
 
     for (component_id, events) in world.removed_components().iter() {
-        for event in events.iter_current_update_events() {
+        let cursor = removal_cursors
+            .entry(*component_id)
+            .or_insert_with(|| events.get_cursor());
+        for event in cursor.read(events) {
             if Entity::from(event.clone()) == entity {
                 let Some(component_info) = world.components().get_info(*component_id) else {
                     continue;
