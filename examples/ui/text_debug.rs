@@ -179,14 +179,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone(),
                     font_size: 21.0,
                     ..default()
-                }
-            ));
-            p.spawn((
-                TextSpan::new("\nThis text changes in the bottom right"),
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 21.0,
-                    ..default()
                 },
             ));
             p.spawn((
