@@ -33,7 +33,7 @@ pub trait AnimationEvent: CloneableAnimationEvent + Reflect + Send + Sync {
 }
 
 /// This trait exist so that manual implementors of [`AnimationEvent`]
-/// does not have to implement `clone_value`.
+/// do not have to implement `clone_value`.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `Clone`",
     note = "consider annotating `{Self}` with `#[derive(Clone)]`"
