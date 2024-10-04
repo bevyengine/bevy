@@ -156,18 +156,15 @@ fn setup_scene(
 // Creates the UI.
 fn setup_ui(mut commands: Commands) {
     // Add help text.
-    commands.spawn(
-        TextBundle::from_section(
-            "Click on a button to toggle animations for its associated bones",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        TextNEW::new("Click on a button to toggle animations for its associated bones"),
+        Style {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // Add the buttons that allow the user to toggle mask groups on and off.
     commands
@@ -286,14 +283,14 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     background_color: Color::BLACK.into(),
                     ..default()
                 })
-                .with_child(TextBundle {
-                    text: Text::from_section(label, label_text_style.clone()),
-                    style: Style {
+                .with_child((
+                    TextNEW::new(label),
+                    label_text_style.clone(),
+                    Style {
                         margin: UiRect::vertical(Val::Px(3.0)),
                         ..default()
                     },
-                    ..default()
-                });
+                ));
 
             builder
                 .spawn(NodeBundle {
@@ -337,29 +334,24 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 border_color: BorderColor(Color::WHITE),
                                 ..default()
                             })
-                            .with_child(
-                                TextBundle {
-                                    style: Style {
-                                        flex_grow: 1.0,
-                                        margin: UiRect::vertical(Val::Px(3.0)),
-                                        ..default()
-                                    },
-                                    text: Text::from_section(
-                                        format!("{:?}", label),
-                                        if index > 0 {
-                                            button_text_style.clone()
-                                        } else {
-                                            selected_button_text_style.clone()
-                                        },
-                                    ),
+                            .with_child((
+                                TextNEW(format!("{:?}", label)),
+                                if index > 0 {
+                                    button_text_style.clone()
+                                } else {
+                                    selected_button_text_style.clone()
+                                },
+                                TextBlock::new_with_justify(JustifyText::Center),
+                                Style {
+                                    flex_grow: 1.0,
+                                    margin: UiRect::vertical(Val::Px(3.0)),
                                     ..default()
-                                }
-                                .with_text_justify(JustifyText::Center),
-                            )
-                            .insert(AnimationControl {
-                                group_id: mask_group_id,
-                                label: *label,
-                            });
+                                },
+                                AnimationControl {
+                                    group_id: mask_group_id,
+                                    label: *label,
+                                },
+                            ));
                     }
                 });
         });
@@ -482,7 +474,8 @@ fn handle_button_toggles(
 // A system that updates the UI based on the current app state.
 fn update_ui(
     mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
-    mut texts: Query<&mut Text>,
+    texts: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
     app_state: Res<AppState>,
 ) {
     for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {
@@ -496,13 +489,13 @@ fn update_ui(
         };
 
         for &kid in kids {
-            let Ok(mut text) = texts.get_mut(kid) else {
+            let Ok(text) = texts.get(kid) else {
                 continue;
             };
 
-            for section in &mut text.sections {
-                section.style.color = if enabled { Color::BLACK } else { Color::WHITE };
-            }
+            writer.for_each_style(text, |mut style| {
+                style.color = if enabled { Color::BLACK } else { Color::WHITE };
+            });
         }
     }
 }
