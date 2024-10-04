@@ -2,11 +2,11 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::RenderDevice,
-    texture::RenderAssetUsages,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_image::RenderAssetUsages;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
 use encase::{internal::WriteInto, ShaderType};

@@ -1,10 +1,8 @@
 use bevy_math::{ops, primitives::Cylinder};
 use wgpu::PrimitiveTopology;
 
-use crate::{
-    mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    texture::RenderAssetUsages,
-};
+use crate::mesh::{Indices, Mesh, MeshBuilder, Meshable};
+use bevy_image::RenderAssetUsages;
 
 /// Anchoring options for [`CylinderMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default)]

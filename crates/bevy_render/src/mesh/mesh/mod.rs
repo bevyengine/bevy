@@ -5,11 +5,10 @@ use bitflags::bitflags;
 pub use wgpu::PrimitiveTopology;
 
 use crate::{
-    prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{TextureView, VertexBufferLayout},
-    texture::{GpuImage, RenderAssetUsages},
+    texture::GpuImage,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle};
@@ -18,6 +17,7 @@ use bevy_ecs::system::{
     lifetimeless::{SRes, SResMut},
     SystemParamItem,
 };
+use bevy_image::{Image, RenderAssetUsages};
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::{error, warn};
@@ -1971,10 +1971,8 @@ fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::{
-        mesh::{Indices, MeshWindingInvertError, VertexAttributeValues},
-        texture::RenderAssetUsages,
-    };
+    use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use bevy_image::RenderAssetUsages;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;

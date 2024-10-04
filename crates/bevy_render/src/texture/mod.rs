@@ -1,44 +1,23 @@
-#[cfg(feature = "basis-universal")]
-mod basis;
-#[cfg(feature = "basis-universal")]
-mod compressed_image_saver;
-#[cfg(feature = "dds")]
-mod dds;
-#[cfg(feature = "exr")]
-mod exr_texture_loader;
 mod fallback_image;
 mod gpu_image;
-#[cfg(feature = "hdr")]
-mod hdr_texture_loader;
-#[allow(clippy::module_inception)]
-mod image;
 mod image_loader;
-#[cfg(feature = "ktx2")]
-mod ktx2;
 mod texture_attachment;
 mod texture_cache;
 
-pub(crate) mod image_texture_conversion;
-
-pub use self::image::*;
-#[cfg(feature = "ktx2")]
-pub use self::ktx2::*;
-#[cfg(feature = "dds")]
-pub use dds::*;
-#[cfg(feature = "exr")]
-pub use exr_texture_loader::*;
+use bevy_image::HdrTextureLoader;
 pub use gpu_image::*;
-#[cfg(feature = "hdr")]
-pub use hdr_texture_loader::*;
 
-#[cfg(feature = "basis-universal")]
-pub use compressed_image_saver::*;
+pub use crate::render_resource::DefaultImageSampler;
+pub use bevy_image::{
+    BevyDefault, CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageFormat,
+    ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError, TextureError,
+    TextureFormatPixelInfo,
+};
 pub use fallback_image::*;
 pub use image_loader::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
-pub use crate::render_resource::DefaultImageSampler;
 use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };

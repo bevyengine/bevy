@@ -4,10 +4,9 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_image::{Image, ImageSampler, RenderAssetUsages};
 use bevy_math::UVec2;
 use wgpu::{TextureFormat, TextureViewDescriptor};
-
-use super::{Image, ImageSampler, RenderAssetUsages};
 
 /// The GPU-representation of an [`Image`].
 /// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.

@@ -1,7 +1,4 @@
-use crate::{
-    texture::image::RenderAssetUsages,
-    texture::{Image, TextureFormatPixelInfo},
-};
+use crate::{Image, RenderAssetUsages, TextureFormatPixelInfo};
 use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};

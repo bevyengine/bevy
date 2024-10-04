@@ -1,4 +1,3 @@
-pub use crate::texture::RenderAssetUsages;
 use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
@@ -10,6 +9,7 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+pub use bevy_image::RenderAssetUsages;
 use bevy_render_macros::ExtractResource;
 use bevy_utils::{
     tracing::{debug, error},

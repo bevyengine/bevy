@@ -2,10 +2,8 @@ use bevy_math::{ops, primitives::Torus, Vec3};
 use core::ops::RangeInclusive;
 use wgpu::PrimitiveTopology;
 
-use crate::{
-    mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    texture::RenderAssetUsages,
-};
+use crate::mesh::{Indices, Mesh, MeshBuilder, Meshable};
+use bevy_image::RenderAssetUsages;
 
 /// A builder used for creating a [`Mesh`] with a [`Torus`] shape.
 #[derive(Clone, Debug)]

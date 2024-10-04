@@ -421,8 +421,9 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{self as bevy_render, prelude::Image};
+    use crate::{self as bevy_render};
     use bevy_asset::Handle;
+    use bevy_image::Image;
 
     #[test]
     fn texture_visibility() {

@@ -1,7 +1,4 @@
-use crate::{
-    texture::image::RenderAssetUsages,
-    texture::{Image, TextureFormatPixelInfo},
-};
+use crate::{Image, RenderAssetUsages, TextureFormatPixelInfo};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};

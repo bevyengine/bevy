@@ -1,9 +1,7 @@
 use core::f32::consts::FRAC_PI_2;
 
-use crate::{
-    mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment},
-    texture::RenderAssetUsages,
-};
+use crate::mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
+use bevy_image::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{

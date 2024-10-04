@@ -10,6 +10,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res},
     world::{OnRemove, Ref},
 };
+use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{tracing::warn, HashSet};
 use bevy_window::{SystemCursorIcon, Window};
@@ -18,8 +19,6 @@ use bevy_winit::{
     PendingCursor,
 };
 use wgpu::TextureFormat;
-
-use crate::prelude::Image;
 
 pub struct CursorPlugin;
 

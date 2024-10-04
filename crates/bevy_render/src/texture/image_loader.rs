@@ -2,13 +2,11 @@ use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
-use crate::{
-    renderer::RenderDevice,
-    texture::image::RenderAssetUsages,
-    texture::{Image, ImageFormat, ImageType, TextureError},
+use crate::renderer::RenderDevice;
+use bevy_image::{
+    CompressedImageFormats, Image, ImageFormat, ImageSampler, ImageType, RenderAssetUsages,
+    TextureError,
 };
-
-use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
 
 /// Loader for images that can be read by the `image` crate.

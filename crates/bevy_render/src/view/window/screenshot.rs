@@ -2,7 +2,7 @@ use super::ExtractedWindows;
 use crate::{
     camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     gpu_readback,
-    prelude::{Image, Shader},
+    prelude::Shader,
     render_asset::RenderAssets,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -11,8 +11,7 @@ use crate::{
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
-    texture::RenderAssetUsages,
-    texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
+    texture::{GpuImage, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
@@ -24,6 +23,7 @@ use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_image::{Image, RenderAssetUsages, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::{
