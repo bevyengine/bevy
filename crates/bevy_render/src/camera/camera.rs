@@ -11,7 +11,7 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
         VisibleEntities,
     },
-    world_sync::RenderEntity,
+    world_sync::{RenderEntity, SyncToRenderWorld},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -292,7 +292,8 @@ pub enum ViewportConversionError {
     VisibleEntities,
     Transform,
     Visibility,
-    Msaa
+    Msaa,
+    SyncToRenderWorld
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
