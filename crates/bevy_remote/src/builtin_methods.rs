@@ -364,8 +364,20 @@ pub fn process_remote_get_watching_request(
     let mut errors = HashMap::new();
 
     'component_loop: for component_path in components {
-        let type_registration = get_component_type_registration(&type_registry, &component_path)
-            .map_err(BrpError::component_error)?;
+        let Ok(type_registration) =
+            get_component_type_registration(&type_registry, &component_path)
+        else {
+            let err =
+                BrpError::component_error(format!("Unknown component type: `{component_path}`"));
+            if strict {
+                return Err(err);
+            }
+            errors.insert(
+                component_path,
+                serde_json::to_value(err).map_err(BrpError::internal)?,
+            );
+            continue;
+        };
         let Some(component_id) = world.components().get_id(type_registration.type_id()) else {
             let err = BrpError::component_error(format!("Unknown component: `{component_path}`"));
             if strict {
