@@ -66,12 +66,13 @@ fn update(
             "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
         );
         commands.spawn((
-            TextBundle::from_section(info_text, default()).with_style(Style {
+            TextNEW(info_text),
+            Style {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),
                 ..default()
-            }),
+            },
             TargetCamera(camera),
             MonitorRef(entity),
         ));

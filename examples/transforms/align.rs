@@ -93,7 +93,7 @@ fn setup(
 
     // Instructions for the example
     commands.spawn((
-        TextBundle::from_section(
+        TextNEW::new(
             "The bright red axis is the primary alignment axis, and it will always be\n\
             made to coincide with the primary target direction (white) exactly.\n\
             The fainter red axis is the secondary alignment axis, and it is made to\n\
@@ -102,14 +102,13 @@ fn setup(
             Press 'T' to align the ship to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         Instructions,
     ));
 

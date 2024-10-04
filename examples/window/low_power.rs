@@ -109,6 +109,7 @@ pub(crate) mod test_setup {
     use bevy::{
         color::palettes::basic::{LIME, YELLOW},
         prelude::*,
+        text::TextBuilderExt,
         window::RequestRedraw,
     };
 
@@ -147,7 +148,8 @@ pub(crate) mod test_setup {
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        mut query: Query<&mut Text, With<ModeText>>,
+        query: Query<Entity, With<ModeText>>,
+        mut writer: UiTextWriter,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -158,9 +160,9 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let mut text = query.single_mut();
-        text.sections[1].value = mode.to_string();
-        text.sections[3].value = frame.to_string();
+        let text = query.single();
+        *writer.text(text, 1) = mode.to_string();
+        *writer.text(text, 3) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -185,36 +187,43 @@ pub(crate) mod test_setup {
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
         event.send(RequestRedraw);
-        commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Press space bar to cycle modes\n",
+        commands
+            .spawn_text_block::<TextNEW>([
+                (
+                    "Press space bar to cycle modes\n".into(),
                     TextStyle { ..default() },
                 ),
-                TextSection::from_style(TextStyle {
-                    color: LIME.into(),
-                    ..default()
-                }),
-                TextSection::new(
-                    "\nFrame: ",
+                (
+                    "".into(),
+                    TextStyle {
+                        color: LIME.into(),
+                        ..default()
+                    },
+                ),
+                (
+                    "\nFrame: ".into(),
                     TextStyle {
                         color: YELLOW.into(),
                         ..default()
                     },
                 ),
-                TextSection::from_style(TextStyle {
-                    color: YELLOW.into(),
-                    ..default()
-                }),
+                (
+                    "".into(),
+                    TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ),
             ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexStart,
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-            ModeText,
-        ));
+            .insert((
+                Style {
+                    align_self: AlignSelf::FlexStart,
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(12.0),
+                    left: Val::Px(12.0),
+                    ..default()
+                },
+                ModeText,
+            ));
     }
 }

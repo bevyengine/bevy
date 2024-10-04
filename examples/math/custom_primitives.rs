@@ -156,19 +156,14 @@ fn setup(
     ));
 
     // Example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
-            Press 'Space' to switch between 3D and 2D",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((TextNEW::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+            Press 'Space' to switch between 3D and 2D"),
+            Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }));
 }
 
 // Rotate the 2D shapes.

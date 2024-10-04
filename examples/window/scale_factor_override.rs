@@ -50,29 +50,25 @@ fn setup(mut commands: Commands) {
                     background_color: Color::srgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
-                .with_children(|parent| {
-                    parent.spawn((
-                        CustomText,
-                        TextBundle::from_section(
-                            "Example text",
-                            TextStyle {
-                                font_size: 25.0,
-                                ..default()
-                            },
-                        )
-                        .with_style(Style {
-                            align_self: AlignSelf::FlexEnd,
-                            ..default()
-                        }),
-                    ));
-                });
+                .with_child((
+                    CustomText,
+                    TextNEW::new("Example text"),
+                    TextStyle {
+                        font_size: 25.0,
+                        ..default()
+                    },
+                    Style {
+                        align_self: AlignSelf::FlexEnd,
+                        ..default()
+                    },
+                ));
         });
 }
 
 /// Set the title of the window to the current override
 fn display_override(
     mut windows: Query<&mut Window>,
-    mut custom_text: Query<&mut Text, With<CustomText>>,
+    mut custom_text: Query<&mut TextNEW, With<CustomText>>,
 ) {
     let mut window = windows.single_mut();
 
@@ -87,9 +83,7 @@ fn display_override(
     );
 
     window.title.clone_from(&text);
-
-    let mut custom_text = custom_text.single_mut();
-    custom_text.sections[0].value = text;
+    **custom_text.single_mut() = text;
 }
 
 /// This system toggles scale factor overrides when enter is pressed

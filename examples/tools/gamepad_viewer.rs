@@ -6,6 +6,7 @@ use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
     sprite::Anchor,
+    text::TextBuilderExt,
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -301,28 +302,17 @@ fn setup_sticks(
                     font_size: 13.,
                     ..default()
                 };
-                parent.spawn((
-                    Text2dBundle {
-                        transform: Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                        text: Text::from_sections([
-                            TextSection {
-                                value: format!("{:.3}", 0.),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: ", ".to_string(),
-                                style: style.clone(),
-                            },
-                            TextSection {
-                                value: format!("{:.3}", 0.),
-                                style,
-                            },
-                        ]),
-                        text_anchor: Anchor::BottomCenter,
-                        ..default()
-                    },
-                    TextWithAxes { x_axis, y_axis },
-                ));
+                parent
+                    .spawn_text_block::<Text2d>([
+                        (format!("{:.3}", 0.), style.clone()),
+                        (", ".into(), style.clone()),
+                        (format!("{:.3}", 0.), style),
+                    ])
+                    .insert((
+                        Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
+                        Anchor::BottomCenter,
+                        TextWithAxes { x_axis, y_axis },
+                    ));
                 // cursor
                 parent.spawn((
                     meshes.circle.clone(),
@@ -370,15 +360,10 @@ fn setup_triggers(
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text2dBundle {
-                        transform: Transform::from_xyz(0., 0., 1.),
-                        text: Text::from_section(
-                            format!("{:.3}", 0.),
-                            TextStyle {
-                                font_size: 13.,
-                                ..default()
-                            },
-                        ),
+                    Transform::from_xyz(0., 0., 1.),
+                    TextNEW(format!("{:.3}", 0.)),
+                    TextStyle {
+                        font_size: 13.,
                         ..default()
                     },
                     TextWithButtonValue(button_type),
@@ -393,28 +378,21 @@ fn setup_triggers(
 fn setup_connected(mut commands: Commands) {
     let text_style = TextStyle::default();
 
-    commands.spawn((
-        TextBundle {
-            text: Text::from_sections([
-                TextSection {
-                    value: "Connected Gamepads:\n".to_string(),
-                    style: text_style.clone(),
-                },
-                TextSection {
-                    value: "None".to_string(),
-                    style: text_style,
-                },
-            ]),
-            style: Style {
+    // This is UI text, unlike other text in this example which is 2d.
+    commands
+        .spawn_text_block::<TextNEW>([
+            ("Connected Gamepads:\n".into(), text_style.clone()),
+            ("None".into(), text_style),
+        ])
+        .insert((
+            Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
                 ..default()
             },
-            ..default()
-        },
-        ConnectedGamepadsText,
-    ));
+            ConnectedGamepadsText,
+        ));
 }
 
 fn update_buttons(
@@ -435,12 +413,12 @@ fn update_buttons(
 }
 fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
-    mut query: Query<(&mut Text, &TextWithButtonValue)>,
+    mut query: Query<(&mut Text2d, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button == **text_with_button_value {
-                text.sections[0].value = format!("{:.3}", button_event.value);
+                **text = format!("{:.3}", button_event.value);
             }
         }
     }
@@ -449,7 +427,8 @@ fn update_button_values(
 fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
-    mut text_query: Query<(&mut Text, &TextWithAxes)>,
+    text_query: Query<(Entity, &TextWithAxes)>,
+    mut writer: TextWriter2d,
 ) {
     for axis_event in axis_events.read() {
         let axis_type = axis_event.axis;
@@ -462,12 +441,12 @@ fn update_axes(
                 transform.translation.y = value * move_with.scale;
             }
         }
-        for (mut text, text_with_axes) in text_query.iter_mut() {
+        for (text, text_with_axes) in text_query.iter() {
             if axis_type == text_with_axes.x_axis {
-                text.sections[0].value = format!("{value:.3}");
+                *writer.text(text, 0) = format!("{value:.3}");
             }
             if axis_type == text_with_axes.y_axis {
-                text.sections[2].value = format!("{value:.3}");
+                *writer.text(text, 2) = format!("{value:.3}");
             }
         }
     }
@@ -476,13 +455,13 @@ fn update_axes(
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Gamepad)>,
-    mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
+    query: Query<Entity, With<ConnectedGamepadsText>>,
+    mut writer: UiTextWriter,
 ) {
     if connected.is_empty() {
         return;
     }
     connected.clear();
-    let mut text = query.single_mut();
 
     let formatted = gamepads
         .iter()
@@ -490,7 +469,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    text.sections[1].value = if !formatted.is_empty() {
+    *writer.text(query.single(), 1) = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()

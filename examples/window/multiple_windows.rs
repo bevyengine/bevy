@@ -50,18 +50,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
     commands
         .spawn((NodeBundle::default(), TargetCamera(first_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "First window",
-                TextStyle::default(),
-            ));
-        });
+        .with_child(TextNEW::new("First window"));
     commands
         .spawn((NodeBundle::default(), TargetCamera(second_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Second window",
-                TextStyle::default(),
-            ));
-        });
+        .with_child(TextNEW::new("Second window"));
 }

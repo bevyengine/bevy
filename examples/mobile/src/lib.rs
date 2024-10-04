@@ -120,19 +120,15 @@ fn setup_scene(
             },
             ..default()
         })
-        .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
-                    "Test Button",
-                    TextStyle {
-                        font_size: 30.0,
-                        color: Color::BLACK,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
-        });
+        .with_child((
+            TextNEW::new("Test Button"),
+            TextStyle {
+                font_size: 30.0,
+                color: Color::BLACK,
+                ..default()
+            },
+            TextBlock::new_with_justify(JustifyText::Center),
+        ));
 }
 
 fn button_handler(

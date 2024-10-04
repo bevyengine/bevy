@@ -70,15 +70,9 @@ struct ExplodeMines {
 struct Explode;
 
 fn setup(mut commands: Commands) {
-<<<<<<< HEAD
-    commands.spawn(Camera2d);
-    commands.spawn(
-        TextBundle::from_section(
-=======
     commands.spawn(Camera2d);
     commands.spawn((
         TextNEW::new(
->>>>>>> 2bbba2493 (app/asset/async_tasks/audio/camera/ecs/games examples migrated)
             "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
         ),

@@ -9,6 +9,7 @@ use std::mem;
 use bevy::{
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
+    text::TextBuilderExt,
 };
 
 fn main() {
@@ -34,47 +35,47 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // sections that will hold text input.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::from("Click to toggle IME. Press return to start a new line.\n\n"),
-            TextSection::from("IME Enabled: "),
-            TextSection::from("false\n"),
-            TextSection::from("IME Active:  "),
-            TextSection::from("false\n"),
-            TextSection::from("IME Buffer:  "),
-            TextSection {
-                value: "\n".to_string(),
-                style: TextStyle {
+    commands
+        .spawn_text_block::<TextNEW>([
+            (
+                "Click to toggle IME. Press return to start a new line.\n\n".into(),
+                TextStyle::default(),
+            ),
+            ("IME Enabled: ".into(), TextStyle::default()),
+            ("false\n".into(), TextStyle::default()),
+            ("IME Active:  ".into(), TextStyle::default()),
+            ("false\n".into(), TextStyle::default()),
+            ("IME Buffer:  ".into(), TextStyle::default()),
+            (
+                "\n".into(),
+                TextStyle {
                     font: font.clone(),
                     ..default()
                 },
-            },
+            ),
         ])
-        .with_style(Style {
+        .insert(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        });
 
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(
-            "".to_string(),
-            TextStyle {
-                font,
-                font_size: 100.0,
-                ..default()
-            },
-        ),
-        ..default()
-    });
+    commands.spawn((
+        Text2d::new(""),
+        TextStyle {
+            font,
+            font_size: 100.0,
+            ..default()
+        },
+    ));
 }
 
 fn toggle_ime(
     input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
-    mut text: Query<&mut Text, With<Node>>,
+    status_text: Query<Entity, (With<Node>, With<TextNEW>)>,
+    mut ui_writer: UiTextWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
@@ -82,8 +83,7 @@ fn toggle_ime(
         window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
-        let mut text = text.single_mut();
-        text.sections[2].value = format!("{}\n", window.ime_enabled);
+        *ui_writer.text(status_text.single(), 2) = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -107,25 +107,26 @@ fn bubbling_text(
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    mut status_text: Query<&mut Text, With<Node>>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    status_text: Query<Entity, (With<Node>, With<TextNEW>)>,
+    mut edit_text: Query<&mut Text2d, (Without<Node>, Without<Bubble>)>,
+    mut ui_writer: UiTextWriter,
 ) {
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().sections[6].value = format!("{value}\n");
+                *ui_writer.text(status_text.single(), 6) = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().sections[6].value = "\n".to_string();
+                *ui_writer.text(status_text.single(), 6) = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
-                edit_text.single_mut().sections[0].value.push_str(value);
+                edit_text.single_mut().push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().sections[4].value = "true\n".to_string();
+                *ui_writer.text(status_text.single(), 4) = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().sections[4].value = "false\n".to_string();
+                *ui_writer.text(status_text.single(), 4) = "false\n".to_string();
             }
             _ => (),
         }
@@ -135,7 +136,7 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<(&mut Text2d, &TextStyle), (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
         // Only trigger changes when the key is first pressed.
@@ -145,30 +146,28 @@ fn listen_keyboard_input_events(
 
         match &event.logical_key {
             Key::Enter => {
-                let mut text = edit_text.single_mut();
-                if text.sections[0].value.is_empty() {
+                let (mut text, style) = edit_text.single_mut();
+                if text.is_empty() {
                     continue;
                 }
-                let old_value = mem::take(&mut text.sections[0].value);
+                let old_value = mem::take(&mut **text);
 
                 commands.spawn((
-                    Text2dBundle {
-                        text: Text::from_section(old_value, text.sections[0].style.clone()),
-                        ..default()
-                    },
+                    Text2d::new(old_value),
+                    style.clone(),
                     Bubble {
                         timer: Timer::from_seconds(5.0, TimerMode::Once),
                     },
                 ));
             }
             Key::Space => {
-                edit_text.single_mut().sections[0].value.push(' ');
+                edit_text.single_mut().0.push(' ');
             }
             Key::Backspace => {
-                edit_text.single_mut().sections[0].value.pop();
+                edit_text.single_mut().0.pop();
             }
             Key::Character(character) => {
-                edit_text.single_mut().sections[0].value.push_str(character);
+                edit_text.single_mut().0.push_str(character);
             }
             _ => continue,
         }

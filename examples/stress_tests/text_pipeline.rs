@@ -63,10 +63,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         ]
     };
 
-    let spans = (1..50)
-        .into_iter()
-        .flat_map(|i| make_spans(i).into_iter())
-        .collect();
+    let spans = (1..50).into_iter().flat_map(|i| make_spans(i).into_iter());
 
     commands.spawn_text_block::<Text2d>(spans).insert((
         TextBlock {

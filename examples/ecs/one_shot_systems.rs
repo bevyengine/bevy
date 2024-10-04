@@ -91,19 +91,11 @@ fn system_b(query: Query<Entity, With<TextNEW>>, mut writer: UiTextWriter) {
 }
 
 fn setup_ui(mut commands: Commands) {
-<<<<<<< HEAD
-    commands.spawn(Camera2d);
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::new(
-                "Press A or B to trigger a one-shot system\n",
-=======
     commands.spawn(Camera2d);
     commands
         .spawn_text_block::<TextNEW>([
             (
                 "Press A or B to trigger a one-shot system\n".into(),
->>>>>>> 2bbba2493 (app/asset/async_tasks/audio/camera/ecs/games examples migrated)
                 TextStyle::default(),
             ),
             ("Last Triggered: ".into(), TextStyle::default()),

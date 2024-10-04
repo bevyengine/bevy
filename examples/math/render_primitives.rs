@@ -2,7 +2,10 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
+use bevy::{
+    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
+    text::TextBuilderExt,
+};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -372,13 +375,13 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     let instructions = "Press 'C' to switch between 2D and 3D mode\n\
         Press 'Up' or 'Down' to switch to the next/previous primitive";
     let text = [
-        TextSection::new("Primitive: ", style.clone()),
-        TextSection::new(text, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(
-            "(If nothing is displayed, there's no rendering support yet)",
+        ("Primitive: ".into(), style.clone()),
+        (text, style.clone()),
+        ("\n\n".into(), style.clone()),
+        (instructions.into(), style.clone()),
+        ("\n\n".into(), style.clone()),
+        (
+            "(If nothing is displayed, there's no rendering support yet)".into(),
             style.clone(),
         ),
     ];
@@ -396,22 +399,19 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             },
             TargetCamera(active_camera),
         ))
-        .with_children(|parent| {
-            parent.spawn((
-                HeaderText,
-                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
-            ));
-        });
+        .spawn_text_block::<TextNEW>(text)
+        .insert((HeaderText, TextBlock::new_with_justify(JustifyText::Center)));
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<HeaderText>>,
+    header: Query<Entity, With<HeaderText>>,
+    mut writer: UiTextWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
-    header.iter_mut().for_each(|mut header_text| {
-        if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value.clone_from(&new_text);
+    header.iter().for_each(|header_text| {
+        if let Some(mut text) = writer.get_text(header_text, 1) {
+            (*text).clone_from(&new_text);
         };
     });
 }

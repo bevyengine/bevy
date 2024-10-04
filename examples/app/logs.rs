@@ -18,17 +18,10 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-<<<<<<< HEAD
-    commands.spawn(Camera2d);
-    commands.spawn(TextBundle {
-        text: Text::from_section("Press P to panic", TextStyle::default()),
-        style: Style {
-=======
     commands.spawn(Camera2d);
     commands.spawn((
         TextNEW::new("Press P to panic"),
         Style {
->>>>>>> 2bbba2493 (app/asset/async_tasks/audio/camera/ecs/games examples migrated)
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

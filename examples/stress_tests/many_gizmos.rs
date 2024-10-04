@@ -87,17 +87,18 @@ fn setup(mut commands: Commands) {
         Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        TextNEW::empty(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
+fn ui_system(mut query: Query<&mut TextNEW>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag
@@ -107,7 +108,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    text.sections[0].value = format!(
+    **text = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

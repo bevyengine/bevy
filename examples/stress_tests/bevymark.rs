@@ -14,6 +14,7 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
+    text::TextBuilderExt,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -255,9 +256,9 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color: Srgba, value: &str| {
-        TextSection::new(
-            value,
+    let text_span = move |color: Srgba, value: &str| {
+        (
+            value.to_string(),
             TextStyle {
                 font_size: 40.0,
                 color: color.into(),
@@ -280,21 +281,17 @@ fn setup(
             },
             GlobalZIndex(i32::MAX),
         ))
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
-        });
+        .spawn_text_block::<TextNEW>([
+            text_span(LIME, "Bird Count: "),
+            text_span(AQUA, ""),
+            text_span(LIME, "\nFPS (raw): "),
+            text_span(AQUA, ""),
+            text_span(LIME, "\nFPS (SMA): "),
+            text_span(AQUA, ""),
+            text_span(LIME, "\nFPS (EMA): "),
+            text_span(AQUA, ""),
+        ])
+        .insert(StatsText);
 
     let mut scheduled = BirdScheduled {
         per_wave: args.per_wave,
@@ -544,23 +541,24 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    query: Query<Entity, With<StatsText>>,
+    mut writer: UiTextWriter,
 ) {
-    let mut text = query.single_mut();
+    let text = query.single();
 
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        *writer.text(text, 1) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            *writer.text(text, 3) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            *writer.text(text, 5) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            *writer.text(text, 7) = format!("{ema:.2}");
         }
     };
 }
