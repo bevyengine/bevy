@@ -1856,7 +1856,7 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that remove all components in the bundle and remove all required components for each component in the bundle.
 fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity) = world.get_entity_mut(entity) {
+    if let Ok(mut entity) = world.get_entity_mut(entity) {
         entity.remove_with_requires::<T>();
     }
 }
