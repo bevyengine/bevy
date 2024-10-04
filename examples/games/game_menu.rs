@@ -118,7 +118,6 @@ mod game {
     use bevy::{
         color::palettes::basic::{BLUE, LIME},
         prelude::*,
-        text::TextBuilderExt,
     };
 
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
@@ -174,48 +173,52 @@ mod game {
                         background_color: Color::BLACK.into(),
                         ..default()
                     })
-                    // Display two lines of text, the second one with the current settings
-                    .with_child((
-                        TextNEW::new("Will be back to the menu shortly..."),
-                        TextStyle {
-                            font_size: 67.0,
-                            color: TEXT_COLOR,
-                            ..default()
-                        },
-                        Style {
-                            margin: UiRect::all(Val::Px(50.0)),
-                            ..default()
-                        },
-                    ))
-                    .spawn_text_block::<TextNEW>([
-                        (
-                            format!("quality: {:?}", *display_quality),
+                    .with_children(|p| {
+                        p.spawn((
+                            TextNEW::new("Will be back to the menu shortly..."),
                             TextStyle {
-                                font_size: 50.0,
-                                color: BLUE.into(),
-                                ..default()
-                            },
-                        ),
-                        (
-                            " - ".into(),
-                            TextStyle {
-                                font_size: 50.0,
+                                font_size: 67.0,
                                 color: TEXT_COLOR,
                                 ..default()
                             },
-                        ),
-                        (
-                            format!("volume: {:?}", *volume),
-                            TextStyle {
-                                font_size: 50.0,
-                                color: LIME.into(),
+                            Style {
+                                margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
                             },
-                        ),
-                    ])
-                    .insert(Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
+                        ));
+                        p.spawn((
+                            TextNEW::default(),
+                            Style {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            },
+                        ))
+                        .with_children(|p| {
+                            p.spawn((
+                                TextSpan(format!("quality: {:?}", *display_quality)),
+                                TextStyle {
+                                    font_size: 50.0,
+                                    color: BLUE.into(),
+                                    ..default()
+                                },
+                            ));
+                            p.spawn((
+                                TextSpan::new(" - "),
+                                TextStyle {
+                                    font_size: 50.0,
+                                    color: TEXT_COLOR,
+                                    ..default()
+                                },
+                            ));
+                            p.spawn((
+                                TextSpan(format!("volume: {:?}", *volume)),
+                                TextStyle {
+                                    font_size: 50.0,
+                                    color: LIME.into(),
+                                    ..default()
+                                },
+                            ));
+                        });
                     });
             });
         // Spawn a 5 seconds timer to trigger going back to the menu

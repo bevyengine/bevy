@@ -12,11 +12,12 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
+use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, TextBuilderExt, TextStyle};
+use bevy_text::{Font, TextStyle};
 use bevy_ui::{
     node_bundles::NodeBundle,
-    widget::{TextNEW, UiTextWriter},
+    widget::{TextNEW, TextSpan, UiTextWriter},
     GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
@@ -97,11 +98,14 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             },
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
-        .spawn_text_block::<TextNEW>([
-            ("FPS: ".into(), overlay_config.text_config.clone()),
-            ("".into(), overlay_config.text_config.clone()),
-        ])
-        .insert(FpsText);
+        .with_children(|p| {
+            p.spawn((
+                TextNEW::new("FPS: "),
+                overlay_config.text_config.clone(),
+                FpsText,
+            ))
+            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+        });
 }
 
 fn update_text(

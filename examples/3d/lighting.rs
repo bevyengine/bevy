@@ -8,7 +8,6 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
-    text::TextBuilderExt,
 };
 
 fn main() {
@@ -208,45 +207,39 @@ fn setup(
     ));
 
     // example instructions
-    let style = TextStyle::default();
 
     commands
-        .spawn_text_block::<TextNEW>([
-            (
-                format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
-                style.clone(),
-            ),
-            (
-                format!(
-                    "Shutter speed: 1/{:.0}s\n",
-                    1.0 / parameters.shutter_speed_s
-                ),
-                style.clone(),
-            ),
-            (
-                format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
-                style.clone(),
-            ),
-            ("\n\n".into(), style.clone()),
-            ("Controls\n".into(), style.clone()),
-            ("---------------\n".into(), style.clone()),
-            ("Arrow keys - Move objects\n".into(), style.clone()),
-            ("1/2 - Decrease/Increase aperture\n".into(), style.clone()),
-            (
-                "3/4 - Decrease/Increase shutter speed\n".into(),
-                style.clone(),
-            ),
-            (
-                "5/6 - Decrease/Increase sensitivity\n".into(),
-                style.clone(),
-            ),
-            ("R - Reset exposure".into(), style),
-        ])
-        .insert(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
+        .spawn((
+            TextNEW::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan(format!(
+                "Aperture: f/{:.0}\n",
+                parameters.aperture_f_stops,
+            )));
+            p.spawn(TextSpan(format!(
+                "Shutter speed: 1/{:.0}s\n",
+                1.0 / parameters.shutter_speed_s
+            )));
+            p.spawn(TextSpan(format!(
+                "Sensitivity: ISO {:.0}\n",
+                parameters.sensitivity_iso
+            )));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
+            p.spawn(TextSpan::new("1/2 - Decrease/Increase aperture\n"));
+            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
+            p.spawn(TextSpan::new("3/4 - Decrease/Increase shutter speed\n"));
+            p.spawn(TextSpan::new("5/6 - Decrease/Increase sensitivity\n"));
+            p.spawn(TextSpan::new("R - Reset exposure"));
         });
 
     // camera
@@ -285,12 +278,12 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    *writer.text(entity, 0) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    *writer.text(entity, 1) = format!(
+    *writer.text(entity, 1) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 2) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    *writer.text(entity, 2) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
     *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
 }

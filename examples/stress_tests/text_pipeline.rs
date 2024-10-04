@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{LineBreak, TextBounds, TextBuilderExt},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -43,7 +43,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let make_spans = |i| {
         [
             (
-                "text".repeat(i),
+                TextSpan2d("text".repeat(i)),
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: (4 + i % 10) as f32,
@@ -52,7 +52,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ),
             (
-                "pipeline".repeat(i),
+                TextSpan2d("pipeline".repeat(i)),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,
@@ -65,14 +65,21 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let spans = (1..50).into_iter().flat_map(|i| make_spans(i).into_iter());
 
-    commands.spawn_text_block::<Text2d>(spans).insert((
-        TextBlock {
-            justify: JustifyText::Center,
-            linebreak: LineBreak::AnyCharacter,
-            ..Default::default()
-        },
-        TextBounds::default(),
-    ));
+    commands
+        .spawn((
+            Text2d::default(),
+            TextBlock {
+                justify: JustifyText::Center,
+                linebreak: LineBreak::AnyCharacter,
+                ..Default::default()
+            },
+            TextBounds::default(),
+        ))
+        .with_children(|p| {
+            for span in spans {
+                p.spawn(span);
+            }
+        });
 }
 
 // changing the bounds of the text will cause a recomputation

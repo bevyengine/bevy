@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings, text::TextBuilderExt};
+use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
@@ -80,7 +80,8 @@ fn update_parallax_depth_scale(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
-    mut text: Query<&mut TextNEW>,
+    mut writer: UiTextWriter,
+    text: Query<Entity, With<TextNEW>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -93,12 +94,11 @@ fn update_parallax_depth_scale(
         *depth_update = true;
     }
     if *depth_update {
-        let mut text = text.single_mut();
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
-            **text = format!("Parallax depth scale: {new_depth:.5}\n");
+            *writer.text(text.single(), 1) = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -119,7 +119,7 @@ fn switch_method(
         return;
     }
     let text_entity = text.single();
-    *writer.text(text_entity, 2) = format!("Method: {}\n", *current);
+    *writer.text(text_entity, 3) = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
         mat.parallax_mapping_method = current.0;
@@ -143,7 +143,7 @@ fn update_parallax_layers(
     }
     let layer_count = ops::exp2(target_layers.0);
     let text_entity = text.single();
-    *writer.text(text_entity, 1) = format!("Layers: {layer_count:.0}\n");
+    *writer.text(text_entity, 2) = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
         mat.max_parallax_layer_count = layer_count;
@@ -295,37 +295,30 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., 45.)));
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
-    let style = TextStyle::default();
-
     // example instructions
     commands
-        .spawn_text_block::<TextNEW>([
-            (
-                format!("Parallax depth scale: {parallax_depth_scale:.5}\n"),
-                style.clone(),
-            ),
-            (
-                format!("Layers: {max_parallax_layer_count:.0}\n"),
-                style.clone(),
-            ),
-            (format!("{parallax_mapping_method}\n"), style.clone()),
-            ("\n\n".into(), style.clone()),
-            ("Controls:\n".into(), style.clone()),
-            ("Left click - Change view angle\n".into(), style.clone()),
-            (
-                "1/2 - Decrease/Increase parallax depth scale\n".into(),
-                style.clone(),
-            ),
-            (
-                "3/4 - Decrease/Increase layer count\n".into(),
-                style.clone(),
-            ),
-            ("Space - Switch parallaxing algorithm\n".into(), style),
-        ])
-        .insert(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
+        .spawn((
+            TextNEW::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan(format!(
+                "Parallax depth scale: {parallax_depth_scale:.5}\n"
+            )));
+            p.spawn(TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n")));
+            p.spawn(TextSpan(format!("{parallax_mapping_method}\n")));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls:\n"));
+            p.spawn(TextSpan::new("Left click - Change view angle\n"));
+            p.spawn(TextSpan::new(
+                "1/2 - Decrease/Increase parallax depth scale\n",
+            ));
+            p.spawn(TextSpan::new("3/4 - Decrease/Increase layer count\n"));
+            p.spawn(TextSpan::new("Space - Switch parallaxing algorithm\n"));
         });
 }

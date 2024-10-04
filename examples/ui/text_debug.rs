@@ -6,7 +6,6 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::TextSpanBuilderExt,
     ui::widget::UiTextWriter,
     window::PresentMode,
 };
@@ -173,87 +172,87 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextChanges,
             BackgroundColor(background_color)
         ))
-        .with_spans::<TextSpan>([
-            (
-                "\nThis text changes in the bottom right".into(),
+        .with_children(|p| {
+            p.spawn((
+                TextSpan::new("\nThis text changes in the bottom right"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     ..default()
                 }
-            ),
-            (
-                "\nThis text changes in the bottom right".into(),
+            ));
+            p.spawn((
+                TextSpan::new("\nThis text changes in the bottom right"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     ..default()
                 },
-            ),
-            (
-                " this text has zero fontsize".into(),
+            ));
+            p.spawn((
+                TextSpan::new(" this text has zero fontsize"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 0.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            ),
-            (
-                "\nThis text changes in the bottom right - ".into(),
+            ));
+            p.spawn((
+                TextSpan::new("\nThis text changes in the bottom right - "),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: RED.into(),
                     ..default()
                 },
-            ),
-            (
-                String::default(),
+            ));
+            p.spawn((
+                TextSpan::default(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: ORANGE_RED.into(),
                     ..default()
                 }
-            ),
-            (
-                " fps, ".into(),
+            ));
+            p.spawn((
+                TextSpan::new(" fps, "),
                 TextStyle {
                     font: font.clone(),
                     font_size: 10.0,
                     color: YELLOW.into(),
                     ..default()
                 },
-            ),
-            (
-                String::default(),
+            ));
+            p.spawn((
+                TextSpan::default(),
                 TextStyle {
                     font: font.clone(),
                     font_size: 21.0,
                     color: LIME.into(),
                     ..default()
                 }
-            ),
-            (
-                " ms/frame".into(),
+            ));
+            p.spawn((
+                TextSpan::new(" ms/frame"),
                 TextStyle {
                     font: font.clone(),
                     font_size: 42.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            ),
-            (
-                " this text has negative fontsize".into(),
+            ));
+            p.spawn((
+                TextSpan::new(" this text has negative fontsize"),
                 TextStyle {
                     font: font.clone(),
                     font_size: -42.0,
                     color: BLUE.into(),
                     ..default()
                 },
-            )
-        ]);
+            ));
+        });
     })
     .id();
     commands

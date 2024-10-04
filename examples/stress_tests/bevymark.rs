@@ -14,7 +14,6 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
-    text::TextBuilderExt,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -256,15 +255,16 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_span = move |color: Srgba, value: &str| {
-        (
-            value.to_string(),
-            TextStyle {
-                font_size: 40.0,
-                color: color.into(),
-                ..default()
-            },
-        )
+    let lime_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
+    };
+
+    let aqua_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
     };
 
     commands.spawn(Camera2d);
@@ -281,17 +281,18 @@ fn setup(
             },
             GlobalZIndex(i32::MAX),
         ))
-        .spawn_text_block::<TextNEW>([
-            text_span(LIME, "Bird Count: "),
-            text_span(AQUA, ""),
-            text_span(LIME, "\nFPS (raw): "),
-            text_span(AQUA, ""),
-            text_span(LIME, "\nFPS (SMA): "),
-            text_span(AQUA, ""),
-            text_span(LIME, "\nFPS (EMA): "),
-            text_span(AQUA, ""),
-        ])
-        .insert(StatsText);
+        .with_children(|p| {
+            p.spawn((TextNEW::default(), StatsText)).with_children(|p| {
+                p.spawn((TextSpan::new("Bird Count: "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (raw): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (SMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (EMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+            });
+        });
 
     let mut scheduled = BirdScheduled {
         per_wave: args.per_wave,
@@ -547,18 +548,18 @@ fn counter_system(
     let text = query.single();
 
     if counter.is_changed() {
-        *writer.text(text, 1) = counter.count.to_string();
+        *writer.text(text, 2) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            *writer.text(text, 3) = format!("{raw:.2}");
+            *writer.text(text, 4) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            *writer.text(text, 5) = format!("{sma:.2}");
+            *writer.text(text, 6) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            *writer.text(text, 7) = format!("{ema:.2}");
+            *writer.text(text, 8) = format!("{ema:.2}");
         }
     };
 }

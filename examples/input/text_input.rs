@@ -9,7 +9,6 @@ use std::mem;
 use bevy::{
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
-    text::TextBuilderExt,
 };
 
 fn main() {
@@ -36,29 +35,31 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands
-        .spawn_text_block::<TextNEW>([
-            (
-                "Click to toggle IME. Press return to start a new line.\n\n".into(),
-                TextStyle::default(),
-            ),
-            ("IME Enabled: ".into(), TextStyle::default()),
-            ("false\n".into(), TextStyle::default()),
-            ("IME Active:  ".into(), TextStyle::default()),
-            ("false\n".into(), TextStyle::default()),
-            ("IME Buffer:  ".into(), TextStyle::default()),
-            (
-                "\n".into(),
+        .spawn((
+            TextNEW::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new(
+                "Click to toggle IME. Press return to start a new line.\n\n",
+            ));
+            p.spawn(TextSpan::new("IME Enabled: "));
+            p.spawn(TextSpan::new("false\n"));
+            p.spawn(TextSpan::new("IME Active:  "));
+            p.spawn(TextSpan::new("false\n"));
+            p.spawn(TextSpan::new("IME Buffer:  "));
+            p.spawn((
+                TextSpan::new("\n"),
                 TextStyle {
                     font: font.clone(),
                     ..default()
                 },
-            ),
-        ])
-        .insert(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
+            ));
         });
 
     commands.spawn((
@@ -83,7 +84,7 @@ fn toggle_ime(
         window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
-        *ui_writer.text(status_text.single(), 2) = format!("{}\n", window.ime_enabled);
+        *ui_writer.text(status_text.single(), 3) = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -114,19 +115,19 @@ fn listen_ime_events(
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                *ui_writer.text(status_text.single(), 6) = format!("{value}\n");
+                *ui_writer.text(status_text.single(), 7) = format!("{value}\n");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                *ui_writer.text(status_text.single(), 6) = "\n".to_string();
+                *ui_writer.text(status_text.single(), 7) = "\n".to_string();
             }
             Ime::Commit { value, .. } => {
                 edit_text.single_mut().push_str(value);
             }
             Ime::Enabled { .. } => {
-                *ui_writer.text(status_text.single(), 4) = "true\n".to_string();
+                *ui_writer.text(status_text.single(), 5) = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                *ui_writer.text(status_text.single(), 4) = "false\n".to_string();
+                *ui_writer.text(status_text.single(), 5) = "false\n".to_string();
             }
             _ => (),
         }

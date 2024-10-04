@@ -1,4 +1,4 @@
-use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*, text::TextBuilderExt};
+use bevy::{app::MainScheduleOrder, ecs::schedule::*, prelude::*};
 
 /// Independent [`Schedule`] for stepping systems.
 ///
@@ -115,7 +115,7 @@ fn build_ui(
     for label in schedule_order {
         let schedule = schedules.get(*label).unwrap();
         text_spans.push((
-            format!("{label:?}\n"),
+            TextSpan(format!("{label:?}\n")),
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
                 color: FONT_COLOR,
@@ -138,11 +138,12 @@ fn build_ui(
 
             // Add an entry to our systems list so we can find where to draw
             // the cursor when the stepping cursor is at this system
-            state.systems.push((*label, node_id, text_spans.len()));
+            // we add plus 1 to account for the empty root span
+            state.systems.push((*label, node_id, text_spans.len() + 1));
 
             // Add a text section for displaying the cursor for this system
             text_spans.push((
-                "   ".into(),
+                TextSpan::new("   "),
                 TextStyle {
                     color: FONT_COLOR,
                     ..default()
@@ -151,7 +152,7 @@ fn build_ui(
 
             // add the name of the system to the ui
             text_spans.push((
-                format!("{}\n", system.name()),
+                TextSpan(format!("{}\n", system.name())),
                 TextStyle {
                     color: FONT_COLOR,
                     ..default()
@@ -164,18 +165,25 @@ fn build_ui(
         stepping.always_run_node(label, node);
     }
 
-    commands.spawn_text_block::<TextNEW>(text_spans).insert((
-        SteppingUi,
-        Style {
-            position_type: PositionType::Absolute,
-            top: state.ui_top,
-            left: state.ui_left,
-            padding: UiRect::all(Val::Px(10.0)),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
-        Visibility::Hidden,
-    ));
+    commands
+        .spawn((
+            TextNEW::default(),
+            SteppingUi,
+            Style {
+                position_type: PositionType::Absolute,
+                top: state.ui_top,
+                left: state.ui_left,
+                padding: UiRect::all(Val::Px(10.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
+            Visibility::Hidden,
+        ))
+        .with_children(|p| {
+            for span in text_spans {
+                p.spawn(span);
+            }
+        });
 }
 
 fn build_stepping_hint(mut commands: Commands) {

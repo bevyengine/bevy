@@ -2,10 +2,7 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::{
-    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
-    text::TextBuilderExt,
-};
+use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -370,22 +367,6 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let text = format!("{text}", text = PrimitiveSelected::default());
-    let style = TextStyle::default();
-    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/previous primitive";
-    let text = [
-        ("Primitive: ".into(), style.clone()),
-        (text, style.clone()),
-        ("\n\n".into(), style.clone()),
-        (instructions.into(), style.clone()),
-        ("\n\n".into(), style.clone()),
-        (
-            "(If nothing is displayed, there's no rendering support yet)".into(),
-            style.clone(),
-        ),
-    ];
-
     commands
         .spawn((
             HeaderNode,
@@ -399,8 +380,29 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             },
             TargetCamera(active_camera),
         ))
-        .spawn_text_block::<TextNEW>(text)
-        .insert((HeaderText, TextBlock::new_with_justify(JustifyText::Center)));
+        .with_children(|p| {
+            p.spawn((
+                TextNEW::default(),
+                HeaderText,
+                TextBlock::new_with_justify(JustifyText::Center),
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Primitive: "));
+                p.spawn(TextSpan(format!(
+                    "{text}",
+                    text = PrimitiveSelected::default()
+                )));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "Press 'C' to switch between 2D and 3D mode\n\
+                    Press 'Up' or 'Down' to switch to the next/previous primitive",
+                ));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "(If nothing is displayed, there's no rendering support yet)",
+                ));
+            });
+        });
 }
 
 fn update_text(
@@ -410,7 +412,7 @@ fn update_text(
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter().for_each(|header_text| {
-        if let Some(mut text) = writer.get_text(header_text, 1) {
+        if let Some(mut text) = writer.get_text(header_text, 2) {
             (*text).clone_from(&new_text);
         };
     });

@@ -135,23 +135,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands
-        .spawn_text_block::<TextNEW>([
-            ("Contributor showcase".into(), text_style.clone()),
-            (
-                "".into(),
-                TextStyle {
-                    font_size: 30.,
-                    ..text_style
-                },
-            ),
-        ])
-        .insert((
+        .spawn((
+            TextNEW::new("Contributor showcase"),
+            text_style.clone(),
             ContributorDisplay,
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
                 ..default()
+            },
+        ))
+        .with_child((
+            TextSpan::default(),
+            TextStyle {
+                font_size: 30.,
+                ..text_style
             },
         ));
 }

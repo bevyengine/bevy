@@ -5,7 +5,6 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
-    text::TextBuilderExt,
 };
 
 mod stepping;
@@ -218,30 +217,26 @@ fn setup(
 
     // Scoreboard
     commands
-        .spawn_text_block::<TextNEW>([
-            (
-                "Score: ".into(),
-                TextStyle {
-                    font_size: SCOREBOARD_FONT_SIZE,
-                    color: TEXT_COLOR,
-                    ..default()
-                },
-            ),
-            (
-                "".into(),
-                TextStyle {
-                    font_size: SCOREBOARD_FONT_SIZE,
-                    color: SCORE_COLOR,
-                    ..default()
-                },
-            ),
-        ])
-        .insert((
+        .spawn((
+            TextNEW::new("Score: "),
+            TextStyle {
+                font_size: SCOREBOARD_FONT_SIZE,
+                color: TEXT_COLOR,
+                ..default()
+            },
             ScoreboardUi,
             Style {
                 position_type: PositionType::Absolute,
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+        ))
+        .with_child((
+            TextSpan::default(),
+            TextStyle {
+                font_size: SCOREBOARD_FONT_SIZE,
+                color: SCORE_COLOR,
                 ..default()
             },
         ));

@@ -8,7 +8,6 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
-    text::TextBuilderExt,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -124,21 +123,22 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
-    let style = TextStyle::default();
-
     commands
-        .spawn_text_block::<TextNEW>([
-            ("Prepass Output: transparent\n".into(), style.clone()),
-            ("\n\n".into(), style.clone()),
-            ("Controls\n".into(), style.clone()),
-            ("---------------\n".into(), style.clone()),
-            ("Space - Change output\n".into(), style),
-        ])
-        .insert(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
+        .spawn((
+            TextNEW::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Prepass Output: transparent\n"));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Space - Change output\n"));
         });
 }
 
@@ -228,7 +228,7 @@ fn toggle_prepass_view(
             _ => unreachable!(),
         };
         let text = text.single();
-        *writer.text(text, 0) = format!("Prepass Output: {label}\n");
+        *writer.text(text, 1) = format!("Prepass Output: {label}\n");
         writer.for_each_style(text, |mut style| {
             style.color = Color::WHITE;
         });

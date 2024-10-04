@@ -109,7 +109,6 @@ pub(crate) mod test_setup {
     use bevy::{
         color::palettes::basic::{LIME, YELLOW},
         prelude::*,
-        text::TextBuilderExt,
         window::RequestRedraw,
     };
 
@@ -161,8 +160,8 @@ pub(crate) mod test_setup {
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
         let text = query.single();
-        *writer.text(text, 1) = mode.to_string();
-        *writer.text(text, 3) = frame.to_string();
+        *writer.text(text, 2) = mode.to_string();
+        *writer.text(text, 4) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -188,34 +187,8 @@ pub(crate) mod test_setup {
         ));
         event.send(RequestRedraw);
         commands
-            .spawn_text_block::<TextNEW>([
-                (
-                    "Press space bar to cycle modes\n".into(),
-                    TextStyle { ..default() },
-                ),
-                (
-                    "".into(),
-                    TextStyle {
-                        color: LIME.into(),
-                        ..default()
-                    },
-                ),
-                (
-                    "\nFrame: ".into(),
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ),
-                (
-                    "".into(),
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ),
-            ])
-            .insert((
+            .spawn((
+                TextNEW::default(),
                 Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
@@ -224,6 +197,30 @@ pub(crate) mod test_setup {
                     ..default()
                 },
                 ModeText,
-            ));
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
+                p.spawn((
+                    TextSpan::default(),
+                    TextStyle {
+                        color: LIME.into(),
+                        ..default()
+                    },
+                ));
+                p.spawn((
+                    TextSpan::new("\nFrame: "),
+                    TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ));
+                p.spawn((
+                    TextSpan::new(""),
+                    TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ));
+            });
     }
 }

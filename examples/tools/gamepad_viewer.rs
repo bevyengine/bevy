@@ -6,7 +6,6 @@ use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnectionEvent},
     prelude::*,
     sprite::Anchor,
-    text::TextBuilderExt,
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -303,16 +302,17 @@ fn setup_sticks(
                     ..default()
                 };
                 parent
-                    .spawn_text_block::<Text2d>([
-                        (format!("{:.3}", 0.), style.clone()),
-                        (", ".into(), style.clone()),
-                        (format!("{:.3}", 0.), style),
-                    ])
-                    .insert((
+                    .spawn((
+                        Text2d::default(),
                         Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
                         Anchor::BottomCenter,
                         TextWithAxes { x_axis, y_axis },
-                    ));
+                    ))
+                    .with_children(|p| {
+                        p.spawn((TextSpan2d(format!("{:.3}", 0.)), style.clone()));
+                        p.spawn((TextSpan2d::new(", "), style.clone()));
+                        p.spawn((TextSpan2d(format!("{:.3}", 0.)), style));
+                    });
                 // cursor
                 parent.spawn((
                     meshes.circle.clone(),
@@ -376,15 +376,10 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let text_style = TextStyle::default();
-
     // This is UI text, unlike other text in this example which is 2d.
     commands
-        .spawn_text_block::<TextNEW>([
-            ("Connected Gamepads:\n".into(), text_style.clone()),
-            ("None".into(), text_style),
-        ])
-        .insert((
+        .spawn((
+            TextNEW::new("Connected Gamepads:\n"),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
@@ -392,7 +387,8 @@ fn setup_connected(mut commands: Commands) {
                 ..default()
             },
             ConnectedGamepadsText,
-        ));
+        ))
+        .with_child(TextSpan::new("None"));
 }
 
 fn update_buttons(
@@ -443,10 +439,10 @@ fn update_axes(
         }
         for (text, text_with_axes) in text_query.iter() {
             if axis_type == text_with_axes.x_axis {
-                *writer.text(text, 0) = format!("{value:.3}");
+                *writer.text(text, 1) = format!("{value:.3}");
             }
             if axis_type == text_with_axes.y_axis {
-                *writer.text(text, 2) = format!("{value:.3}");
+                *writer.text(text, 3) = format!("{value:.3}");
             }
         }
     }
@@ -469,7 +465,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    *writer.text(query.single(), 1) = if !formatted.is_empty() {
+    *writer.text(query.single(), 2) = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()

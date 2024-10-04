@@ -11,7 +11,6 @@
 use bevy::{
     ecs::system::{RunSystemOnce, SystemId},
     prelude::*,
-    text::TextBuilderExt,
 };
 
 fn main() {
@@ -81,38 +80,36 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
 }
 
 fn system_a(query: Query<Entity, With<TextNEW>>, mut writer: UiTextWriter) {
-    *writer.text(query.single(), 2) = String::from("A");
+    *writer.text(query.single(), 3) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
 fn system_b(query: Query<Entity, With<TextNEW>>, mut writer: UiTextWriter) {
-    *writer.text(query.single(), 2) = String::from("B");
+    *writer.text(query.single(), 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands
-        .spawn_text_block::<TextNEW>([
-            (
-                "Press A or B to trigger a one-shot system\n".into(),
-                TextStyle::default(),
-            ),
-            ("Last Triggered: ".into(), TextStyle::default()),
-            (
-                "-".into(),
-                TextStyle {
-                    color: bevy::color::palettes::css::ORANGE.into(),
-                    ..default()
-                },
-            ),
-        ])
-        .insert((
+        .spawn((
+            TextNEW::default(),
             TextBlock::new_with_justify(JustifyText::Center),
             Style {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
                 ..default()
             },
-        ));
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Press A or B to trigger a one-shot system\n"));
+            p.spawn(TextSpan::new("Last Triggered: "));
+            p.spawn((
+                TextSpan::new("-"),
+                TextStyle {
+                    color: bevy::color::palettes::css::ORANGE.into(),
+                    ..default()
+                },
+            ));
+        });
 }

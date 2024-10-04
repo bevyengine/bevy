@@ -9,7 +9,7 @@
 //! Also illustrates how to read morph target names in [`detect_morphs`].
 
 use crate::scene_viewer_plugin::SceneHandle;
-use bevy::{prelude::*, text::TextBuilderExt};
+use bevy::prelude::*;
 use std::fmt;
 
 const WEIGHT_PER_SECOND: f32 = 0.8;
@@ -196,7 +196,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        *writer.text(text.single(), i + 2) = format!("[{key_name}] {target}\n");
+        *writer.text(text.single(), i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -265,12 +265,20 @@ fn detect_morphs(
         |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
     spans.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
-    commands.spawn_text_block::<TextNEW>(spans).insert(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
-        ..default()
-    });
+    commands
+        .spawn((
+            TextNEW::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn((TextSpan::new("Morph Target Controls\n"), style.clone()));
+            p.spawn((TextSpan::new("---------------\n"), style));
+        });
 }
 
 pub struct MorphViewerPlugin;

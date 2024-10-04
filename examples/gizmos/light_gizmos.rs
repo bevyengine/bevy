@@ -5,7 +5,6 @@ use std::f32::consts::{FRAC_PI_2, PI};
 use bevy::{
     color::palettes::css::{DARK_CYAN, GOLD, GRAY, PURPLE},
     prelude::*,
-    text::TextBuilderExt,
 };
 
 fn main() {
@@ -103,8 +102,6 @@ fn setup(
 
     // Example instructions and gizmo config.
     {
-        let text_style = TextStyle::default();
-
         commands.spawn((
             TextNEW::new(
                 "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
@@ -112,7 +109,6 @@ fn setup(
             Press 'A' to toggle drawing of the light gizmos\n\
             Press 'C' to cycle between the light gizmos coloring modes",
             ),
-            text_style.clone(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -126,11 +122,8 @@ fn setup(
         light_config.color = LightGizmoColor::MatchLightColor;
 
         commands
-            .spawn_text_block::<TextNEW>([
-                ("Gizmo color mode: ".into(), text_style.clone()),
-                (gizmo_color_text(light_config), text_style),
-            ])
-            .insert((
+            .spawn((
+                TextNEW::new("Gizmo color mode: "),
                 GizmoColorText,
                 Style {
                     position_type: PositionType::Absolute,
@@ -138,7 +131,8 @@ fn setup(
                     left: Val::Px(12.0),
                     ..default()
                 },
-            ));
+            ))
+            .with_child(TextSpan(gizmo_color_text(light_config)));
     }
 }
 

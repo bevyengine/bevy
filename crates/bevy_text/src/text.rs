@@ -2,16 +2,14 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{
-    AddChild, BuildChildren, ChildBuild, ChildBuilder, Children, Parent, WorldChildBuilder,
-};
+use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{Font, TextLayoutInfo, TextRoot, TextSpanComponent};
+use crate::{Font, TextLayoutInfo};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -279,126 +277,6 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
-}
-
-/// Provides convenience methods for spawning text blocks.
-pub trait TextBuilderExt {
-    /// Type returned from spawn methods.
-    type SpawnResult<'a>
-    where
-        Self: 'a;
-
-    /// Spawns an entire text block including the root entity as a child of the current entity.
-    ///
-    /// If no spans are provided then a default text entity will be spawned.
-    ///
-    /// Returns an [`EntityCommands`] for the root entity.
-    fn spawn_text_block<R: TextRoot>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> Self::SpawnResult<'_>;
-}
-
-impl TextBuilderExt for Commands<'_, '_> {
-    type SpawnResult<'a> = EntityCommands<'a> where Self: 'a;
-
-    fn spawn_text_block<R: TextRoot>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> EntityCommands {
-        let mut spans = spans.into_iter();
-
-        // Root of the block.
-        let first = spans.next().unwrap_or_default();
-        let mut ec = self.spawn((R::from(first.0), first.1));
-
-        // Spans.
-        while let Some(next) = spans.next() {
-            ec.with_child((R::Span::from(next.0), next.1));
-        }
-
-        ec
-    }
-}
-
-impl TextBuilderExt for EntityCommands<'_> {
-    type SpawnResult<'a> = EntityCommands<'a> where Self: 'a;
-
-    fn spawn_text_block<R: TextRoot>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> EntityCommands {
-        let parent = self.id();
-        let mut ec = self.commands_mut().spawn_text_block::<R>(spans);
-        let child = ec.id();
-        ec.commands().queue(AddChild { parent, child });
-        ec
-    }
-}
-
-impl TextBuilderExt for ChildBuilder<'_> {
-    type SpawnResult<'a> = EntityCommands<'a> where Self: 'a;
-
-    fn spawn_text_block<R: TextRoot>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> EntityCommands {
-        let mut spans = spans.into_iter();
-
-        // Root of the block.
-        let first = spans.next().unwrap_or_default();
-        let mut ec = self.spawn((R::from(first.0), first.1));
-
-        // Spans.
-        while let Some(next) = spans.next() {
-            ec.with_child((R::Span::from(next.0), next.1));
-        }
-
-        ec
-    }
-}
-
-impl TextBuilderExt for WorldChildBuilder<'_> {
-    type SpawnResult<'a> = EntityWorldMut<'a> where Self: 'a;
-
-    fn spawn_text_block<R: TextRoot>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> EntityWorldMut {
-        let mut spans = spans.into_iter();
-
-        // Root of the block.
-        let first = spans.next().unwrap_or_default();
-        let mut ec = self.spawn((R::from(first.0), first.1));
-
-        // Spans.
-        while let Some(next) = spans.next() {
-            ec.with_child((R::Span::from(next.0), next.1));
-        }
-
-        ec
-    }
-}
-
-/// Provides convenience methods for adding text spans to a text block.
-pub trait TextSpanBuilderExt {
-    /// Adds a flat list of spans as children of the current entity.
-    fn with_spans<S: TextSpanComponent>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> &mut Self;
-}
-
-impl TextSpanBuilderExt for EntityCommands<'_> {
-    fn with_spans<S: TextSpanComponent>(
-        &mut self,
-        spans: impl IntoIterator<Item = (String, TextStyle)>,
-    ) -> &mut Self {
-        for (span, style) in spans.into_iter() {
-            self.with_child((S::from(span), style));
-        }
-        self
-    }
 }
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
