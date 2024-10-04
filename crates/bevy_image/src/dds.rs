@@ -283,7 +283,7 @@ pub fn dds_format_to_texture_format(
 mod test {
     use wgpu::{util::TextureDataOrder, TextureDescriptor, TextureDimension};
 
-    use crate::texture::CompressedImageFormats;
+    use crate::CompressedImageFormats;
 
     use super::dds_buffer_to_image;
 
