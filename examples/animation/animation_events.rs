@@ -9,7 +9,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<Say>()
+        .add_event::<MessageEvent>()
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, (animate_text_opacity, edit_message))
         .run();
@@ -20,36 +20,28 @@ struct MessageText;
 
 #[derive(Event, Reflect, Clone)]
 #[reflect(AnimationEvent)]
-enum Say {
-    Hello,
-    Bye,
+struct MessageEvent {
+    value: String,
+    color: Color,
 }
 
 // AnimationEvent can also be derived, but doing so will
 // trigger it as an observer event which runs in PostUpdate.
 // We need to set the message text before that so it is
 // updated before rendering without a one frame delay.
-impl AnimationEvent for Say {
+impl AnimationEvent for MessageEvent {
     fn trigger(&self, _time: f32, _weight: f32, _entity: Entity, world: &mut World) {
         world.send_event(self.clone());
     }
 }
 
 fn edit_message(
-    mut event_reader: EventReader<Say>,
+    mut event_reader: EventReader<MessageEvent>,
     mut text: Single<&mut Text, With<MessageText>>,
 ) {
     for event in event_reader.read() {
-        match event {
-            Say::Hello => {
-                text.sections[0].value = "HELLO".into();
-                text.sections[0].style.color = ALICE_BLUE.into();
-            }
-            Say::Bye => {
-                text.sections[0].value = "BYE".into();
-                text.sections[0].style.color = CRIMSON.into();
-            }
-        }
+        text.sections[0].value = event.value.clone();
+        text.sections[0].style.color = event.color;
     }
 }
 
@@ -98,8 +90,20 @@ fn setup(
     animation.set_duration(2.0);
 
     // Add events at the specified time.
-    animation.add_event(0.0, Say::Hello);
-    animation.add_event(1.0, Say::Bye);
+    animation.add_event(
+        0.0,
+        MessageEvent {
+            value: "HELLO".into(),
+            color: ALICE_BLUE.into(),
+        },
+    );
+    animation.add_event(
+        1.0,
+        MessageEvent {
+            value: "BYE".into(),
+            color: CRIMSON.into(),
+        },
+    );
 
     // Create the animation graph.
     let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
