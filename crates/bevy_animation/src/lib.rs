@@ -919,7 +919,6 @@ fn trigger_untargeted_animation_events(
     graphs: Res<Assets<AnimationGraph>>,
     players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
 ) {
-    // untargeted events
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
         let Some(graph) = graphs.get(graph_id) else {
@@ -1471,16 +1470,12 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 mod tests {
     use super::*;
 
-    #[derive(Event, Clone, Reflect)]
+    #[derive(Event, Reflect, Clone)]
     struct A;
 
     impl AnimationEvent for A {
         fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
             world.entity_mut(target).trigger(self.clone());
-        }
-
-        fn clone_value(&self) -> Box<dyn AnimationEvent> {
-            Box::new(self.clone())
         }
     }
 

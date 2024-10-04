@@ -23,10 +23,6 @@ pub fn derive_animation_event(input: TokenStream) -> TokenStream {
             fn trigger(&self, _time: f32, entity: #bevy_ecs_path::entity::Entity, world: &mut #bevy_ecs_path::world::World) {
                 world.entity_mut(entity).trigger(Clone::clone(self));
             }
-
-            fn clone_value(&self) -> Box<dyn #animation_event_path::AnimationEvent> {
-                Box::new(Clone::clone(self))
-            }
         }
     }
     .into()

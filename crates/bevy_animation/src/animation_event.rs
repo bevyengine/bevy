@@ -21,15 +21,31 @@ pub(crate) fn trigger_animation_event(
     }
 }
 
-// TODO: this should have a derive macro
 /// An event that can be used with animations.
+/// It can be derived to trigger as an observer event,
+/// if you need more complex behaivour, consider
+/// a manual implementation.
 #[reflect_trait]
-pub trait AnimationEvent: Reflect + Send + Sync {
+pub trait AnimationEvent: CloneableAnimationEvent + Reflect + Send + Sync {
     /// Trigger the event, targeting `entity`.
     fn trigger(&self, time: f32, entity: Entity, world: &mut World);
+}
 
+/// This trait exist so that manual implementors of [`AnimationEvent`]
+/// does not have to implement `clone_value`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `Clone`",
+    note = "consider annotating `{Self}` with `#[derive(Clone)]`"
+)]
+pub trait CloneableAnimationEvent {
     /// Clone this value into a new `Box<dyn AnimationEvent>`
     fn clone_value(&self) -> Box<dyn AnimationEvent>;
+}
+
+impl<T: AnimationEvent + Clone> CloneableAnimationEvent for T {
+    fn clone_value(&self) -> Box<dyn AnimationEvent> {
+        Box::new(self.clone())
+    }
 }
 
 /// The data that will be used to trigger an animation event.
@@ -53,7 +69,7 @@ impl Debug for AnimationEventData {
 
 impl Clone for AnimationEventData {
     fn clone(&self) -> Self {
-        Self(AnimationEvent::clone_value(self.0.as_ref()))
+        Self(CloneableAnimationEvent::clone_value(self.0.as_ref()))
     }
 }
 
