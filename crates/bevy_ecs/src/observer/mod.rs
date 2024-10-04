@@ -839,7 +839,7 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+            .observe_entity(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         world.observe(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.entity(), Entity::PLACEHOLDER);
             res.observed("event_a");
@@ -860,10 +860,10 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+            .observe_entity(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
+            .observe_entity(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.observe(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.entity(), entity);
@@ -931,12 +931,16 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -954,12 +958,16 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -980,12 +988,16 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -1006,12 +1018,14 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
             .id();
 
         let child = world
             .spawn(Parent(parent))
-            .observe(
+            .observe_entity(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child");
                     trigger.propagate(false);
@@ -1034,19 +1048,21 @@ mod tests {
 
         let parent = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("parent"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
             .id();
 
         let child_a = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_a");
             })
             .id();
 
         let child_b = world
             .spawn(Parent(parent))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
             .id();
@@ -1069,7 +1085,9 @@ mod tests {
 
         let entity = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("event"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("event");
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -1087,14 +1105,14 @@ mod tests {
 
         let parent_a = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent_a");
             })
             .id();
 
         let child_a = world
             .spawn(Parent(parent_a))
-            .observe(
+            .observe_entity(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child_a");
                     trigger.propagate(false);
@@ -1104,14 +1122,16 @@ mod tests {
 
         let parent_b = world
             .spawn_empty()
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent_b");
             })
             .id();
 
         let child_b = world
             .spawn(Parent(parent_b))
-            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| res.observed("child_b"))
+            .observe_entity(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child_b");
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -1210,5 +1230,28 @@ mod tests {
         world.trigger(EventA);
 
         assert!(world.get_resource::<ResB>().is_none());
+    }
+
+    #[test]
+    fn observer_apply_deferred_from_param_set() {
+        #[derive(Event)]
+        struct EventA;
+
+        #[derive(Resource)]
+        struct ResA;
+
+        let mut world = World::new();
+        world.observe(
+            |_: Trigger<EventA>, mut params: ParamSet<(Query<Entity>, Commands)>| {
+                params.p1().insert_resource(ResA);
+            },
+        );
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger(EventA);
+        world.flush();
+
+        assert!(world.get_resource::<ResA>().is_some());
     }
 }
