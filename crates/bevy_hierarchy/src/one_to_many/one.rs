@@ -182,7 +182,7 @@ impl<R> OneToManyOne<R> {
         self.entity
     }
 
-    /// Gets the other [`Entity`] as a slice of length 1.
+    /// Gets the other [`Entity`] as a slice.
     #[inline(always)]
     pub fn as_slice(&self) -> &[Entity] {
         core::slice::from_ref(&self.entity)
