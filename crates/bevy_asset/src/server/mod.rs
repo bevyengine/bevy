@@ -382,10 +382,6 @@ impl AssetServer {
             meta_transform,
         );
 
-        // make sure we drop the lock on `AssetInfos` in the single-threaded case
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
-
         if should_load {
             self.spawn_load_task(handle.clone().untyped(), path, &mut infos, guard);
         }
@@ -424,6 +420,10 @@ impl AssetServer {
         infos: &mut AssetInfos,
         guard: G,
     ) {
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let owned_handle = handle.clone();
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -474,7 +474,7 @@ impl AssetServer {
             meta_transform,
         );
 
-        // make sure we drop the lock on `AssetInfos` in the single-threaded case
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
 
@@ -788,7 +788,7 @@ impl AssetServer {
         let handle =
             infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
 
-        // make sure we drop the lock on `AssetInfos` in the single-threaded case
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
 
