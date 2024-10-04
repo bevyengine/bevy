@@ -1,6 +1,6 @@
 use super::asset::{Meshlet, MeshletBoundingSphere, MeshletBoundingSpheres, MeshletMesh};
 use alloc::borrow::Cow;
-use bevy_math::{IVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{ops::log2, IVec3, Vec2, Vec3, Vec3Swizzles};
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
@@ -358,6 +358,7 @@ fn split_simplified_group_into_new_meshlets(
     new_meshlets_count
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
@@ -405,9 +406,9 @@ fn build_and_compress_meshlet_vertex_data(
 
     // Calculate bits needed to encode each quantized vertex position channel based on the range of each channel
     let range = max_quantized_position_channels - min_quantized_position_channels + 1;
-    let bits_per_vertex_position_channel_x = range.as_vec3().x.log2().ceil() as u8;
-    let bits_per_vertex_position_channel_y = range.as_vec3().y.log2().ceil() as u8;
-    let bits_per_vertex_position_channel_z = range.as_vec3().z.log2().ceil() as u8;
+    let bits_per_vertex_position_channel_x = log2(range.x as f32).ceil() as u8;
+    let bits_per_vertex_position_channel_y = log2(range.y as f32).ceil() as u8;
+    let bits_per_vertex_position_channel_z = log2(range.z as f32).ceil() as u8;
 
     // Lossless encoding of vertex positions in the minimum number of bits per channel
     for quantized_position in quantized_positions.iter().take(meshlet_vertex_ids.len()) {
