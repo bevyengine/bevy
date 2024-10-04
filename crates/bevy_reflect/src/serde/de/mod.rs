@@ -1,5 +1,6 @@
 pub use deserialize_with_registry::*;
 pub use deserializer::*;
+pub use processor::*;
 pub use registrations::*;
 
 mod arrays;
@@ -11,6 +12,7 @@ mod helpers;
 mod lists;
 mod maps;
 mod options;
+mod processor;
 mod registration_utils;
 mod registrations;
 mod sets;
