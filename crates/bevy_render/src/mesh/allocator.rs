@@ -577,8 +577,8 @@ impl MeshAllocator {
                 {
                     let slice = &mut buffer.slice(..).get_mapped_range_mut()[..len];
                     fill_data(slice);
-                    buffer.unmap();
                 }
+                buffer.unmap();
                 large_object_slab.buffer = Some(buffer);
             }
         }
