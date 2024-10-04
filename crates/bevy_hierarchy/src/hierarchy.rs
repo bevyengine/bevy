@@ -31,9 +31,12 @@ pub fn despawn_with_children_recursive(world: &mut World, entity: Entity, warn: 
 
 // Should only be called by `despawn_with_children_recursive`!
 fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn: bool) {
-    if let Some(children) = world.get::<Children>(entity) {
-        let children = children.as_slice().to_vec();
-        for e in children {
+    if let Some(children) = world
+        .get_entity_mut(entity)
+        .as_mut()
+        .and_then(EntityWorldMut::take::<Children>)
+    {
+        for &e in &children {
             despawn_with_children_recursive_inner(world, e, warn);
         }
     }
@@ -48,9 +51,12 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn
 }
 
 fn despawn_children_recursive(world: &mut World, entity: Entity, warn: bool) {
-    if let Some(children) = world.entity_mut(entity).get::<Children>() {
-        let children = children.as_slice().to_vec();
-        for e in children {
+    if let Some(children) = world
+        .get_entity_mut(entity)
+        .as_mut()
+        .and_then(EntityWorldMut::take::<Children>)
+    {
+        for &e in &children {
             despawn_with_children_recursive_inner(world, e, warn);
         }
     }
