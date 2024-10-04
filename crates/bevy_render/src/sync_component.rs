@@ -5,6 +5,17 @@ use bevy_ecs::component::Component;
 
 use crate::world_sync::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 
+/// Plugin that registers a component for automatic sync to the render world. See [`WorldSyncPlugin`] for more information.
+///
+/// This plugin is automatically added by [`ExtractComponentPlugin`], and only needs to be added for manual extraction implementations.
+///
+/// # Implementation details
+///
+/// It adds [`SyncToRenderWorld`] as a required component to make the [`WorldSyncPlugin`] aware of the component, and
+/// handles cleanup of the component in the render world when it is removed from an entity.
+///
+/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`WorldSyncPlugin`]: crate::world_sync::WorldSyncPlugin
 pub struct SyncComponentPlugin<C: Component>(PhantomData<C>);
 
 impl<C: Component> Default for SyncComponentPlugin<C> {

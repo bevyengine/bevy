@@ -13,6 +13,12 @@ use bevy_reflect::Reflect;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
+/// [`SyncToRenderWorld`] is automatically added as a required components by
+/// [`ExtractComponentPlugin`] and [`SyncComponentPlugin`], so doesn't need be
+/// added manually when spawning or as a required component when either of these are used.
+///
+/// # Implementation
+///
 /// Bevy's renderer is architected independently from the main app.
 /// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
@@ -70,6 +76,8 @@ use bevy_reflect::Reflect;
 /// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
+/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Default)]
 pub struct WorldSyncPlugin;
 
@@ -102,6 +110,8 @@ impl Plugin for WorldSyncPlugin {
 pub struct SyncToRenderWorld;
 
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
+///
+/// Can also be used as a newtype wrapper for render world entities.
 #[derive(Component, Deref, Clone, Debug, Copy)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
@@ -112,6 +122,8 @@ impl RenderEntity {
 }
 
 /// Component added on the render world entities to keep track of the corresponding main world entity
+///
+/// Can also be used as a newtype wrapper for main world entities.
 #[derive(Component, Deref, Clone, Debug)]
 pub struct MainEntity(Entity);
 impl MainEntity {
@@ -171,12 +183,12 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     };
                 }
                 EntityRecord::ComponentRemoved(main_entity) => {
-                    // It's difficult to remove only the relevant component because component ids aren't stable across worlds,
-                    // so we just clear the entire render world entity.
                     let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
                         continue;
                     };
                     if let Some(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
+                        // In order to handle components that extract to derived components, we clear the entity
+                        // and let the extraction system re-add the components.
                         render_world_entity.despawn();
 
                         let id = render_world.spawn(MainEntity(main_entity)).id();
