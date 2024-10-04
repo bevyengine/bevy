@@ -137,7 +137,9 @@ pub trait ReflectDeserializerProcessor {
     /// If you've read the `registration` and want to override the default
     /// deserialization, return `Ok(Ok(value))` with the boxed reflected value
     /// that you want to assign this value to. The type inside the box must
-    /// be the same one as the `registration` is for.
+    /// be the same one as the `registration` is for, otherwise future
+    /// reflection operations (such as using [`FromReflect`] to convert the
+    /// resulting [`Box<dyn PartialReflect>`] into a concrete type) will fail.
     ///
     /// If you don't want to override the deserialization, return ownership of
     /// the deserializer back via `Ok(Err(deserializer))`.
