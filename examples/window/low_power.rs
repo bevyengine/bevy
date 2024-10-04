@@ -171,11 +171,8 @@ pub(crate) mod test_setup {
         mut event: EventWriter<RequestRedraw>,
     ) {
         commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
+            Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             Rotator,
         ));
 

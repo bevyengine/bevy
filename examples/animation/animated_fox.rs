@@ -59,11 +59,10 @@ fn setup(
     });
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
     commands.spawn((
@@ -81,10 +80,9 @@ fn setup(
     ));
 
     // Fox
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");

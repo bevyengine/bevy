@@ -18,6 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TRANSPARENT_IMAGE_HANDLE},
     view::*,
+    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{
@@ -258,12 +259,17 @@ pub fn extract_ui_texture_slices(
             Option<&TextureAtlas>,
         )>,
     >,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode, atlas) in
         &slicers_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
+            continue;
+        };
+
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -291,7 +297,7 @@ pub fn extract_ui_texture_slices(
         };
 
         extracted_ui_slicers.slices.insert(
-            commands.spawn_empty().id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiTextureSlice {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -302,7 +308,7 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
                 flip_x: image.flip_x,

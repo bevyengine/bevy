@@ -9,7 +9,7 @@ pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
@@ -19,7 +19,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
     camera::{Camera, CameraProjection},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh3d},
     primitives::{Aabb, Frustum, Sphere},
 };
 
@@ -271,10 +271,6 @@ impl VisibleEntities {
     }
 }
 
-/// A convenient alias for `With<Handle<Mesh>>`, for use with
-/// [`VisibleEntities`].
-pub type WithMesh = With<Handle<Mesh>>;
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
     /// Label for the [`calculate_bounds`], `calculate_bounds_2d` and `calculate_bounds_text2d` systems,
@@ -312,20 +308,20 @@ impl Plugin for VisibilityPlugin {
             (
                 calculate_bounds.in_set(CalculateBounds),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<WithMesh>.in_set(CheckVisibility),
+                check_visibility::<With<Mesh3d>>.in_set(CheckVisibility),
             ),
         );
     }
 }
 
 /// Computes and adds an [`Aabb`] component to entities with a
-/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+/// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
 ///
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
