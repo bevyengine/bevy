@@ -147,9 +147,9 @@ fn update_cursors(
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
-                    use bevy_winit::CustomCursorExtWebSys;
+                    use crate::CustomCursorExtWebSys;
                     let source =
-                        bevy_winit::WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                        crate::WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }
