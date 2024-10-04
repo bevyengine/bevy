@@ -44,7 +44,6 @@ use bevy_reflect::{
 };
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_ui::UiSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
@@ -1043,6 +1042,10 @@ pub fn animate_targets(
         });
 }
 
+/// Animation system set
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
@@ -1078,8 +1081,8 @@ impl Plugin for AnimationPlugin {
                     expire_completed_transitions,
                 )
                     .chain()
-                    .before(TransformSystem::TransformPropagate)
-                    .before(UiSystem::Prepare),
+                    .in_set(Animation)
+                    .before(TransformSystem::TransformPropagate),
             );
     }
 }
