@@ -8,6 +8,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::camera::{Exposure, PhysicalCameraParameters},
+    text::TextBuilderExt,
 };
 
 fn main() {
@@ -209,39 +210,44 @@ fn setup(
     // example instructions
     let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(
+    commands
+        .spawn_text_block::<TextNEW>([
+            (
                 format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
                 style.clone(),
             ),
-            TextSection::new(
+            (
                 format!(
                     "Shutter speed: 1/{:.0}s\n",
                     1.0 / parameters.shutter_speed_s
                 ),
                 style.clone(),
             ),
-            TextSection::new(
+            (
                 format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
                 style.clone(),
             ),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Arrow keys - Move objects\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
-            TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
-            TextSection::new("5/6 - Decrease/Increase sensitivity\n", style.clone()),
-            TextSection::new("R - Reset exposure", style),
+            ("\n\n".into(), style.clone()),
+            ("Controls\n".into(), style.clone()),
+            ("---------------\n".into(), style.clone()),
+            ("Arrow keys - Move objects\n".into(), style.clone()),
+            ("1/2 - Decrease/Increase aperture\n".into(), style.clone()),
+            (
+                "3/4 - Decrease/Increase shutter speed\n".into(),
+                style.clone(),
+            ),
+            (
+                "5/6 - Decrease/Increase sensitivity\n".into(),
+                style.clone(),
+            ),
+            ("R - Reset exposure".into(), style),
         ])
-        .with_style(Style {
+        .insert(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        });
 
     // camera
     commands.spawn((
@@ -255,10 +261,11 @@ fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut exposure: Query<&mut Exposure>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     // TODO: Clamp values to a reasonable range
-    let mut text = text.single_mut();
+    let entity = text.single();
     if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
     } else if key_input.just_pressed(KeyCode::Digit1) {
@@ -278,12 +285,12 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    text.sections[0].value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    text.sections[1].value = format!(
+    *writer.text(entity, 0) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 1) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 2) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
     *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
 }

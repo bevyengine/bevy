@@ -1,7 +1,7 @@
 //! Demonstrates how to enable per-object motion blur. This rendering feature can be configured per
 //! camera using the [`MotionBlur`] component.z
 
-use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*};
+use bevy::{core_pipeline::motion_blur::MotionBlur, math::ops, prelude::*, text::TextBuilderExt};
 
 fn main() {
     let mut app = App::new();
@@ -233,27 +233,33 @@ fn spawn_trees(
 fn setup_ui(mut commands: Commands) {
     let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
-            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
-            TextSection::new("Spacebar: cycle camera\n", style.clone()),
+    commands
+        .spawn_text_block::<TextNEW>([
+            (String::new(), style.clone()),
+            (String::new(), style.clone()),
+            (
+                "1/2: -/+ shutter angle (blur amount)\n".into(),
+                style.clone(),
+            ),
+            (
+                "3/4: -/+ sample count (blur quality)\n".into(),
+                style.clone(),
+            ),
+            ("Spacebar: cycle camera\n".into(), style.clone()),
         ])
-        .with_style(Style {
+        .insert(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        });
 }
 
 fn keyboard_inputs(
     mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
     mut camera: ResMut<CameraMode>,
 ) {
     let mut motion_blur = motion_blur.single_mut();
@@ -273,9 +279,9 @@ fn keyboard_inputs(
     }
     motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
     motion_blur.samples = motion_blur.samples.clamp(0, 64);
-    let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
+    let entity = text.single();
+    *writer.text(entity, 0) = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    *writer.text(entity, 1) = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset

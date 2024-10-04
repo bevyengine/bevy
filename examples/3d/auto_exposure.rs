@@ -129,26 +129,24 @@ fn setup(
 
     let text_style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
-            text_style.clone(),
-        )
-        .with_style(Style {
+    commands.spawn((TextNEW::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
+            text_style.clone(), Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        TextNEW::new(""),
+        text_style,
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -164,7 +162,7 @@ struct ExampleResources {
 
 fn example_control_system(
     mut camera: Query<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
     mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -207,7 +205,7 @@ fn example_control_system(
     };
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

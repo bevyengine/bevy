@@ -295,22 +295,19 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<&mut TextNEW>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -319,7 +316,7 @@ fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self) -> Text {
+    fn create_text(&self) -> TextNEW {
         let irradiance_volume_help_text = if self.irradiance_volume_present {
             DISABLE_IRRADIANCE_VOLUME_HELP_TEXT
         } else {
@@ -343,16 +340,14 @@ impl AppStatus {
             ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
-        Text::from_section(
-            format!(
-                "{CLICK_TO_MOVE_HELP_TEXT}
+        format!(
+            "{CLICK_TO_MOVE_HELP_TEXT}
         {voxels_help_text}
         {irradiance_volume_help_text}
         {rotation_help_text}
         {switch_mesh_help_text}"
-            ),
-            TextStyle::default(),
         )
+        .into()
     }
 }
 

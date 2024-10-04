@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{pbr::ShadowFilteringMethod, prelude::*};
+use bevy::{pbr::ShadowFilteringMethod, prelude::*, text::TextBuilderExt};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
@@ -117,68 +117,80 @@ fn setup(
             },
             GlobalZIndex(i32::MAX),
         ))
-        .with_children(|c| {
-            c.spawn(TextBundle::from_sections([
-                TextSection::new("Controls:\n", style.clone()),
-                TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
-                TextSection::new(
-                    "L     - switch between directional and point lights [",
-                    style.clone(),
-                ),
-                TextSection::new("DirectionalLight", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
-                    "F     - switch directional light filter methods [",
-                    style.clone(),
-                ),
-                TextSection::new("Hardware2x2", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("1/2   - change point light depth bias [", style.clone()),
-                TextSection::new("0.00", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("3/4   - change point light normal bias [", style.clone()),
-                TextSection::new("0.0", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("5/6   - change direction light depth bias [", style.clone()),
-                TextSection::new("0.00", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
-                    "7/8   - change direction light normal bias [",
-                    style.clone(),
-                ),
-                TextSection::new("0.0", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
-                    "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!("{:.1},", light_transform.translation.x),
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!(" {:.1},", light_transform.translation.y),
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!(" {:.1}", light_transform.translation.z),
-                    style.clone(),
-                ),
-                TextSection::new("]\n", style.clone()),
-            ]));
-        });
+        .spawn_text_block::<TextNEW>([
+            ("Controls:\n".into(), style.clone()),
+            (
+                "R / Z - reset biases to default / zero\n".into(),
+                style.clone(),
+            ),
+            (
+                "L     - switch between directional and point lights [".into(),
+                style.clone(),
+            ),
+            ("DirectionalLight".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "F     - switch directional light filter methods [".into(),
+                style.clone(),
+            ),
+            ("Hardware2x2".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "1/2   - change point light depth bias [".into(),
+                style.clone(),
+            ),
+            ("0.00".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "3/4   - change point light normal bias [".into(),
+                style.clone(),
+            ),
+            ("0.0".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "5/6   - change direction light depth bias [".into(),
+                style.clone(),
+            ),
+            ("0.00".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "7/8   - change direction light normal bias [".into(),
+                style.clone(),
+            ),
+            ("0.0".into(), style.clone()),
+            ("]\n".into(), style.clone()),
+            (
+                "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) ["
+                    .into(),
+                style.clone(),
+            ),
+            (
+                format!("{:.1},", light_transform.translation.x),
+                style.clone(),
+            ),
+            (
+                format!(" {:.1},", light_transform.translation.y),
+                style.clone(),
+            ),
+            (
+                format!(" {:.1}", light_transform.translation.z),
+                style.clone(),
+            ),
+            ("]\n".into(), style.clone()),
+        ]);
 }
 
 fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().sections[3].value = "PointLight".to_string();
+                *writer.text(example_text.single(), 3) = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -186,7 +198,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().sections[3].value = "DirectionalLight".to_string();
+                *writer.text(example_text.single(), 3) = "DirectionalLight".to_string();
                 100000.0
             } else {
                 0.0
@@ -198,7 +210,8 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     let mut offset = Vec3::ZERO;
     if input.just_pressed(KeyCode::ArrowLeft) {
@@ -220,13 +233,13 @@ fn adjust_light_position(
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
-        let mut example_text = example_text.single_mut();
+        let example_text = example_text.single();
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
-            example_text.sections[21].value = format!("{:.1},", light.translation.x);
-            example_text.sections[22].value = format!(" {:.1},", light.translation.y);
-            example_text.sections[23].value = format!(" {:.1}", light.translation.z);
+            *writer.text(example_text, 21) = format!("{:.1},", light.translation.x);
+            *writer.text(example_text, 22) = format!(" {:.1},", light.translation.y);
+            *writer.text(example_text, 23) = format!(" {:.1}", light.translation.z);
         }
     }
 }
@@ -234,7 +247,8 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
@@ -253,7 +267,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().sections[6].value = filter_method_string;
+            *writer.text(example_text.single(), 6) = filter_method_string;
         }
     }
 }
@@ -261,7 +275,8 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -287,15 +302,16 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[9].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[12].value = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(example_text.single(), 9) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(example_text.single(), 12) = format!("{:.1}", light.shadow_normal_bias);
     }
 }
 
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -321,7 +337,7 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[15].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[18].value = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(example_text.single(), 15) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(example_text.single(), 18) = format!("{:.1}", light.shadow_normal_bias);
     }
 }

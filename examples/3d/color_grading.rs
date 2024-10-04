@@ -314,23 +314,20 @@ fn add_help_text(
     font: &Handle<Font>,
     currently_selected_option: &SelectedColorGradingOption,
 ) {
-    commands
-        .spawn(TextBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                left: Val::Px(12.0),
-                top: Val::Px(12.0),
-                ..default()
-            },
-            ..TextBundle::from_section(
-                create_help_text(currently_selected_option),
-                TextStyle {
-                    font: font.clone(),
-                    ..default()
-                },
-            )
-        })
-        .insert(HelpText);
+    commands.spawn((
+        TextNEW::new(create_help_text(currently_selected_option)),
+        TextStyle {
+            font: font.clone(),
+            ..default()
+        },
+        Style {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
+            ..default()
+        },
+        HelpText,
+    ));
 }
 
 /// Adds some text to the scene.
@@ -340,12 +337,13 @@ fn add_text<'a>(
     font: &Handle<Font>,
     color: Color,
 ) -> EntityCommands<'a> {
-    parent.spawn(TextBundle::from_section(
-        label,
+    parent.spawn((
+        TextNEW::new(label),
         TextStyle {
             font: font.clone(),
             font_size: 15.0,
             color,
+            ..default()
         },
     ))
 }
@@ -561,8 +559,9 @@ fn update_ui_state(
         &mut BorderColor,
         &ColorGradingOptionWidget,
     )>,
-    mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
-    mut help_text: Query<&mut Text, With<HelpText>>,
+    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<TextNEW>, Without<HelpText>)>,
+    help_text: Query<Entity, With<HelpText>>,
+    mut writer: UiTextWriter,
     cameras: Query<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -590,7 +589,7 @@ fn update_ui_state(
     });
 
     // Update the buttons.
-    for (mut text, widget) in button_text.iter_mut() {
+    for (entity, widget) in button_text.iter() {
         // Set the text color.
 
         let color = if *currently_selected_option == widget.option {
@@ -599,24 +598,24 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        for section in &mut text.sections {
-            section.style.color = color;
-        }
+        writer.for_each_style(entity, |mut style| {
+            style.color = color;
+        });
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
             if let Some(ref value_label) = value_label {
-                for section in &mut text.sections {
-                    section.value.clone_from(value_label);
-                }
+                writer.for_each_text(entity, |mut text| {
+                    text.clone_from(value_label);
+                });
             }
         }
     }
 
     // Update the help text.
-    help_text.single_mut().sections[0].value = create_help_text(&currently_selected_option);
+    *writer.text(help_text.single(), 0) = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.

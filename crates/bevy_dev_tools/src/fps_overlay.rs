@@ -124,7 +124,7 @@ fn customize_text(
     mut writer: UiTextWriter,
 ) {
     for entity in &query {
-        writer.for_each(entity, |_, _, _, mut style| {
+        writer.for_each_style(entity, |mut style| {
             *style = overlay_config.text_config.clone();
         });
     }

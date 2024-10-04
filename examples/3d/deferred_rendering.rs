@@ -188,14 +188,15 @@ fn setup(
     ));
 
     // Example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        TextNEW::new(""),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 #[derive(Resource)]
@@ -281,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextNEW>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
@@ -292,7 +293,6 @@ fn switch_mode(
     mut mode: Local<DefaultRenderMode>,
 ) {
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
 
     text.clear();
 

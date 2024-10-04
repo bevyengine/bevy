@@ -187,12 +187,11 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    mut ui: Query<&mut Text>,
+    mut ui: Query<&mut TextNEW>,
 ) {
     let (fxaa, smaa, taa, cas, msaa) = camera.single();
 
-    let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
+    let ui = &mut **ui.single_mut();
 
     *ui = "Antialias Method\n".to_string();
 
@@ -328,14 +327,15 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        TextNEW::new(""),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Writes a simple menu item that can be on or off.

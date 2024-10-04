@@ -58,57 +58,50 @@ fn setup(
     ));
 
     // labels
-    commands.spawn(
-        TextBundle::from_section(
-            "Perceptual Roughness",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        TextNEW::new("Perceptual Roughness"),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Metallic",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        ),
-        style: Style {
+    commands.spawn((
+        TextNEW::new("Metallic"),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
             ..default()
         },
-        transform: Transform {
+        Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands.spawn((
-        TextBundle::from_section(
-            "Loading Environment Map...",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextNEW::new("Loading Environment Map..."),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
             ..default()
-        }),
+        },
         EnvironmentMapLabel,
     ));
 

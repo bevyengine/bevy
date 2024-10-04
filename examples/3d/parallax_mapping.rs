@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings, text::TextBuilderExt};
 
 fn main() {
     App::new()
@@ -80,7 +80,7 @@ fn update_parallax_depth_scale(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextNEW>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -98,7 +98,7 @@ fn update_parallax_depth_scale(
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
-            text.sections[0].value = format!("Parallax depth scale: {new_depth:.5}\n");
+            **text = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -109,7 +109,8 @@ fn update_parallax_depth_scale(
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
     mut current: Local<CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
@@ -117,8 +118,8 @@ fn switch_method(
     } else {
         return;
     }
-    let mut text = text.single_mut();
-    text.sections[2].value = format!("Method: {}\n", *current);
+    let text_entity = text.single();
+    *writer.text(text_entity, 2) = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
         mat.parallax_mapping_method = current.0;
@@ -129,7 +130,8 @@ fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<TextNEW>>,
+    mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
@@ -140,8 +142,8 @@ fn update_parallax_layers(
         return;
     }
     let layer_count = ops::exp2(target_layers.0);
-    let mut text = text.single_mut();
-    text.sections[1].value = format!("Layers: {layer_count:.0}\n");
+    let text_entity = text.single();
+    *writer.text(text_entity, 1) = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
         mat.max_parallax_layer_count = layer_count;
@@ -296,32 +298,34 @@ fn setup(
     let style = TextStyle::default();
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(
+    commands
+        .spawn_text_block::<TextNEW>([
+            (
                 format!("Parallax depth scale: {parallax_depth_scale:.5}\n"),
                 style.clone(),
             ),
-            TextSection::new(
+            (
                 format!("Layers: {max_parallax_layer_count:.0}\n"),
                 style.clone(),
             ),
-            TextSection::new(format!("{parallax_mapping_method}\n"), style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls:\n", style.clone()),
-            TextSection::new("Left click - Change view angle\n", style.clone()),
-            TextSection::new(
-                "1/2 - Decrease/Increase parallax depth scale\n",
+            (format!("{parallax_mapping_method}\n"), style.clone()),
+            ("\n\n".into(), style.clone()),
+            ("Controls:\n".into(), style.clone()),
+            ("Left click - Change view angle\n".into(), style.clone()),
+            (
+                "1/2 - Decrease/Increase parallax depth scale\n".into(),
                 style.clone(),
             ),
-            TextSection::new("3/4 - Decrease/Increase layer count\n", style.clone()),
-            TextSection::new("Space - Switch parallaxing algorithm\n", style),
+            (
+                "3/4 - Decrease/Increase layer count\n".into(),
+                style.clone(),
+            ),
+            ("Space - Switch parallaxing algorithm\n".into(), style),
         ])
-        .with_style(Style {
+        .insert(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        });
 }

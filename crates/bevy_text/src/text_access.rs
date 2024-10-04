@@ -290,7 +290,6 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     }
 
     /// Invokes a callback on each span in a text block, starting with the root entity.
-    // TODO: find a way to consolidate get and for_each, or provide a real iterator. Lifetime issues are challenging here.
     pub fn for_each(
         &mut self,
         root_entity: Entity,
@@ -302,10 +301,28 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         });
     }
 
+    /// Invokes a callback on each span's string value in a text block, starting with the root entity.
+    pub fn for_each_text(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<String>)) {
+        self.for_each(root_entity, |_, _, text, _| {
+            (callback)(text);
+        });
+    }
+
+    /// Invokes a callback on each span's [`TextStyle`] in a text block, starting with the root entity.
+    pub fn for_each_style(
+        &mut self,
+        root_entity: Entity,
+        mut callback: impl FnMut(Mut<TextStyle>),
+    ) {
+        self.for_each(root_entity, |_, _, _, style| {
+            (callback)(style);
+        });
+    }
+
     /// Invokes a callback on each span in a text block, starting with the root entity.
     ///
     /// Traversal will stop when the callback returns `false`.
-    // TODO: find a way to consolidate get and for_each, or provide a real iterator. Lifetime issues are challenging here.
+    // TODO: find a way to consolidate get and for_each_until, or provide a real iterator. Lifetime issues are challenging here.
     pub fn for_each_until(
         &mut self,
         root_entity: Entity,

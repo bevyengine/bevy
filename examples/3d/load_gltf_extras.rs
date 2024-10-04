@@ -34,19 +34,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // a place to display the extras on screen
     commands.spawn((
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 15.,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextNEW::new(""),
+        TextStyle {
+            font_size: 15.,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -60,7 +58,7 @@ fn check_for_gltf_extras(
         Option<&GltfMeshExtras>,
         Option<&GltfMaterialExtras>,
     )>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
 ) {
     let mut gltf_extra_infos_lines: Vec<String> = vec![];
 
@@ -88,7 +86,6 @@ fn check_for_gltf_extras(
             );
             gltf_extra_infos_lines.push(formatted_extras);
         }
-        let mut display = display.single_mut();
-        display.sections[0].value = gltf_extra_infos_lines.join("\n");
+        **display.single_mut() = gltf_extra_infos_lines.join("\n");
     }
 }

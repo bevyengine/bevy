@@ -81,14 +81,15 @@ fn setup(
     ));
 
     // ui
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        TextNEW::empty(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -169,32 +170,29 @@ fn setup_image_viewer_scene(
         HDRViewer,
     ));
 
-    commands
-        .spawn((
-            TextBundle::from_section(
-                "Drag and drop an HDR or EXR file",
-                TextStyle {
-                    font_size: 36.0,
-                    color: Color::BLACK,
-                    ..default()
-                },
-            )
-            .with_text_justify(JustifyText::Center)
-            .with_style(Style {
-                align_self: AlignSelf::Center,
-                margin: UiRect::all(Val::Auto),
-                ..default()
-            }),
-            SceneNumber(3),
-        ))
-        .insert(Visibility::Hidden);
+    commands.spawn((
+        TextNEW::new("Drag and drop an HDR or EXR file"),
+        TextStyle {
+            font_size: 36.0,
+            color: Color::BLACK,
+            ..default()
+        },
+        TextBlock::new_with_justify(JustifyText::Center),
+        Style {
+            align_self: AlignSelf::Center,
+            margin: UiRect::all(Val::Auto),
+            ..default()
+        },
+        SceneNumber(3),
+        Visibility::Hidden,
+    ));
 }
 
 // ----------------------------------------------------------------------------
 
 fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
-    text: Query<Entity, (With<Text>, With<SceneNumber>)>,
+    text: Query<Entity, (With<TextNEW>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut drop_events: EventReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
@@ -392,7 +390,7 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text_query: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut TextNEW, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
@@ -403,13 +401,13 @@ fn update_ui(
         *hide_ui = !*hide_ui;
     }
 
-    let old_text = &text_query.single().sections[0].value;
+    let old_text = text_query.single();
 
     if *hide_ui {
         if !old_text.is_empty() {
             // single_mut() always triggers change detection,
             // so only access if text actually needs changing
-            text_query.single_mut().sections[0].value.clear();
+            text_query.single_mut().clear();
         }
         return;
     }
@@ -534,7 +532,7 @@ fn update_ui(
     if text != old_text.as_str() {
         // single_mut() always triggers change detection,
         // so only access if text actually changed
-        text_query.single_mut().sections[0].value = text;
+        **text_query.single_mut() = text;
     }
 }
 

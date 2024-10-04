@@ -250,15 +250,17 @@ fn spawn_buttons(commands: &mut Commands) {
 fn update_radio_buttons(
     mut widgets: Query<
         (
+            Entity,
             Option<&mut BackgroundColor>,
-            Option<&mut Text>,
+            Has<TextNEW>,
             &WidgetClickSender<AppSetting>,
         ),
         Or<(With<RadioButton>, With<RadioButtonText>)>,
     >,
     app_status: Res<AppStatus>,
+    mut writer: UiTextWriter,
 ) {
-    for (image, text, sender) in widgets.iter_mut() {
+    for (entity, image, has_text, sender) in widgets.iter_mut() {
         let selected = match **sender {
             AppSetting::LightType(light_type) => light_type == app_status.light_type,
             AppSetting::ShadowFilter(shadow_filter) => shadow_filter == app_status.shadow_filter,
@@ -268,8 +270,8 @@ fn update_radio_buttons(
         if let Some(mut bg_color) = image {
             widgets::update_ui_radio_button(&mut bg_color, selected);
         }
-        if let Some(mut text) = text {
-            widgets::update_ui_radio_button_text(&mut text, selected);
+        if has_text {
+            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
         }
     }
 }

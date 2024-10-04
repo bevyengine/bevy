@@ -173,26 +173,25 @@ fn setup(
         ..default()
     };
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+    commands.spawn((TextNEW::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),
-        )
-        .with_style(Style {
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        TextNEW::new(""),
+        text_style,
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 
@@ -209,15 +208,16 @@ fn setup(
                 ExampleLabel { entity },
             ))
             .with_children(|parent| {
-                parent.spawn(
-                    TextBundle::from_section(label, label_text_style.clone())
-                        .with_style(Style {
-                            position_type: PositionType::Absolute,
-                            bottom: Val::ZERO,
-                            ..default()
-                        })
-                        .with_no_wrap(),
-                );
+                parent.spawn((
+                    TextNEW::new(label),
+                    label_text_style.clone(),
+                    Style {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::ZERO,
+                        ..default()
+                    },
+                    TextBlock::default().with_no_wrap(),
+                ));
             });
     };
 
@@ -262,7 +262,7 @@ fn example_control_system(
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -328,7 +328,7 @@ fn example_control_system(
     }
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display = format!(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },
         state.alpha

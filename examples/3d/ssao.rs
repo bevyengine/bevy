@@ -78,14 +78,15 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        TextNEW::new(""),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn update(
@@ -97,7 +98,7 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextNEW>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -166,7 +167,6 @@ fn update(
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {
