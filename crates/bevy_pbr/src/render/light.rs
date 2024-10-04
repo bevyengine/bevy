@@ -403,29 +403,30 @@ pub fn extract_lights(
             }
         }
 
-        commands.get_entity(entity.id())
-                .expect("Light entity wasn't synced.")
-                .insert((
-            ExtractedDirectionalLight {
-                color: directional_light.color.into(),
-                illuminance: directional_light.illuminance,
-                transform: *transform,
-                volumetric: volumetric_light.is_some(),
-                soft_shadow_size: directional_light.soft_shadow_size,
-                shadows_enabled: directional_light.shadows_enabled,
-                shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias
-                    * core::f32::consts::SQRT_2,
-                cascade_shadow_config: cascade_config.clone(),
-                cascades: extracted_cascades,
-                frusta: extracted_frusta,
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            },
-            CascadesVisibleEntities {
-                entities: cascade_visible_entities,
-            },
-        ));
+        commands
+            .get_entity(entity.id())
+            .expect("Light entity wasn't synced.")
+            .insert((
+                ExtractedDirectionalLight {
+                    color: directional_light.color.into(),
+                    illuminance: directional_light.illuminance,
+                    transform: *transform,
+                    volumetric: volumetric_light.is_some(),
+                    soft_shadow_size: directional_light.soft_shadow_size,
+                    shadows_enabled: directional_light.shadows_enabled,
+                    shadow_depth_bias: directional_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: directional_light.shadow_normal_bias
+                        * core::f32::consts::SQRT_2,
+                    cascade_shadow_config: cascade_config.clone(),
+                    cascades: extracted_cascades,
+                    frusta: extracted_frusta,
+                    render_layers: maybe_layers.unwrap_or_default().clone(),
+                },
+                CascadesVisibleEntities {
+                    entities: cascade_visible_entities,
+                },
+            ));
     }
 }
 

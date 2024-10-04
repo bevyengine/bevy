@@ -554,16 +554,17 @@ pub fn extract_clusters(
             }
         }
 
-        commands.get_entity(entity.id())
-                .expect("Clusters entity wasn't synced.")
-                .insert((
-            ExtractedClusterableObjects { data },
-            ExtractedClusterConfig {
-                near: clusters.near,
-                far: clusters.far,
-                dimensions: clusters.dimensions,
-            },
-        ));
+        commands
+            .get_entity(entity.id())
+            .expect("Clusters entity wasn't synced.")
+            .insert((
+                ExtractedClusterableObjects { data },
+                ExtractedClusterConfig {
+                    near: clusters.near,
+                    far: clusters.far,
+                    dimensions: clusters.dimensions,
+                },
+            ));
     }
 }
 
