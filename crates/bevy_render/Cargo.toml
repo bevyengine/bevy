@@ -9,23 +9,30 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-png = ["image/png"]
-exr = ["image/exr"]
-hdr = ["image/hdr"]
-tga = ["image/tga"]
-jpeg = ["image/jpeg"]
-bmp = ["image/bmp"]
-webp = ["image/webp"]
-dds = ["ddsfile"]
-pnm = ["image/pnm"]
+png = ["image/png", "bevy_image/png"]
+exr = ["image/exr", "bevy_image/exr"]
+hdr = ["image/hdr", "bevy_image/hdr"]
+tga = ["image/tga", "bevy_image/tga"]
+jpeg = ["image/jpeg", "bevy_image/jpeg"]
+bmp = ["image/bmp", "bevy_image/bmp"]
+webp = ["image/webp", "bevy_image/webp"]
+dds = ["ddsfile", "bevy_image/dds"]
+pnm = ["image/pnm", "bevy_image/pnm"]
+
+ddsfile = ["dep:ddsfile", "bevy_image/ddsfile"]
+ktx2 = ["dep:ktx2", "bevy_image/ktx2"]
+flate2 = ["dep:flate2", "bevy_image/flate2"]
+ruzstd = ["dep:ruzstd", "bevy_image/ruzstd"]
+basis-universal = ["dep:basis-universal", "bevy_image/basis-universal"]
+
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # For ktx2 supercompression
-zlib = ["flate2"]
-zstd = ["ruzstd"]
+zlib = ["flate2", "bevy_image/zlib"]
+zstd = ["ruzstd", "bevy_image/zstd"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = []
@@ -63,6 +70,7 @@ bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 bevy_winit = { path = "../bevy_winit", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.15.0-dev" }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
