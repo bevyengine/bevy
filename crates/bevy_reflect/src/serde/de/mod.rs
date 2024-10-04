@@ -735,9 +735,9 @@ mod tests {
             {
                 if registration.type_id() == TypeId::of::<i32>() {
                     let _ = deserializer.deserialize_ignored_any(IgnoredAny);
-                    return Ok(Ok(Box::new(42_i64)));
+                    Ok(Ok(Box::new(42_i64)))
                 } else {
-                    return Ok(Err(deserializer));
+                    Ok(Err(deserializer))
                 }
             }
         }
