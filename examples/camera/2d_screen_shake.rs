@@ -12,7 +12,7 @@ use rand_chacha::ChaCha8Rng;
 
 const CAMERA_DECAY_RATE: f32 = 0.9; // Adjust this for smoother or snappier decay
 const TRAUMA_DECAY_SPEED: f32 = 0.7; // How fast trauma decays
-const TRAUMA_INCREMENT: f32 = 0.01; // Increment of trauma per frame when holding space
+const TRAUMA_INCREMENT: f32 = 2.0; // Increment of trauma per frame when holding space
 
 // screen_shake parameters, maximum addition by frame not actual maximum overall values
 const MAX_ANGLE: f32 = 0.5;
@@ -113,6 +113,7 @@ impl ScreenShake {
 }
 
 fn trigger_shake_on_space(
+    time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut screen_shake: ResMut<ScreenShake>,
 ) {
@@ -121,7 +122,7 @@ fn trigger_shake_on_space(
         screen_shake.start_shake(
             MAX_ANGLE,
             MAX_OFFSET,
-            screen_shake_clone.trauma + TRAUMA_INCREMENT,
+            screen_shake_clone.trauma + TRAUMA_INCREMENT*time.delta_seconds(),
             Vec2 { x: 0.0, y: 0.0 },
         ); // final_position should be your current player position
     }
