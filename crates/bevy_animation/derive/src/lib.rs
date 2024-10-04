@@ -20,7 +20,7 @@ pub fn derive_animation_event(input: TokenStream) -> TokenStream {
     // TODO: This could derive Event as well.
     quote! {
         impl #impl_generics #animation_event_path::AnimationEvent for #name #ty_generics #where_clause {
-            fn trigger(&self, _time: f32, entity: #bevy_ecs_path::entity::Entity, world: &mut #bevy_ecs_path::world::World) {
+            fn trigger(&self, _time: f32, _weight: f32, entity: #bevy_ecs_path::entity::Entity, world: &mut #bevy_ecs_path::world::World) {
                 world.entity_mut(entity).trigger(Clone::clone(self));
             }
         }

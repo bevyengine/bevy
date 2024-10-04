@@ -30,7 +30,7 @@ enum Say {
 // We need to set the message text before that so it is
 // updated before rendering without a one frame delay.
 impl AnimationEvent for Say {
-    fn trigger(&self, _time: f32, _entity: Entity, world: &mut World) {
+    fn trigger(&self, _time: f32, _weight: f32, _entity: Entity, world: &mut World) {
         world.send_event(self.clone());
     }
 }

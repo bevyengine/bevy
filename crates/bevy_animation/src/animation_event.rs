@@ -14,10 +14,11 @@ pub use bevy_animation_derive::AnimationEvent;
 pub(crate) fn trigger_animation_event(
     entity: Entity,
     time: f32,
+    weight: f32,
     event: Box<dyn AnimationEvent>,
 ) -> impl Command {
     move |world: &mut World| {
-        event.trigger(time, entity, world);
+        event.trigger(time, weight, entity, world);
     }
 }
 
@@ -28,7 +29,7 @@ pub(crate) fn trigger_animation_event(
 #[reflect_trait]
 pub trait AnimationEvent: CloneableAnimationEvent + Reflect + Send + Sync {
     /// Trigger the event, targeting `entity`.
-    fn trigger(&self, time: f32, entity: Entity, world: &mut World);
+    fn trigger(&self, time: f32, weight: f32, entity: Entity, world: &mut World);
 }
 
 /// This trait exist so that manual implementors of [`AnimationEvent`]

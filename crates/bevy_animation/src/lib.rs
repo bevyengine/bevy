@@ -939,7 +939,12 @@ fn trigger_untargeted_animation_events(
             };
 
             for AnimationEventKey { time, event } in triggered_events.iter() {
-                commands.queue(trigger_animation_event(entity, *time, event.clone().0));
+                commands.queue(trigger_animation_event(
+                    entity,
+                    *time,
+                    active_animation.weight,
+                    event.clone().0,
+                ));
             }
         }
     }
@@ -1119,6 +1124,7 @@ pub fn animate_targets(
                                         commands.queue(trigger_animation_event(
                                             entity,
                                             *time,
+                                            active_animation.weight,
                                             event.clone().0,
                                         ));
                                     }
@@ -1474,7 +1480,7 @@ mod tests {
     struct A;
 
     impl AnimationEvent for A {
-        fn trigger(&self, _time: f32, target: Entity, world: &mut World) {
+        fn trigger(&self, _time: f32, _weight: f32, target: Entity, world: &mut World) {
             world.entity_mut(target).trigger(self.clone());
         }
     }
