@@ -94,7 +94,9 @@ fn update_parallax_depth_scale(
     }
     if *depth_update {
         let mut text = text.single_mut();
-        for (_, mat) in materials.iter_mut() {
+        for (_, mut mat) in materials.iter_mut() {
+            let mat = mat.as_mut().expect("The material is unlocked");
+
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
@@ -120,7 +122,8 @@ fn switch_method(
     let mut text = text.single_mut();
     text.sections[2].value = format!("Method: {}\n", *current);
 
-    for (_, mat) in materials.iter_mut() {
+    for (_, mut mat) in materials.iter_mut() {
+        let mat = mat.as_mut().expect("The material is unlocked");
         mat.parallax_mapping_method = current.0;
     }
 }
@@ -143,7 +146,8 @@ fn update_parallax_layers(
     let mut text = text.single_mut();
     text.sections[1].value = format!("Layers: {layer_count:.0}\n");
 
-    for (_, mat) in materials.iter_mut() {
+    for (_, mut mat) in materials.iter_mut() {
+        let mat = mat.as_mut().expect("The material is unlocked");
         mat.max_parallax_layer_count = layer_count;
     }
 }

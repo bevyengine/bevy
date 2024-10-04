@@ -109,7 +109,8 @@ fn setup(
 ///   6/8 opaque, then 5/8, etc.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
     let alpha = (ops::sin(time.elapsed_seconds()) / 2.0) + 0.5;
-    for (_, material) in materials.iter_mut() {
+    for (_, mut material) in materials.iter_mut() {
+        let material = material.as_mut().expect("The material is unlocked");
         material.base_color.set_alpha(alpha);
     }
 }

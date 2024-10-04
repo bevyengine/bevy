@@ -2,7 +2,7 @@ use crate::{
     render_resource::AsBindGroupError, ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin, SubApp};
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{Asset, AssetEvent, AssetId, AssetPresence, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::SystemConfigs,
@@ -288,9 +288,20 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+                            match assets.remove(id) {
+                                AssetPresence::None => {}
+                                AssetPresence::Unlocked(asset) => {
+                                    extracted_assets.push((id, asset));
+                                    added.insert(id);
+                                }
+                                AssetPresence::Locked(asset) => {
+                                    // In theory, an asset can be added to the MAIN_WORLD and locked
+                                    // in the same frame, so clone the asset just to be safe. In
+                                    // practice, assets are almost always loaded and then left
+                                    // unlocked, so we skip the clone then.
+                                    extracted_assets.push((id, A::SourceAsset::clone(&asset)));
+                                    added.insert(id);
+                                }
                             }
                         } else {
                             extracted_assets.push((id, asset.clone()));

@@ -43,7 +43,7 @@ impl Plugin for WireframePlugin {
             .add_systems(
                 Update,
                 (
-                    global_color_changed.run_if(resource_changed::<WireframeConfig>),
+                    global_color_changed,
                     wireframe_color_changed,
                     // Run `apply_global_wireframe_material` after `apply_wireframe_material` so that the global
                     // wireframe setting is applied to a mesh on the same frame its wireframe marker component is removed.
@@ -117,12 +117,22 @@ fn setup_global_wireframe_material(
 
 /// Updates the wireframe material of all entities without a [`WireframeColor`] or without a [`Wireframe`] component
 fn global_color_changed(
+    mut desynced: Local<bool>,
     config: Res<WireframeConfig>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
     global_material: Res<GlobalWireframeMaterial>,
 ) {
-    if let Some(global_material) = materials.get_mut(&global_material.handle) {
+    if config.is_changed() {
+        *desynced = true;
+    }
+    if !*desynced {
+        // There's been no change, so bail out early.
+        return;
+    }
+    if let Ok(global_material) = materials.get_mut(&global_material.handle) {
         global_material.color = config.default_color.into();
+        // Clear the desynced flag to mark that we don't need to rerun this system.
+        *desynced = false;
     }
 }
 

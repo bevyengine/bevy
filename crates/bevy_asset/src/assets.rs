@@ -4,11 +4,12 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     prelude::EventWriter,
-    system::{Res, ResMut, Resource},
+    system::{Local, Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -107,7 +108,155 @@ enum Entry<A: Asset> {
     #[default]
     None,
     /// Some is an indicator that there is a live handle active for the entry at this [`AssetIndex`]
-    Some { value: Option<A>, generation: u32 },
+    Some {
+        value: AssetPresence<A>,
+        generation: u32,
+    },
+}
+
+/// The current state of an asset's presence.
+#[derive(Default)]
+pub enum AssetPresence<A> {
+    /// The asset is not present (either has not been added yet, or was removed).
+    #[default]
+    None,
+    /// The asset is present and unlocked. This asset may be mutated.
+    Unlocked(A),
+    /// The asset is present, but is locked. The asset cannot be mutated, but can be passed to threads.
+    Locked(Arc<A>),
+}
+
+impl<A> AssetPresence<A> {
+    /// Takes the current value out, and leaves [`AssetPresence::None`] in its place.
+    pub fn take(&mut self) -> Self {
+        core::mem::take(self)
+    }
+
+    /// Gets a borrow to the stored asset, if there is an asset.
+    pub fn as_ref(&self) -> Option<&A> {
+        match self {
+            Self::None => None,
+            Self::Unlocked(asset) => Some(asset),
+            Self::Locked(asset_arc) => Some(asset_arc.as_ref()),
+        }
+    }
+
+    /// Gets a mutable borrow to the stored asset (if unlocked).
+    pub fn as_mut(&mut self) -> Result<&mut A, MutableAssetError> {
+        match self {
+            Self::None => Err(MutableAssetError::Missing),
+            Self::Unlocked(asset) => Ok(asset),
+            Self::Locked(_) => Err(MutableAssetError::Locked),
+        }
+    }
+
+    /// Returns whether the asset is missing.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    /// Returns whether the asset is present.
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Unlocked(_) | Self::Locked(_))
+    }
+
+    /// Locks the current asset, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] only if [`AssetPresence::None`].
+    pub fn lock(&mut self) -> Option<Arc<A>> {
+        match self {
+            Self::None => None,
+            Self::Locked(asset_arc) => Some(Arc::clone(asset_arc)),
+            Self::Unlocked(_) => {
+                let Self::Unlocked(asset) = self.take() else {
+                    unreachable!()
+                };
+                let asset = Arc::new(asset);
+                *self = Self::Locked(Arc::clone(&asset));
+                Some(asset)
+            }
+        }
+    }
+
+    /// Attempts to unlock the asset (returning it to a mutable state). Note an
+    /// already unlocked asset will return [`Ok`].
+    pub fn try_unlock(&mut self) -> Result<(), UnlockAssetError> {
+        match self {
+            Self::None => Err(UnlockAssetError::Missing),
+            Self::Unlocked(_) => Ok(()),
+            Self::Locked(_) => {
+                let Self::Locked(asset_arc) = self.take() else {
+                    unreachable!();
+                };
+                match Arc::try_unwrap(asset_arc) {
+                    Ok(asset) => {
+                        *self = Self::Unlocked(asset);
+                        Ok(())
+                    }
+                    Err(asset_arc) => {
+                        *self = Self::Locked(asset_arc);
+                        Err(UnlockAssetError::InUse)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// An error from trying to mutably access an asset.
+#[derive(Clone, Copy, PartialEq, Eq, Error, Debug)]
+pub enum MutableAssetError {
+    #[error("The asset is not present or has an invalid generation.")]
+    Missing,
+    #[error("The asset is currently locked and cannot be mutated.")]
+    Locked,
+}
+
+/// An error from trying to unlock an asset.
+#[derive(Clone, Copy, PartialEq, Eq, Error, Debug)]
+pub enum UnlockAssetError {
+    #[error("The asset is not present or has an invalid generation.")]
+    Missing,
+    #[error("The asset is currently locked and is still being used.")]
+    InUse,
+}
+
+/// A possibly mutable access to an asset.
+pub enum AssetPresenceMut<'a, A> {
+    /// The asset is unlocked and can be mutated.
+    Unlocked(&'a mut A),
+    /// The asset is locked and cannot be mutated (but still exists).
+    Locked(Arc<A>),
+}
+
+impl<'a, A> TryFrom<&'a mut AssetPresence<A>> for AssetPresenceMut<'a, A> {
+    type Error = ();
+
+    fn try_from(value: &'a mut AssetPresence<A>) -> Result<Self, ()> {
+        match value {
+            AssetPresence::None => Err(()),
+            AssetPresence::Unlocked(value) => Ok(Self::Unlocked(value)),
+            AssetPresence::Locked(value_arc) => Ok(Self::Locked(Arc::clone(value_arc))),
+        }
+    }
+}
+
+impl<'a, A> AsRef<A> for AssetPresenceMut<'a, A> {
+    fn as_ref(&self) -> &A {
+        match self {
+            Self::Unlocked(asset) => asset,
+            Self::Locked(asset_arc) => asset_arc.as_ref(),
+        }
+    }
+}
+
+impl<'a, A> AssetPresenceMut<'a, A> {
+    /// Gets a mutable borrow to the asset. Returns [`None`] if the asset is locked.
+    pub fn as_mut(&mut self) -> Option<&mut A> {
+        match self {
+            Self::Unlocked(asset) => Some(*asset),
+            Self::Locked(_) => None,
+        }
+    }
 }
 
 /// Stores [`Asset`] values in a Vec-like storage identified by [`AssetIndex`].
@@ -146,28 +295,26 @@ impl<A: Asset> DenseAssetStorage<A> {
     ) -> Result<bool, InvalidGenerationError> {
         self.flush();
         let entry = &mut self.storage[index.index as usize];
-        if let Entry::Some { value, generation } = entry {
-            if *generation == index.generation {
-                let exists = value.is_some();
-                if !exists {
-                    self.len += 1;
-                }
-                *value = Some(asset);
-                Ok(exists)
-            } else {
-                Err(InvalidGenerationError {
-                    index,
-                    current_generation: *generation,
-                })
-            }
-        } else {
+        let Entry::Some { value, generation } = entry else {
             unreachable!("entries should always be valid after a flush");
+        };
+        if *generation != index.generation {
+            return Err(InvalidGenerationError {
+                index,
+                current_generation: *generation,
+            });
         }
+        let exists = value.is_some();
+        if !exists {
+            self.len += 1;
+        }
+        *value = AssetPresence::Unlocked(asset);
+        Ok(exists)
     }
 
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will recycle the id and allow new entries to be inserted.
-    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_dropped(&mut self, index: AssetIndex) -> AssetPresence<A> {
         self.remove_internal(index, |dense_storage| {
             dense_storage.storage[index.index as usize] = Entry::None;
             dense_storage.allocator.recycle(index);
@@ -177,7 +324,7 @@ impl<A: Asset> DenseAssetStorage<A> {
     /// Removes the asset stored at the given `index` and returns it as [`Some`] (if the asset exists).
     /// This will _not_ recycle the id. New values with the current ID can still be inserted. The ID will
     /// not be reused until [`DenseAssetStorage::remove_dropped`] is called.
-    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> Option<A> {
+    pub(crate) fn remove_still_alive(&mut self, index: AssetIndex) -> AssetPresence<A> {
         self.remove_internal(index, |_| {})
     }
 
@@ -185,15 +332,19 @@ impl<A: Asset> DenseAssetStorage<A> {
         &mut self,
         index: AssetIndex,
         removed_action: impl FnOnce(&mut Self),
-    ) -> Option<A> {
+    ) -> AssetPresence<A> {
         self.flush();
         let value = match &mut self.storage[index.index as usize] {
-            Entry::None => return None,
+            Entry::None => return AssetPresence::None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    value.take().inspect(|_| self.len -= 1)
+                    let value = value.take();
+                    if value.is_some() {
+                        self.len -= 1;
+                    }
+                    value
                 } else {
-                    return None;
+                    return AssetPresence::None;
                 }
             }
         };
@@ -215,15 +366,51 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
+    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Result<&mut A, MutableAssetError> {
+        let Some(entry) = self.storage.get_mut(index.index as usize) else {
+            return Err(MutableAssetError::Missing);
+        };
+        match entry {
+            Entry::None => Err(MutableAssetError::Missing),
+            Entry::Some { value, generation } => {
+                if *generation == index.generation {
+                    value.as_mut()
+                } else {
+                    Err(MutableAssetError::Missing)
+                }
+            }
+        }
+    }
+
+    /// Locks the asset at `index`, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] if the asset is missing.
+    pub(crate) fn lock(&mut self, index: AssetIndex) -> Option<Arc<A>> {
         let entry = self.storage.get_mut(index.index as usize)?;
         match entry {
             Entry::None => None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    value.as_mut()
+                    value.lock()
                 } else {
                     None
+                }
+            }
+        }
+    }
+
+    /// Attempts to unlock the asset at `index` (returning it to a mutable
+    /// state). Note an already unlocked asset will return [`Ok`].
+    pub(crate) fn try_unlock(&mut self, index: AssetIndex) -> Result<(), UnlockAssetError> {
+        let Some(entry) = self.storage.get_mut(index.index as usize) else {
+            return Err(UnlockAssetError::Missing);
+        };
+        match entry {
+            Entry::None => Err(UnlockAssetError::Missing),
+            Entry::Some { value, generation } => {
+                if *generation == index.generation {
+                    value.try_unlock()
+                } else {
+                    Err(UnlockAssetError::Missing)
                 }
             }
         }
@@ -236,13 +423,13 @@ impl<A: Asset> DenseAssetStorage<A> {
             .next_index
             .load(core::sync::atomic::Ordering::Relaxed);
         self.storage.resize_with(new_len as usize, || Entry::Some {
-            value: None,
+            value: AssetPresence::None,
             generation: 0,
         });
         while let Ok(recycled) = self.allocator.recycled_receiver.try_recv() {
             let entry = &mut self.storage[recycled.index as usize];
             *entry = Entry::Some {
-                value: None,
+                value: AssetPresence::None,
                 generation: recycled.generation,
             };
         }
@@ -284,8 +471,14 @@ impl<A: Asset> DenseAssetStorage<A> {
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
-    hash_map: HashMap<Uuid, A>,
+    // Note the None variant of AssetPresence cannot be present inside the hashmap.
+    // We use `AssetPresence` here since locking assets requires taking the
+    // `AssetPresence` (and taking requires a default).
+    hash_map: HashMap<Uuid, AssetPresence<A>>,
     handle_provider: AssetHandleProvider,
+    /// The set of currently locked assets. This just improves the speed of iterating through the
+    /// locked assets.
+    locked_assets: HashSet<AssetId<A>>,
     queued_events: Vec<AssetEvent<A>>,
     /// Assets managed by the `Assets` struct with live strong `Handle`s
     /// originating from `get_strong_handle`.
@@ -301,6 +494,7 @@ impl<A: Asset> Default for Assets<A> {
             dense_storage,
             handle_provider,
             hash_map: Default::default(),
+            locked_assets: Default::default(),
             queued_events: Default::default(),
             duplicate_handles: Default::default(),
         }
@@ -337,12 +531,12 @@ impl<A: Asset> Assets<A> {
         &mut self,
         id: impl Into<AssetId<A>>,
         insert_fn: impl FnOnce() -> A,
-    ) -> &mut A {
+    ) -> Result<&mut A, MutableAssetError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
             self.insert(id, insert_fn());
         }
-        self.get_mut(id).unwrap()
+        self.get_mut(id)
     }
 
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
@@ -353,16 +547,18 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> Option<A> {
-        let result = self.hash_map.insert(uuid, asset);
+    pub(crate) fn insert_with_uuid(&mut self, uuid: Uuid, asset: A) -> bool {
+        let result = self.hash_map.insert(uuid, AssetPresence::Unlocked(asset));
         if result.is_some() {
+            // Make sure the asset isn't marked as locked anymore.
+            self.locked_assets.remove(&AssetId::Uuid { uuid });
             self.queued_events
                 .push(AssetEvent::Modified { id: uuid.into() });
         } else {
             self.queued_events
                 .push(AssetEvent::Added { id: uuid.into() });
         }
-        result
+        result.is_some()
     }
     pub(crate) fn insert_with_index(
         &mut self,
@@ -371,6 +567,11 @@ impl<A: Asset> Assets<A> {
     ) -> Result<bool, InvalidGenerationError> {
         let replaced = self.dense_storage.insert(index, asset)?;
         if replaced {
+            // Make sure the asset isn't marked as locked anymore.
+            self.locked_assets.remove(&AssetId::Index {
+                index,
+                marker: PhantomData,
+            });
             self.queued_events
                 .push(AssetEvent::Modified { id: index.into() });
         } else {
@@ -416,28 +617,68 @@ impl<A: Asset> Assets<A> {
     pub fn get(&self, id: impl Into<AssetId<A>>) -> Option<&A> {
         match id.into() {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
-            AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
+            AssetId::Uuid { uuid } => self.hash_map.get(&uuid).and_then(|a| a.as_ref()),
         }
     }
 
     /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// Consider using [`Self::get_mut_or_clone`] if the asset is [`Clone`]. Otherwise, you must
+    /// handle the case where the asset is lockd. Note that this supports anything that implements
+    /// `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Result<&mut A, MutableAssetError> {
         let id: AssetId<A> = id.into();
         let result = match id {
             AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
-            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+            AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
+                None => Err(MutableAssetError::Missing),
+                Some(asset_presence) => asset_presence.as_mut(),
+            },
+        };
+        if result.is_ok() {
+            self.queued_events.push(AssetEvent::Modified { id });
+        }
+        result
+    }
+
+    /// Locks the asset with the given `id`, which prevents the asset from being modified
+    /// until it is unlocked. Returns [`None`] if the asset is missing.
+    pub fn lock(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.lock(index),
+            AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
+                None => None,
+                Some(asset_presence) => asset_presence.lock(),
+            },
         };
         if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
+            self.locked_assets.insert(id);
+        }
+        result
+    }
+
+    /// Attempts to unlock the asset with the given `id` (returning it to a mutable
+    /// state). Note an already unlocked asset will return [`Ok`].
+    pub fn try_unlock(&mut self, id: impl Into<AssetId<A>>) -> Result<(), UnlockAssetError> {
+        let id: AssetId<A> = id.into();
+        let result = match id {
+            AssetId::Index { index, .. } => self.dense_storage.try_unlock(index),
+            AssetId::Uuid { uuid } => match self.hash_map.get_mut(&uuid) {
+                None => Err(UnlockAssetError::Missing),
+                Some(asset_presence) => asset_presence.try_unlock(),
+            },
+        };
+        if result.is_ok() {
+            self.locked_assets.remove(&id);
         }
         result
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> AssetPresence<A> {
         let id: AssetId<A> = id.into();
         let result = self.remove_untracked(id);
         if result.is_some() {
@@ -448,17 +689,19 @@ impl<A: Asset> Assets<A> {
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists. This skips emitting [`AssetEvent::Removed`].
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
+    pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> AssetPresence<A> {
         let id: AssetId<A> = id.into();
         self.duplicate_handles.remove(&id);
+        self.locked_assets.remove(&id);
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
-            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
+            AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).unwrap_or(AssetPresence::None),
         }
     }
 
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
+        self.locked_assets.remove(&id);
         match self.duplicate_handles.get_mut(&id) {
             None | Some(0) => {}
             Some(value) => {
@@ -492,6 +735,12 @@ impl<A: Asset> Assets<A> {
             .chain(self.hash_map.keys().map(|uuid| AssetId::from(*uuid)))
     }
 
+    /// Returns an iterator over the [`AssetId`] of every locked [`Asset`] stored in this
+    /// collection.
+    pub fn locked_ids(&self) -> impl Iterator<Item = AssetId<A>> + '_ {
+        self.locked_assets.iter().copied()
+    }
+
     /// Returns an iterator over the [`AssetId`] and [`Asset`] ref of every asset in this collection.
     // PERF: this could be accelerated if we implement a skip list. Consider the cost/benefits
     pub fn iter(&self) -> impl Iterator<Item = (AssetId<A>, &A)> {
@@ -512,11 +761,13 @@ impl<A: Asset> Assets<A> {
                     (id, v)
                 }),
             })
-            .chain(
-                self.hash_map
-                    .iter()
-                    .map(|(i, v)| (AssetId::Uuid { uuid: *i }, v)),
-            )
+            .chain(self.hash_map.iter().map(|(i, v)| {
+                (
+                    AssetId::Uuid { uuid: *i },
+                    v.as_ref()
+                        .expect("hash_map never stores AssetPresence::None"),
+                )
+            }))
     }
 
     /// Returns an iterator over the [`AssetId`] and mutable [`Asset`] ref of every asset in this collection.
@@ -556,6 +807,26 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// A system that attempts to unlock any currently locked assets.
+    pub fn try_unlocking_locked_assets(
+        mut assets: ResMut<Self>,
+        // Use a local so that we avoid reallocating every frame.
+        mut locked_assets: Local<HashSet<AssetId<A>>>,
+    ) {
+        locked_assets.extend(assets.locked_ids());
+        for id in locked_assets.drain() {
+            if let Ok(()) = assets.bypass_change_detection().try_unlock(id) {
+                // Only mark the assets as changed if we were successful in unlocking.
+                assets.set_changed();
+            }
+        }
+    }
+
+    /// A run condition to check whether there are any locked assets.
+    pub(crate) fn has_locked_assets_condition(assets: Res<Self>) -> bool {
+        !assets.locked_assets.is_empty()
+    }
+
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
@@ -572,15 +843,45 @@ impl<A: Asset> Assets<A> {
     }
 }
 
+impl<A: Asset + Clone> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
+    ///
+    /// If the asset is "unlocked", a mutable borrow is returned. If the asset is "locked", the
+    /// asset is cloned and replaces the existing asset (the previously locked asset is still
+    /// readable by holders of its [`Arc`]).
+    #[inline]
+    pub fn get_mut_or_clone(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        // PERF: This requires checking every asset if it is locked (which we redo when we
+        // `get_mut`). Ideally, we should only check to do the clone if we failed to `get_mut` the
+        // asset due to locking. Sadly, the borrow checker doesn't like it. I suspect polonius will
+        // fix this.
+        if self.locked_assets.contains(&id) {
+            let asset = self
+                .get(id)
+                .expect("the asset is locked, which means it's still contained in self");
+            let cloned = asset.clone();
+            self.insert(id, cloned);
+        }
+        match self.get_mut(id) {
+            Ok(borrow) => Some(borrow),
+            Err(MutableAssetError::Missing) => None,
+            Err(MutableAssetError::Locked) => {
+                unreachable!("the asset was already unlocked, or we explicitly cloned/replaced it");
+            }
+        }
+    }
+}
+
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, AssetPresence<A>>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
-    type Item = (AssetId<A>, &'a mut A);
+    type Item = (AssetId<A>, AssetPresenceMut<'a, A>);
 
     fn next(&mut self) -> Option<Self::Item> {
         for (i, entry) in &mut self.dense_storage {
@@ -597,19 +898,21 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
                         marker: PhantomData,
                     };
                     self.queued_events.push(AssetEvent::Modified { id });
-                    if let Some(value) = value {
-                        return Some((id, value));
-                    }
+                    if let Ok(presence) = value.try_into() {
+                        return Some((id, presence));
+                    };
                 }
             }
         }
-        if let Some((key, value)) = self.hash_map.next() {
+        for (key, value) in &mut self.hash_map {
             let id = AssetId::Uuid { uuid: *key };
             self.queued_events.push(AssetEvent::Modified { id });
-            Some((id, value))
-        } else {
-            None
+            let Ok(value) = value.try_into() else {
+                continue;
+            };
+            return Some((id, value));
         }
+        None
     }
 }
 

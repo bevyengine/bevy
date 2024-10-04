@@ -1477,6 +1477,17 @@ category = "Assets"
 wasm = false
 
 [[example]]
+name = "asset_locking"
+path = "examples/asset/asset_locking.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.asset_locking]
+name = "Asset Locking"
+description = "Demonstrates how to lock assets and use them in an async context"
+category = "Assets"
+wasm = false
+
+[[example]]
 name = "asset_settings"
 path = "examples/asset/asset_settings.rs"
 doc-scrape-examples = true

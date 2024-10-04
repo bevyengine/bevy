@@ -229,6 +229,7 @@ Example | Description
 [Alter Sprite](../examples/asset/alter_sprite.rs) | Shows how to modify texture assets after spawning.
 [Asset Decompression](../examples/asset/asset_decompression.rs) | Demonstrates loading a compressed asset
 [Asset Loading](../examples/asset/asset_loading.rs) | Demonstrates various methods to load assets
+[Asset Locking](../examples/asset/asset_locking.rs) | Demonstrates how to lock assets and use them in an async context
 [Asset Processing](../examples/asset/processing/asset_processing.rs) | Demonstrates how to process and load custom assets
 [Asset Settings](../examples/asset/asset_settings.rs) | Demonstrates various methods of applying settings when loading an asset
 [Custom Asset](../examples/asset/custom_asset.rs) | Implements a custom asset loader

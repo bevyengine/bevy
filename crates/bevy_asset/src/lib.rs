@@ -564,7 +564,15 @@ impl AssetApp for App {
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
             )
-            .add_systems(PreUpdate, Assets::<A>::track_assets.in_set(TrackAssets))
+            .add_systems(
+                PreUpdate,
+                (
+                    Assets::<A>::track_assets.in_set(TrackAssets),
+                    Assets::<A>::try_unlocking_locked_assets
+                        .run_if(Assets::<A>::has_locked_assets_condition)
+                        .in_set(TryUnlockAssets),
+                ),
+            )
     }
 
     fn register_asset_reflect<A>(&mut self) -> &mut Self
@@ -596,6 +604,10 @@ impl AssetApp for App {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct TrackAssets;
 
+/// A system set that holds all [`Assets::try_unlocking_locked_assets`] operations.
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+pub struct TryUnlockAssets;
+
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
 ///
 /// [`Events`]: bevy_ecs::event::Events
@@ -615,8 +627,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
-        RecursiveDependencyLoadState,
+        AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState, MutableAssetError,
+        RecursiveDependencyLoadState, UnlockAssetError,
     };
     use alloc::sync::Arc;
     use bevy_app::{App, Update};
@@ -1538,6 +1550,55 @@ mod tests {
             id: dep_handle.id(),
         }];
         assert_eq!(events, expected_events);
+    }
+
+    #[test]
+    fn asset_locking() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<SubText>();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<SubText>>();
+        let a = assets.add(SubText { text: "a".into() });
+        let b = assets.add(SubText { text: "b".into() });
+        let c = assets.add(SubText { text: "c".into() });
+
+        // Let everything propagate.
+        app.update();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<SubText>>();
+        let a_arc = assets.lock(&a).expect("The asset exists");
+        let c_arc = assets.lock(&c).expect("The asset exists");
+
+        assert!(matches!(assets.get_mut(&a), Err(MutableAssetError::Locked)));
+        assert!(assets.get_mut(&b).is_ok());
+        assert!(matches!(assets.get_mut(&c), Err(MutableAssetError::Locked)));
+
+        // Aropping the Arc should allow us to unlock the asset.
+        drop(a_arc);
+        assert!(assets.try_unlock(&a).is_ok());
+
+        // The asset with the living Arc still cannot be unlocked or mutably accessed.
+        assert!(matches!(
+            assets.try_unlock(&c),
+            Err(UnlockAssetError::InUse),
+        ));
+        assert!(matches!(assets.get_mut(&c), Err(MutableAssetError::Locked)));
+
+        // Dropping the Arc should allow the asset to be automatically unlocked.
+        drop(c_arc);
+        app.update();
+
+        let mut assets = app.world_mut().resource_mut::<Assets<SubText>>();
+        // The asset was automatically unlocked!
+        assert!(assets.get_mut(&c).is_ok());
+
+        let b_arc = assets.lock(&b).expect("The asset exists");
+
+        assets.insert(&b, SubText { text: "d".into() });
+
+        assert_eq!(b_arc.text, "b");
+        assert_eq!(assets.get_mut(&b).expect("The asset exists").text, "d");
     }
 
     #[test]
