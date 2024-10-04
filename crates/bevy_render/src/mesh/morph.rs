@@ -1,12 +1,13 @@
 use crate::{
     mesh::Mesh,
+    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
+    texture::Image,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Children;
-use bevy_image::{Image, RenderAssetUsages};
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};

@@ -1,6 +1,8 @@
 use super::triangle3d;
-use crate::mesh::{Indices, Mesh, MeshBuilder, Meshable};
-use bevy_image::RenderAssetUsages;
+use crate::{
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
+    render_asset::RenderAssetUsages,
+};
 use bevy_math::primitives::{Tetrahedron, Triangle3d};
 use wgpu::PrimitiveTopology;
 

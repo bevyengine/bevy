@@ -2,7 +2,6 @@ pub mod visibility;
 pub mod window;
 
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_image::BevyDefault;
 pub use visibility::*;
 pub use window::*;
 
@@ -19,8 +18,8 @@ use crate::{
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
-        TextureCache,
+        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
+        OutputColorAttachment, TextureCache,
     },
     Render, RenderApp, RenderSet,
 };

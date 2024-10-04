@@ -1,6 +1,7 @@
-use crate::{extract_resource::ExtractResource, render_resource::TextureView};
+use crate::{
+    extract_resource::ExtractResource, render_resource::TextureView, texture::BevyDefault,
+};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
-use bevy_image::BevyDefault;
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::HashMap;
