@@ -2896,17 +2896,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "relative_cursor_position"
-path = "examples/ui/relative_cursor_position.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.relative_cursor_position]
-name = "Relative Cursor Position"
-description = "Showcases the RelativeCursorPosition component"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "render_ui_to_texture"
 path = "examples/ui/render_ui_to_texture.rs"
 doc-scrape-examples = true

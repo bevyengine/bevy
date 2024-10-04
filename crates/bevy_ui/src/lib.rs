@@ -32,7 +32,6 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub use focus::*;
 pub use geometry::*;
 pub use ghost_hierarchy::*;
 pub use layout::*;
@@ -50,7 +49,7 @@ pub mod prelude {
     pub use {
         crate::{
             geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
-            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+            widget::Label, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
@@ -59,7 +58,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_input::InputSystem;
 use bevy_render::{
     camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
@@ -132,10 +130,6 @@ impl Plugin for UiPlugin {
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
             .register_type::<ContentSize>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
-            .register_type::<Node>()
-            .register_type::<RelativeCursorPosition>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
@@ -159,10 +153,6 @@ impl Plugin for UiPlugin {
                     UiSystem::PostLayout,
                 )
                     .chain(),
-            )
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
 
         app.add_systems(
@@ -182,6 +172,7 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
+                widget::update_hover_status.in_set(UiSystem::Focus),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
                 // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
@@ -192,6 +183,9 @@ impl Plugin for UiPlugin {
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         );
+
+        app.observe(widget::button_up_observer)
+            .observe(widget::button_down_observer);
 
         #[cfg(feature = "bevy_text")]
         build_text_interop(app);

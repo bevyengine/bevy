@@ -100,15 +100,13 @@ fn main() {
 struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &IdleColor),
-        Changed<Interaction>,
-    >,
+    mut button_query: Query<(&Button, &mut BackgroundColor, &IdleColor), Changed<Button>>,
 ) {
-    for (interaction, mut color, &IdleColor(idle_color)) in interaction_query.iter_mut() {
-        *color = match interaction {
-            Interaction::Hovered => ORANGE_RED.into(),
-            _ => idle_color.into(),
+    for (button, mut color, &IdleColor(idle_color)) in button_query.iter_mut() {
+        *color = if button.hovered {
+            ORANGE_RED.into()
+        } else {
+            idle_color.into()
         };
     }
 }

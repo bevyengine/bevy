@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    Node, UiChildren, UiImage,
+    Node, UiChildren, UiImage, UiSystem,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -153,7 +153,7 @@ impl Plugin for AccessibilityPlugin {
                     .after(CameraUpdateSystem)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
-                button_changed,
+                button_changed.after(UiSystem::Focus),
                 image_changed,
                 label_changed,
             ),

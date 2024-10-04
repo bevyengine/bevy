@@ -344,17 +344,17 @@ mod menu {
 
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
-        mut interaction_query: Query<
-            (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
-            (Changed<Interaction>, With<Button>),
+        mut button_query: Query<
+            (&Button, &mut BackgroundColor, Option<&SelectedOption>),
+            Changed<Button>,
         >,
     ) {
-        for (interaction, mut background_color, selected) in &mut interaction_query {
-            *background_color = match (*interaction, selected) {
-                (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
-                (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
-                (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
-                (Interaction::None, None) => NORMAL_BUTTON.into(),
+        for (button, mut background_color, selected) in &mut button_query {
+            *background_color = match (button.pressed, button.hovered, selected) {
+                (true, _, _) | (false, false, Some(_)) => PRESSED_BUTTON.into(),
+                (false, true, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
+                (false, true, None) => HOVERED_BUTTON.into(),
+                (false, false, None) => NORMAL_BUTTON.into(),
             }
         }
     }
@@ -362,13 +362,13 @@ mod menu {
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
-        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
+        button_query: Query<(&Button, &T, Entity), Changed<Button>>,
         mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
-        for (interaction, button_setting, entity) in &interaction_query {
-            if *interaction == Interaction::Pressed && *setting != *button_setting {
+        for (button, button_setting, entity) in &button_query {
+            if button.pressed && *setting != *button_setting {
                 let (previous_button, mut previous_button_color) = selected_query.single_mut();
                 *previous_button_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
@@ -777,16 +777,13 @@ mod menu {
     }
 
     fn menu_action(
-        interaction_query: Query<
-            (&Interaction, &MenuButtonAction),
-            (Changed<Interaction>, With<Button>),
-        >,
+        button_query: Query<(&Button, &MenuButtonAction), Changed<Button>>,
         mut app_exit_events: EventWriter<AppExit>,
         mut menu_state: ResMut<NextState<MenuState>>,
         mut game_state: ResMut<NextState<GameState>>,
     ) {
-        for (interaction, menu_button_action) in &interaction_query {
-            if *interaction == Interaction::Pressed {
+        for (button, menu_button_action) in &button_query {
+            if button.pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => {
                         app_exit_events.send(AppExit::Success);

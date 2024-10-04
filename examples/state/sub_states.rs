@@ -62,21 +62,18 @@ fn main() {
 
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut button_query: Query<(&Button, &mut BackgroundColor), Changed<Button>>,
 ) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+    for (button, mut color) in &mut button_query {
+        match (button.pressed, button.hovered) {
+            (true, _) => {
                 *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
-            Interaction::Hovered => {
+            (false, true) => {
                 *color = HOVERED_BUTTON.into();
             }
-            Interaction::None => {
+            (false, false) => {
                 *color = NORMAL_BUTTON.into();
             }
         }

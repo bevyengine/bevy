@@ -545,13 +545,11 @@ impl SelectedColorGradingOption {
 
 /// Handles mouse clicks on the buttons when the user clicks on a new one.
 fn handle_button_presses(
-    mut interactions: Query<(&Interaction, &ColorGradingOptionWidget), Changed<Interaction>>,
+    mut interactions: Query<(&Button, &ColorGradingOptionWidget), Changed<Button>>,
     mut currently_selected_option: ResMut<SelectedColorGradingOption>,
 ) {
-    for (interaction, widget) in interactions.iter_mut() {
-        if widget.widget_type == ColorGradingOptionWidgetType::Button
-            && *interaction == Interaction::Pressed
-        {
+    for (button, widget) in interactions.iter_mut() {
+        if widget.widget_type == ColorGradingOptionWidgetType::Button && button.pressed {
             *currently_selected_option = widget.option;
         }
     }

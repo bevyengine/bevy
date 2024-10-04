@@ -7,8 +7,7 @@
 //!
 //! ## Important Note
 //!
-//! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of `bevy_ui`'s
-//! focus systems and the picking plugin are not compatible. Instead, use the [`Pickable`] component
+//! Use the [`Pickable`] component
 //! to customize how an entity responds to picking focus. Nodes without the [`Pickable`] component
 //! will not trigger events.
 //!

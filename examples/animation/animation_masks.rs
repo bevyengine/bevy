@@ -294,22 +294,22 @@ fn setup_animation_graph_once_loaded(
 fn handle_button_toggles(
     mut interactions: Query<
         (
-            &Interaction,
+            &Button,
             &mut MaskGroupControl,
             &mut BackgroundColor,
             &Children,
         ),
-        Changed<Interaction>,
+        Changed<Button>,
     >,
     mut texts: Query<&mut Text>,
     mut animation_players: Query<(&Handle<AnimationGraph>, &AnimationPlayer)>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    for (interaction, mut mask_group_control, mut button_background_color, children) in
+    for (button, mut mask_group_control, mut button_background_color, children) in
         interactions.iter_mut()
     {
         // We only care about press events.
-        if *interaction != Interaction::Pressed {
+        if !button.pressed {
             continue;
         }
 

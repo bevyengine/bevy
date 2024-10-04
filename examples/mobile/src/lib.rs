@@ -135,21 +135,16 @@ fn setup_scene(
         });
 }
 
-fn button_handler(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
+fn button_handler(mut button_query: Query<(&Button, &mut BackgroundColor), Changed<Button>>) {
+    for (button, mut color) in &mut button_query {
+        match (button.pressed, button.hovered) {
+            (true, _) => {
                 *color = BLUE.into();
             }
-            Interaction::Hovered => {
+            (false, true) => {
                 *color = GRAY.into();
             }
-            Interaction::None => {
+            (false, false) => {
                 *color = WHITE.into();
             }
         }

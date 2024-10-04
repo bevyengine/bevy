@@ -18,35 +18,31 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
-    mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
-        (Changed<Interaction>, With<Button>),
+    mut button_query: Query<
+        (&Button, &mut BackgroundColor, &mut BorderColor, &Children),
+        Changed<Button>,
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
+    for (button, mut color, mut border_color, children) in &mut button_query {
+        let new_str = match (button.pressed, button.hovered) {
+            (true, _) => {
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
+                "Press"
             }
-            Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
+            (false, true) => {
                 *color = HOVERED_BUTTON.into();
-                border_color.0 = Color::WHITE;
+                "Hover"
             }
-            Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+            (false, false) => {
                 *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+                "Button"
             }
+        };
+
+        if let Ok(mut text) = text_query.get_mut(children[0]) {
+            text.sections[0].value = new_str.to_string();
         }
     }
 }
