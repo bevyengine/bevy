@@ -397,13 +397,23 @@ impl<'a, T: ?Sized> From<&'a mut T> for PtrMut<'a> {
 }
 
 impl<'a> OwningPtr<'a> {
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    ///
+    /// # Safety
+    ///
+    /// Safety constraints of [`PtrMut::promote`] must be upheld.
+    unsafe fn make_internal<T>(temp: &mut ManuallyDrop<T>) -> OwningPtr<'_> {
+        // SAFETY: The constraints of `promote` are upheld by caller.
+        unsafe { PtrMut::from(&mut *temp).promote() }
+    }
+
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { PtrMut::from(&mut *temp).promote() })
+        f(unsafe { Self::make_internal(&mut ManuallyDrop::new(val)) })
     }
 }
 
